@@ -1,12 +1,12 @@
-// Main entry point — routes between init subcommand and server mode
-// Full implementation in Task 10
+import { runInit } from "./cli/init.js";
 
 const args = process.argv.slice(2);
 
 if (args[0] === "init") {
-  // TODO: Task 3 — host detection, config writing, context installation
-  process.stderr.write("web3agent init — coming soon\n");
-  process.exit(0);
+  runInit(args.slice(1)).catch((e: Error) => {
+    process.stderr.write(`Error: ${e.message}\n`);
+    process.exit(1);
+  });
 } else if (args.includes("--version")) {
   process.stderr.write("web3agent 0.1.0\n");
   process.exit(0);
