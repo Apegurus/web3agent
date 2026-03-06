@@ -1,0 +1,15 @@
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-9.15.4.tgz
+
+> web3agent@0.1.0 test /Users/ignacioblitzer/Develop/defizoo/web3agent
+> vitest run "tests/wallet/wallet-persistence.test.ts"
+
+
+ RUN  v2.1.9 /Users/ignacioblitzer/Develop/defizoo/web3agent
+
+ ✓ tests/wallet/wallet-persistence.test.ts (5 tests) 116ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  20:08:15
+   Duration  405ms (transform 28ms, setup 0ms, collect 18ms, tests 116ms, environment 0ms, prepare 34ms)
+
