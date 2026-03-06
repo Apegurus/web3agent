@@ -119,7 +119,7 @@ vi.mock("../../src/runtime/server.js", () => ({
 }));
 
 describe("startServer degraded mode", () => {
-  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: any;
 
   beforeEach(() => {
     stderrSpy = vi
