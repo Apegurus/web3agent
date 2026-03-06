@@ -1,0 +1,14 @@
+
+> web3agent@0.1.0 test /Users/ignacioblitzer/Develop/defizoo/web3agent
+> vitest run "tests/goat/chain-aware-provider.test.ts"
+
+
+ RUN  v2.1.9 /Users/ignacioblitzer/Develop/defizoo/web3agent
+
+ ✓ tests/goat/chain-aware-provider.test.ts (5 tests) 28ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  20:19:54
+   Duration  352ms (transform 33ms, setup 0ms, collect 70ms, tests 28ms, environment 0ms, prepare 33ms)
+
