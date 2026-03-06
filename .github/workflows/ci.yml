@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Pack
+        run: pnpm pack
+
+      - name: Verify tarball contents
+        run: |
+          TARBALL=$(ls web3agent-*.tgz)
+          echo "Tarball: $TARBALL"
+          tar -tf "$TARBALL" | grep -E "(dist/|WEB3_CONTEXT\.md|README\.md|package\.json)"
+
+      - name: End-user install simulation
+        run: |
+          TARBALL=$(ls web3agent-*.tgz)
+          mkdir -p /tmp/test-install
+          cd /tmp/test-install
+          npm install "$OLDPWD/$TARBALL"
+          node node_modules/.bin/web3agent --version
+          node node_modules/.bin/web3agent --help

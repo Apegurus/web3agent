@@ -166,3 +166,24 @@ All tool errors use: `formatToolError(code, message, details?)` returning `{ con
 - `normalizeInputSchema()` helper ensures all tool schemas have `type: "object"` for MCP compliance
 - 111/111 tests passing after Task 10 (10 new runtime tests added)
 - tsup build: `startup-5A2PVIZZ.js` is 56KB (includes all adapter imports via tree-shaking)
+
+## Task 11: Release Artifacts (2026-03-06)
+
+### What was built
+- WEB3_CONTEXT.md: AI agent context file documenting all tools, chains, and environment variables
+- README.md: Minimal npm landing page with install/usage instructions
+- .github/workflows/ci.yml: Full CI pipeline with pack verification
+- tests/e2e/host-matrix.test.ts: 9 tests covering 4 hosts x 2 modes + multi-host error case
+- tests/e2e/packaging.test.ts: 6 tests for tarball contents and CLI behavior
+
+### Patterns learned
+- pnpm pack --json outputs file list without creating tarball (unlike npm pack --dry-run)
+- execSync needs shell: true for shell redirections like 2>&1
+- package.json "files" array controls what gets packed (added README.md)
+- Host fixtures in tests/fixtures/hosts/ use directory markers (.claude/, .cursor/, etc.)
+
+### Test results
+- All 126 tests pass (111 existing + 15 new e2e tests)
+- Typecheck clean
+- Build successful
+- Tarball verified: contains dist/, README.md, WEB3_CONTEXT.md, package.json

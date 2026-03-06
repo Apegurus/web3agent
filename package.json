@@ -5,7 +5,7 @@
   "bin": {
     "web3agent": "dist/index.js"
   },
-  "files": ["dist", "WEB3_CONTEXT.md"],
+  "files": ["dist", "WEB3_CONTEXT.md", "README.md"],
   "engines": {
     "node": ">=18"
   },

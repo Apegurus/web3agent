@@ -1,0 +1,14 @@
+
+> web3agent@0.1.0 test /Users/ignacioblitzer/Develop/defizoo/web3agent
+> vitest run "tests/e2e/host-matrix.test.ts"
+
+
+ RUN  v2.1.9 /Users/ignacioblitzer/Develop/defizoo/web3agent
+
+ ✓ tests/e2e/host-matrix.test.ts (9 tests) 381ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  20:47:59
+   Duration  642ms (transform 15ms, setup 0ms, collect 15ms, tests 381ms, environment 0ms, prepare 31ms)
+
