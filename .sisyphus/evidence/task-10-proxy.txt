@@ -1,0 +1,14 @@
+
+> web3agent@0.1.0 test /Users/ignacioblitzer/Develop/defizoo/web3agent
+> vitest run "tests/runtime/proxy-runtime.test.ts"
+
+
+ RUN  v2.1.9 /Users/ignacioblitzer/Develop/defizoo/web3agent
+
+ ✓ tests/runtime/proxy-runtime.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:41:17
+   Duration  287ms (transform 35ms, setup 0ms, collect 40ms, tests 3ms, environment 0ms, prepare 32ms)
+

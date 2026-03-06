@@ -1,0 +1,137 @@
+import {
+  ValidationError,
+  getConfig,
+  parseEnv,
+} from "../config/env.js";
+import {
+  createDefaultHealthStatus,
+  createStartupReport,
+  formatHealthSummary,
+} from "../config/health.js";
+import { goatProvider } from "../goat/provider.js";
+import { initializeLifi } from "../lifi/config.js";
+import { getLifiToolDefinitions } from "../tools/lifi/index.js";
+import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
+import {
+  getUtilityToolDefinitions,
+  getWalletToolDefinitions,
+} from "../tools/register.js";
+import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
+import { EvmAdapter } from "../upstream/evm/adapter.js";
+import { getWalletState, initializeWallet } from "../wallet/persistence.js";
+import { ProxyServer } from "./server.js";
+
+export async function startServer(): Promise<void> {
+  let config;
+  try {
+    config = parseEnv(process.env as Partial<Record<string, string>>);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      process.stderr.write(
+        `[web3agent] Invalid config ${error.field}: ${error.message}\n`,
+      );
+      process.exit(1);
+    }
+
+    throw error;
+  }
+
+  await initializeWallet({
+    chainId: config.chainId,
+    accountIndex: config.walletAccountIndex,
+    addressIndex: config.walletAddressIndex,
+  });
+
+  const blockscoutAdapter = new BlockscoutAdapter(config.blockscoutMcpUrl);
+  const evmAdapter = new EvmAdapter();
+  const health = createDefaultHealthStatus();
+  const degradedServices: string[] = [];
+
+  try {
+    await blockscoutAdapter.initialize();
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown initialization error";
+    health.blockscout.status = "degraded";
+    health.blockscout.message = message;
+    degradedServices.push("blockscout");
+    process.stderr.write(`[web3agent] Blockscout degraded: ${message}\n`);
+  }
+
+  try {
+    await evmAdapter.initialize();
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown initialization error";
+    health.evm.status = "degraded";
+    health.evm.message = message;
+    degradedServices.push("evm");
+    process.stderr.write(`[web3agent] EVM degraded: ${message}\n`);
+  }
+
+  await goatProvider.initialize({
+    zeroxApiKey: config.zeroxApiKey,
+    coingeckoApiKey: config.coingeckoApiKey,
+    rpcUrl: config.rpcUrl,
+  });
+
+  initializeLifi(config.lifiApiKey);
+
+  const server = new ProxyServer(blockscoutAdapter, evmAdapter, goatProvider);
+
+  const runtimeConfig = getConfig();
+  const walletMode = getWalletState().mode;
+  const goatToolCount = goatProvider.getAllToolNames().length;
+  const blockscoutToolCount = blockscoutAdapter.getTools().length;
+  const evmToolCount = evmAdapter.getTools().length;
+  const lifiToolCount = getLifiToolDefinitions().length;
+  const orbsToolCount = getOrbsToolDefinitions().length;
+  const frameworkToolCount =
+    getWalletToolDefinitions().length + getUtilityToolDefinitions().length;
+
+  health.blockscout = blockscoutAdapter.getHealth();
+  health.evm = evmAdapter.getHealth();
+  health.goat = {
+    name: "goat",
+    status: "ok",
+    toolCount: goatToolCount,
+    message: `Loaded ${goatToolCount} tools`,
+  };
+  health.lifi = {
+    name: "lifi",
+    status: "ok",
+    toolCount: lifiToolCount,
+    message: `Loaded ${lifiToolCount} tools`,
+  };
+  health.orbs = {
+    name: "orbs",
+    status: "ok",
+    toolCount: orbsToolCount,
+    message: `Loaded ${orbsToolCount} tools`,
+  };
+
+  if (health.blockscout.status !== "ok") degradedServices.push("blockscout");
+  if (health.evm.status !== "ok") degradedServices.push("evm");
+
+  const report = createStartupReport({
+    health,
+    activeChainId: runtimeConfig.chainId,
+    walletMode,
+    confirmWrites: runtimeConfig.confirmWrites,
+    degradedServices: [...new Set(degradedServices)],
+    totalToolCount:
+      frameworkToolCount +
+      goatToolCount +
+      blockscoutToolCount +
+      evmToolCount +
+      lifiToolCount +
+      orbsToolCount,
+  });
+
+  process.stderr.write(`${formatHealthSummary(report)}\n`);
+  process.stderr.write(
+    `[web3agent] Tool counts => framework:${frameworkToolCount}, goat:${goatToolCount}, blockscout:${blockscoutToolCount}, evm:${evmToolCount}, lifi:${lifiToolCount}, orbs:${orbsToolCount}\n`,
+  );
+
+  await server.start();
+}

@@ -1,11 +1,11 @@
-import { runInit } from "./cli/init.js";
-
 const args = process.argv.slice(2);
 
 if (args[0] === "init") {
-  runInit(args.slice(1)).catch((e: Error) => {
-    process.stderr.write(`Error: ${e.message}\n`);
-    process.exit(1);
+  import("./cli/init.js").then(({ runInit }) => {
+    runInit(args.slice(1)).catch((e: Error) => {
+      process.stderr.write(`Error: ${e.message}\n`);
+      process.exit(1);
+    });
   });
 } else if (args.includes("--version")) {
   process.stderr.write("web3agent 0.1.0\n");
@@ -26,7 +26,10 @@ if (args[0] === "init") {
   );
   process.exit(0);
 } else {
-  // Server mode — TODO: Task 10 — proxy runtime assembly
-  process.stderr.write("web3agent: starting MCP proxy server (stub)\n");
-  // Hold process open for now
+  import("./runtime/startup.js").then(({ startServer }) => {
+    startServer().catch((e: Error) => {
+      process.stderr.write(`Fatal: ${e.message}\n`);
+      process.exit(1);
+    });
+  });
 }

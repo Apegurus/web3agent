@@ -1,5 +1,4 @@
 import { erc20, USDC, WETH } from "@goat-sdk/plugin-erc20";
-import { erc721, BAYC, CRYPTOPUNKS } from "@goat-sdk/plugin-erc721";
 import { ens } from "@goat-sdk/plugin-ens";
 import { dexscreener } from "@goat-sdk/plugin-dexscreener";
 import { coingecko } from "@goat-sdk/plugin-coingecko";
@@ -34,10 +33,6 @@ export function loadPlugins(options: {
 		{
 			name: "erc20",
 			factory: () => erc20({ tokens: [USDC, WETH] }),
-		},
-		{
-			name: "erc721",
-			factory: () => erc721({ tokens: [BAYC, CRYPTOPUNKS] }),
 		},
 		{
 			name: "ens",

@@ -1,0 +1,14 @@
+
+> web3agent@0.1.0 test /Users/ignacioblitzer/Develop/defizoo/web3agent
+> vitest run "tests/runtime/proxy-degraded.test.ts"
+
+
+ RUN  v2.1.9 /Users/ignacioblitzer/Develop/defizoo/web3agent
+
+ ✓ tests/runtime/proxy-degraded.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  20:41:17
+   Duration  318ms (transform 32ms, setup 0ms, collect 37ms, tests 2ms, environment 0ms, prepare 36ms)
+
