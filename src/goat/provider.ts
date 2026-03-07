@@ -55,7 +55,8 @@ export class GoatProvider {
       throw new Error("GoatProvider not initialized — call initialize() first");
     }
 
-    let account: ReturnType<typeof privateKeyToAccount>;
+    // biome-ignore lint/suspicious/noExplicitAny: GOAT SDK requires LocalAccount; getActiveAccount returns broader Account type
+    let account: any;
     const walletState = getWalletState();
     if (walletState.mode !== "read-only") {
       account = getActiveAccount();
