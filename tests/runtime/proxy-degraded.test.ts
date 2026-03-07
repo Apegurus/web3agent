@@ -106,6 +106,9 @@ vi.mock("../../src/tools/register.js", () => ({
   getWalletToolDefinitions: vi
     .fn()
     .mockReturnValue([{ name: "wallet_generate" }, { name: "wallet_get_active" }]),
+  getTransactionToolDefinitions: vi
+    .fn()
+    .mockReturnValue([{ name: "transaction_confirm" }, { name: "transaction_list" }]),
   getUtilityToolDefinitions: vi.fn().mockReturnValue([{ name: "server_status" }]),
 }));
 
@@ -140,7 +143,7 @@ describe("startServer degraded mode", () => {
     const lines = stderrSpy.mock.calls.map((call) => String(call[0]));
     const toolCountLine = lines.find((line) => line.includes("Tool counts =>"));
 
-    expect(toolCountLine).toContain("framework:3");
+    expect(toolCountLine).toContain("framework:5");
     expect(toolCountLine).toContain("blockscout:0");
     expect(toolCountLine).toContain("evm:0");
   });

@@ -18,6 +18,7 @@ const mockState = vi.hoisted(() => {
   const lifiHandler = vi.fn();
   const orbsHandler = vi.fn();
   const walletHandler = vi.fn();
+  const transactionHandler = vi.fn();
   const utilityHandler = vi.fn();
   const walletListeners: Array<(state: unknown) => void> = [];
   const walletEvents = {
@@ -39,6 +40,7 @@ const mockState = vi.hoisted(() => {
     lifiHandler,
     orbsHandler,
     walletHandler,
+    transactionHandler,
     utilityHandler,
     walletEvents,
   };
@@ -68,8 +70,9 @@ vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
       await this.connectSpy(transport);
     }
 
-    notification(payload: unknown): void {
+    notification(payload: unknown): Promise<void> {
       this.notificationSpy(payload);
+      return Promise.resolve();
     }
   },
 }));
@@ -98,6 +101,14 @@ vi.mock("../../src/tools/register.js", () => ({
       description: "wallet",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.walletHandler,
+    },
+  ]),
+  getTransactionToolDefinitions: vi.fn().mockReturnValue([
+    {
+      name: "transaction_confirm",
+      description: "transaction",
+      inputSchema: { type: "object", properties: {} },
+      handler: mockState.transactionHandler,
     },
   ]),
   getUtilityToolDefinitions: vi.fn().mockReturnValue([
@@ -193,6 +204,7 @@ describe("ProxyServer", () => {
     mockState.lifiHandler.mockReset();
     mockState.orbsHandler.mockReset();
     mockState.walletHandler.mockReset();
+    mockState.transactionHandler.mockReset();
     mockState.utilityHandler.mockReset();
   });
 
@@ -216,6 +228,7 @@ describe("ProxyServer", () => {
 
     expect(names).toEqual([
       "wallet_generate",
+      "transaction_confirm",
       "server_status",
       "goat_swap",
       "blockscout_get_address",
@@ -278,6 +291,17 @@ describe("ProxyServer", () => {
     await callHandler({ params: { name: "orbs_get_quote", arguments: {} } });
 
     expect(mockState.orbsHandler).toHaveBeenCalled();
+  });
+
+  it("routes transaction tools to framework handlers", async () => {
+    const { callHandler } = setup();
+    mockState.transactionHandler.mockResolvedValue({ isError: false, content: [] });
+
+    await callHandler({
+      params: { name: "transaction_confirm", arguments: { id: "abc-123" } },
+    });
+
+    expect(mockState.transactionHandler).toHaveBeenCalledWith({ id: "abc-123" });
   });
 
   it("returns UNKNOWN_TOOL for unknown calls", async () => {
