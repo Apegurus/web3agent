@@ -14,7 +14,7 @@ async function lifiGetChains(_params: Record<string, unknown>): Promise<CallTool
       nativeToken: c.nativeToken?.symbol,
     }));
     return formatToolResponse(summary);
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("LIFI_ERROR", String(e));
   }
 }
@@ -59,7 +59,7 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     };
 
     return formatToolResponse(trimmed);
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("LIFI_QUOTE_ERROR", String(e));
   }
 }
@@ -131,7 +131,7 @@ async function executeBridgeNow(params: Record<string, unknown>): Promise<CallTo
       status: "completed",
       message: "Bridge executed successfully",
     });
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("BRIDGE_ERROR", String(e));
   }
 }

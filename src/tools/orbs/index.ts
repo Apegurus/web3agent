@@ -8,7 +8,7 @@ import {
 } from "../../orbs/chains.js";
 import { getDsltpToolDefinitions } from "../../orbs/dsltp.js";
 import type { ToolDefinition } from "../../tools/register.js";
-import { formatToolError, formatToolResponse } from "../../types/tools.js";
+import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
 
@@ -29,7 +29,7 @@ async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     });
 
     return formatToolResponse(result);
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("ORBS_QUOTE_ERROR", String(e));
   }
 }
@@ -91,7 +91,7 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
       txHash,
       quote: { outAmount: quote.outAmount, minAmountOut: quote.minAmountOut },
     });
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("ORBS_SWAP_ERROR", String(e));
   }
 }
@@ -157,7 +157,7 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
       status: order.status,
       txHash: order.txHash,
     });
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("ORBS_TWAP_ERROR", String(e));
   }
 }
@@ -221,7 +221,7 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
       status: order.status,
       txHash: order.txHash,
     });
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("ORBS_LIMIT_ERROR", String(e));
   }
 }
@@ -258,7 +258,7 @@ async function orbsListOrders(params: Record<string, unknown>): Promise<CallTool
         createdAt: o.createdAt,
       })),
     });
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("ORBS_LIST_ERROR", String(e));
   }
 }
