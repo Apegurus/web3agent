@@ -48,7 +48,7 @@ export function loadPlugins(options: {
     try {
       result.plugins.push(factory());
       result.loadedTier0.push(name);
-    } catch (e) {
+    } catch (e: unknown) {
       process.stderr.write(`[web3agent] GOAT plugin ${name} failed to load: ${e}\n`);
       result.failedPlugins.push({ name, error: String(e) });
     }
@@ -82,7 +82,7 @@ export function loadPlugins(options: {
       try {
         result.plugins.push(factory());
         result.loadedTier1.push(name);
-      } catch (e) {
+      } catch (e: unknown) {
         process.stderr.write(`[web3agent] GOAT plugin ${name} failed to load: ${e}\n`);
         result.failedPlugins.push({ name, error: String(e) });
       }
@@ -94,7 +94,7 @@ export function loadPlugins(options: {
     try {
       result.plugins.push(coingecko({ apiKey: options.coingeckoApiKey }));
       result.loadedTier2.push("coingecko");
-    } catch (e) {
+    } catch (e: unknown) {
       process.stderr.write(`[web3agent] GOAT plugin coingecko failed to load: ${e}\n`);
       result.failedPlugins.push({ name: "coingecko", error: String(e) });
     }
@@ -104,7 +104,7 @@ export function loadPlugins(options: {
     try {
       result.plugins.push(zeroEx({ apiKey: options.zeroxApiKey }));
       result.loadedTier2.push("0x");
-    } catch (e) {
+    } catch (e: unknown) {
       process.stderr.write(`[web3agent] GOAT plugin 0x failed to load: ${e}\n`);
       result.failedPlugins.push({ name: "0x", error: String(e) });
     }

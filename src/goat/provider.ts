@@ -44,7 +44,7 @@ export class GoatProvider {
     for (const chain of chains) {
       try {
         await this.buildSnapshot(chain.id);
-      } catch (e) {
+      } catch (e: unknown) {
         process.stderr.write(`[web3agent] GOAT snapshot failed for chain ${chain.id}: ${e}\n`);
       }
     }

@@ -60,7 +60,7 @@ export async function dispatchGoatTool(
   try {
     const result = await snapshot.toolHandler(toolName, goatParams);
     return result as CallToolResult;
-  } catch (e) {
+  } catch (e: unknown) {
     return formatToolError("GOAT_TOOL_ERROR", String(e));
   }
 }
