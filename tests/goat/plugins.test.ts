@@ -10,6 +10,12 @@ vi.mock("@goat-sdk/plugin-ens", () => ({
   ens: vi.fn(),
 }));
 
+vi.mock("@goat-sdk/plugin-erc721", () => ({
+  erc721: vi.fn(),
+  BAYC: { symbol: "BAYC" },
+  CRYPTOPUNKS: { symbol: "CRYPTOPUNKS" },
+}));
+
 vi.mock("@goat-sdk/plugin-dexscreener", () => ({
   dexscreener: vi.fn(),
 }));
@@ -36,10 +42,12 @@ import { coingecko } from "@goat-sdk/plugin-coingecko";
 import { dexscreener } from "@goat-sdk/plugin-dexscreener";
 import { ens } from "@goat-sdk/plugin-ens";
 import { erc20 } from "@goat-sdk/plugin-erc20";
+import { erc721 } from "@goat-sdk/plugin-erc721";
 import { uniswap } from "@goat-sdk/plugin-uniswap";
 import { loadPlugins } from "../../src/goat/plugins.js";
 
 const mockErc20 = vi.mocked(erc20);
+const mockErc721 = vi.mocked(erc721);
 const mockEns = vi.mocked(ens);
 const mockDexscreener = vi.mocked(dexscreener);
 const mockUniswap = vi.mocked(uniswap);
@@ -51,6 +59,7 @@ describe("loadPlugins", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockErc20.mockImplementation(() => ({ name: "erc20" }) as ReturnType<typeof erc20>);
+    mockErc721.mockImplementation(() => ({ name: "erc721" }) as ReturnType<typeof erc721>);
     mockEns.mockImplementation(() => ({ name: "ens" }) as ReturnType<typeof ens>);
     mockDexscreener.mockImplementation(
       () => ({ name: "dexscreener" }) as ReturnType<typeof dexscreener>
@@ -64,11 +73,11 @@ describe("loadPlugins", () => {
   it("loads only tier0 plugins when optional keys are not provided", () => {
     const result = loadPlugins({ hasWallet: false });
 
-    expect(result.loadedTier0).toEqual(["erc20", "ens", "dexscreener"]);
+    expect(result.loadedTier0).toEqual(["erc20", "erc721", "ens", "dexscreener"]);
     expect(result.loadedTier1).toEqual([]);
     expect(result.loadedTier2).toEqual([]);
     expect(result.failedPlugins).toEqual([]);
-    expect(result.plugins).toHaveLength(3);
+    expect(result.plugins).toHaveLength(4);
   });
 
   it("loads 0x plugin when zeroxApiKey is provided", () => {
@@ -118,10 +127,10 @@ describe("loadPlugins", () => {
         error: expect.stringContaining("ens unavailable"),
       },
     ]);
-    expect(result.loadedTier0).toEqual(["erc20", "dexscreener"]);
+    expect(result.loadedTier0).toEqual(["erc20", "erc721", "dexscreener"]);
     expect(result.loadedTier1).toEqual(["uniswap", "balancer"]);
     expect(result.loadedTier2).toEqual(["coingecko", "0x"]);
-    expect(result.plugins).toHaveLength(6);
+    expect(result.plugins).toHaveLength(7);
   });
 
   it("loads every plugin when all conditions are satisfied", () => {
@@ -132,11 +141,11 @@ describe("loadPlugins", () => {
       rpcUrl: "https://rpc.example",
     });
 
-    expect(result.loadedTier0).toEqual(["erc20", "ens", "dexscreener"]);
+    expect(result.loadedTier0).toEqual(["erc20", "erc721", "ens", "dexscreener"]);
     expect(result.loadedTier1).toEqual(["uniswap", "balancer"]);
     expect(result.loadedTier2).toEqual(["coingecko", "0x"]);
     expect(result.failedPlugins).toEqual([]);
-    expect(result.plugins).toHaveLength(7);
+    expect(result.plugins).toHaveLength(8);
   });
 
   it("returns all expected array fields", () => {
