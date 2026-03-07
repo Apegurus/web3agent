@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { formatToolError, formatToolResponse } from "../../types/tools.js";
+import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
 
@@ -17,7 +17,7 @@ export async function serverStatus(): Promise<CallToolResult> {
       },
       toolCount: 0,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     return formatToolError("STATUS_FAILED", err instanceof Error ? err.message : "Unknown error");
   }
 }
