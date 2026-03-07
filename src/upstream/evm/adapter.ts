@@ -32,6 +32,7 @@ export class EvmAdapter implements UpstreamAdapter {
   private startedAt?: Date;
   private restartCount = 0;
   private restarting = false;
+  private walletChangeHandler?: (state: WalletState) => void;
 
   constructor() {
     this.health = {
@@ -44,9 +45,14 @@ export class EvmAdapter implements UpstreamAdapter {
   async initialize(): Promise<void> {
     await this.start();
 
-    walletEvents.on("wallet-changed", async (_state: WalletState) => {
-      await this.restart();
-    });
+    this.walletChangeHandler = async (_state: WalletState) => {
+      try {
+        await this.restart();
+      } catch (e: unknown) {
+        process.stderr.write(`[evm] Restart after wallet change failed: ${e}\n`);
+      }
+    };
+    walletEvents.on("wallet-changed", this.walletChangeHandler);
 
     process.on("exit", () => this.killSubprocess());
     process.on("SIGTERM", () => this.killSubprocess());
@@ -102,7 +108,7 @@ export class EvmAdapter implements UpstreamAdapter {
       process.stderr.write(
         `[evm] Started with ${this.tools.length} tools (pid=${pid ?? "unknown"})\n`
       );
-    } catch (err) {
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown startup error";
       process.stderr.write(`[evm] Failed to start: ${message}\n`);
 
@@ -127,7 +133,9 @@ export class EvmAdapter implements UpstreamAdapter {
 
       try {
         await this.client?.close();
-      } catch {}
+      } catch (e: unknown) {
+        process.stderr.write(`[evm] Failed to close client during restart: ${e}\n`);
+      }
       this.killSubprocess();
 
       this.restartCount++;
@@ -146,7 +154,9 @@ export class EvmAdapter implements UpstreamAdapter {
       if (proc?.kill) {
         proc.kill();
       }
-    } catch {}
+    } catch (e: unknown) {
+      process.stderr.write(`[evm] Failed to kill subprocess: ${e}\n`);
+    }
   }
 
   getTools(): PrefixedTool[] {
@@ -178,9 +188,15 @@ export class EvmAdapter implements UpstreamAdapter {
   }
 
   async shutdown(): Promise<void> {
+    if (this.walletChangeHandler) {
+      walletEvents.off("wallet-changed", this.walletChangeHandler);
+      this.walletChangeHandler = undefined;
+    }
     try {
       await this.client?.close();
-    } catch {}
+    } catch (e: unknown) {
+      process.stderr.write(`[evm] Failed to close client during shutdown: ${e}\n`);
+    }
     this.killSubprocess();
     this.health = {
       name: "evm",

@@ -35,7 +35,8 @@ export class BlockscoutAdapter implements UpstreamAdapter {
         await this.client.connect(transport);
         connected = true;
         break;
-      } catch {
+      } catch (e: unknown) {
+        process.stderr.write(`[blockscout] ${TransportClass.name} transport failed: ${e}\n`);
         this.client = new Client({ name: "web3agent", version: "0.1.0" });
       }
     }
@@ -75,7 +76,7 @@ export class BlockscoutAdapter implements UpstreamAdapter {
         message: `Connected with ${this.tools.length} tools`,
         toolCount: this.tools.length,
       };
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown post-connect error";
       this.health = {
         name: "blockscout",
@@ -104,6 +105,8 @@ export class BlockscoutAdapter implements UpstreamAdapter {
   async shutdown(): Promise<void> {
     try {
       await this.client.close();
-    } catch {}
+    } catch (e: unknown) {
+      process.stderr.write(`[blockscout] Failed to close client during shutdown: ${e}\n`);
+    }
   }
 }
