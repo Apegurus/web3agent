@@ -138,6 +138,13 @@
       "endTime": 1772841049710,
       "success": true,
       "findingsCount": 0
+    },
+    {
+      "tool": "task",
+      "startTime": 1772841707252,
+      "endTime": 1772841707252,
+      "success": true,
+      "findingsCount": 0
     }
   ],
   "currentPhase": "reconnaissance",
@@ -145,7 +152,7 @@
   "startTime": 1772830340029,
   "soloditResults": [],
   "fuzzCounterexamples": [],
-  "savedAt": 1772841314364,
+  "savedAt": 1772841712257,
   "version": "2",
   "filePath": "/Users/ignacioblitzer/Develop/defizoo/web3agent/.argus/argus-state.json",
   "source_of_truth": "snapshot"

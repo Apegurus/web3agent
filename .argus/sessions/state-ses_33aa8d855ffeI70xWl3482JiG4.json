@@ -1,22 +1,22 @@
 {
-  "sessionId": "273405f7-b3ac-4908-81f6-9a64b23db9a2",
+  "sessionId": "8c2222dd-0976-40e7-9015-e9e24286fd47",
   "projectDir": "/Users/ignacioblitzer/Develop/defizoo/web3agent",
   "contractsReviewed": [],
   "findings": [],
   "toolsExecuted": [
     {
-      "run_id": "273405f7-b3ac-4908-81f6-9a64b23db9a2",
+      "run_id": "8c2222dd-0976-40e7-9015-e9e24286fd47",
       "schema_version": "2.0.0",
       "tool": "task",
-      "startTime": 1772841049709,
-      "endTime": 1772841049709,
+      "startTime": 1772841707248,
+      "endTime": 1772841707249,
       "success": true,
       "findingsCount": 0
     }
   ],
   "currentPhase": "reconnaissance",
   "scope": [],
-  "startTime": 1772841049596,
+  "startTime": 1772841351054,
   "soloditResults": [
     {
       "query": "reentrancy",
@@ -74,10 +74,10 @@
     "success": false,
     "timestamp": 1772832434951
   },
-  "savedAt": 1772841314362,
+  "savedAt": 1772841712255,
   "version": "2",
   "filePath": "/Users/ignacioblitzer/Develop/defizoo/web3agent/.argus/sessions/state-ses_33aa8d855ffeI70xWl3482JiG4.json",
   "source_of_truth": "events",
-  "last_event_seq": 3,
-  "event_stream_hash": "4c0cb9f88148f10c415d98e789509d58064bff70d14291b440d379ad69893e66"
+  "last_event_seq": 4,
+  "event_stream_hash": "46aced2289ffe59e8020dab97941d8a56faf63ca1df73ba2cd30440c1a47f41f"
 }
