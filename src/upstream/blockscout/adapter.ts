@@ -1,120 +1,109 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import type {
-	UpstreamAdapter,
-	AdapterHealth,
-	PrefixedTool,
-} from "../../types/upstream.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { BackendStatusCode } from "../../types/health.js";
+import type { AdapterHealth, PrefixedTool, UpstreamAdapter } from "../../types/upstream.js";
 
 const BOOTSTRAP_TOOL = "__unlock_blockchain_analysis__";
 const PREFIX = "blockscout";
 
 export class BlockscoutAdapter implements UpstreamAdapter {
-	public readonly name = "blockscout";
-	private client: Client;
-	private tools: PrefixedTool[] = [];
-	private routeMap = new Map<string, string>();
-	private health: AdapterHealth;
-	private url: string;
+  public readonly name = "blockscout";
+  private client: Client;
+  private tools: PrefixedTool[] = [];
+  private routeMap = new Map<string, string>();
+  private health: AdapterHealth;
+  private url: string;
 
-	constructor(url = "https://mcp.blockscout.com/mcp") {
-		this.url = url;
-		this.client = new Client({ name: "web3agent", version: "0.1.0" });
-		this.health = {
-			name: "blockscout",
-			status: "unavailable" as BackendStatusCode,
-			message: "Not initialized",
-		};
-	}
+  constructor(url = "https://mcp.blockscout.com/mcp") {
+    this.url = url;
+    this.client = new Client({ name: "web3agent", version: "0.1.0" });
+    this.health = {
+      name: "blockscout",
+      status: "unavailable" as BackendStatusCode,
+      message: "Not initialized",
+    };
+  }
 
-	async initialize(): Promise<void> {
-		const endpoint = new URL(this.url);
+  async initialize(): Promise<void> {
+    const endpoint = new URL(this.url);
 
-		let connected = false;
-		for (const TransportClass of [
-			StreamableHTTPClientTransport,
-			SSEClientTransport,
-		]) {
-			try {
-				const transport = new TransportClass(endpoint);
-				await this.client.connect(transport);
-				connected = true;
-				break;
-			} catch {
-				this.client = new Client({ name: "web3agent", version: "0.1.0" });
-			}
-		}
+    let connected = false;
+    for (const TransportClass of [StreamableHTTPClientTransport, SSEClientTransport]) {
+      try {
+        const transport = new TransportClass(endpoint);
+        await this.client.connect(transport);
+        connected = true;
+        break;
+      } catch {
+        this.client = new Client({ name: "web3agent", version: "0.1.0" });
+      }
+    }
 
-		if (!connected) {
-			this.health = {
-				name: "blockscout",
-				status: "degraded" as BackendStatusCode,
-				message: `Failed to connect to ${this.url} via StreamableHTTP and SSE`,
-			};
-			return;
-		}
+    if (!connected) {
+      this.health = {
+        name: "blockscout",
+        status: "degraded" as BackendStatusCode,
+        message: `Failed to connect to ${this.url} via StreamableHTTP and SSE`,
+      };
+      return;
+    }
 
-		try {
-			await this.client.callTool({
-				name: BOOTSTRAP_TOOL,
-				arguments: {},
-			});
+    try {
+      await this.client.callTool({
+        name: BOOTSTRAP_TOOL,
+        arguments: {},
+      });
 
-			const { tools: rawTools } = await this.client.listTools();
-			const filtered = rawTools.filter((t) => t.name !== BOOTSTRAP_TOOL);
+      const { tools: rawTools } = await this.client.listTools();
+      const filtered = rawTools.filter((t) => t.name !== BOOTSTRAP_TOOL);
 
-			this.tools = filtered.map((t) => {
-				const prefixedName = `${PREFIX}_${t.name}`;
-				this.routeMap.set(prefixedName, t.name);
-				return {
-					...t,
-					name: prefixedName,
-					upstreamName: t.name,
-					prefix: PREFIX,
-				} as PrefixedTool;
-			});
+      this.tools = filtered.map((t) => {
+        const prefixedName = `${PREFIX}_${t.name}`;
+        this.routeMap.set(prefixedName, t.name);
+        return {
+          ...t,
+          name: prefixedName,
+          upstreamName: t.name,
+          prefix: PREFIX,
+        } as PrefixedTool;
+      });
 
-			this.health = {
-				name: "blockscout",
-				status: "ok" as BackendStatusCode,
-				message: `Connected with ${this.tools.length} tools`,
-				toolCount: this.tools.length,
-			};
-		} catch (err) {
-			const msg =
-				err instanceof Error ? err.message : "Unknown post-connect error";
-			this.health = {
-				name: "blockscout",
-				status: "degraded" as BackendStatusCode,
-				message: `Connected but bootstrap/listTools failed: ${msg}`,
-			};
-		}
-	}
+      this.health = {
+        name: "blockscout",
+        status: "ok" as BackendStatusCode,
+        message: `Connected with ${this.tools.length} tools`,
+        toolCount: this.tools.length,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown post-connect error";
+      this.health = {
+        name: "blockscout",
+        status: "degraded" as BackendStatusCode,
+        message: `Connected but bootstrap/listTools failed: ${msg}`,
+      };
+    }
+  }
 
-	getTools(): PrefixedTool[] {
-		return this.tools;
-	}
+  getTools(): PrefixedTool[] {
+    return this.tools;
+  }
 
-	async callTool(
-		name: string,
-		args: Record<string, unknown>,
-	): Promise<unknown> {
-		const originalName = this.routeMap.get(name);
-		if (!originalName) {
-			throw new Error(`Unknown tool: ${name}`);
-		}
-		return this.client.callTool({ name: originalName, arguments: args });
-	}
+  async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+    const originalName = this.routeMap.get(name);
+    if (!originalName) {
+      throw new Error(`Unknown tool: ${name}`);
+    }
+    return this.client.callTool({ name: originalName, arguments: args });
+  }
 
-	getHealth(): AdapterHealth {
-		return this.health;
-	}
+  getHealth(): AdapterHealth {
+    return this.health;
+  }
 
-	async shutdown(): Promise<void> {
-		try {
-			await this.client.close();
-		} catch {}
-	}
+  async shutdown(): Promise<void> {
+    try {
+      await this.client.close();
+    } catch {}
+  }
 }

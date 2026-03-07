@@ -93,10 +93,9 @@ vi.mock("../../src/lifi/config.js", () => ({
 }));
 
 vi.mock("../../src/tools/lifi/index.js", () => ({
-  getLifiToolDefinitions: vi.fn().mockReturnValue([
-    { name: "lifi_get_quote" },
-    { name: "lifi_execute_bridge" },
-  ]),
+  getLifiToolDefinitions: vi
+    .fn()
+    .mockReturnValue([{ name: "lifi_get_quote" }, { name: "lifi_execute_bridge" }]),
 }));
 
 vi.mock("../../src/tools/orbs/index.js", () => ({
@@ -119,12 +118,10 @@ vi.mock("../../src/runtime/server.js", () => ({
 }));
 
 describe("startServer degraded mode", () => {
-  let stderrSpy: any;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    stderrSpy = vi
-      .spyOn(process.stderr, "write")
-      .mockImplementation(() => true as never);
+    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true as never);
     mockState.blockscoutInitialize.mockClear();
     mockState.evmInitialize.mockClear();
     mockState.proxyStart.mockClear();

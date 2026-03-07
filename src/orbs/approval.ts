@@ -10,10 +10,7 @@ export interface ApprovalCheck {
   requiredAmount: string;
 }
 
-export function buildApprovalCheck(
-  srcToken: string,
-  srcAmount: string,
-): ApprovalCheck {
+export function buildApprovalCheck(srcToken: string, srcAmount: string): ApprovalCheck {
   return {
     token: srcToken,
     spender: PERMIT2_ADDRESS,
@@ -21,7 +18,10 @@ export function buildApprovalCheck(
   };
 }
 
-export function buildApproveCalldata(spender: string, amount?: string): {
+export function buildApproveCalldata(
+  spender: string,
+  amount?: string
+): {
   functionName: string;
   args: [string, string];
 } {

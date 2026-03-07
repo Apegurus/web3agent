@@ -18,9 +18,7 @@ vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
         },
       ],
     }),
-    callTool: vi
-      .fn()
-      .mockResolvedValue({ content: [{ type: "text", text: "ok" }] }),
+    callTool: vi.fn().mockResolvedValue({ content: [{ type: "text", text: "ok" }] }),
     close: vi.fn().mockResolvedValue(undefined),
   })),
 }));
@@ -77,7 +75,7 @@ describe("EvmAdapter — read-only", () => {
           listTools: vi.fn(),
           callTool: vi.fn(),
           close: vi.fn().mockResolvedValue(undefined),
-        }) as unknown as Client,
+        }) as unknown as Client
     );
     const { EvmAdapter } = await import("../../src/upstream/evm/adapter.js");
     const adapter = new EvmAdapter();

@@ -40,9 +40,9 @@ export function isTwapSupported(chainId: number): boolean {
 }
 
 export function getLiquidityHubError(chainId: number): string {
-  const names = LIQUIDITY_HUB_CHAINS.map(
-    (id) => `${LIQUIDITY_HUB_CHAIN_NAMES[id]} (${id})`,
-  ).join(", ");
+  const names = LIQUIDITY_HUB_CHAINS.map((id) => `${LIQUIDITY_HUB_CHAIN_NAMES[id]} (${id})`).join(
+    ", "
+  );
   return `Orbs Liquidity Hub is not available on chain ${chainId}. Supported: ${names}`;
 }
 

@@ -1,10 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type {
-  AdapterHealth,
-  PrefixedTool,
-  UpstreamAdapter,
-} from "../../types/upstream.js";
+import type { AdapterHealth, PrefixedTool, UpstreamAdapter } from "../../types/upstream.js";
 import type { WalletState } from "../../types/wallet.js";
 import { walletEvents } from "../../wallet/events.js";
 
@@ -20,10 +16,8 @@ function buildEvmEnv(_walletState?: WalletState): Record<string, string> {
   if (process.env.NODE_ENV) env.NODE_ENV = process.env.NODE_ENV;
   if (process.env.PRIVATE_KEY) env.EVM_PRIVATE_KEY = process.env.PRIVATE_KEY;
   if (process.env.MNEMONIC) env.EVM_MNEMONIC = process.env.MNEMONIC;
-  if (process.env.WALLET_ACCOUNT_INDEX)
-    env.EVM_ACCOUNT_INDEX = process.env.WALLET_ACCOUNT_INDEX;
-  if (process.env.ETHERSCAN_API_KEY)
-    env.ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
+  if (process.env.WALLET_ACCOUNT_INDEX) env.EVM_ACCOUNT_INDEX = process.env.WALLET_ACCOUNT_INDEX;
+  if (process.env.ETHERSCAN_API_KEY) env.ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
   return env;
 }
 
@@ -93,8 +87,7 @@ export class EvmAdapter implements UpstreamAdapter {
       }
 
       const pid =
-        (this.transport as unknown as { process?: { pid?: number } }).process
-          ?.pid ?? undefined;
+        (this.transport as unknown as { process?: { pid?: number } }).process?.pid ?? undefined;
 
       this.health = {
         name: "evm",
@@ -107,11 +100,10 @@ export class EvmAdapter implements UpstreamAdapter {
       };
 
       process.stderr.write(
-        `[evm] Started with ${this.tools.length} tools (pid=${pid ?? "unknown"})\n`,
+        `[evm] Started with ${this.tools.length} tools (pid=${pid ?? "unknown"})\n`
       );
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unknown startup error";
+      const message = err instanceof Error ? err.message : "Unknown startup error";
       process.stderr.write(`[evm] Failed to start: ${message}\n`);
 
       this.tools = [];
@@ -135,7 +127,7 @@ export class EvmAdapter implements UpstreamAdapter {
 
       try {
         await this.client?.close();
-      } catch { }
+      } catch {}
       this.killSubprocess();
 
       this.restartCount++;
@@ -150,23 +142,18 @@ export class EvmAdapter implements UpstreamAdapter {
 
   private killSubprocess(): void {
     try {
-      const proc = (
-        this.transport as unknown as { process?: { kill?: () => void } }
-      )?.process;
+      const proc = (this.transport as unknown as { process?: { kill?: () => void } })?.process;
       if (proc?.kill) {
         proc.kill();
       }
-    } catch { }
+    } catch {}
   }
 
   getTools(): PrefixedTool[] {
     return this.tools;
   }
 
-  async callTool(
-    name: string,
-    args: Record<string, unknown>,
-  ): Promise<unknown> {
+  async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     const upstreamName = this.routeMap.get(name);
     if (!upstreamName) {
       throw new Error(`Unknown EVM tool: ${name}`);
@@ -193,7 +180,7 @@ export class EvmAdapter implements UpstreamAdapter {
   async shutdown(): Promise<void> {
     try {
       await this.client?.close();
-    } catch { }
+    } catch {}
     this.killSubprocess();
     this.health = {
       name: "evm",

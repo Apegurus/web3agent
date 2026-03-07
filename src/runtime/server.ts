@@ -1,28 +1,23 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { getAllChains } from "../chains/registry.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
+import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
 import {
+  type ToolDefinition,
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
-  type ToolDefinition,
 } from "../tools/register.js";
-import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
-import { formatToolError } from "../utils/errors.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import type { EvmAdapter } from "../upstream/evm/adapter.js";
+import { formatToolError } from "../utils/errors.js";
 import { walletEvents } from "../wallet/events.js";
 
-function normalizeInputSchema(
-  schema: Record<string, unknown> | object,
-): {
+function normalizeInputSchema(schema: Record<string, unknown> | object): {
   type: "object";
   properties?: { [key: string]: object };
   required?: string[];
@@ -45,16 +40,13 @@ export class ProxyServer {
   constructor(
     private readonly blockscoutAdapter: BlockscoutAdapter,
     private readonly evmAdapter: EvmAdapter,
-    private readonly goatProvider: GoatProvider,
+    private readonly goatProvider: GoatProvider
   ) {
     this.server = new Server(
       { name: "web3agent", version: "0.1.0" },
-      { capabilities: { tools: {} } },
+      { capabilities: { tools: {} } }
     );
-    this.frameworkTools = [
-      ...getWalletToolDefinitions(),
-      ...getUtilityToolDefinitions(),
-    ];
+    this.frameworkTools = [...getWalletToolDefinitions(), ...getUtilityToolDefinitions()];
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
     this.goatToolNames = new Set(this.goatProvider.getAllToolNames());

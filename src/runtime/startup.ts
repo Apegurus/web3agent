@@ -1,8 +1,4 @@
-import {
-  ValidationError,
-  getConfig,
-  parseEnv,
-} from "../config/env.js";
+import { ValidationError, getConfig, parseEnv } from "../config/env.js";
 import {
   createDefaultHealthStatus,
   createStartupReport,
@@ -12,24 +8,20 @@ import { goatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
-import {
-  getUtilityToolDefinitions,
-  getWalletToolDefinitions,
-} from "../tools/register.js";
+import { getUtilityToolDefinitions, getWalletToolDefinitions } from "../tools/register.js";
+import type { RuntimeConfig } from "../types/config.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import { EvmAdapter } from "../upstream/evm/adapter.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
 import { ProxyServer } from "./server.js";
 
 export async function startServer(): Promise<void> {
-  let config;
+  let config: RuntimeConfig;
   try {
     config = parseEnv(process.env as Partial<Record<string, string>>);
   } catch (error) {
     if (error instanceof ValidationError) {
-      process.stderr.write(
-        `[web3agent] Invalid config ${error.field}: ${error.message}\n`,
-      );
+      process.stderr.write(`[web3agent] Invalid config ${error.field}: ${error.message}\n`);
       process.exit(1);
     }
 
@@ -50,8 +42,7 @@ export async function startServer(): Promise<void> {
   try {
     await blockscoutAdapter.initialize();
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown initialization error";
+    const message = error instanceof Error ? error.message : "Unknown initialization error";
     health.blockscout.status = "degraded";
     health.blockscout.message = message;
     degradedServices.push("blockscout");
@@ -61,8 +52,7 @@ export async function startServer(): Promise<void> {
   try {
     await evmAdapter.initialize();
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown initialization error";
+    const message = error instanceof Error ? error.message : "Unknown initialization error";
     health.evm.status = "degraded";
     health.evm.message = message;
     degradedServices.push("evm");
@@ -86,8 +76,7 @@ export async function startServer(): Promise<void> {
   const evmToolCount = evmAdapter.getTools().length;
   const lifiToolCount = getLifiToolDefinitions().length;
   const orbsToolCount = getOrbsToolDefinitions().length;
-  const frameworkToolCount =
-    getWalletToolDefinitions().length + getUtilityToolDefinitions().length;
+  const frameworkToolCount = getWalletToolDefinitions().length + getUtilityToolDefinitions().length;
 
   health.blockscout = blockscoutAdapter.getHealth();
   health.evm = evmAdapter.getHealth();
@@ -130,7 +119,7 @@ export async function startServer(): Promise<void> {
 
   process.stderr.write(`${formatHealthSummary(report)}\n`);
   process.stderr.write(
-    `[web3agent] Tool counts => framework:${frameworkToolCount}, goat:${goatToolCount}, blockscout:${blockscoutToolCount}, evm:${evmToolCount}, lifi:${lifiToolCount}, orbs:${orbsToolCount}\n`,
+    `[web3agent] Tool counts => framework:${frameworkToolCount}, goat:${goatToolCount}, blockscout:${blockscoutToolCount}, evm:${evmToolCount}, lifi:${lifiToolCount}, orbs:${orbsToolCount}\n`
   );
 
   await server.start();

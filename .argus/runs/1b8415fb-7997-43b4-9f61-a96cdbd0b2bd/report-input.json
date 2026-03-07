@@ -1,0 +1,12 @@
+{
+  "run_id": "1b8415fb-7997-43b4-9f61-a96cdbd0b2bd",
+  "seq": 1,
+  "session_id": "ses_33aaf405effeHf5r8MDJfArEv3",
+  "tool_call_id": "pending-finalization",
+  "source": "event-hook",
+  "schema_version": "2.0.0",
+  "projectDir": "/Users/ignacioblitzer/Develop/defizoo/web3agent",
+  "findings": [],
+  "toolsExecuted": [],
+  "scope": []
+}

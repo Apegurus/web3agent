@@ -1,0 +1,31 @@
+{
+  "run_id": "761f7b38-8f86-4458-a0f7-fea5452a9b16",
+  "seq": 5,
+  "session_id": "ses_33af409fcffeSZsnuOOiPmQVP1",
+  "tool_call_id": "pending-finalization",
+  "source": "event-hook",
+  "schema_version": "2.0.0",
+  "projectDir": "/Users/ignacioblitzer/Develop/defizoo/web3agent",
+  "findings": [],
+  "toolsExecuted": [
+    {
+      "run_id": "761f7b38-8f86-4458-a0f7-fea5452a9b16",
+      "schema_version": "2.0.0",
+      "tool": "argus_sync_knowledge",
+      "startTime": 1772832434951,
+      "endTime": 1772832434951,
+      "success": true,
+      "findingsCount": 0
+    },
+    {
+      "run_id": "761f7b38-8f86-4458-a0f7-fea5452a9b16",
+      "schema_version": "2.0.0",
+      "tool": "argus_solodit_search",
+      "startTime": 1772832441379,
+      "endTime": 1772832441379,
+      "success": true,
+      "findingsCount": 0
+    }
+  ],
+  "scope": []
+}

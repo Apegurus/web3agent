@@ -3,6 +3,7 @@ import { ProxyServer } from "../../src/runtime/server.js";
 
 const mockState = vi.hoisted(() => {
   const serverInstances: Array<{
+    // biome-ignore lint/suspicious/noExplicitAny: mock handler type requires flexible request typing
     handlers: Map<unknown, (request: any) => Promise<any>>;
     connect: ReturnType<typeof vi.fn>;
     notification: ReturnType<typeof vi.fn>;
@@ -45,6 +46,7 @@ const mockState = vi.hoisted(() => {
 
 vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
   Server: class {
+    // biome-ignore lint/suspicious/noExplicitAny: mock handler type requires flexible request typing
     private readonly handlers = new Map<unknown, (request: any) => Promise<any>>();
     private readonly connectSpy = vi.fn().mockResolvedValue(undefined);
     private readonly notificationSpy = vi.fn();
@@ -57,6 +59,7 @@ vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
       });
     }
 
+    // biome-ignore lint/suspicious/noExplicitAny: mock handler type requires flexible request typing
     setRequestHandler(schema: unknown, handler: (request: any) => Promise<any>): void {
       this.handlers.set(schema, handler);
     }
@@ -178,7 +181,7 @@ describe("ProxyServer", () => {
             ],
             toolHandler: vi.fn(),
           }
-        : undefined,
+        : undefined
     ),
   };
 
@@ -194,11 +197,8 @@ describe("ProxyServer", () => {
   });
 
   function setup() {
-    new ProxyServer(
-      blockscoutAdapter as any,
-      evmAdapter as any,
-      goatProvider as any,
-    );
+    // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+    new ProxyServer(blockscoutAdapter as any, evmAdapter as any, goatProvider as any);
     const instance = mockState.serverInstances.at(-1);
     if (!instance) throw new Error("Missing server instance");
     const listHandler = instance.handlers.get(mockState.schemas.list);

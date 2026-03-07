@@ -33,10 +33,7 @@ export interface QuoteResult {
   exchange: string;
 }
 
-export async function getQuote(
-  chainId: number,
-  request: QuoteRequest,
-): Promise<QuoteResult> {
+export async function getQuote(chainId: number, request: QuoteRequest): Promise<QuoteResult> {
   const sdk = getSdk(chainId);
   const quote = await sdk.getQuote({
     fromToken: request.fromToken,
@@ -63,7 +60,7 @@ export async function getQuote(
 export async function executeSwap(
   chainId: number,
   quote: Quote,
-  signature: string,
+  signature: string
 ): Promise<string> {
   const sdk = getSdk(chainId);
   return sdk.swap(quote, signature);

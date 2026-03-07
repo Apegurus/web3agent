@@ -1,10 +1,4 @@
 import {
-  buildRePermitOrderData,
-  getAccountOrders,
-  getConfig as getTwapConfig,
-  getSrcTokenChunkAmount,
-  getDeadline,
-  submitOrder,
   type Config,
   type Order,
   type Partners,
@@ -14,16 +8,19 @@ import {
   type SpotConfig,
   type TimeDuration,
   TimeUnit,
+  buildRePermitOrderData,
+  getAccountOrders,
+  getDeadline,
+  getSrcTokenChunkAmount,
+  getConfig as getTwapConfig,
+  submitOrder,
 } from "@orbs-network/twap-sdk";
 
 export type { Order, RePermitOrder, Signature };
 
 const DEFAULT_PARTNER = "quick" as Partners;
 
-export function getChainConfig(
-  chainId: number,
-  partner?: string,
-): SpotConfig | undefined {
+export function getChainConfig(chainId: number, partner?: string): SpotConfig | undefined {
   return getTwapConfig(chainId, (partner ?? DEFAULT_PARTNER) as Partners);
 }
 
@@ -51,15 +48,10 @@ export interface PreparedOrder {
 export function prepareTwapOrder(params: TwapOrderParams): PreparedOrder {
   const config = getChainConfig(params.chainId);
   if (!config) {
-    throw new Error(
-      `No TWAP config available for chain ${params.chainId}`,
-    );
+    throw new Error(`No TWAP config available for chain ${params.chainId}`);
   }
 
-  const srcAmountPerTrade = getSrcTokenChunkAmount(
-    params.srcAmount,
-    params.chunks,
-  );
+  const srcAmountPerTrade = getSrcTokenChunkAmount(params.srcAmount, params.chunks);
 
   const fillDelayMillis = params.fillDelaySeconds * 1000;
   const durationMillis = params.durationSeconds * 1000;
@@ -90,7 +82,7 @@ export function prepareTwapOrder(params: TwapOrderParams): PreparedOrder {
 
 export async function submitSignedOrder(
   order: RePermitOrder,
-  signature: Signature,
+  signature: Signature
 ): Promise<Order> {
   return submitOrder(order, signature);
 }
@@ -98,7 +90,7 @@ export async function submitSignedOrder(
 export async function listOrders(
   chainId: number,
   account: string,
-  options?: { limit?: number; page?: number },
+  options?: { limit?: number; page?: number }
 ): Promise<Order[]> {
   return getAccountOrders({
     chainId,

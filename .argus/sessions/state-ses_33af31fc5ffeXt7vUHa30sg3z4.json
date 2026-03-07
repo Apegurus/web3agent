@@ -1,0 +1,73 @@
+{
+  "sessionId": "84a2b060-a00d-482d-b409-cf6614049225",
+  "projectDir": "/Users/ignacioblitzer/Develop/defizoo/web3agent",
+  "contractsReviewed": [],
+  "findings": [],
+  "toolsExecuted": [],
+  "currentPhase": "reconnaissance",
+  "scope": [],
+  "startTime": 1772832481343,
+  "soloditResults": [
+    {
+      "query": "reentrancy",
+      "timestamp": 1772832355395,
+      "resultCount": 10,
+      "topResults": [
+        {
+          "title": "Lack of reentrancy guards where ERC721 is used increases the risk profile for reentrancy issues",
+          "severity": "",
+          "url": "",
+          "protocol": ""
+        }
+      ]
+    },
+    {
+      "query": "reentrancy attack",
+      "timestamp": 1772832441379,
+      "resultCount": 10,
+      "topResults": [
+        {
+          "title": "[M-07] Attacker can steal RToken holders' funds by performing reentrancy attack during `redeem()` function token transfers",
+          "severity": "Medium",
+          "url": "https://solodit.cyfrin.io/issues/m-07-attacker-can-steal-rtoken-holders-funds-by-performing-reentrancy-attack-during-redeem-function-token-transfers-code4rena-reserve-reserve-git",
+          "protocol": ""
+        },
+        {
+          "title": "[M-07] Attacker can steal RToken holders’ funds by performing reentrancy attack during redeem() function token transfers",
+          "severity": "Medium",
+          "url": "https://solodit.cyfrin.io/issues/m-07-attacker-can-steal-rtoken-holders-funds-by-performing-reentrancy-attack-during-redeem-function-token-transfers-code4rena-reserve-reserve-contest-git",
+          "protocol": ""
+        },
+        {
+          "title": "Reentrancy attack to duplicate NFT tier to other contracts ",
+          "severity": "",
+          "url": "https://solodit.cyfrin.io/issues/reentrancy-attack-to-duplicate-nft-tier-to-other-contracts-cantina-none-trugly-labs-pdf",
+          "protocol": ""
+        },
+        {
+          "title": "[H-18] Reentrancy attack possible on `RootBridgeAgent.retrySettlement()` with missing access control for `RootBridgeAgentFactory.createBridgeAgent()`",
+          "severity": "High",
+          "url": "https://solodit.cyfrin.io/issues/h-18-reentrancy-attack-possible-on-rootbridgeagentretrysettlement-with-missing-access-control-for-rootbridgeagentfactorycreatebridgeagent-code4rena-maia-dao-ecosystem-maia-dao-ecosystem-git",
+          "protocol": ""
+        },
+        {
+          "title": "Missing protection against potential reentrancy attacks",
+          "severity": "",
+          "url": "https://solodit.cyfrin.io/issues/missing-protection-against-potential-reentrancy-attacks-halborn-beranames-name-service-bns-contracts-v2-markdown",
+          "protocol": ""
+        }
+      ]
+    }
+  ],
+  "fuzzCounterexamples": [],
+  "knowledgeSynced": {
+    "success": false,
+    "timestamp": 1772832434951
+  },
+  "savedAt": 1772834455218,
+  "version": "2",
+  "filePath": "/Users/ignacioblitzer/Develop/defizoo/web3agent/.argus/sessions/state-ses_33af31fc5ffeXt7vUHa30sg3z4.json",
+  "source_of_truth": "events",
+  "last_event_seq": 1,
+  "event_stream_hash": "8a28048d1bf97eb248a4630d7dfc2d061c2b3617507f28a12c5882f5177d0a33"
+}
