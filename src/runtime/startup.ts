@@ -8,7 +8,11 @@ import { goatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
-import { getUtilityToolDefinitions, getWalletToolDefinitions } from "../tools/register.js";
+import {
+  getTransactionToolDefinitions,
+  getUtilityToolDefinitions,
+  getWalletToolDefinitions,
+} from "../tools/register.js";
 import type { RuntimeConfig } from "../types/config.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import { EvmAdapter } from "../upstream/evm/adapter.js";
@@ -19,7 +23,7 @@ export async function startServer(): Promise<void> {
   let config: RuntimeConfig;
   try {
     config = parseEnv(process.env as Partial<Record<string, string>>);
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof ValidationError) {
       process.stderr.write(`[web3agent] Invalid config ${error.field}: ${error.message}\n`);
       process.exit(1);
@@ -41,7 +45,7 @@ export async function startServer(): Promise<void> {
 
   try {
     await blockscoutAdapter.initialize();
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown initialization error";
     health.blockscout.status = "degraded";
     health.blockscout.message = message;
@@ -51,7 +55,7 @@ export async function startServer(): Promise<void> {
 
   try {
     await evmAdapter.initialize();
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown initialization error";
     health.evm.status = "degraded";
     health.evm.message = message;
@@ -76,7 +80,10 @@ export async function startServer(): Promise<void> {
   const evmToolCount = evmAdapter.getTools().length;
   const lifiToolCount = getLifiToolDefinitions().length;
   const orbsToolCount = getOrbsToolDefinitions().length;
-  const frameworkToolCount = getWalletToolDefinitions().length + getUtilityToolDefinitions().length;
+  const frameworkToolCount =
+    getWalletToolDefinitions().length +
+    getTransactionToolDefinitions().length +
+    getUtilityToolDefinitions().length;
 
   health.blockscout = blockscoutAdapter.getHealth();
   health.evm = evmAdapter.getHealth();
