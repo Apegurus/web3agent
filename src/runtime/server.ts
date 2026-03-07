@@ -9,6 +9,7 @@ import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
 import {
   type ToolDefinition,
+  getTransactionToolDefinitions,
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
@@ -36,6 +37,7 @@ export class ProxyServer {
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
   private readonly goatToolNames: Set<string>;
+  private walletChangeHandler?: () => void;
 
   constructor(
     private readonly blockscoutAdapter: BlockscoutAdapter,
@@ -46,7 +48,11 @@ export class ProxyServer {
       { name: "web3agent", version: "0.1.0" },
       { capabilities: { tools: {} } }
     );
-    this.frameworkTools = [...getWalletToolDefinitions(), ...getUtilityToolDefinitions()];
+    this.frameworkTools = [
+      ...getWalletToolDefinitions(),
+      ...getTransactionToolDefinitions(),
+      ...getUtilityToolDefinitions(),
+    ];
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
     this.goatToolNames = new Set(this.goatProvider.getAllToolNames());
@@ -150,9 +156,21 @@ export class ProxyServer {
   }
 
   private registerWalletChangeNotification(): void {
-    walletEvents.on("wallet-changed", () => {
-      this.server.notification({ method: "notifications/tools/list_changed" });
-    });
+    this.walletChangeHandler = () => {
+      this.server
+        .notification({ method: "notifications/tools/list_changed" })
+        .catch((e: unknown) => {
+          process.stderr.write(`[web3agent] Failed to send tool list change notification: ${e}\n`);
+        });
+    };
+    walletEvents.on("wallet-changed", this.walletChangeHandler);
+  }
+
+  async shutdown(): Promise<void> {
+    if (this.walletChangeHandler) {
+      walletEvents.off("wallet-changed", this.walletChangeHandler);
+      this.walletChangeHandler = undefined;
+    }
   }
 
   async connect(transport: StdioServerTransport): Promise<void> {
