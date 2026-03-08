@@ -9,6 +9,7 @@ import {
 import { getDsltpToolDefinitions } from "../../orbs/dsltp.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import { splitSignature } from "../../utils/signature.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
 
@@ -99,7 +100,7 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
 async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = Number(params.chainId ?? getConfig().chainId);
 
-  if (!isTwapSupported(chainId)) {
+  if (!(isTwapSupported(chainId))) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
   }
 
@@ -147,9 +148,7 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
       message: prepared.order as unknown as Record<string, unknown>,
     });
 
-    const r = `0x${signature.slice(2, 66)}` as `0x${string}`;
-    const s = `0x${signature.slice(66, 130)}` as `0x${string}`;
-    const v = `0x${signature.slice(130, 132)}` as `0x${string}`;
+    const { v, r, s } = splitSignature(signature);
 
     const order = await submitSignedOrder(prepared.order, { v, r, s });
     return formatToolResponse({
@@ -165,7 +164,7 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
 async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = Number(params.chainId ?? getConfig().chainId);
 
-  if (!isTwapSupported(chainId)) {
+  if (!(isTwapSupported(chainId))) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
   }
 
@@ -211,9 +210,7 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
       message: prepared.order as unknown as Record<string, unknown>,
     });
 
-    const r = `0x${signature.slice(2, 66)}` as `0x${string}`;
-    const s = `0x${signature.slice(66, 130)}` as `0x${string}`;
-    const v = `0x${signature.slice(130, 132)}` as `0x${string}`;
+    const { v, r, s } = splitSignature(signature);
 
     const order = await submitSignedOrder(prepared.order, { v, r, s });
     return formatToolResponse({
@@ -229,7 +226,7 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
 async function orbsListOrders(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = Number(params.chainId ?? getConfig().chainId);
 
-  if (!isTwapSupported(chainId)) {
+  if (!(isTwapSupported(chainId))) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
   }
 

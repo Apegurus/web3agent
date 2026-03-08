@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { BLOCKSCOUT_DEFAULT_URL } from "../../config/env.js";
 import type { HostWriter, WriteOptions, WriteResult } from "./base.js";
 import { mergeServers, readJsonFile, safeWriteConfig } from "./base.js";
 
@@ -20,7 +21,7 @@ function opencodeMultiServerEntries(): Record<string, unknown> {
     },
     blockscout: {
       type: "sse",
-      url: "https://mcp.blockscout.com/mcp",
+      url: BLOCKSCOUT_DEFAULT_URL,
     },
     evm: {
       type: "local",

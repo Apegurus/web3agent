@@ -1,7 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GoatProvider } from "../../src/goat/provider.js";
-
-const mockChainIdFromWallet = 1;
 
 vi.mock("@goat-sdk/adapter-model-context-protocol", () => ({
   getOnChainTools: vi.fn().mockImplementation(({ wallet }) => {
@@ -58,7 +56,7 @@ vi.mock("@goat-sdk/plugin-0x", () => ({
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => ({
-  getWalletState: vi.fn().mockReturnValue({ mode: "read-only" }),
+  getWalletState: vi.fn().mockReturnValue({ mode: "read-only", chainId: 8453 }),
   getActiveAccount: vi.fn(),
 }));
 
@@ -68,22 +66,13 @@ vi.mock("../../src/config/wallet-factory.js", () => ({
   })),
 }));
 
-vi.mock("../../src/chains/registry.js", () => ({
-  getAllChains: vi.fn().mockReturnValue([
-    { id: 1, name: "Ethereum" },
-    { id: 8453, name: "Base" },
-    { id: 137, name: "Polygon" },
-  ]),
-  SUPPORTED_CHAIN_IDS: [1, 8453, 137],
-}));
-
 describe("GoatProvider — chain-aware dispatch", () => {
-  it("builds snapshot for different chains", async () => {
+  it("builds snapshot on-demand for different chains", async () => {
     const provider = new GoatProvider();
     await provider.initialize({});
 
-    const snapshot8453 = provider.getSnapshot(8453);
-    const snapshot1 = provider.getSnapshot(1);
+    const snapshot8453 = await provider.getOrBuildSnapshot(8453);
+    const snapshot1 = await provider.getOrBuildSnapshot(1);
 
     expect(snapshot8453).toBeDefined();
     expect(snapshot1).toBeDefined();
@@ -95,17 +84,17 @@ describe("GoatProvider — chain-aware dispatch", () => {
     const provider = new GoatProvider();
     await provider.initialize({});
 
-    const snapshot1 = provider.getSnapshot(1);
-    const snapshot8453 = provider.getSnapshot(8453);
+    const snapshot1 = await provider.getOrBuildSnapshot(1);
+    const snapshot8453 = await provider.getOrBuildSnapshot(8453);
 
     const result1 = await snapshot1?.toolHandler("get_balance", {});
     const result8453 = await snapshot8453?.toolHandler("get_balance", {});
 
-    expect(result1.content[0].text).toContain("chain 1");
-    expect(result8453.content[0].text).toContain("chain 8453");
+    expect(result1?.content[0].text).toContain("chain 1");
+    expect(result8453?.content[0].text).toContain("chain 8453");
   });
 
-  it("exposes tool names from all chains (deduplicated)", async () => {
+  it("exposes tool names from reference snapshot", async () => {
     const provider = new GoatProvider();
     await provider.initialize({});
 
@@ -114,11 +103,22 @@ describe("GoatProvider — chain-aware dispatch", () => {
     expect(names.filter((n) => n === "get_balance")).toHaveLength(1);
   });
 
-  it("returns undefined for chain without snapshot", async () => {
+  it("getReferenceSnapshot returns the default chain snapshot", async () => {
     const provider = new GoatProvider();
     await provider.initialize({});
 
-    expect(provider.getSnapshot(999)).toBeUndefined();
+    const ref = provider.getReferenceSnapshot();
+    expect(ref).toBeDefined();
+    expect(ref?.chainId).toBe(8453);
+  });
+
+  it("caches snapshots and returns same instance on repeated calls", async () => {
+    const provider = new GoatProvider();
+    await provider.initialize({});
+
+    const first = await provider.getOrBuildSnapshot(137);
+    const second = await provider.getOrBuildSnapshot(137);
+    expect(first).toBe(second);
   });
 
   it("reports loaded plugins", async () => {

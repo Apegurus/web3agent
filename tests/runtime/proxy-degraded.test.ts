@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer } from "../../src/runtime/startup.js";
 
+vi.mock("@orbs-network/twap-sdk", () => ({
+  Configs: {},
+  getConfig: vi.fn().mockReturnValue(undefined),
+}));
+
 const mockState = vi.hoisted(() => {
   const config = {
     chainId: 8453,

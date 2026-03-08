@@ -56,12 +56,3 @@ export async function getQuote(chainId: number, request: QuoteRequest): Promise<
     exchange: quote.exchange,
   };
 }
-
-export async function executeSwap(
-  chainId: number,
-  quote: Quote,
-  signature: string
-): Promise<string> {
-  const sdk = getSdk(chainId);
-  return sdk.swap(quote, signature);
-}

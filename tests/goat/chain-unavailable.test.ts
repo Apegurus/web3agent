@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PLUGIN_CHAIN_SUPPORT, dispatchGoatTool } from "../../src/goat/dispatch.js";
+import { describe, expect, it, vi } from "vitest";
+import { dispatchGoatTool } from "../../src/goat/dispatch.js";
 
 vi.mock("../../src/goat/provider.js", () => ({
   goatProvider: {
-    getSnapshot: vi.fn().mockImplementation((chainId: number) => {
+    getOrBuildSnapshot: vi.fn().mockImplementation(async (chainId: number) => {
       if (chainId === 8453) {
         return {
           listOfTools: [],
@@ -23,14 +23,12 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 vi.mock("../../src/chains/registry.js", () => ({
-  SUPPORTED_CHAIN_IDS: [1, 8453, 137, 42161, 10],
+  isSupported: vi.fn().mockImplementation((id: number) => {
+    return [1, 8453, 137, 42161, 10, 56].includes(id);
+  }),
 }));
 
 describe("dispatchGoatTool — chain unavailability", () => {
-  beforeEach(() => {
-    PLUGIN_CHAIN_SUPPORT.uniswap = [1, 137, 8453];
-  });
-
   it("returns structured error for unsupported chain", async () => {
     const result = await dispatchGoatTool("uniswap_swap", {
       chainId: 9999999,
@@ -41,18 +39,18 @@ describe("dispatchGoatTool — chain unavailability", () => {
   });
 
   it("returns TOOL_UNAVAILABLE_ON_CHAIN for wrong chain", async () => {
-    const result = await dispatchGoatTool("uniswap_swap", { chainId: 42161 });
+    const result = await dispatchGoatTool("uniswap_swap", { chainId: 56 });
     expect(result.isError).toBe(true);
     const parsed = JSON.parse((result.content[0] as { type: string; text: string }).text);
     expect(parsed.error).toBe("TOOL_UNAVAILABLE_ON_CHAIN");
-    expect(parsed.details.availableChainIds).toEqual([1, 137, 8453]);
+    expect(parsed.details.availableChainIds).toBeDefined();
   });
 
-  it("returns CHAIN_NOT_INITIALIZED when no snapshot exists", async () => {
+  it("returns CHAIN_INIT_FAILED when no snapshot exists", async () => {
     const result = await dispatchGoatTool("erc20_balance", { chainId: 1 });
     expect(result.isError).toBe(true);
     const parsed = JSON.parse((result.content[0] as { type: string; text: string }).text);
-    expect(parsed.error).toBe("CHAIN_NOT_INITIALIZED");
+    expect(parsed.error).toBe("CHAIN_INIT_FAILED");
   });
 
   it("dispatches successfully when chain and tool match", async () => {

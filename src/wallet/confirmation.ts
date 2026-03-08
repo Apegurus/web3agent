@@ -73,6 +73,4 @@ export class ConfirmationQueueManager {
   }
 }
 
-export const confirmationQueue = new ConfirmationQueueManager(
-  process.env.CONFIRM_WRITES !== "false"
-);
+export const confirmationQueue = new ConfirmationQueueManager(true);

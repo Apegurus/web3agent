@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { BLOCKSCOUT_DEFAULT_URL } from "../../config/env.js";
 
 export type WriteMode = "proxy" | "multi-server";
 
@@ -42,7 +43,7 @@ export function multiServerEntries(): Record<string, unknown> {
     },
     blockscout: {
       type: "sse",
-      url: "https://mcp.blockscout.com/mcp",
+      url: BLOCKSCOUT_DEFAULT_URL,
     },
     evm: {
       command: "npx",

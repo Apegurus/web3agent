@@ -3,7 +3,6 @@ import { getOnChainTools } from "@goat-sdk/adapter-model-context-protocol";
 import type { WalletClientBase } from "@goat-sdk/core";
 import { viem } from "@goat-sdk/wallet-viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { getAllChains } from "../chains/registry.js";
 import { createWalletClientForChain } from "../config/wallet-factory.js";
 import { getActiveAccount, getWalletState } from "../wallet/persistence.js";
 import { type PluginLoadResult, loadPlugins } from "./plugins.js";
@@ -24,6 +23,7 @@ export interface GoatToolSnapshot {
 export class GoatProvider {
   private snapshots = new Map<number, GoatToolSnapshot>();
   private pluginResult: PluginLoadResult | undefined;
+  private referenceSnapshot: GoatToolSnapshot | undefined;
 
   async initialize(config: {
     zeroxApiKey?: string;
@@ -40,14 +40,9 @@ export class GoatProvider {
       rpcUrl: config.rpcUrl,
     });
 
-    const chains = getAllChains();
-    for (const chain of chains) {
-      try {
-        await this.buildSnapshot(chain.id);
-      } catch (e: unknown) {
-        process.stderr.write(`[web3agent] GOAT snapshot failed for chain ${chain.id}: ${e}\n`);
-      }
-    }
+    const defaultChainId = walletState.chainId;
+    await this.buildSnapshot(defaultChainId);
+    this.referenceSnapshot = this.snapshots.get(defaultChainId);
   }
 
   private async buildSnapshot(chainId: number): Promise<void> {
@@ -79,18 +74,28 @@ export class GoatProvider {
     });
   }
 
-  getSnapshot(chainId: number): GoatToolSnapshot | undefined {
-    return this.snapshots.get(chainId);
+  async getOrBuildSnapshot(chainId: number): Promise<GoatToolSnapshot | undefined> {
+    const existing = this.snapshots.get(chainId);
+    if (existing) return existing;
+
+    try {
+      await this.buildSnapshot(chainId);
+      return this.snapshots.get(chainId);
+    } catch (e: unknown) {
+      process.stderr.write(`[web3agent] GOAT snapshot failed for chain ${chainId}: ${e}\n`);
+      return undefined;
+    }
+  }
+
+  getReferenceSnapshot(): GoatToolSnapshot | undefined {
+    return this.referenceSnapshot;
   }
 
   getAllToolNames(): string[] {
-    const names = new Set<string>();
-    for (const [, snapshot] of this.snapshots) {
-      for (const tool of snapshot.listOfTools) {
-        names.add(tool.name);
-      }
+    if (this.referenceSnapshot) {
+      return this.referenceSnapshot.listOfTools.map((t) => t.name);
     }
-    return [...names];
+    return [];
   }
 
   getLoadedPlugins(): string[] {

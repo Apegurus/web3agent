@@ -7,7 +7,7 @@ describe("runtime config validation errors", () => {
   });
 
   it("throws ValidationError for unsupported CHAIN_ID", () => {
-    expect(() => parseEnv({ CHAIN_ID: "9999999" })).toThrow(ValidationError);
+    expect(() => parseEnv({ CHAIN_ID: "2147483647" })).toThrow(ValidationError);
   });
 
   it("ValidationError has field property", () => {

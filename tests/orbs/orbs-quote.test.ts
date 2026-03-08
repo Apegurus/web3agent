@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolDefinition } from "../../src/tools/register.js";
 
+vi.mock("@orbs-network/twap-sdk", () => ({
+  Configs: { MockDex: { chainId: 8453, partner: "quick" } },
+  getConfig: vi.fn().mockReturnValue({ contract: "0x" }),
+}));
+
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
   constructSDK: vi.fn().mockReturnValue({
     getQuote: vi.fn().mockResolvedValue({

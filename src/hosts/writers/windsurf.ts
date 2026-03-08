@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { BLOCKSCOUT_DEFAULT_URL } from "../../config/env.js";
 import type { HostWriter, WriteOptions, WriteResult } from "./base.js";
 import { mergeServers, readJsonFile, safeWriteConfig } from "./base.js";
 
@@ -19,7 +20,7 @@ function windsurfMultiServerEntries(): Record<string, unknown> {
       args: ["web3agent"],
     },
     blockscout: {
-      serverUrl: "https://mcp.blockscout.com/mcp",
+      serverUrl: BLOCKSCOUT_DEFAULT_URL,
     },
     evm: {
       command: "npx",

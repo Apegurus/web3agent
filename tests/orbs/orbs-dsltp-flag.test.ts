@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@orbs-network/twap-sdk", () => ({
+  Configs: {},
+  getConfig: vi.fn().mockReturnValue(undefined),
+}));
+
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
   constructSDK: vi.fn().mockReturnValue({
     getQuote: vi.fn(),
@@ -34,11 +39,6 @@ describe("dSLTP feature gate", () => {
   it("getDsltpToolDefinitions returns empty array when not validated", async () => {
     const { getDsltpToolDefinitions } = await import("../../src/orbs/dsltp.js");
     expect(getDsltpToolDefinitions()).toHaveLength(0);
-  });
-
-  it("getDsltpStatus reports unavailable", async () => {
-    const { getDsltpStatus } = await import("../../src/orbs/dsltp.js");
-    expect(getDsltpStatus()).toContain("unavailable");
   });
 
   it("orbs tools do not include dSLTP tools when feature-gated", async () => {

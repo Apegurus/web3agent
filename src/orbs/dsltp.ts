@@ -16,7 +16,3 @@ export function getDsltpToolDefinitions(): DsltpToolDefinition[] {
   if (!DSLTP_AVAILABLE) return [];
   return [];
 }
-
-export function getDsltpStatus(): string {
-  return DSLTP_AVAILABLE ? "available" : "unavailable — SDK not validated for agent use";
-}

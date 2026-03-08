@@ -1,3 +1,8 @@
+import { Configs } from "@orbs-network/twap-sdk";
+import { getChainById } from "../chains/registry.js";
+
+// Liquidity Hub SDK does not expose supported chains — hardcoded list required.
+// Source: @orbs-network/liquidity-hub-sdk internal getApiUrl() switch statement.
 export const LIQUIDITY_HUB_CHAINS = [
   137, // Polygon
   56, // BSC
@@ -7,45 +12,23 @@ export const LIQUIDITY_HUB_CHAINS = [
   42161, // Arbitrum
 ] as const;
 
-export const TWAP_CHAINS = [
-  1, // Ethereum
-  137, // Polygon
-  56, // BSC
-  42161, // Arbitrum
-  8453, // Base
-  59144, // Linea
-  324, // zkSync
-  250, // Fantom
-  43114, // Avalanche
-  81457, // Blast
-  146, // Sonic
-  534352, // Scroll
-] as const;
-
-const LIQUIDITY_HUB_CHAIN_NAMES: Record<number, string> = {
-  137: "Polygon",
-  56: "BSC",
-  8453: "Base",
-  59144: "Linea",
-  81457: "Blast",
-  42161: "Arbitrum",
-};
+const TWAP_CHAIN_IDS = new Set(Object.values(Configs).map((c) => c.chainId));
 
 export function isLiquidityHubSupported(chainId: number): boolean {
   return (LIQUIDITY_HUB_CHAINS as readonly number[]).includes(chainId);
 }
 
 export function isTwapSupported(chainId: number): boolean {
-  return (TWAP_CHAINS as readonly number[]).includes(chainId);
+  return TWAP_CHAIN_IDS.has(chainId);
 }
 
 export function getLiquidityHubError(chainId: number): string {
-  const names = LIQUIDITY_HUB_CHAINS.map((id) => `${LIQUIDITY_HUB_CHAIN_NAMES[id]} (${id})`).join(
-    ", "
-  );
+  const names = LIQUIDITY_HUB_CHAINS.map(
+    (id) => `${getChainById(id)?.name ?? String(id)} (${id})`
+  ).join(", ");
   return `Orbs Liquidity Hub is not available on chain ${chainId}. Supported: ${names}`;
 }
 
 export function getTwapError(chainId: number): string {
-  return `Orbs dTWAP/dLIMIT is not available on chain ${chainId}. Supported chain IDs: ${(TWAP_CHAINS as readonly number[]).join(", ")}`;
+  return `Orbs dTWAP/dLIMIT is not available on chain ${chainId}. Use isTwapSupported() to check availability.`;
 }

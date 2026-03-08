@@ -1,39 +1,70 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { getChainById } from "../../chains/registry.js";
+import { LIQUIDITY_HUB_CHAINS } from "../../orbs/chains.js";
+import type { HealthStatus } from "../../types/health.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
 
+let _health: HealthStatus | null = null;
+let _totalToolCount = 0;
+
+export function setHealthStatus(health: HealthStatus, totalToolCount: number): void {
+  _health = health;
+  _totalToolCount = totalToolCount;
+}
+
 export async function serverStatus(): Promise<CallToolResult> {
   try {
     const wallet = getWalletState();
+    const backends = _health
+      ? {
+          blockscout: _health.blockscout.status,
+          evm: _health.evm.status,
+          goat: _health.goat.status,
+          lifi: _health.lifi.status,
+          orbs: _health.orbs.status,
+        }
+      : {
+          blockscout: "not_initialized",
+          evm: "not_initialized",
+          goat: "not_initialized",
+          lifi: "not_initialized",
+          orbs: "not_initialized",
+        };
     return formatToolResponse({
       walletMode: wallet.mode,
       activeChainId: wallet.chainId,
       confirmWrites: confirmationQueue.enabled,
-      backends: {
-        blockscout: "not_initialized",
-        evm: "not_initialized",
-        goat: "not_initialized",
-      },
-      toolCount: 0,
+      backends,
+      toolCount: _totalToolCount,
     });
   } catch (err: unknown) {
     return formatToolError("STATUS_FAILED", err instanceof Error ? err.message : "Unknown error");
   }
 }
 
+const INTEGRATION_CHAINS = new Set([
+  ...LIQUIDITY_HUB_CHAINS,
+  ...[1, 137, 43114, 8453, 10, 42161, 42220],
+  ...[34443, 8453, 137, 100, 42161, 43114, 10],
+]);
+
 export async function listSupportedChains(): Promise<CallToolResult> {
   try {
-    const { getAllChains } = await import("../../chains/registry.js");
-    const chains = getAllChains();
-    return formatToolResponse(
-      chains.map((c) => ({
-        id: c.id,
-        name: c.name,
-        nativeCurrency: c.nativeCurrency,
-      }))
-    );
-  } catch {
-    return formatToolError("CHAINS_UNAVAILABLE", "Chain registry not yet initialized");
+    const chains = [...INTEGRATION_CHAINS]
+      .map((id) => {
+        const chain = getChainById(id);
+        if (!chain) return null;
+        return { id: chain.id, name: chain.name, nativeCurrency: chain.nativeCurrency };
+      })
+      .filter((c) => c !== null);
+
+    return formatToolResponse({
+      note: "Any EVM chain supported by viem works for basic operations (ERC-20, ERC-721, ENS). Chains listed below have enhanced integration (DEX swaps, bridging, Orbs).",
+      chains,
+    });
+  } catch (e: unknown) {
+    return formatToolError("CHAINS_UNAVAILABLE", String(e));
   }
 }

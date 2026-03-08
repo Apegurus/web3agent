@@ -2,7 +2,6 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { getAllChains } from "../chains/registry.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
@@ -113,23 +112,14 @@ export class ProxyServer {
   }
 
   private getGoatTools(): Tool[] {
-    const byName = new Map<string, Tool>();
+    const snapshot = this.goatProvider.getReferenceSnapshot();
+    if (!snapshot) return [];
 
-    for (const chain of getAllChains()) {
-      const snapshot = this.goatProvider.getSnapshot(chain.id);
-      if (!snapshot) continue;
-
-      for (const tool of snapshot.listOfTools) {
-        if (byName.has(tool.name)) continue;
-        byName.set(tool.name, {
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-        });
-      }
-    }
-
-    return [...byName.values()];
+    return snapshot.listOfTools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: normalizeInputSchema(tool.inputSchema),
+    }));
   }
 
   private getAggregatedTools(): Tool[] {

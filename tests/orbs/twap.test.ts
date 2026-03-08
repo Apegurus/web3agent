@@ -1,19 +1,18 @@
 import {
-  TimeUnit,
   buildRePermitOrderData,
   getAccountOrders,
   getConfig,
-  getDeadline,
   getSrcTokenChunkAmount,
   submitOrder,
 } from "@orbs-network/twap-sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockConfigs = vi.hoisted(() => ({}) as Record<string, Record<string, unknown>>);
+
 vi.mock("@orbs-network/twap-sdk", () => ({
-  TimeUnit: { Minutes: "Minutes" },
+  Configs: mockConfigs,
   buildRePermitOrderData: vi.fn(),
   getAccountOrders: vi.fn(),
-  getDeadline: vi.fn(),
   getSrcTokenChunkAmount: vi.fn(),
   getConfig: vi.fn(),
   submitOrder: vi.fn(),
@@ -36,6 +35,9 @@ describe("orbs/twap", () => {
     vi.resetModules();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-01-01T00:00:00.000Z"));
+    for (const key of Object.keys(mockConfigs)) {
+      delete mockConfigs[key];
+    }
   });
 
   afterEach(() => {
@@ -44,6 +46,7 @@ describe("orbs/twap", () => {
 
   it("prepareTwapOrder builds expected typed order payload", async () => {
     const config = { contract: "0xConfig" } as never;
+    mockConfigs.QuickSwapBase = { chainId: 8453, partner: "quick" };
     vi.mocked(getConfig).mockReturnValue(config);
     vi.mocked(getSrcTokenChunkAmount).mockReturnValue("200");
     vi.mocked(buildRePermitOrderData).mockReturnValue({
@@ -81,8 +84,6 @@ describe("orbs/twap", () => {
   });
 
   it("prepareTwapOrder throws when chain config is unavailable", async () => {
-    vi.mocked(getConfig).mockReturnValue(undefined);
-
     const { prepareTwapOrder } = await import("../../src/orbs/twap.js");
 
     expect(() => prepareTwapOrder(baseParams)).toThrow("No TWAP config available for chain 8453");
@@ -90,6 +91,7 @@ describe("orbs/twap", () => {
   });
 
   it("distinguishes TWAP and LIMIT params when building order", async () => {
+    mockConfigs.QuickSwapBase = { chainId: 8453, partner: "quick" };
     vi.mocked(getConfig).mockReturnValue({ chainId: 8453 } as never);
     vi.mocked(getSrcTokenChunkAmount).mockReturnValue("1000");
     vi.mocked(buildRePermitOrderData).mockReturnValue({
@@ -170,19 +172,5 @@ describe("orbs/twap", () => {
       limit: 10,
       page: 3,
     });
-  });
-
-  it("buildDeadline rounds duration to minutes", async () => {
-    vi.mocked(getDeadline).mockReturnValue(987654321);
-
-    const { buildDeadline } = await import("../../src/orbs/twap.js");
-
-    const deadline = buildDeadline(61);
-
-    expect(getDeadline).toHaveBeenCalledWith(Date.parse("2025-01-01T00:00:00.000Z"), {
-      unit: TimeUnit.Minutes,
-      value: 2,
-    });
-    expect(deadline).toBe(987654321);
   });
 });

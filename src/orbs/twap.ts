@@ -1,16 +1,13 @@
 import {
-  type Config,
+  Configs,
   type Order,
   type Partners,
   type RePermitOrder,
   type RePermitTypedData,
   type Signature,
   type SpotConfig,
-  type TimeDuration,
-  TimeUnit,
   buildRePermitOrderData,
   getAccountOrders,
-  getDeadline,
   getSrcTokenChunkAmount,
   getConfig as getTwapConfig,
   submitOrder,
@@ -18,10 +15,10 @@ import {
 
 export type { Order, RePermitOrder, Signature };
 
-const DEFAULT_PARTNER = "quick" as Partners;
-
-export function getChainConfig(chainId: number, partner?: string): SpotConfig | undefined {
-  return getTwapConfig(chainId, (partner ?? DEFAULT_PARTNER) as Partners);
+export function getChainConfig(chainId: number): SpotConfig | undefined {
+  const match = Object.values(Configs).find((c) => c.chainId === chainId);
+  if (!match) return undefined;
+  return getTwapConfig(chainId, match.partner as Partners);
 }
 
 export interface TwapOrderParams {
@@ -98,12 +95,4 @@ export async function listOrders(
     limit: options?.limit ?? 50,
     page: options?.page ?? 0,
   });
-}
-
-export function buildDeadline(durationSeconds: number): number {
-  const duration: TimeDuration = {
-    unit: TimeUnit.Minutes,
-    value: Math.ceil(durationSeconds / 60),
-  };
-  return getDeadline(Date.now(), duration);
 }

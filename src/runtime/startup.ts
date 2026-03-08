@@ -13,9 +13,11 @@ import {
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
+import { setHealthStatus } from "../tools/utility/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import { EvmAdapter } from "../upstream/evm/adapter.js";
+import { confirmationQueue } from "../wallet/confirmation.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
 import { ProxyServer } from "./server.js";
 
@@ -31,6 +33,8 @@ export async function startServer(): Promise<void> {
 
     throw error;
   }
+
+  confirmationQueue.enabled = config.confirmWrites;
 
   await initializeWallet({
     chainId: config.chainId,
@@ -106,6 +110,16 @@ export async function startServer(): Promise<void> {
     message: `Loaded ${orbsToolCount} tools`,
   };
 
+  const totalToolCount =
+    frameworkToolCount +
+    goatToolCount +
+    blockscoutToolCount +
+    evmToolCount +
+    lifiToolCount +
+    orbsToolCount;
+
+  setHealthStatus(health, totalToolCount);
+
   if (health.blockscout.status !== "ok") degradedServices.push("blockscout");
   if (health.evm.status !== "ok") degradedServices.push("evm");
 
@@ -115,13 +129,7 @@ export async function startServer(): Promise<void> {
     walletMode,
     confirmWrites: runtimeConfig.confirmWrites,
     degradedServices: [...new Set(degradedServices)],
-    totalToolCount:
-      frameworkToolCount +
-      goatToolCount +
-      blockscoutToolCount +
-      evmToolCount +
-      lifiToolCount +
-      orbsToolCount,
+    totalToolCount,
   });
 
   process.stderr.write(`${formatHealthSummary(report)}\n`);

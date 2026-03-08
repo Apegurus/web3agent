@@ -86,9 +86,7 @@ vi.mock("@modelcontextprotocol/sdk/types.js", () => ({
   CallToolRequestSchema: mockState.schemas.call,
 }));
 
-vi.mock("../../src/chains/registry.js", () => ({
-  getAllChains: vi.fn().mockReturnValue([{ id: 1 }, { id: 8453 }]),
-}));
+vi.mock("../../src/chains/registry.js", () => ({}));
 
 vi.mock("../../src/goat/dispatch.js", () => ({
   dispatchGoatTool: mockState.dispatchGoatTool,
@@ -179,21 +177,17 @@ describe("ProxyServer", () => {
 
   const goatProvider = {
     getAllToolNames: vi.fn().mockReturnValue(["goat_swap"]),
-    getSnapshot: vi.fn().mockImplementation((chainId: number) =>
-      chainId === 1
-        ? {
-            chainId,
-            listOfTools: [
-              {
-                name: "goat_swap",
-                description: "goat",
-                inputSchema: { type: "object", properties: {} },
-              },
-            ],
-            toolHandler: vi.fn(),
-          }
-        : undefined
-    ),
+    getReferenceSnapshot: vi.fn().mockReturnValue({
+      chainId: 1,
+      listOfTools: [
+        {
+          name: "goat_swap",
+          description: "goat",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      toolHandler: vi.fn(),
+    }),
   };
 
   beforeEach(() => {

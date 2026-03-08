@@ -1,6 +1,8 @@
 import { isSupported } from "../chains/registry.js";
 import type { RuntimeConfig } from "../types/config.js";
 
+export const BLOCKSCOUT_DEFAULT_URL = "https://mcp.blockscout.com/mcp";
+
 export class ValidationError extends Error {
   readonly field: string;
   readonly rawValue: string;
@@ -48,7 +50,7 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     walletAddressIndex: parseIntStrict("WALLET_ADDRESS_INDEX", env.WALLET_ADDRESS_INDEX, 0),
     rpcUrl: env.RPC_URL || undefined,
     confirmWrites: parseBoolean(env.CONFIRM_WRITES, true),
-    blockscoutMcpUrl: env.BLOCKSCOUT_MCP_URL || "https://mcp.blockscout.com/mcp",
+    blockscoutMcpUrl: env.BLOCKSCOUT_MCP_URL || BLOCKSCOUT_DEFAULT_URL,
     etherscanApiKey: env.ETHERSCAN_API_KEY || undefined,
     lifiApiKey: env.LIFI_API_KEY || undefined,
     zeroxApiKey: env.ZEROX_API_KEY || undefined,

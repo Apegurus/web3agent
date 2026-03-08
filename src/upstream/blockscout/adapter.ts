@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { BLOCKSCOUT_DEFAULT_URL } from "../../config/env.js";
 import type { BackendStatusCode } from "../../types/health.js";
 import type { AdapterHealth, PrefixedTool, UpstreamAdapter } from "../../types/upstream.js";
 
@@ -15,7 +16,7 @@ export class BlockscoutAdapter implements UpstreamAdapter {
   private health: AdapterHealth;
   private url: string;
 
-  constructor(url = "https://mcp.blockscout.com/mcp") {
+  constructor(url = BLOCKSCOUT_DEFAULT_URL) {
     this.url = url;
     this.client = new Client({ name: "web3agent", version: "0.1.0" });
     this.health = {
