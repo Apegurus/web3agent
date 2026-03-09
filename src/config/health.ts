@@ -6,6 +6,7 @@ export function createDefaultHealthStatus(): HealthStatus {
   return {
     core: "ok",
     blockscout: { name: "blockscout", status: "not_configured" },
+    etherscan: { name: "etherscan", status: "not_configured" },
     evm: { name: "evm", status: "not_configured" },
     goat: { name: "goat", status: "not_configured" },
     lifi: { name: "lifi", status: "not_configured" },

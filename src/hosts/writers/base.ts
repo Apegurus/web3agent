@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { BLOCKSCOUT_DEFAULT_URL } from "../../config/env.js";
+import { BLOCKSCOUT_DEFAULT_URL, ETHERSCAN_DEFAULT_URL } from "../../config/env.js";
 
 export type WriteMode = "proxy" | "multi-server";
 
@@ -22,7 +22,7 @@ export interface HostWriter {
   write(options: WriteOptions): Promise<WriteResult>;
 }
 
-const MANAGED_KEYS = ["web3agent", "blockscout", "evm"];
+const MANAGED_KEYS = ["web3agent", "blockscout", "etherscan", "evm"];
 
 export function proxyEntries(): Record<string, unknown> {
   return {
@@ -44,6 +44,10 @@ export function multiServerEntries(): Record<string, unknown> {
     blockscout: {
       type: "sse",
       url: BLOCKSCOUT_DEFAULT_URL,
+    },
+    etherscan: {
+      type: "sse",
+      url: ETHERSCAN_DEFAULT_URL,
     },
     evm: {
       command: "npx",

@@ -20,6 +20,7 @@ export async function serverStatus(): Promise<CallToolResult> {
     const backends = _health
       ? {
           blockscout: _health.blockscout.status,
+          etherscan: _health.etherscan.status,
           evm: _health.evm.status,
           goat: _health.goat.status,
           lifi: _health.lifi.status,
@@ -27,6 +28,7 @@ export async function serverStatus(): Promise<CallToolResult> {
         }
       : {
           blockscout: "not_initialized",
+          etherscan: "not_initialized",
           evm: "not_initialized",
           goat: "not_initialized",
           lifi: "not_initialized",

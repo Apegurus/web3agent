@@ -16,6 +16,7 @@ const mockState = vi.hoisted(() => {
     rpcUrl: undefined,
     confirmWrites: true,
     blockscoutMcpUrl: "https://mock.blockscout/mcp",
+    etherscanMcpUrl: "https://mock.etherscan/mcp",
     etherscanApiKey: undefined,
     lifiApiKey: undefined,
     zeroxApiKey: undefined,
@@ -42,6 +43,8 @@ vi.mock("../../src/config/env.js", () => ({
   ValidationError: class ValidationError extends Error {},
   parseEnv: vi.fn().mockReturnValue(mockState.config),
   getConfig: vi.fn().mockReturnValue(mockState.config),
+  BLOCKSCOUT_DEFAULT_URL: "https://mock.blockscout/mcp",
+  ETHERSCAN_DEFAULT_URL: "https://mock.etherscan/mcp",
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => ({
@@ -66,6 +69,22 @@ vi.mock("../../src/upstream/blockscout/adapter.js", () => ({
 
     getHealth() {
       return { name: "blockscout", status: "degraded", toolCount: 0 };
+    }
+  },
+}));
+
+vi.mock("../../src/upstream/etherscan/adapter.js", () => ({
+  EtherscanAdapter: class {
+    async initialize(): Promise<void> {
+      // no-op for test mock
+    }
+
+    getTools(): unknown[] {
+      return [];
+    }
+
+    getHealth() {
+      return { name: "etherscan", status: "not_configured", toolCount: 0 };
     }
   },
 }));
@@ -150,6 +169,7 @@ describe("startServer degraded mode", () => {
 
     expect(toolCountLine).toContain("framework:5");
     expect(toolCountLine).toContain("blockscout:0");
+    expect(toolCountLine).toContain("etherscan:0");
     expect(toolCountLine).toContain("evm:0");
   });
 });

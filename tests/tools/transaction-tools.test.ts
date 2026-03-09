@@ -49,7 +49,11 @@ describe("transaction_confirm tool handler", () => {
     expect(payload.error).toBe("NOT_FOUND");
   });
 
-  it("confirms a queued operation and returns details", async () => {
+  it("confirms a queued operation and executes it", async () => {
+    const executorResult = {
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({ confirmed: true, txHash: "0xabc" }) }],
+    };
     mockQueue.queue.confirm.mockReturnValueOnce({
       operation: {
         id: "op-1",
@@ -58,6 +62,7 @@ describe("transaction_confirm tool handler", () => {
         params: { amount: "1" },
         createdAt: new Date(),
         ttlMs: 30 * 60 * 1000,
+        executor: vi.fn().mockResolvedValue(executorResult),
       },
       stale: false,
     });
@@ -68,12 +73,10 @@ describe("transaction_confirm tool handler", () => {
     expect(result.isError).toBe(false);
     const payload = JSON.parse(result.content[0].text as string);
     expect(payload.confirmed).toBe(true);
-    expect(payload.stale).toBe(false);
-    expect(payload.operation.type).toBe("swap");
-    expect(payload.operation.params.amount).toBe("1");
+    expect(payload.txHash).toBe("0xabc");
   });
 
-  it("includes stale warning when operation exceeds TTL", async () => {
+  it("returns OPERATION_EXPIRED error when operation exceeds TTL", async () => {
     mockQueue.queue.confirm.mockReturnValueOnce({
       operation: {
         id: "op-2",
@@ -82,6 +85,7 @@ describe("transaction_confirm tool handler", () => {
         params: {},
         createdAt: new Date(Date.now() - 31 * 60 * 1000),
         ttlMs: 30 * 60 * 1000,
+        executor: vi.fn(),
       },
       stale: true,
     });
@@ -89,10 +93,9 @@ describe("transaction_confirm tool handler", () => {
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "op-2" });
 
-    expect(result.isError).toBe(false);
+    expect(result.isError).toBe(true);
     const payload = JSON.parse(result.content[0].text as string);
-    expect(payload.stale).toBe(true);
-    expect(payload.warning).toBeDefined();
+    expect(payload.error).toBe("OPERATION_EXPIRED");
   });
 });
 

@@ -16,6 +16,7 @@ import {
 import { setHealthStatus } from "../tools/utility/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
+import { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import { EvmAdapter } from "../upstream/evm/adapter.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
@@ -43,6 +44,7 @@ export async function startServer(): Promise<void> {
   });
 
   const blockscoutAdapter = new BlockscoutAdapter(config.blockscoutMcpUrl);
+  const etherscanAdapter = new EtherscanAdapter(config.etherscanMcpUrl, config.etherscanApiKey);
   const evmAdapter = new EvmAdapter();
   const health = createDefaultHealthStatus();
   const degradedServices: string[] = [];
@@ -55,6 +57,16 @@ export async function startServer(): Promise<void> {
     health.blockscout.message = message;
     degradedServices.push("blockscout");
     process.stderr.write(`[web3agent] Blockscout degraded: ${message}\n`);
+  }
+
+  try {
+    await etherscanAdapter.initialize();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown initialization error";
+    health.etherscan.status = "degraded";
+    health.etherscan.message = message;
+    degradedServices.push("etherscan");
+    process.stderr.write(`[web3agent] Etherscan degraded: ${message}\n`);
   }
 
   try {
@@ -75,12 +87,13 @@ export async function startServer(): Promise<void> {
 
   initializeLifi(config.lifiApiKey);
 
-  const server = new ProxyServer(blockscoutAdapter, evmAdapter, goatProvider);
+  const server = new ProxyServer(blockscoutAdapter, etherscanAdapter, evmAdapter, goatProvider);
 
   const runtimeConfig = getConfig();
   const walletMode = getWalletState().mode;
   const goatToolCount = goatProvider.getAllToolNames().length;
   const blockscoutToolCount = blockscoutAdapter.getTools().length;
+  const etherscanToolCount = etherscanAdapter.getTools().length;
   const evmToolCount = evmAdapter.getTools().length;
   const lifiToolCount = getLifiToolDefinitions().length;
   const orbsToolCount = getOrbsToolDefinitions().length;
@@ -90,6 +103,7 @@ export async function startServer(): Promise<void> {
     getUtilityToolDefinitions().length;
 
   health.blockscout = blockscoutAdapter.getHealth();
+  health.etherscan = etherscanAdapter.getHealth();
   health.evm = evmAdapter.getHealth();
   health.goat = {
     name: "goat",
@@ -114,6 +128,7 @@ export async function startServer(): Promise<void> {
     frameworkToolCount +
     goatToolCount +
     blockscoutToolCount +
+    etherscanToolCount +
     evmToolCount +
     lifiToolCount +
     orbsToolCount;
@@ -121,6 +136,8 @@ export async function startServer(): Promise<void> {
   setHealthStatus(health, totalToolCount);
 
   if (health.blockscout.status !== "ok") degradedServices.push("blockscout");
+  if (health.etherscan.status !== "ok" && health.etherscan.status !== "not_configured")
+    degradedServices.push("etherscan");
   if (health.evm.status !== "ok") degradedServices.push("evm");
 
   const report = createStartupReport({
@@ -134,7 +151,7 @@ export async function startServer(): Promise<void> {
 
   process.stderr.write(`${formatHealthSummary(report)}\n`);
   process.stderr.write(
-    `[web3agent] Tool counts => framework:${frameworkToolCount}, goat:${goatToolCount}, blockscout:${blockscoutToolCount}, evm:${evmToolCount}, lifi:${lifiToolCount}, orbs:${orbsToolCount}\n`
+    `[web3agent] Tool counts => framework:${frameworkToolCount}, goat:${goatToolCount}, blockscout:${blockscoutToolCount}, etherscan:${etherscanToolCount}, evm:${evmToolCount}, lifi:${lifiToolCount}, orbs:${orbsToolCount}\n`
   );
 
   await server.start();

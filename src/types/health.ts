@@ -10,6 +10,7 @@ export interface BackendStatus {
 export interface HealthStatus {
   core: BackendStatusCode;
   blockscout: BackendStatus;
+  etherscan: BackendStatus;
   evm: BackendStatus;
   goat: BackendStatus;
   lifi: BackendStatus;

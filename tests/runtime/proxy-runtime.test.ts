@@ -147,6 +147,7 @@ vi.mock("../../src/wallet/events.js", () => ({
 
 describe("ProxyServer", () => {
   const blockscoutCallTool = vi.fn();
+  const etherscanCallTool = vi.fn();
   const evmCallTool = vi.fn();
 
   const blockscoutAdapter = {
@@ -160,6 +161,19 @@ describe("ProxyServer", () => {
       },
     ]),
     callTool: blockscoutCallTool,
+  };
+
+  const etherscanAdapter = {
+    getTools: vi.fn().mockReturnValue([
+      {
+        name: "etherscan_get_address_balance",
+        description: "etherscan",
+        inputSchema: { type: "object", properties: {} },
+        upstreamName: "get_address_balance",
+        prefix: "etherscan",
+      },
+    ]),
+    callTool: etherscanCallTool,
   };
 
   const evmAdapter = {
@@ -193,6 +207,7 @@ describe("ProxyServer", () => {
   beforeEach(() => {
     mockState.serverInstances.length = 0;
     blockscoutCallTool.mockReset();
+    etherscanCallTool.mockReset();
     evmCallTool.mockReset();
     mockState.dispatchGoatTool.mockReset();
     mockState.lifiHandler.mockReset();
@@ -203,8 +218,16 @@ describe("ProxyServer", () => {
   });
 
   function setup() {
-    // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
-    new ProxyServer(blockscoutAdapter as any, evmAdapter as any, goatProvider as any);
+    new ProxyServer(
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      blockscoutAdapter as any,
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      etherscanAdapter as any,
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      evmAdapter as any,
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      goatProvider as any
+    );
     const instance = mockState.serverInstances.at(-1);
     if (!instance) throw new Error("Missing server instance");
     const listHandler = instance.handlers.get(mockState.schemas.list);
@@ -226,6 +249,7 @@ describe("ProxyServer", () => {
       "server_status",
       "goat_swap",
       "blockscout_get_address",
+      "etherscan_get_address_balance",
       "evm_get_balance",
       "lifi_get_quote",
       "orbs_get_quote",
@@ -242,6 +266,19 @@ describe("ProxyServer", () => {
 
     expect(blockscoutCallTool).toHaveBeenCalledWith("blockscout_get_address", {
       address: "0x1",
+    });
+  });
+
+  it("routes etherscan tools to etherscan adapter", async () => {
+    const { callHandler } = setup();
+    etherscanCallTool.mockResolvedValue({ isError: false, content: [] });
+
+    await callHandler({
+      params: { name: "etherscan_get_address_balance", arguments: { address: "0x3" } },
+    });
+
+    expect(etherscanCallTool).toHaveBeenCalledWith("etherscan_get_address_balance", {
+      address: "0x3",
     });
   });
 

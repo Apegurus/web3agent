@@ -18,10 +18,10 @@ if (!("localStorage" in globalThis)) {
 
 import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
-import { http, type Account, type Hex, createPublicClient, maxUint256 } from "viem";
+import { type Account, type Hex, createPublicClient, maxUint256 } from "viem";
 import { getChainById } from "../chains/registry.js";
 import { getConfig } from "../config/env.js";
-import { createWalletClientForChain } from "../config/wallet-factory.js";
+import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
 
 export type { Quote };
 
@@ -365,7 +365,7 @@ export async function prepareSwap(params: {
   const chain = getChainById(chainId);
   if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
 
-  const publicClient = createPublicClient({ chain, transport: http() });
+  const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
   let fromToken: Hex = params.fromToken as Hex;
 
   if (isNativeToken(params.fromToken)) {

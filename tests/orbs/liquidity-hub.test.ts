@@ -80,8 +80,8 @@ describe("orbs/liquidity-hub", () => {
     expect(baseFirst).toBe(baseSecond);
     expect(baseFirst).not.toBe(polygon);
     expect(constructSDK).toHaveBeenCalledTimes(2);
-    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "web3agent", chainId: 8453 });
-    expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "web3agent", chainId: 137 });
+    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "intentx", chainId: 8453 });
+    expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "quickswap", chainId: 137 });
   });
 
   it("getQuote surfaces network failures", async () => {

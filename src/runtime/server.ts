@@ -13,6 +13,7 @@ import {
   getWalletToolDefinitions,
 } from "../tools/register.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
+import type { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import type { EvmAdapter } from "../upstream/evm/adapter.js";
 import { formatToolError } from "../utils/errors.js";
 import { walletEvents } from "../wallet/events.js";
@@ -40,6 +41,7 @@ export class ProxyServer {
 
   constructor(
     private readonly blockscoutAdapter: BlockscoutAdapter,
+    private readonly etherscanAdapter: EtherscanAdapter,
     private readonly evmAdapter: EvmAdapter,
     private readonly goatProvider: GoatProvider
   ) {
@@ -71,6 +73,10 @@ export class ProxyServer {
 
       if (name.startsWith("blockscout_")) {
         return (await this.blockscoutAdapter.callTool(name, args)) as CallToolResult;
+      }
+
+      if (name.startsWith("etherscan_")) {
+        return (await this.etherscanAdapter.callTool(name, args)) as CallToolResult;
       }
 
       if (name.startsWith("evm_")) {
@@ -140,6 +146,7 @@ export class ProxyServer {
       })),
       ...this.getGoatTools(),
       ...this.blockscoutAdapter.getTools(),
+      ...this.etherscanAdapter.getTools(),
       ...this.evmAdapter.getTools(),
       ...this.lifiTools.map((tool) => ({
         name: tool.name,
