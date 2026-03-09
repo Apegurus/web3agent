@@ -207,17 +207,14 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
     }
 
-    return formatToolResponse({
-      confirmed: true,
-      stale: result.stale,
-      operation: {
-        id: result.operation.id,
-        type: result.operation.type,
-        description: result.operation.description,
-        params: result.operation.params,
-      },
-      warning: result.stale ? "Operation was confirmed after TTL expiry." : undefined,
-    });
+    if (result.stale) {
+      return formatToolError(
+        "OPERATION_EXPIRED",
+        `Operation ${id} was confirmed after TTL expiry and will not be executed.`
+      );
+    }
+
+    return result.operation.executor(result.operation.params);
   } catch (err: unknown) {
     return formatToolError("CONFIRM_FAILED", err instanceof Error ? err.message : "Unknown error");
   }

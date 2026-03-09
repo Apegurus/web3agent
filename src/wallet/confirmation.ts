@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PendingOperation } from "../types/wallet.js";
+import type { OperationExecutor, PendingOperation } from "../types/wallet.js";
 
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
@@ -14,7 +14,8 @@ export class ConfirmationQueueManager {
   enqueue(
     type: string,
     description: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
+    executor: OperationExecutor
   ): { queued: boolean; id: string | null; summary: string } {
     if (!this.enabled) {
       return {
@@ -30,6 +31,7 @@ export class ConfirmationQueueManager {
       type,
       description,
       params,
+      executor,
       createdAt: new Date(),
       ttlMs: THIRTY_MINUTES_MS,
     };

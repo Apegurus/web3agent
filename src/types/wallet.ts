@@ -8,11 +8,16 @@ export interface WalletState {
   addressIndex: number;
 }
 
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+
+export type OperationExecutor = (params: Record<string, unknown>) => Promise<CallToolResult>;
+
 export interface PendingOperation {
   id: string;
   type: string;
   description: string;
   params: Record<string, unknown>;
+  executor: OperationExecutor;
   createdAt: Date;
   ttlMs: number;
 }
