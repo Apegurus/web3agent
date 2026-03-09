@@ -55,6 +55,7 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     lifiApiKey: env.LIFI_API_KEY || undefined,
     zeroxApiKey: env.ZEROX_API_KEY || undefined,
     coingeckoApiKey: env.COINGECKO_API_KEY || undefined,
+    orbsPartner: env.ORBS_PARTNER || undefined,
   };
 }
 

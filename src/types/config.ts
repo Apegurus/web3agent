@@ -11,4 +11,5 @@ export interface RuntimeConfig {
   lifiApiKey?: string;
   zeroxApiKey?: string;
   coingeckoApiKey?: string;
+  orbsPartner?: string;
 }
