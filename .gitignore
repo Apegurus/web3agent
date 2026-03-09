@@ -3,5 +3,6 @@ dist/
 .env
 .env.*
 coverage/
-.sisyphus/evidence/
+.argus/
+.sisyphus/
 *.tgz
