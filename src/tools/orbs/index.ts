@@ -7,6 +7,15 @@ import {
   isTwapSupported,
 } from "../../orbs/chains.js";
 import { getDsltpToolDefinitions } from "../../orbs/dsltp.js";
+import {
+  getQuote,
+  getSdk,
+  normalizeEip712ForSigning,
+  pollSwapStatus,
+  prepareSwap,
+  submitSwap,
+} from "../../orbs/liquidity-hub.js";
+import { listOrders, prepareTwapOrder, submitSignedOrder } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { splitSignature } from "../../utils/signature.js";
@@ -21,7 +30,6 @@ async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolRe
   }
 
   try {
-    const { getQuote } = await import("../../orbs/liquidity-hub.js");
     const result = await getQuote(chainId, {
       fromToken: params.fromToken as string,
       toToken: params.toToken as string,
@@ -32,6 +40,152 @@ async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     return formatToolResponse(result);
   } catch (e: unknown) {
     return formatToolError("ORBS_QUOTE_ERROR", String(e));
+  }
+}
+
+async function executeOrbsSwapNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = Number(params.chainId ?? getConfig().chainId);
+
+  try {
+    const account = getActiveAccount();
+
+    const { fromToken } = await prepareSwap({
+      chainId,
+      fromToken: params.fromToken as string,
+      inAmount: params.inAmount as string,
+      account,
+    });
+
+    const sdk = getSdk(chainId);
+    const slippage = (params.slippage as number) ?? 0.5;
+    const toToken = params.toToken as string;
+    const inAmount = params.inAmount as string;
+
+    const quote = await sdk.getQuote({
+      fromToken,
+      toToken,
+      inAmount,
+      slippage,
+      dexMinAmountOut: "-1",
+      account: account.address,
+    });
+
+    if (quote.error) {
+      return formatToolError("ORBS_QUOTE_ERROR", quote.error);
+    }
+
+    if (!account.signTypedData) {
+      return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
+    }
+
+    const rawPrimaryType = quote.eip712?.primaryType ?? "PermitWitnessTransferFrom";
+    const rawMessage = quote.eip712?.message ?? quote.permitData;
+
+    const {
+      domain: eip712Domain,
+      types: eip712Types,
+      primaryType: eip712PrimaryType,
+      message: eip712Message,
+    } = normalizeEip712ForSigning(
+      quote.eip712?.domain,
+      quote.eip712?.types,
+      rawPrimaryType,
+      rawMessage
+    );
+
+    process.stderr.write(
+      `[orbs] EIP-712 primaryType: ${eip712PrimaryType}, types keys: ${Object.keys(eip712Types).join(", ")}\n`
+    );
+
+    const signature = await account.signTypedData({
+      domain: eip712Domain,
+      types: eip712Types,
+      primaryType: eip712PrimaryType,
+      message: eip712Message,
+    });
+
+    process.stderr.write("[orbs] Attempting swap via SDK swap() method...\n");
+    let txHash: string | undefined;
+    try {
+      txHash = await sdk.swap(quote, signature);
+      process.stderr.write(`[orbs] SDK swap() returned txHash: ${txHash}\n`);
+    } catch (sdkSwapErr: unknown) {
+      process.stderr.write(`[orbs] SDK swap() error: ${sdkSwapErr}\n`);
+    }
+
+    if (txHash) {
+      return formatToolResponse({
+        txHash,
+        status: "completed",
+        quote: { outAmount: quote.outAmount, minAmountOut: quote.minAmountOut },
+      });
+    }
+
+    process.stderr.write(
+      "[orbs] SDK swap() did not return txHash, falling back to direct API...\n"
+    );
+    const submission = await submitSwap({ chainId, quote, signature });
+
+    if (submission.status === "failed") {
+      return formatToolError("ORBS_SWAP_ERROR", submission.error ?? "Swap submission failed");
+    }
+
+    if (submission.status === "completed") {
+      return formatToolResponse({
+        txHash: submission.txHash,
+        status: "completed",
+        quote: { outAmount: quote.outAmount, minAmountOut: quote.minAmountOut },
+      });
+    }
+
+    const result = await pollSwapStatus({
+      chainId,
+      sessionId: submission.sessionId,
+      user: quote.user,
+      maxAttempts: 15,
+    });
+
+    if (result.status === "completed") {
+      return formatToolResponse({
+        txHash: result.txHash,
+        status: "completed",
+        quote: { outAmount: quote.outAmount, minAmountOut: quote.minAmountOut },
+      });
+    }
+
+    return formatToolResponse({
+      status: "pending",
+      sessionId: submission.sessionId,
+      chainId,
+      user: quote.user,
+      message: "Swap submitted but not yet filled. Use orbs_swap_status to check.",
+      quote: { outAmount: quote.outAmount, minAmountOut: quote.minAmountOut },
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_SWAP_ERROR", String(e));
+  }
+}
+
+async function orbsSwapStatus(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = Number(params.chainId ?? getConfig().chainId);
+  const sessionId = params.sessionId as string;
+  const user = params.user as string;
+
+  if (!sessionId || !user) {
+    return formatToolError("INVALID_PARAMS", "sessionId and user are required");
+  }
+
+  try {
+    const result = await pollSwapStatus({
+      chainId,
+      sessionId,
+      user,
+      maxAttempts: Number(params.maxAttempts ?? 15),
+    });
+
+    return formatToolResponse(result);
+  } catch (e: unknown) {
+    return formatToolError("ORBS_STATUS_ERROR", String(e));
   }
 }
 
@@ -51,79 +205,29 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
   }
 
   const description = `Orbs Liquidity Hub swap: ${params.inAmount} of ${params.fromToken} → ${params.toToken} on chain ${chainId}`;
-  const { queued, id, summary } = confirmationQueue.enqueue("orbs_swap", description, {
-    ...params,
-    chainId,
-  });
+  const { queued, id, summary } = confirmationQueue.enqueue(
+    "orbs_swap",
+    description,
+    {
+      ...params,
+      chainId,
+    },
+    executeOrbsSwapNow
+  );
 
   if (queued) {
     return formatToolResponse({ status: "pending_confirmation", id, summary });
   }
 
-  try {
-    const { getSdk } = await import("../../orbs/liquidity-hub.js");
-    const sdk = getSdk(chainId);
-    const account = getActiveAccount();
-
-    const quote = await sdk.getQuote({
-      fromToken: params.fromToken as string,
-      toToken: params.toToken as string,
-      inAmount: params.inAmount as string,
-      slippage: (params.slippage as number) ?? 0.5,
-      account: account.address,
-    });
-
-    if (quote.error) {
-      return formatToolError("ORBS_QUOTE_ERROR", quote.error);
-    }
-
-    if (!account.signTypedData) {
-      return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
-    }
-    const signature = await account.signTypedData({
-      domain: quote.eip712?.domain,
-      types: quote.eip712?.types,
-      primaryType: quote.eip712?.primaryType ?? "PermitWitnessTransferFrom",
-      message: quote.eip712?.message ?? quote.permitData,
-    });
-
-    const txHash = await sdk.swap(quote, signature);
-    return formatToolResponse({
-      txHash,
-      quote: { outAmount: quote.outAmount, minAmountOut: quote.minAmountOut },
-    });
-  } catch (e: unknown) {
-    return formatToolError("ORBS_SWAP_ERROR", String(e));
-  }
+  return executeOrbsSwapNow(params);
 }
 
-async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
+async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = Number(params.chainId ?? getConfig().chainId);
-
-  if (!(isTwapSupported(chainId))) {
-    return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
-  }
-
-  const walletState = getWalletState();
-  if (walletState.mode === "read-only") {
-    return formatToolError("WALLET_READ_ONLY", "orbs_place_twap requires an active wallet.");
-  }
-
   const chunks = Number(params.chunks ?? 5);
   const fillDelay = Number(params.fillDelay ?? 300);
-  const description = `dTWAP order: ${params.srcAmount} of ${params.srcToken} → ${params.dstToken}, ${chunks} chunks, ${fillDelay}s delay on chain ${chainId}`;
-
-  const { queued, id, summary } = confirmationQueue.enqueue("orbs_place_twap", description, {
-    ...params,
-    chainId,
-  });
-
-  if (queued) {
-    return formatToolResponse({ status: "pending_confirmation", id, summary });
-  }
 
   try {
-    const { prepareTwapOrder, submitSignedOrder } = await import("../../orbs/twap.js");
     const account = getActiveAccount();
 
     const durationSeconds = chunks * fillDelay * 2;
@@ -161,30 +265,43 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
   }
 }
 
-async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
+async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = Number(params.chainId ?? getConfig().chainId);
 
-  if (!(isTwapSupported(chainId))) {
+  if (!isTwapSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
   }
 
   const walletState = getWalletState();
   if (walletState.mode === "read-only") {
-    return formatToolError("WALLET_READ_ONLY", "orbs_place_limit requires an active wallet.");
+    return formatToolError("WALLET_READ_ONLY", "orbs_place_twap requires an active wallet.");
   }
 
-  const description = `dLIMIT order: ${params.srcAmount} of ${params.srcToken} → ${params.dstToken}, min output ${params.dstMinAmount} on chain ${chainId}`;
-  const { queued, id, summary } = confirmationQueue.enqueue("orbs_place_limit", description, {
-    ...params,
-    chainId,
-  });
+  const chunks = Number(params.chunks ?? 5);
+  const fillDelay = Number(params.fillDelay ?? 300);
+  const description = `dTWAP order: ${params.srcAmount} of ${params.srcToken} → ${params.dstToken}, ${chunks} chunks, ${fillDelay}s delay on chain ${chainId}`;
+
+  const { queued, id, summary } = confirmationQueue.enqueue(
+    "orbs_place_twap",
+    description,
+    {
+      ...params,
+      chainId,
+    },
+    executeOrbsTwapNow
+  );
 
   if (queued) {
     return formatToolResponse({ status: "pending_confirmation", id, summary });
   }
 
+  return executeOrbsTwapNow(params);
+}
+
+async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = Number(params.chainId ?? getConfig().chainId);
+
   try {
-    const { prepareTwapOrder, submitSignedOrder } = await import("../../orbs/twap.js");
     const account = getActiveAccount();
 
     const expirySeconds = Number(params.expiry ?? 86400);
@@ -223,10 +340,40 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
   }
 }
 
+async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = Number(params.chainId ?? getConfig().chainId);
+
+  if (!isTwapSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
+  }
+
+  const walletState = getWalletState();
+  if (walletState.mode === "read-only") {
+    return formatToolError("WALLET_READ_ONLY", "orbs_place_limit requires an active wallet.");
+  }
+
+  const description = `dLIMIT order: ${params.srcAmount} of ${params.srcToken} → ${params.dstToken}, min output ${params.dstMinAmount} on chain ${chainId}`;
+  const { queued, id, summary } = confirmationQueue.enqueue(
+    "orbs_place_limit",
+    description,
+    {
+      ...params,
+      chainId,
+    },
+    executeOrbsLimitNow
+  );
+
+  if (queued) {
+    return formatToolResponse({ status: "pending_confirmation", id, summary });
+  }
+
+  return executeOrbsLimitNow(params);
+}
+
 async function orbsListOrders(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = Number(params.chainId ?? getConfig().chainId);
 
-  if (!(isTwapSupported(chainId))) {
+  if (!isTwapSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
   }
 
@@ -239,7 +386,6 @@ async function orbsListOrders(params: Record<string, unknown>): Promise<CallTool
   }
 
   try {
-    const { listOrders } = await import("../../orbs/twap.js");
     const orders = await listOrders(chainId, walletState.address);
 
     return formatToolResponse({
@@ -354,6 +500,30 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "srcToken", "dstToken", "srcAmount", "dstMinAmount"],
       },
       handler: orbsPlaceLimit,
+    },
+    {
+      name: "orbs_swap_status",
+      description: "Check the status of a pending Orbs Liquidity Hub swap",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chainId: { type: "number", description: "Chain ID" },
+          sessionId: {
+            type: "string",
+            description: "Session ID from orbs_swap response",
+          },
+          user: {
+            type: "string",
+            description: "User wallet address",
+          },
+          maxAttempts: {
+            type: "number",
+            description: "Max poll attempts (default 15, 2s each = 30s)",
+          },
+        },
+        required: ["chainId", "sessionId", "user"],
+      },
+      handler: orbsSwapStatus,
     },
     {
       name: "orbs_list_orders",
