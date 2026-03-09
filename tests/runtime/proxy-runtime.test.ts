@@ -90,6 +90,10 @@ vi.mock("../../src/chains/registry.js", () => ({}));
 
 vi.mock("../../src/goat/dispatch.js", () => ({
   dispatchGoatTool: mockState.dispatchGoatTool,
+  RESTRICTED_PLUGIN_CHAINS: {
+    uniswap: [1, 137, 43114, 8453, 10, 42161, 42220],
+    balancer: [34443, 8453, 137, 100, 42161, 43114, 10],
+  },
 }));
 
 vi.mock("../../src/tools/register.js", () => ({
@@ -137,6 +141,23 @@ vi.mock("../../src/tools/orbs/index.js", () => ({
       description: "orbs",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.orbsHandler,
+    },
+  ]),
+}));
+
+vi.mock("../../src/tools/tokens/index.js", () => ({
+  getTokenToolDefinitions: vi.fn().mockReturnValue([
+    {
+      name: "resolve_token",
+      description: "resolve_token",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn(),
+    },
+    {
+      name: "list_chain_tokens",
+      description: "list_chain_tokens",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn(),
     },
   ]),
 }));
@@ -253,6 +274,8 @@ describe("ProxyServer", () => {
       "evm_get_balance",
       "lifi_get_quote",
       "orbs_get_quote",
+      "resolve_token",
+      "list_chain_tokens",
     ]);
   });
 

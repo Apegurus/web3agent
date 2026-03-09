@@ -410,7 +410,9 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     {
       name: "orbs_get_quote",
-      description: "Get a quote from Orbs Liquidity Hub for same-chain aggregated swap",
+      description:
+        "Get a quote from Orbs Liquidity Hub for same-chain aggregated swap. " +
+        "Requires token addresses — use resolve_token first to get addresses.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -438,7 +440,10 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "orbs_swap",
-      description: "Execute a same-chain swap via Orbs Liquidity Hub (write, confirmation-gated)",
+      description:
+        "Execute a same-chain swap via Orbs Liquidity Hub (write, confirmation-gated). " +
+        "Supported chains: 137 (Polygon), 56 (BSC), 8453 (Base), 59144 (Linea), 81457 (Blast), 42161 (Arbitrum). " +
+        "Requires token addresses — use resolve_token first.",
       inputSchema: {
         type: "object" as const,
         properties: {

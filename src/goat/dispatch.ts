@@ -4,7 +4,7 @@ import { getConfig } from "../config/env.js";
 import { formatToolError } from "../utils/errors.js";
 import { goatProvider } from "./provider.js";
 
-const RESTRICTED_PLUGIN_CHAINS: Record<string, number[]> = {
+export const RESTRICTED_PLUGIN_CHAINS: Record<string, number[]> = {
   uniswap: [1, 137, 43114, 8453, 10, 42161, 42220],
   balancer: [34443, 8453, 137, 100, 42161, 43114, 10],
 };

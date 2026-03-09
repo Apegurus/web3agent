@@ -151,7 +151,10 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "lifi_get_quote",
-      description: "Get a cross-chain bridge/swap quote from LI.FI",
+      description:
+        "Get a cross-chain bridge/swap quote from LI.FI. " +
+        "Supports 20+ EVM chains including Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Linea, Avalanche, zkSync, Scroll, Gnosis, and more. " +
+        "Requires token addresses — use resolve_token first to get addresses.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -183,7 +186,8 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
     {
       name: "lifi_execute_bridge",
       description:
-        "Execute a cross-chain bridge (write operation, requires wallet and confirmation)",
+        "Execute a cross-chain bridge (write operation, requires wallet and confirmation). " +
+        "Requires token addresses — use resolve_token first to get addresses.",
       inputSchema: {
         type: "object" as const,
         properties: {

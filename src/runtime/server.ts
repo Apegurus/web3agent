@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { dispatchGoatTool } from "../goat/dispatch.js";
+import { RESTRICTED_PLUGIN_CHAINS, dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
@@ -12,6 +12,7 @@ import {
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
+import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import type { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import type { EvmAdapter } from "../upstream/evm/adapter.js";
@@ -36,6 +37,7 @@ export class ProxyServer {
   private readonly frameworkTools: ToolDefinition[];
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
+  private readonly tokenTools: ToolDefinition[];
   private readonly goatToolNames: Set<string>;
   private walletChangeHandler?: () => void;
 
@@ -56,6 +58,7 @@ export class ProxyServer {
     ];
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
+    this.tokenTools = getTokenToolDefinitions();
     this.goatToolNames = new Set(this.goatProvider.getAllToolNames());
 
     this.registerHandlers();
@@ -81,6 +84,11 @@ export class ProxyServer {
 
       if (name.startsWith("evm_")) {
         return (await this.evmAdapter.callTool(name, args)) as CallToolResult;
+      }
+
+      const tokenTool = this.tokenTools.find((entry) => entry.name === name);
+      if (tokenTool) {
+        return tokenTool.handler(args);
       }
 
       if (this.goatToolNames.has(name)) {
@@ -129,9 +137,19 @@ export class ProxyServer {
         description:
           "Optional EVM chain ID to run this tool on (e.g. 1 for Ethereum, 8453 for Base, 9745 for Plasma). Defaults to the active wallet chain.",
       };
+
+      let description = tool.description;
+      const lowerName = tool.name.toLowerCase();
+      for (const [plugin, chains] of Object.entries(RESTRICTED_PLUGIN_CHAINS)) {
+        if (lowerName.startsWith(plugin)) {
+          description += ` Only available on chains: ${chains.join(", ")}.`;
+          break;
+        }
+      }
+
       return {
         name: tool.name,
-        description: tool.description,
+        description,
         inputSchema: { ...schema, properties },
       };
     });
@@ -154,6 +172,11 @@ export class ProxyServer {
         inputSchema: normalizeInputSchema(tool.inputSchema),
       })),
       ...this.orbsTools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: normalizeInputSchema(tool.inputSchema),
+      })),
+      ...this.tokenTools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: normalizeInputSchema(tool.inputSchema),

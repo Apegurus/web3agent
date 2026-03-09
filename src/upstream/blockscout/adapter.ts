@@ -8,6 +8,12 @@ import type { AdapterHealth, PrefixedTool, UpstreamAdapter } from "../../types/u
 const BOOTSTRAP_TOOL = "__unlock_blockchain_analysis__";
 const PREFIX = "blockscout";
 
+const CHAIN_SUPPORT_NOTE =
+  " NOTE: Blockscout hosted instances do NOT support all chains. " +
+  "Supported: Ethereum (1), Polygon (137), Arbitrum (42161), Optimism (10), Base (8453), Gnosis (100), Scroll (534352), zkSync Era (324). " +
+  "NOT supported: BSC (56), Linea (59144), Avalanche (43114), Blast (81457), Mantle (5000), Mode (34443). " +
+  "For token lookups, prefer resolve_token tool instead.";
+
 export class BlockscoutAdapter implements UpstreamAdapter {
   public readonly name = "blockscout";
   private client: Client;
@@ -66,6 +72,7 @@ export class BlockscoutAdapter implements UpstreamAdapter {
         return {
           ...t,
           name: prefixedName,
+          description: (t.description ?? "") + CHAIN_SUPPORT_NOTE,
           upstreamName: t.name,
           prefix: PREFIX,
         } as PrefixedTool;

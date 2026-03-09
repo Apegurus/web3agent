@@ -1,0 +1,145 @@
+import { getChainById } from "../chains/registry.js";
+import { type TokenEntry, getChainTokens, lookupToken } from "./registry.js";
+
+export interface ResolvedToken extends TokenEntry {
+  chainId: number;
+  source: "registry" | "dexscreener";
+}
+
+export async function resolveToken(symbol: string, chainId: number): Promise<ResolvedToken | null> {
+  const entry = lookupToken(symbol, chainId);
+  if (entry) {
+    return { ...entry, chainId, source: "registry" };
+  }
+
+  return resolveViaDexScreener(symbol, chainId);
+}
+
+export function resolveTokenSync(symbol: string, chainId: number): ResolvedToken | null {
+  const entry = lookupToken(symbol, chainId);
+  if (!entry) return null;
+  return { ...entry, chainId, source: "registry" };
+}
+
+export function listTokens(chainId: number): TokenEntry[] {
+  const tokens = getChainTokens(chainId);
+  if (!tokens) return [];
+  return Object.values(tokens);
+}
+
+const DEXSCREENER_CHAIN_SLUGS: Record<number, string> = {
+  1: "ethereum",
+  56: "bsc",
+  137: "polygon",
+  42161: "arbitrum",
+  10: "optimism",
+  8453: "base",
+  59144: "linea",
+  43114: "avalanche",
+  81457: "blast",
+  324: "zksync",
+  534352: "scroll",
+  100: "gnosis",
+  42220: "celo",
+  5000: "mantle",
+  34443: "mode",
+};
+
+async function resolveViaDexScreener(
+  symbol: string,
+  chainId: number
+): Promise<ResolvedToken | null> {
+  const chainSlug = DEXSCREENER_CHAIN_SLUGS[chainId];
+  if (!chainSlug) return null;
+
+  try {
+    const response = await fetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`
+    );
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      pairs?: Array<{
+        chainId: string;
+        baseToken: { address: string; name: string; symbol: string };
+        quoteToken: { address: string; name: string; symbol: string };
+        liquidity?: { usd?: number };
+      }>;
+    };
+
+    if (!data.pairs?.length) return null;
+
+    const upperSymbol = symbol.toUpperCase();
+    const candidates = data.pairs
+      .filter((p) => p.chainId === chainSlug)
+      .flatMap((p) => {
+        const matches: Array<{
+          address: string;
+          name: string;
+          symbol: string;
+          liquidity: number;
+        }> = [];
+        if (p.baseToken.symbol.toUpperCase() === upperSymbol) {
+          matches.push({ ...p.baseToken, liquidity: p.liquidity?.usd ?? 0 });
+        }
+        if (p.quoteToken.symbol.toUpperCase() === upperSymbol) {
+          matches.push({ ...p.quoteToken, liquidity: p.liquidity?.usd ?? 0 });
+        }
+        return matches;
+      });
+
+    if (!candidates.length) return null;
+
+    candidates.sort((a, b) => b.liquidity - a.liquidity);
+    const best = candidates[0];
+
+    const chain = getChainById(chainId);
+    const decimals = await fetchDecimals(best.address, chainId, chain);
+
+    return {
+      address: best.address,
+      decimals,
+      name: best.name,
+      symbol: best.symbol,
+      chainId,
+      source: "dexscreener",
+    };
+  } catch (e: unknown) {
+    process.stderr.write(`[tokens] DexScreener fallback failed: ${e}\n`);
+    return null;
+  }
+}
+
+async function fetchDecimals(
+  tokenAddress: string,
+  _chainId: number,
+  chain?: { rpcUrls?: { default?: { http?: readonly string[] } } }
+): Promise<number> {
+  const rpcUrl = chain?.rpcUrls?.default?.http?.[0];
+  if (!rpcUrl) return 18;
+
+  try {
+    const response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_call",
+        params: [{ to: tokenAddress, data: "0x313ce567" }, "latest"],
+      }),
+    });
+
+    if (!response.ok) return 18;
+
+    const result = (await response.json()) as { result?: string };
+    if (result.result && result.result !== "0x") {
+      return Number.parseInt(result.result, 16);
+    }
+  } catch {
+    /* RPC decimals() call is best-effort; 18 is a safe default for most ERC-20s */
+  }
+
+  return 18;
+}
