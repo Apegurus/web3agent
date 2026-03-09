@@ -115,11 +115,20 @@ export class ProxyServer {
     const snapshot = this.goatProvider.getReferenceSnapshot();
     if (!snapshot) return [];
 
-    return snapshot.listOfTools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: normalizeInputSchema(tool.inputSchema),
-    }));
+    return snapshot.listOfTools.map((tool) => {
+      const schema = normalizeInputSchema(tool.inputSchema);
+      const properties = (schema.properties ?? {}) as Record<string, object>;
+      properties.chainId = {
+        type: "number",
+        description:
+          "Optional EVM chain ID to run this tool on (e.g. 1 for Ethereum, 8453 for Base, 9745 for Plasma). Defaults to the active wallet chain.",
+      };
+      return {
+        name: tool.name,
+        description: tool.description,
+        inputSchema: { ...schema, properties },
+      };
+    });
   }
 
   private getAggregatedTools(): Tool[] {

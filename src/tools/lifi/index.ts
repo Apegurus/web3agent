@@ -85,7 +85,8 @@ async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallT
   const enqueueResult = confirmationQueue.enqueue(
     "bridge",
     `Bridge ${fromAmount} from chain ${fromChainId} to chain ${toChainId}`,
-    params
+    params,
+    executeBridgeNow
   );
 
   if (enqueueResult.queued) {
