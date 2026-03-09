@@ -13,4 +13,5 @@ export default defineConfig({
   dts: false,
   shims: false,
   skipNodeModulesBundle: true,
+  noExternal: ["@goat-sdk/plugin-erc721"],
 });

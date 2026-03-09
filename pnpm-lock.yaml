@@ -53,6 +53,9 @@ importers:
       '@orbs-network/twap-sdk':
         specifier: ^5.0.0
         version: 5.0.125
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
       viem:
         specifier: ^2.0.0
         version: 2.47.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)

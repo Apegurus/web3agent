@@ -10,31 +10,32 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
     "@goat-sdk/adapter-model-context-protocol": "^0.2.11",
     "@goat-sdk/core": "^0.5.0",
-    "@goat-sdk/wallet-viem": "^0.2.0",
-    "@goat-sdk/plugin-uniswap": "^0.2.16",
-    "@goat-sdk/plugin-balancer": "^0.1.15",
     "@goat-sdk/plugin-0x": "^0.1.11",
-    "@goat-sdk/plugin-dexscreener": "^0.1.9",
+    "@goat-sdk/plugin-balancer": "^0.1.15",
     "@goat-sdk/plugin-coingecko": "^0.2.10",
+    "@goat-sdk/plugin-dexscreener": "^0.1.9",
+    "@goat-sdk/plugin-ens": "^0.1.4",
     "@goat-sdk/plugin-erc20": "^0.2.14",
     "@goat-sdk/plugin-erc721": "^0.1.22",
-    "@goat-sdk/plugin-ens": "^0.1.4",
+    "@goat-sdk/plugin-uniswap": "^0.2.16",
+    "@goat-sdk/wallet-viem": "^0.2.0",
     "@lifi/sdk": "^3.15.6",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@orbs-network/liquidity-hub-sdk": "^1.0.74",
     "@orbs-network/twap-sdk": "^5.0.0",
+    "reflect-metadata": "^0.2.2",
     "viem": "^2.0.0",
     "zod": "^3.25.0",
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "tsup": "^8.0.0",
     "@biomejs/biome": "^1.9.0",
-    "vitest": "^2.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
   },
   "pnpm": {
     "peerDependencyRules": {
