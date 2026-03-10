@@ -17,7 +17,10 @@ import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import type { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import type { EvmAdapter } from "../upstream/evm/adapter.js";
 import { formatToolError } from "../utils/errors.js";
+import { VERSION } from "../version.js";
 import { walletEvents } from "../wallet/events.js";
+
+type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
 
 function normalizeInputSchema(schema: Record<string, unknown> | object): {
   type: "object";
@@ -38,7 +41,8 @@ export class ProxyServer {
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
   private readonly tokenTools: ToolDefinition[];
-  private readonly goatToolNames: Set<string>;
+  private goatToolNames: Set<string>;
+  private toolDispatch = new Map<string, ToolHandler>();
   private walletChangeHandler?: () => void;
 
   constructor(
@@ -48,7 +52,7 @@ export class ProxyServer {
     private readonly goatProvider: GoatProvider
   ) {
     this.server = new Server(
-      { name: "web3agent", version: "0.1.0" },
+      { name: "web3agent", version: VERSION },
       { capabilities: { tools: {} } }
     );
     this.frameworkTools = [
@@ -61,8 +65,54 @@ export class ProxyServer {
     this.tokenTools = getTokenToolDefinitions();
     this.goatToolNames = new Set(this.goatProvider.getAllToolNames());
 
+    this.rebuildDispatchMap();
     this.registerHandlers();
     this.registerWalletChangeNotification();
+  }
+
+  private rebuildDispatchMap(): void {
+    this.toolDispatch.clear();
+
+    for (const tool of this.blockscoutAdapter.getTools()) {
+      this.toolDispatch.set(
+        tool.name,
+        (args) => this.blockscoutAdapter.callTool(tool.name, args) as Promise<CallToolResult>
+      );
+    }
+
+    for (const tool of this.etherscanAdapter.getTools()) {
+      this.toolDispatch.set(
+        tool.name,
+        (args) => this.etherscanAdapter.callTool(tool.name, args) as Promise<CallToolResult>
+      );
+    }
+
+    for (const tool of this.evmAdapter.getTools()) {
+      this.toolDispatch.set(
+        tool.name,
+        (args) => this.evmAdapter.callTool(tool.name, args) as Promise<CallToolResult>
+      );
+    }
+
+    for (const tool of this.tokenTools) {
+      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
+    for (const name of this.goatToolNames) {
+      this.toolDispatch.set(name, (args) => dispatchGoatTool(name, args));
+    }
+
+    for (const tool of this.lifiTools) {
+      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
+    for (const tool of this.orbsTools) {
+      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
+    for (const tool of this.frameworkTools) {
+      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
   }
 
   private registerHandlers(): void {
@@ -74,51 +124,9 @@ export class ProxyServer {
       const name = request.params.name;
       const args = (request.params.arguments ?? {}) as Record<string, unknown>;
 
-      if (name.startsWith("blockscout_")) {
-        return (await this.blockscoutAdapter.callTool(name, args)) as CallToolResult;
-      }
-
-      if (name.startsWith("etherscan_")) {
-        return (await this.etherscanAdapter.callTool(name, args)) as CallToolResult;
-      }
-
-      if (name.startsWith("evm_")) {
-        return (await this.evmAdapter.callTool(name, args)) as CallToolResult;
-      }
-
-      const tokenTool = this.tokenTools.find((entry) => entry.name === name);
-      if (tokenTool) {
-        return tokenTool.handler(args);
-      }
-
-      if (this.goatToolNames.has(name)) {
-        return dispatchGoatTool(name, args);
-      }
-
-      if (name.startsWith("lifi_")) {
-        const tool = this.lifiTools.find((entry) => entry.name === name);
-        if (tool) {
-          return tool.handler(args);
-        }
-      }
-
-      if (name.startsWith("orbs_")) {
-        const tool = this.orbsTools.find((entry) => entry.name === name);
-        if (tool) {
-          return tool.handler(args);
-        }
-      }
-
-      if (
-        name.startsWith("wallet_") ||
-        name.startsWith("transaction_") ||
-        name === "server_status" ||
-        name === "list_supported_chains"
-      ) {
-        const tool = this.frameworkTools.find((entry) => entry.name === name);
-        if (tool) {
-          return tool.handler(args);
-        }
+      const handler = this.toolDispatch.get(name);
+      if (handler) {
+        return handler(args);
       }
 
       return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);
@@ -186,10 +194,15 @@ export class ProxyServer {
 
   private registerWalletChangeNotification(): void {
     this.walletChangeHandler = () => {
-      this.server
-        .notification({ method: "notifications/tools/list_changed" })
+      this.goatProvider
+        .waitForRebuild()
+        .then(() => {
+          this.goatToolNames = new Set(this.goatProvider.getAllToolNames());
+          this.rebuildDispatchMap();
+          return this.server.notification({ method: "notifications/tools/list_changed" });
+        })
         .catch((e: unknown) => {
-          process.stderr.write(`[web3agent] Failed to send tool list change notification: ${e}\n`);
+          process.stderr.write(`[web3agent] Failed to update tools after wallet change: ${e}\n`);
         });
     };
     walletEvents.on("wallet-changed", this.walletChangeHandler);
@@ -200,6 +213,17 @@ export class ProxyServer {
       walletEvents.off("wallet-changed", this.walletChangeHandler);
       this.walletChangeHandler = undefined;
     }
+    this.goatProvider.shutdown();
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: swallow rebuild errors during shutdown — adapter cleanup follows
+    await this.goatProvider.waitForRebuild().catch(() => {});
+    await Promise.allSettled([
+      this.blockscoutAdapter.shutdown(),
+      this.etherscanAdapter.shutdown(),
+      this.evmAdapter.shutdown(),
+    ]);
+    await this.server.close().catch((e: unknown) => {
+      process.stderr.write(`[web3agent] Failed to close MCP server: ${e}\n`);
+    });
   }
 
   async connect(transport: StdioServerTransport): Promise<void> {
