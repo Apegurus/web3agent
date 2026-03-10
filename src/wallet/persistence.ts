@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Account } from "viem";
@@ -115,6 +115,14 @@ async function tryLoadPersistedWallet(
   addressIndex: number
 ): Promise<{ account: Account; state: WalletState } | null> {
   const walletPath = getWalletPath();
+  const tmpPath = `${walletPath}.tmp`;
+  if (existsSync(tmpPath)) {
+    try {
+      await unlink(tmpPath);
+    } catch {
+      /* stale tmp file removal failed — non-fatal, continue */
+    }
+  }
   if (!existsSync(walletPath)) return null;
 
   try {
@@ -133,7 +141,7 @@ async function tryLoadPersistedWallet(
       );
     }
   } catch {
-    /* corrupted wallet file — fall through to ephemeral (security: do not leak error details) */
+    /* corrupted wallet file — security: do not leak error details */
   }
   return null;
 }
@@ -142,10 +150,12 @@ export async function initializeWallet(config: {
   chainId: number;
   accountIndex: number;
   addressIndex: number;
+  privateKey?: string;
+  mnemonic?: string;
 }): Promise<void> {
   const { chainId, accountIndex, addressIndex } = config;
 
-  const envKey = process.env.PRIVATE_KEY;
+  const envKey = config.privateKey;
   if (envKey) {
     const resolved = resolveFromPrivateKey(envKey, chainId);
     currentAccount = resolved.account;
@@ -154,7 +164,7 @@ export async function initializeWallet(config: {
     return;
   }
 
-  const envMnemonic = process.env.MNEMONIC;
+  const envMnemonic = config.mnemonic;
   if (envMnemonic) {
     const resolved = resolveFromMnemonic(envMnemonic, chainId, accountIndex, addressIndex);
     currentAccount = resolved.account;
@@ -186,9 +196,16 @@ async function ensureWalletDir(): Promise<void> {
 
 async function persistWallet(data: PersistedWallet): Promise<void> {
   await ensureWalletDir();
-  await writeFile(getWalletPath(), JSON.stringify(data, null, 2), {
-    mode: 0o600,
-  });
+  const walletPath = getWalletPath();
+  const tmpPath = `${walletPath}.tmp`;
+  const fd = await open(tmpPath, "w", 0o600);
+  try {
+    await fd.writeFile(JSON.stringify(data, null, 2));
+    await fd.sync();
+  } finally {
+    await fd.close();
+  }
+  await rename(tmpPath, walletPath);
 }
 
 export async function activateWallet(params: {
@@ -203,18 +220,17 @@ export async function activateWallet(params: {
 
   if (params.privateKey) {
     const resolved = resolveFromPrivateKey(params.privateKey, chainId);
-    currentAccount = resolved.account;
-    currentState = resolved.state;
 
     await persistWallet({
       type: "private-key",
       privateKey: params.privateKey,
       address: resolved.account.address,
     });
-  } else if (params.mnemonic) {
-    const resolved = resolveFromMnemonic(params.mnemonic, chainId, accountIndex, addressIndex);
+
     currentAccount = resolved.account;
     currentState = resolved.state;
+  } else if (params.mnemonic) {
+    const resolved = resolveFromMnemonic(params.mnemonic, chainId, accountIndex, addressIndex);
 
     await persistWallet({
       type: "mnemonic",
@@ -222,12 +238,52 @@ export async function activateWallet(params: {
       accountIndex,
       addressIndex,
     });
+
+    currentAccount = resolved.account;
+    currentState = resolved.state;
   } else {
     throw new Error("Either privateKey or mnemonic must be provided");
   }
 
   walletEvents.emit("wallet-changed", currentState);
   return getWalletState();
+}
+
+export async function getPersistedKeyForSubprocess(): Promise<string | null> {
+  if (process.env.PRIVATE_KEY) return process.env.PRIVATE_KEY;
+
+  if (process.env.MNEMONIC) {
+    const accountIndex = Number(process.env.WALLET_ACCOUNT_INDEX ?? 0);
+    const addressIndex = Number(process.env.WALLET_ADDRESS_INDEX ?? 0);
+    const account = mnemonicToAccount(process.env.MNEMONIC, { accountIndex, addressIndex });
+    const hdKey = account.getHdKey();
+    if (hdKey.privateKey) {
+      return `0x${Buffer.from(hdKey.privateKey).toString("hex")}`;
+    }
+    return null;
+  }
+
+  const walletPath = getWalletPath();
+  if (!existsSync(walletPath)) return null;
+
+  try {
+    const raw = await readFile(walletPath, "utf-8");
+    const data = JSON.parse(raw) as PersistedWallet;
+    if (data.type === "private-key") return data.privateKey;
+    if (data.type === "mnemonic") {
+      const account = mnemonicToAccount(data.mnemonic, {
+        accountIndex: data.accountIndex ?? 0,
+        addressIndex: data.addressIndex ?? 0,
+      });
+      const hdKey = account.getHdKey();
+      if (hdKey.privateKey) {
+        return `0x${Buffer.from(hdKey.privateKey).toString("hex")}`;
+      }
+    }
+  } catch {
+    /* subprocess key read failed — return null */
+  }
+  return null;
 }
 
 export async function deactivateWallet(): Promise<void> {
