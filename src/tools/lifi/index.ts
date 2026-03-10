@@ -2,8 +2,11 @@ import { type LiFiStep, convertQuoteToRoute, executeRoute, getChains, getQuote }
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
-import { confirmationQueue } from "../../wallet/confirmation.js";
+import { validateInput } from "../../utils/validation.js";
+import { executeWrite } from "../../utils/write.js";
+import { registerExecutor } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
+import { lifiGetQuoteSchema } from "./schemas.js";
 
 async function lifiGetChains(_params: Record<string, unknown>): Promise<CallToolResult> {
   try {
@@ -20,14 +23,9 @@ async function lifiGetChains(_params: Record<string, unknown>): Promise<CallTool
 }
 
 async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
-  const { fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount } = params;
-
-  if (!fromChainId || !toChainId || !fromTokenAddress || !toTokenAddress || !fromAmount) {
-    return formatToolError(
-      "MISSING_PARAMS",
-      "Required: fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount"
-    );
-  }
+  const v = validateInput(lifiGetQuoteSchema, params);
+  if (!v.success) return v.error;
+  const { fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount } = v.data;
 
   try {
     const walletState = getWalletState();
@@ -65,40 +63,16 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
 }
 
 async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletState = getWalletState();
-  if (walletState.mode === "read-only") {
-    return formatToolError(
-      "WALLET_REQUIRED",
-      "Bridge execution requires an active wallet. Use wallet_activate first."
-    );
-  }
+  const v = validateInput(lifiGetQuoteSchema, params);
+  if (!v.success) return v.error;
+  const { fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount } = v.data;
 
-  const { fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount } = params;
-
-  if (!fromChainId || !toChainId || !fromTokenAddress || !toTokenAddress || !fromAmount) {
-    return formatToolError(
-      "MISSING_PARAMS",
-      "Required: fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount"
-    );
-  }
-
-  const enqueueResult = confirmationQueue.enqueue(
-    "bridge",
-    `Bridge ${fromAmount} from chain ${fromChainId} to chain ${toChainId}`,
-    params,
-    executeBridgeNow
-  );
-
-  if (enqueueResult.queued) {
-    return formatToolResponse({
-      status: "queued",
-      operationId: enqueueResult.id,
-      summary: enqueueResult.summary,
-      instruction: `Use transaction_confirm("${enqueueResult.id}") to execute the bridge.`,
-    });
-  }
-
-  return executeBridgeNow(params);
+  return executeWrite({
+    toolName: "lifi_execute_bridge",
+    description: `Bridge ${fromAmount} from chain ${fromChainId} to chain ${toChainId}`,
+    params: v.data as unknown as Record<string, unknown>,
+    executor: executeBridgeNow,
+  });
 }
 
 async function executeBridgeNow(params: Record<string, unknown>): Promise<CallToolResult> {
@@ -202,4 +176,8 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
       handler: lifiExecuteBridge,
     },
   ];
+}
+
+export function registerLifiExecutors(): void {
+  registerExecutor("lifi_execute_bridge", executeBridgeNow);
 }
