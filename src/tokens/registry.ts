@@ -108,12 +108,6 @@ export const WELL_KNOWN_TOKENS: Record<number, ChainTokens> = {
       name: "Binance-Peg BTCB",
       symbol: "BTCB",
     },
-    WBTC: {
-      address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
-      decimals: 18,
-      name: "Binance-Peg BTCB",
-      symbol: "WBTC",
-    },
     CAKE: {
       address: "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
       decimals: 18,
@@ -321,12 +315,6 @@ export const WELL_KNOWN_TOKENS: Record<number, ChainTokens> = {
       decimals: 8,
       name: "Coinbase Wrapped BTC",
       symbol: "cbBTC",
-    },
-    WBTC: {
-      address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
-      decimals: 8,
-      name: "Coinbase Wrapped BTC",
-      symbol: "WBTC",
     },
     AERO: {
       address: "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
