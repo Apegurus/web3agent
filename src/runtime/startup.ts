@@ -39,6 +39,7 @@ export async function startServer(): Promise<void> {
   }
 
   confirmationQueue.enabled = config.confirmWrites;
+  confirmationQueue.ttlMs = config.confirmTtlMinutes * 60 * 1000;
 
   await initializeWallet({
     chainId: config.chainId,
@@ -59,7 +60,7 @@ export async function startServer(): Promise<void> {
 
   registerOrbsExecutors();
   registerLifiExecutors();
-  await confirmationQueue.loadQueue();
+  const restoredOps = await confirmationQueue.loadQueue();
 
   const blockscoutAdapter = new BlockscoutAdapter(config.blockscoutMcpUrl);
   const etherscanAdapter = new EtherscanAdapter(config.etherscanMcpUrl, config.etherscanApiKey);
@@ -103,7 +104,8 @@ export async function startServer(): Promise<void> {
 
   const server = new ProxyServer(blockscoutAdapter, etherscanAdapter, evmAdapter, goatProvider);
 
-  const walletMode = getWalletState().mode;
+  const walletState = getWalletState();
+  const walletMode = walletState.mode;
   const goatToolCount = goatProvider.getAllToolNames().length;
   const blockscoutToolCount = blockscoutAdapter.getTools().length;
   const etherscanToolCount = etherscanAdapter.getTools().length;
@@ -160,15 +162,14 @@ export async function startServer(): Promise<void> {
     health,
     activeChainId: config.chainId,
     walletMode,
+    walletAddress: walletState.address,
     confirmWrites: config.confirmWrites,
     degradedServices,
     totalToolCount,
+    pendingOpsRestored: restoredOps > 0 ? restoredOps : undefined,
   });
 
   process.stderr.write(`${formatHealthSummary(report)}\n`);
-  process.stderr.write(
-    `[web3agent] Tool counts => framework:${frameworkToolCount}, goat:${goatToolCount}, blockscout:${blockscoutToolCount}, etherscan:${etherscanToolCount}, evm:${evmToolCount}, lifi:${lifiToolCount}, orbs:${orbsToolCount}, tokens:${tokenToolCount}\n`
-  );
 
   let shuttingDown = false;
   const gracefulShutdown = async () => {

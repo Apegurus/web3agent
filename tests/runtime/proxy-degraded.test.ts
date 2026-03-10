@@ -15,6 +15,7 @@ const mockState = vi.hoisted(() => {
     walletAddressIndex: 0,
     rpcUrl: undefined,
     confirmWrites: true,
+    confirmTtlMinutes: 30,
     blockscoutMcpUrl: "https://mock.blockscout/mcp",
     etherscanMcpUrl: "https://mock.etherscan/mcp",
     etherscanApiKey: undefined,
@@ -183,15 +184,15 @@ describe("startServer degraded mode", () => {
     expect(mockState.proxyStart).toHaveBeenCalledTimes(1);
   });
 
-  it("logs summary showing framework tools while blockscout/evm are empty", async () => {
+  it("logs structured startup block showing adapter statuses", async () => {
     await startServer();
 
-    const lines = stderrSpy.mock.calls.map((call) => String(call[0]));
-    const toolCountLine = lines.find((line) => line.includes("Tool counts =>"));
+    const output = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
 
-    expect(toolCountLine).toContain("framework:5");
-    expect(toolCountLine).toContain("blockscout:0");
-    expect(toolCountLine).toContain("etherscan:0");
-    expect(toolCountLine).toContain("evm:0");
+    expect(output).toContain("[web3agent] ─── startup ───");
+    expect(output).toContain("chain:");
+    expect(output).toContain("wallet:");
+    expect(output).toContain("adapters:");
+    expect(output).toContain("[web3agent] ────────────────");
   });
 });

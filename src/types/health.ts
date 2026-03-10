@@ -21,8 +21,10 @@ export interface StartupReport {
   health: HealthStatus;
   totalToolCount: number;
   walletMode: string;
+  walletAddress?: string;
   confirmWrites: boolean;
   activeChainId: number;
   degradedServices: string[];
+  pendingOpsRestored?: number;
   fatalError?: string;
 }

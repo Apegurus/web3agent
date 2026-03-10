@@ -79,7 +79,7 @@ describe("health configuration utilities", () => {
     expect(health.orbs.message).toBe("orbs unavailable");
   });
 
-  it("formats health summary without degraded services line when none exist", () => {
+  it("formats structured startup block without degraded services", () => {
     const summary = formatHealthSummary(
       createStartupReport({
         totalToolCount: 12,
@@ -90,24 +90,45 @@ describe("health configuration utilities", () => {
       })
     );
 
-    expect(summary).toBe(
-      "[web3agent] Starting on chain 8453, wallet: read-only, confirm: true\n[web3agent] Tools: 12 loaded"
-    );
+    expect(summary).toContain("[web3agent] ─── startup ───");
+    expect(summary).toContain("chain:        8453 (Base)");
+    expect(summary).toContain("wallet:       read-only");
+    expect(summary).toContain("confirmation: enabled");
+    expect(summary).toContain("tools:        12 total");
+    expect(summary).toContain("[web3agent] ────────────────");
+    expect(summary).not.toContain("degraded:");
   });
 
-  it("formats health summary including degraded services line", () => {
+  it("formats structured startup block with degraded services and wallet address", () => {
     const summary = formatHealthSummary(
       createStartupReport({
         totalToolCount: 5,
-        walletMode: "none",
+        walletMode: "private-key",
+        walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
         confirmWrites: false,
         activeChainId: 1,
         degradedServices: ["blockscout", "orbs"],
       })
     );
 
-    expect(summary).toBe(
-      "[web3agent] Starting on chain 1, wallet: none, confirm: false\n[web3agent] Tools: 5 loaded\n[web3agent] Degraded: blockscout, orbs"
+    expect(summary).toContain("chain:        1 (Ethereum)");
+    expect(summary).toContain("wallet:       private-key (0x1234...5678)");
+    expect(summary).toContain("confirmation: disabled");
+    expect(summary).toContain("tools:        5 total");
+    expect(summary).toContain("degraded:     blockscout, orbs");
+  });
+
+  it("includes pending-ops restored count when present", () => {
+    const summary = formatHealthSummary(
+      createStartupReport({
+        totalToolCount: 10,
+        walletMode: "mnemonic",
+        activeChainId: 8453,
+        degradedServices: [],
+        pendingOpsRestored: 3,
+      })
     );
+
+    expect(summary).toContain("pending-ops:  3 restored");
   });
 });
