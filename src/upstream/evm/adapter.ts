@@ -2,11 +2,13 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { AdapterHealth, PrefixedTool, UpstreamAdapter } from "../../types/upstream.js";
 import type { WalletState } from "../../types/wallet.js";
+import { VERSION } from "../../version.js";
 import { walletEvents } from "../../wallet/events.js";
+import { getPersistedKeyForSubprocess } from "../../wallet/persistence.js";
 
 const PREFIX = "evm";
 
-function buildEvmEnv(_walletState?: WalletState): Record<string, string> {
+async function buildEvmEnv(): Promise<Record<string, string>> {
   const env: Record<string, string> = {
     PATH: process.env.PATH ?? "",
     HOME: process.env.HOME ?? "",
@@ -14,8 +16,10 @@ function buildEvmEnv(_walletState?: WalletState): Record<string, string> {
   };
   if (process.env.TERM) env.TERM = process.env.TERM;
   if (process.env.NODE_ENV) env.NODE_ENV = process.env.NODE_ENV;
-  if (process.env.PRIVATE_KEY) env.EVM_PRIVATE_KEY = process.env.PRIVATE_KEY;
-  if (process.env.MNEMONIC) env.EVM_MNEMONIC = process.env.MNEMONIC;
+
+  const walletKey = await getPersistedKeyForSubprocess();
+  if (walletKey) env.EVM_PRIVATE_KEY = walletKey;
+
   if (process.env.WALLET_ACCOUNT_INDEX) env.EVM_ACCOUNT_INDEX = process.env.WALLET_ACCOUNT_INDEX;
   if (process.env.ETHERSCAN_API_KEY) env.ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
   return env;
@@ -53,15 +57,11 @@ export class EvmAdapter implements UpstreamAdapter {
       }
     };
     walletEvents.on("wallet-changed", this.walletChangeHandler);
-
-    process.on("exit", () => this.killSubprocess());
-    process.on("SIGTERM", () => this.killSubprocess());
-    process.on("SIGINT", () => this.killSubprocess());
   }
 
   private async start(): Promise<void> {
     try {
-      const whitelistedEnv = buildEvmEnv();
+      const whitelistedEnv = await buildEvmEnv();
 
       this.transport = new StdioClientTransport({
         command: "npx",
@@ -71,7 +71,7 @@ export class EvmAdapter implements UpstreamAdapter {
 
       this.client = new Client({
         name: "web3agent-evm",
-        version: "1.0.0",
+        version: VERSION,
       });
 
       await this.client.connect(this.transport);
@@ -169,6 +169,9 @@ export class EvmAdapter implements UpstreamAdapter {
       throw new Error(`Unknown EVM tool: ${name}`);
     }
 
+    if (this.restarting) {
+      throw new Error("EVM adapter is restarting due to wallet change, please retry");
+    }
     if (this.health.status !== "ok") {
       throw new Error(`EVM adapter is ${this.health.status}: ${this.health.message}`);
     }
