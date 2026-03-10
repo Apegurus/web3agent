@@ -3,14 +3,13 @@ import { getChainById } from "../../chains/registry.js";
 import { listTokens, resolveToken } from "../../tokens/resolver.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import { validateInput } from "../../utils/validation.js";
+import { listChainTokensSchema, resolveTokenSchema } from "./schemas.js";
 
 async function handleResolveToken(params: Record<string, unknown>): Promise<CallToolResult> {
-  const symbol = params.symbol as string | undefined;
-  const chainId = params.chainId as number | undefined;
-
-  if (!symbol || !chainId) {
-    return formatToolError("MISSING_PARAMS", "Both 'symbol' and 'chainId' are required");
-  }
+  const v = validateInput(resolveTokenSchema, params);
+  if (!v.success) return v.error;
+  const { symbol, chainId } = v.data;
 
   const chain = getChainById(chainId);
   if (!chain) {
@@ -32,11 +31,9 @@ async function handleResolveToken(params: Record<string, unknown>): Promise<Call
 }
 
 function handleListTokens(params: Record<string, unknown>): CallToolResult {
-  const chainId = params.chainId as number | undefined;
-
-  if (!chainId) {
-    return formatToolError("MISSING_PARAMS", "'chainId' is required");
-  }
+  const v = validateInput(listChainTokensSchema, params);
+  if (!v.success) return v.error;
+  const { chainId } = v.data;
 
   const chain = getChainById(chainId);
   if (!chain) {
