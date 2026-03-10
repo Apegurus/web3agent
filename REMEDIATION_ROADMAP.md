@@ -21,50 +21,50 @@ The following architectural and behavioral decisions are finalized and must not 
 
 ### P0 — Critical (Security / Correctness)
 
-- [ ] **Wallet-bound confirmation reset**
+- [x] **Wallet-bound confirmation reset**
   - On `wallet-changed` event, flush all pending operations from the durable queue that were created under the previous wallet address.
   - Prevents a pending high-value tx approved for wallet A from being executed after switching to wallet B.
 
-- [ ] **Atomic wallet activation**
+- [x] **Atomic wallet activation**
   - Wrap key-file write + in-memory state update in a transaction-like pattern (write to temp file → fsync → rename).
   - On failure, revert in-memory state and surface error to caller.
 
-- [ ] **Durable queue persistence**
+- [x] **Durable queue persistence**
   - Serialize pending operations to `~/.web3agent/pending-ops.json` (mode 0600) on every enqueue/dequeue.
   - On startup, load and re-hydrate the queue; prune expired entries before accepting new tool calls.
 
 ### P1 — High (Reliability / Developer Experience)
 
-- [ ] **Backend sync on wallet change**
+- [x] **Backend sync on wallet change**
   - In the `wallet-changed` handler, await re-initialization of all backend clients before emitting `ready`.
   - Add integration test: switch wallet → assert subsequent tool call uses new wallet address.
 
-- [ ] **Required Etherscan key enforcement**
+- [x] **Required Etherscan key enforcement**
   - At server startup, check for `ETHERSCAN_API_KEY`; if absent, mark ABI-dependent tools as unavailable and surface a clear warning in `server_status`.
   - Do not silently degrade — return a structured error from affected tools.
 
-- [ ] **Strict Zod validation at tool boundaries**
+- [x] **Strict Zod validation at tool boundaries**
   - Audit all tool handlers; ensure every input is parsed with `.parse()` (throws) not `.safeParse()` (silent).
   - Add a shared `validateInput<T>(schema, input)` helper in `src/utils/validation.ts`.
 
 ### P2 — Medium (Maintainability / Safety)
 
-- [ ] **`executeWrite()` abstraction**
+- [x] **`executeWrite()` abstraction**
   - Extract a single function in `src/utils/write.ts` that: checks confirmation mode → enqueues or executes → logs result → handles errors uniformly.
   - Migrate all existing write-operation tool handlers to use it.
 
-- [ ] **Documentation reconciliation**
+- [x] **Documentation reconciliation**
   - Audit `README.md` and all JSDoc against current behavior.
   - Update wallet activation flow, confirmation gating, and Etherscan key requirement sections.
   - Add a "Known Limitations" section for chains not supported by Blockscout.
 
 ### P3 — Low (Polish / Observability)
 
-- [ ] **Structured startup diagnostics**
-  - On boot, log wallet mode, active chain, confirmation setting, and backend health to stderr in a consistent format.
+- [x] **Structured startup diagnostics**
+  - On boot, log version, wallet mode/address, active chain, confirmation setting, and per-adapter health to stderr in a consistent structured block.
 
-- [ ] **Pending-ops TTL and audit log**
-  - Add configurable TTL (default 10 min) to pending operations.
+- [x] **Pending-ops TTL and audit log**
+  - Add configurable TTL via `CONFIRM_TTL_MINUTES` env var (default 30 min).
   - Append expired/denied/confirmed ops to an append-only audit log at `~/.web3agent/audit.log`.
 
 ---
