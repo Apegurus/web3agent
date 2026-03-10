@@ -1,3 +1,5 @@
+import { VERSION } from "./version.js";
+
 const args = process.argv.slice(2);
 
 if (args[0] === "init") {
@@ -8,7 +10,7 @@ if (args[0] === "init") {
     });
   });
 } else if (args.includes("--version")) {
-  process.stderr.write("web3agent 0.1.0\n");
+  process.stderr.write(`web3agent ${VERSION}\n`);
   process.exit(0);
 } else if (args.includes("--help")) {
   process.stderr.write(
