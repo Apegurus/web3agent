@@ -7,6 +7,7 @@ import {
   privateKeyToAccount,
 } from "viem/accounts";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import { validateInput } from "../../utils/validation.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
 import {
   activateWallet,
@@ -14,6 +15,14 @@ import {
   getActiveAccount,
   getWalletState,
 } from "../../wallet/persistence.js";
+import {
+  transactionConfirmSchema,
+  transactionDenySchema,
+  walletActivateSchema,
+  walletDeriveAddressesSchema,
+  walletFromMnemonicSchema,
+  walletSetConfirmationSchema,
+} from "./schemas.js";
 
 export async function walletGenerate(): Promise<CallToolResult> {
   try {
@@ -52,13 +61,9 @@ export async function walletGenerateMnemonic(): Promise<CallToolResult> {
 
 export async function walletFromMnemonic(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const mnemonic = params.mnemonic;
-    if (typeof mnemonic !== "string" || mnemonic.trim().length === 0) {
-      return formatToolError("INVALID_PARAMS", "mnemonic is required");
-    }
-
-    const accountIndex = typeof params.accountIndex === "number" ? params.accountIndex : 0;
-    const addressIndex = typeof params.addressIndex === "number" ? params.addressIndex : 0;
+    const v = validateInput(walletFromMnemonicSchema, params);
+    if (!v.success) return v.error;
+    const { mnemonic, accountIndex = 0, addressIndex = 0 } = v.data;
 
     const account = mnemonicToAccount(mnemonic, {
       accountIndex,
@@ -81,15 +86,9 @@ export async function walletDeriveAddresses(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   try {
-    const mnemonic = params.mnemonic;
-    if (typeof mnemonic !== "string" || mnemonic.trim().length === 0) {
-      return formatToolError("INVALID_PARAMS", "mnemonic is required");
-    }
-
-    const count = typeof params.count === "number" ? params.count : 5;
-    if (count < 1 || count > 20) {
-      return formatToolError("INVALID_PARAMS", "count must be between 1 and 20");
-    }
+    const v = validateInput(walletDeriveAddressesSchema, params);
+    if (!v.success) return v.error;
+    const { mnemonic, count = 5 } = v.data;
 
     const addresses = Array.from({ length: count }, (_, i) => {
       const account = mnemonicToAccount(mnemonic, { addressIndex: i });
@@ -124,15 +123,9 @@ export async function walletGetActive(): Promise<CallToolResult> {
 
 export async function walletActivate(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const privateKey = typeof params.privateKey === "string" ? params.privateKey : undefined;
-    const mnemonic = typeof params.mnemonic === "string" ? params.mnemonic : undefined;
-
-    if (!privateKey && !mnemonic) {
-      return formatToolError("INVALID_PARAMS", "Either privateKey or mnemonic must be provided");
-    }
-
-    const accountIndex = typeof params.accountIndex === "number" ? params.accountIndex : undefined;
-    const addressIndex = typeof params.addressIndex === "number" ? params.addressIndex : undefined;
+    const v = validateInput(walletActivateSchema, params);
+    if (!v.success) return v.error;
+    const { privateKey, mnemonic, accountIndex, addressIndex } = v.data;
 
     const state = await activateWallet({
       privateKey,
@@ -174,10 +167,9 @@ export async function walletSetConfirmation(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   try {
-    const enabled = params.enabled;
-    if (typeof enabled !== "boolean") {
-      return formatToolError("INVALID_PARAMS", "enabled must be a boolean");
-    }
+    const v = validateInput(walletSetConfirmationSchema, params);
+    if (!v.success) return v.error;
+    const { enabled } = v.data;
 
     confirmationQueue.enabled = enabled;
 
@@ -197,10 +189,17 @@ export async function walletSetConfirmation(
 
 export async function transactionConfirm(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const id = params.id;
-    if (typeof id !== "string" || id.trim().length === 0) {
-      return formatToolError("INVALID_PARAMS", "id is required");
+    const walletState = getWalletState();
+    if (walletState.mode === "read-only") {
+      return formatToolError(
+        "WALLET_READ_ONLY",
+        "transaction_confirm requires an active wallet. Activate a wallet first."
+      );
     }
+
+    const v = validateInput(transactionConfirmSchema, params);
+    if (!v.success) return v.error;
+    const { id } = v.data;
 
     const result = confirmationQueue.confirm(id);
     if (!result) {
@@ -208,13 +207,27 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     }
 
     if (result.stale) {
+      confirmationQueue.complete(id);
       return formatToolError(
         "OPERATION_EXPIRED",
         `Operation ${id} was confirmed after TTL expiry and will not be executed.`
       );
     }
 
-    return result.operation.executor(result.operation.params);
+    if (
+      result.operation.walletAddress &&
+      walletState.address &&
+      result.operation.walletAddress.toLowerCase() !== walletState.address.toLowerCase()
+    ) {
+      return formatToolError(
+        "WALLET_MISMATCH",
+        `Operation ${id} was queued for wallet ${result.operation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`
+      );
+    }
+
+    const execResult = await result.operation.executor(result.operation.params);
+    confirmationQueue.complete(id);
+    return execResult;
   } catch (err: unknown) {
     return formatToolError("CONFIRM_FAILED", err instanceof Error ? err.message : "Unknown error");
   }
@@ -222,10 +235,9 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
 
 export async function transactionDeny(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const id = params.id;
-    if (typeof id !== "string" || id.trim().length === 0) {
-      return formatToolError("INVALID_PARAMS", "id is required");
-    }
+    const v = validateInput(transactionDenySchema, params);
+    if (!v.success) return v.error;
+    const { id } = v.data;
 
     const removed = confirmationQueue.deny(id);
     if (!removed) {
