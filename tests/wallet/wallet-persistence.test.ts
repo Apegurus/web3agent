@@ -75,12 +75,12 @@ describe("wallet persistence", () => {
   });
 
   it("startup resolves PRIVATE_KEY env first", async () => {
-    process.env.PRIVATE_KEY = VALID_PRIVATE_KEY;
     const { initializeWallet, getWalletState } = await import("../../src/wallet/persistence.js");
     await initializeWallet({
       chainId: 1,
       accountIndex: 0,
       addressIndex: 0,
+      privateKey: VALID_PRIVATE_KEY,
     });
 
     const state = getWalletState();

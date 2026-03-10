@@ -4,6 +4,7 @@ const mockQueue = vi.hoisted(() => {
   const queue = {
     enabled: true,
     confirm: vi.fn(),
+    complete: vi.fn(),
     deny: vi.fn(),
     list: vi.fn(),
     pruneExpired: vi.fn(),
@@ -12,12 +13,14 @@ const mockQueue = vi.hoisted(() => {
   return { queue };
 });
 
-vi.mock("../../src/wallet/persistence.js", () => ({
-  getWalletState: vi.fn().mockReturnValue({ mode: "read-only", chainId: 1 }),
+const mockPersistence = vi.hoisted(() => ({
+  getWalletState: vi.fn().mockReturnValue({ mode: "private-key", chainId: 1, address: "0x0" }),
   getActiveAccount: vi.fn().mockReturnValue({ address: "0x0" }),
   activateWallet: vi.fn(),
   deactivateWallet: vi.fn(),
 }));
+
+vi.mock("../../src/wallet/persistence.js", () => mockPersistence);
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: mockQueue.queue,

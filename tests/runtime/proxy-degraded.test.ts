@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer } from "../../src/runtime/startup.js";
 
 vi.mock("@orbs-network/twap-sdk", () => ({
@@ -42,6 +42,7 @@ const mockState = vi.hoisted(() => {
 vi.mock("../../src/config/env.js", () => ({
   ValidationError: class ValidationError extends Error {},
   parseEnv: vi.fn().mockReturnValue(mockState.config),
+  setConfig: vi.fn(),
   getConfig: vi.fn().mockReturnValue(mockState.config),
   BLOCKSCOUT_DEFAULT_URL: "https://mock.blockscout/mcp",
   ETHERSCAN_DEFAULT_URL: "https://mock.etherscan/mcp",
@@ -109,6 +110,8 @@ vi.mock("../../src/goat/provider.js", () => ({
   goatProvider: {
     initialize: vi.fn().mockResolvedValue(undefined),
     getAllToolNames: vi.fn().mockReturnValue(["goat_swap"]),
+    waitForRebuild: vi.fn().mockResolvedValue(undefined),
+    shutdown: vi.fn(),
   },
 }));
 
@@ -120,10 +123,20 @@ vi.mock("../../src/tools/lifi/index.js", () => ({
   getLifiToolDefinitions: vi
     .fn()
     .mockReturnValue([{ name: "lifi_get_quote" }, { name: "lifi_execute_bridge" }]),
+  registerLifiExecutors: vi.fn(),
 }));
 
 vi.mock("../../src/tools/orbs/index.js", () => ({
   getOrbsToolDefinitions: vi.fn().mockReturnValue([{ name: "orbs_get_quote" }]),
+  registerOrbsExecutors: vi.fn(),
+}));
+
+vi.mock("../../src/wallet/events.js", () => ({
+  walletEvents: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+}));
+
+vi.mock("../../src/tools/tokens/index.js", () => ({
+  getTokenToolDefinitions: vi.fn().mockReturnValue([{ name: "resolve_token" }]),
 }));
 
 vi.mock("../../src/tools/register.js", () => ({
@@ -141,6 +154,10 @@ vi.mock("../../src/runtime/server.js", () => ({
     async start(): Promise<void> {
       await mockState.proxyStart();
     }
+
+    async shutdown(): Promise<void> {
+      /* mock shutdown */
+    }
   },
 }));
 
@@ -152,6 +169,11 @@ describe("startServer degraded mode", () => {
     mockState.blockscoutInitialize.mockClear();
     mockState.evmInitialize.mockClear();
     mockState.proxyStart.mockClear();
+  });
+
+  afterEach(() => {
+    process.removeAllListeners("SIGTERM");
+    process.removeAllListeners("SIGINT");
   });
 
   it("completes startup without crashing when upstream adapters fail", async () => {

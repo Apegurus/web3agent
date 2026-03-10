@@ -75,9 +75,9 @@ describe("lifi_execute_bridge — confirmation gating", () => {
     });
     expect(result.isError).toBe(false);
     const parsed = JSON.parse(result.content[0].text as string);
-    expect(parsed.status).toBe("queued");
-    expect(parsed.operationId).toBeTruthy();
-    expect(parsed.instruction).toContain("transaction_confirm");
+    expect(parsed.status).toBe("pending_confirmation");
+    expect(parsed.id).toBeTruthy();
+    expect(parsed.summary).toContain("confirm with ID");
   });
 
   it("rejects bridge in read-only mode", async () => {
@@ -99,6 +99,6 @@ describe("lifi_execute_bridge — confirmation gating", () => {
     });
     expect(result.isError).toBe(true);
     const err = JSON.parse(result.content[0].text as string);
-    expect(err.error).toBe("WALLET_REQUIRED");
+    expect(err.error).toBe("WALLET_READ_ONLY");
   });
 });

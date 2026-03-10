@@ -134,6 +134,6 @@ describe("LI.FI tools", () => {
     const result = await quoteTool.handler({ fromChainId: 1 });
     expect(result.isError).toBe(true);
     const err = JSON.parse(result.content[0].text as string);
-    expect(err.error).toBe("MISSING_PARAMS");
+    expect(err.error).toBe("INVALID_PARAMS");
   });
 });

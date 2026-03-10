@@ -223,6 +223,8 @@ describe("ProxyServer", () => {
       ],
       toolHandler: vi.fn(),
     }),
+    waitForRebuild: vi.fn().mockResolvedValue(undefined),
+    shutdown: vi.fn(),
   };
 
   beforeEach(() => {
@@ -370,7 +372,7 @@ describe("ProxyServer", () => {
     expect(payload.error).toBe("UNKNOWN_TOOL");
   });
 
-  it("emits tools/list_changed notification on wallet change", () => {
+  it("emits tools/list_changed notification on wallet change", async () => {
     const { instance } = setup();
 
     mockState.walletEvents.emit("wallet-changed", {
@@ -380,8 +382,11 @@ describe("ProxyServer", () => {
       addressIndex: 0,
     });
 
-    expect(instance.notification).toHaveBeenCalledWith({
-      method: "notifications/tools/list_changed",
+    // waitForRebuild is a resolved promise, but the .then() chain needs a microtask tick
+    await vi.waitFor(() => {
+      expect(instance.notification).toHaveBeenCalledWith({
+        method: "notifications/tools/list_changed",
+      });
     });
   });
 });

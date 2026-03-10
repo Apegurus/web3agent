@@ -8,6 +8,10 @@ type MockSdk = {
 
 const sdkInstances = new Map<number, MockSdk>();
 
+vi.mock("../../src/config/env.js", () => ({
+  getConfig: vi.fn().mockReturnValue({ orbsPartner: undefined }),
+}));
+
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
   constructSDK: vi.fn((options: { partner: string; chainId: number }) => {
     const instance: MockSdk = {
