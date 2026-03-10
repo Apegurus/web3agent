@@ -5,4 +5,7 @@ dist/
 coverage/
 .argus/
 .sisyphus/
+.opencode/
+opencode.json
 *.tgz
+test_orbs_swap.mjs

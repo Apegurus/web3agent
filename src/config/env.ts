@@ -79,9 +79,17 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
 
 let cached: RuntimeConfig | undefined;
 
+export function setConfig(config: RuntimeConfig): void {
+  cached = config;
+}
+
+export function resetConfig(): void {
+  cached = undefined;
+}
+
 export function getConfig(): RuntimeConfig {
   if (!cached) {
-    cached = parseEnv(process.env as Partial<Record<string, string>>);
+    throw new Error("Config not initialized — call setConfig() during startup");
   }
   return cached;
 }

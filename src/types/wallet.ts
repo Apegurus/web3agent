@@ -20,6 +20,7 @@ export interface PendingOperation {
   executor: OperationExecutor;
   createdAt: Date;
   ttlMs: number;
+  walletAddress?: string;
 }
 
 export interface ConfirmationQueue {

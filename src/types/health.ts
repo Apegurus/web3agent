@@ -26,14 +26,3 @@ export interface StartupReport {
   degradedServices: string[];
   fatalError?: string;
 }
-
-export function formatHealthSummary(report: StartupReport): string {
-  const lines: string[] = [
-    `[web3agent] Starting on chain ${report.activeChainId}, wallet: ${report.walletMode}, confirm: ${report.confirmWrites}`,
-    `[web3agent] Tools: ${report.totalToolCount} loaded`,
-  ];
-  if (report.degradedServices.length > 0) {
-    lines.push(`[web3agent] Degraded: ${report.degradedServices.join(", ")}`);
-  }
-  return lines.join("\n");
-}

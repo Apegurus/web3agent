@@ -1,6 +1,15 @@
 import type { BackendStatusCode, HealthStatus, StartupReport } from "../types/health.js";
 
-export { formatHealthSummary } from "../types/health.js";
+export function formatHealthSummary(report: StartupReport): string {
+  const lines: string[] = [
+    `[web3agent] Starting on chain ${report.activeChainId}, wallet: ${report.walletMode}, confirm: ${report.confirmWrites}`,
+    `[web3agent] Tools: ${report.totalToolCount} loaded`,
+  ];
+  if (report.degradedServices.length > 0) {
+    lines.push(`[web3agent] Degraded: ${report.degradedServices.join(", ")}`);
+  }
+  return lines.join("\n");
+}
 
 export function createDefaultHealthStatus(): HealthStatus {
   return {
