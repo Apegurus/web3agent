@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getChainById } from "../../chains/registry.js";
+import { RESTRICTED_PLUGIN_CHAINS } from "../../goat/dispatch.js";
 import { LIQUIDITY_HUB_CHAINS } from "../../orbs/chains.js";
 import type { HealthStatus } from "../../types/health.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -48,8 +49,7 @@ export async function serverStatus(): Promise<CallToolResult> {
 
 const INTEGRATION_CHAINS = new Set([
   ...LIQUIDITY_HUB_CHAINS,
-  ...[1, 137, 43114, 8453, 10, 42161, 42220],
-  ...[34443, 8453, 137, 100, 42161, 43114, 10],
+  ...Object.values(RESTRICTED_PLUGIN_CHAINS).flat(),
 ]);
 
 export async function listSupportedChains(): Promise<CallToolResult> {
