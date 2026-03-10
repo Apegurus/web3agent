@@ -108,3 +108,60 @@ export async function readJsonFile(path: string): Promise<Record<string, unknown
     return null;
   }
 }
+
+export abstract class BaseHostWriter implements HostWriter {
+  protected abstract getConfigPath(options: WriteOptions): string;
+
+  protected getConfigSectionKey(): string {
+    return "mcpServers";
+  }
+
+  protected getEntries(options: WriteOptions): Record<string, unknown> {
+    return options.mode === "proxy" ? proxyEntries() : multiServerEntries();
+  }
+
+  async write(options: WriteOptions): Promise<WriteResult> {
+    const configPath = this.getConfigPath(options);
+    const incoming = this.getEntries(options);
+    const sectionKey = this.getConfigSectionKey();
+
+    const existing = await readJsonFile(configPath);
+
+    if (existing) {
+      const servers = (existing[sectionKey] as Record<string, unknown>) ?? {};
+      const { merged, changed } = mergeServers(servers, incoming);
+
+      if (!changed) {
+        return { configPath, action: "unchanged" };
+      }
+
+      const updated = { ...existing, [sectionKey]: merged };
+      const content = `${JSON.stringify(updated, null, 2)}\n`;
+
+      if (options.dryRun) {
+        return {
+          configPath,
+          action: "updated",
+          diff: `Would update ${sectionKey} in ${configPath}`,
+        };
+      }
+
+      const { backupPath } = await safeWriteConfig(configPath, content, false);
+      return { configPath, action: "updated", backupPath };
+    }
+
+    const fresh = { [sectionKey]: incoming };
+    const content = `${JSON.stringify(fresh, null, 2)}\n`;
+
+    if (options.dryRun) {
+      return {
+        configPath,
+        action: "created",
+        diff: `Would create ${configPath}`,
+      };
+    }
+
+    await safeWriteConfig(configPath, content, false);
+    return { configPath, action: "created" };
+  }
+}

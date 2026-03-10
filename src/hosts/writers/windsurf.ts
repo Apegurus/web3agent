@@ -1,80 +1,24 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { BLOCKSCOUT_DEFAULT_URL, ETHERSCAN_DEFAULT_URL } from "../../config/env.js";
-import type { HostWriter, WriteOptions, WriteResult } from "./base.js";
-import { mergeServers, readJsonFile, safeWriteConfig } from "./base.js";
+import { BaseHostWriter, type WriteOptions } from "./base.js";
 
-function windsurfProxyEntries(): Record<string, unknown> {
-  return {
-    web3agent: {
-      command: "npx",
-      args: ["web3agent"],
-    },
-  };
-}
+export class WindsurfWriter extends BaseHostWriter {
+  protected getConfigPath(_options: WriteOptions): string {
+    return join(homedir(), ".codeium", "windsurf", "mcp_config.json");
+  }
 
-function windsurfMultiServerEntries(): Record<string, unknown> {
-  return {
-    web3agent: {
-      command: "npx",
-      args: ["web3agent"],
-    },
-    blockscout: {
-      serverUrl: BLOCKSCOUT_DEFAULT_URL,
-    },
-    etherscan: {
-      serverUrl: ETHERSCAN_DEFAULT_URL,
-    },
-    evm: {
-      command: "npx",
-      args: ["-y", "@mcpdotdirect/evm-mcp-server"],
-    },
-  };
-}
-
-export class WindsurfWriter implements HostWriter {
-  async write(options: WriteOptions): Promise<WriteResult> {
-    const configPath = join(homedir(), ".codeium", "windsurf", "mcp_config.json");
-    const incoming =
-      options.mode === "proxy" ? windsurfProxyEntries() : windsurfMultiServerEntries();
-
-    const existing = await readJsonFile(configPath);
-
-    if (existing) {
-      const servers = (existing.mcpServers as Record<string, unknown>) ?? {};
-      const { merged, changed } = mergeServers(servers, incoming);
-
-      if (!changed) {
-        return { configPath, action: "unchanged" };
-      }
-
-      const updated = { ...existing, mcpServers: merged };
-      const content = `${JSON.stringify(updated, null, 2)}\n`;
-
-      if (options.dryRun) {
-        return {
-          configPath,
-          action: "updated",
-          diff: `Would update mcpServers in ${configPath}`,
-        };
-      }
-
-      const { backupPath } = await safeWriteConfig(configPath, content, false);
-      return { configPath, action: "updated", backupPath };
-    }
-
-    const fresh = { mcpServers: incoming };
-    const content = `${JSON.stringify(fresh, null, 2)}\n`;
-
-    if (options.dryRun) {
+  protected override getEntries(options: WriteOptions): Record<string, unknown> {
+    if (options.mode === "proxy") {
       return {
-        configPath,
-        action: "created",
-        diff: `Would create ${configPath}`,
+        web3agent: { command: "npx", args: ["web3agent"] },
       };
     }
-
-    await safeWriteConfig(configPath, content, false);
-    return { configPath, action: "created" };
+    return {
+      web3agent: { command: "npx", args: ["web3agent"] },
+      blockscout: { serverUrl: BLOCKSCOUT_DEFAULT_URL },
+      etherscan: { serverUrl: ETHERSCAN_DEFAULT_URL },
+      evm: { command: "npx", args: ["-y", "@mcpdotdirect/evm-mcp-server"] },
+    };
   }
 }
