@@ -33,6 +33,7 @@ const DEFAULT_CONFIG = {
   walletAccountIndex: 0,
   walletAddressIndex: 0,
   confirmWrites: true,
+  confirmTtlMinutes: 30,
   blockscoutMcpUrl: "https://mcp.blockscout.com/mcp",
   etherscanMcpUrl: "https://mcp.etherscan.io/mcp",
   etherscanApiKey: undefined,

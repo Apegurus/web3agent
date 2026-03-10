@@ -8,6 +8,7 @@ export interface RuntimeConfig {
   /** Per-chain RPC overrides keyed by chain ID, parsed from RPC_URL_<chainId> env vars. */
   chainRpcUrls: Record<number, string>;
   confirmWrites: boolean;
+  confirmTtlMinutes: number;
   blockscoutMcpUrl: string;
   etherscanMcpUrl: string;
   etherscanApiKey?: string;

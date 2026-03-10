@@ -4,8 +4,9 @@ import { mkdir, open, readFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OperationExecutor, PendingOperation } from "../types/wallet.js";
+import { type AuditAction, appendAuditLog } from "./audit.js";
 
-const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+const DEFAULT_TTL_MS = 30 * 60 * 1000;
 
 interface SerializedPendingOperation {
   id: string;
@@ -34,9 +35,11 @@ function getPendingOpsPath(): string {
 export class ConfirmationQueueManager {
   private queue: Map<string, PendingOperation> = new Map();
   public enabled: boolean;
+  public ttlMs: number;
 
-  constructor(enabled: boolean) {
+  constructor(enabled: boolean, ttlMs: number = DEFAULT_TTL_MS) {
     this.enabled = enabled;
+    this.ttlMs = ttlMs;
   }
 
   enqueue(
@@ -62,7 +65,7 @@ export class ConfirmationQueueManager {
       params,
       executor,
       createdAt: new Date(),
-      ttlMs: THIRTY_MINUTES_MS,
+      ttlMs: this.ttlMs,
       walletAddress,
     };
 
@@ -91,18 +94,23 @@ export class ConfirmationQueueManager {
   }
 
   complete(id: string): void {
+    const op = this.queue.get(id);
     this.queue.delete(id);
     this.persistQueue().catch((e: unknown) => {
       process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
     });
+    if (op) this.audit("CONFIRMED", op);
   }
 
   deny(id: string): boolean {
+    const op = this.queue.get(id);
     const removed = this.queue.delete(id);
-    if (removed)
+    if (removed) {
       this.persistQueue().catch((e: unknown) => {
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
+      if (op) this.audit("DENIED", op);
+    }
     return removed;
   }
 
@@ -112,17 +120,21 @@ export class ConfirmationQueueManager {
 
   pruneExpired(): void {
     const now = Date.now();
-    let pruned = false;
+    const expired: PendingOperation[] = [];
     for (const [id, op] of this.queue) {
       if (now - op.createdAt.getTime() > op.ttlMs) {
+        expired.push(op);
         this.queue.delete(id);
-        pruned = true;
       }
     }
-    if (pruned)
+    if (expired.length > 0) {
       this.persistQueue().catch((e: unknown) => {
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
+      for (const op of expired) {
+        this.audit("EXPIRED", op);
+      }
+    }
   }
 
   flushAll(): number {
@@ -132,6 +144,18 @@ export class ConfirmationQueueManager {
       process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
     });
     return count;
+  }
+
+  private audit(action: AuditAction, op: PendingOperation): void {
+    appendAuditLog({
+      action,
+      operationType: op.type,
+      operationId: op.id,
+      walletAddress: op.walletAddress,
+      description: op.description,
+    }).catch((e: unknown) => {
+      process.stderr.write(`[confirmation] Failed to write audit log: ${e}\n`);
+    });
   }
 
   private async persistQueue(): Promise<void> {
@@ -162,9 +186,9 @@ export class ConfirmationQueueManager {
     await rename(tmpPath, filePath);
   }
 
-  async loadQueue(): Promise<void> {
+  async loadQueue(): Promise<number> {
     const filePath = getPendingOpsPath();
-    if (!existsSync(filePath)) return;
+    if (!existsSync(filePath)) return 0;
 
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -201,10 +225,12 @@ export class ConfirmationQueueManager {
           `[confirmation] Restored ${this.queue.size} pending operation(s) from disk\n`
         );
       }
+      return this.queue.size;
     } catch (e: unknown) {
       process.stderr.write(
         `[confirmation] Failed to load persisted queue (starting fresh): ${e}\n`
       );
+      return 0;
     }
   }
 }

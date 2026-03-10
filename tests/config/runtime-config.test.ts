@@ -47,6 +47,16 @@ describe("runtime config parsing", () => {
     expect(config.lifiApiKey).toBe("abc123");
   });
 
+  it("defaults confirmTtlMinutes to 30", () => {
+    const config = parseEnv({});
+    expect(config.confirmTtlMinutes).toBe(30);
+  });
+
+  it("parses CONFIRM_TTL_MINUTES from env", () => {
+    const config = parseEnv({ CONFIRM_TTL_MINUTES: "5" });
+    expect(config.confirmTtlMinutes).toBe(5);
+  });
+
   it("defaults wallet indices to 0", () => {
     const config = parseEnv({});
     expect(config.walletAccountIndex).toBe(0);

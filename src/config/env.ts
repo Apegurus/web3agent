@@ -67,6 +67,7 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     rpcUrl: env.RPC_URL || undefined,
     chainRpcUrls: parseChainRpcUrls(env),
     confirmWrites: parseBoolean(env.CONFIRM_WRITES, true),
+    confirmTtlMinutes: parseIntStrict("CONFIRM_TTL_MINUTES", env.CONFIRM_TTL_MINUTES, 30),
     blockscoutMcpUrl: env.BLOCKSCOUT_MCP_URL || BLOCKSCOUT_DEFAULT_URL,
     etherscanMcpUrl: env.ETHERSCAN_MCP_URL || ETHERSCAN_DEFAULT_URL,
     etherscanApiKey: env.ETHERSCAN_API_KEY || undefined,
