@@ -4,6 +4,7 @@ import type { WalletClientBase } from "@goat-sdk/core";
 import { viem } from "@goat-sdk/wallet-viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClientForChain } from "../config/wallet-factory.js";
+import { walletEvents } from "../wallet/events.js";
 import { getActiveAccount, getWalletState } from "../wallet/persistence.js";
 import { type PluginLoadResult, loadPlugins } from "./plugins.js";
 
@@ -24,12 +25,17 @@ export class GoatProvider {
   private snapshots = new Map<number, GoatToolSnapshot>();
   private pluginResult: PluginLoadResult | undefined;
   private referenceSnapshot: GoatToolSnapshot | undefined;
+  private generation = 0;
+  private initConfig?: { zeroxApiKey?: string; coingeckoApiKey?: string; rpcUrl?: string };
+  private walletChangeHandler?: (state: import("../types/wallet.js").WalletState) => void;
+  private rebuildPromise: Promise<void> = Promise.resolve();
 
   async initialize(config: {
     zeroxApiKey?: string;
     coingeckoApiKey?: string;
     rpcUrl?: string;
   }): Promise<void> {
+    this.initConfig = config;
     const walletState = getWalletState();
     const hasWallet = walletState.mode !== "read-only";
 
@@ -43,6 +49,47 @@ export class GoatProvider {
     const defaultChainId = walletState.chainId;
     await this.buildSnapshot(defaultChainId);
     this.referenceSnapshot = this.snapshots.get(defaultChainId);
+
+    this.walletChangeHandler = (state) => {
+      this.generation++;
+      const gen = this.generation;
+      const hasWallet = state.mode !== "read-only";
+      this.pluginResult = loadPlugins({
+        hasWallet,
+        zeroxApiKey: this.initConfig?.zeroxApiKey,
+        coingeckoApiKey: this.initConfig?.coingeckoApiKey,
+        rpcUrl: this.initConfig?.rpcUrl,
+      });
+      // Chain onto existing promise so waitForRebuild() always awaits the latest.
+      // Keep old referenceSnapshot visible until new one is ready (no availability gap).
+      this.rebuildPromise = this.rebuildPromise
+        // biome-ignore lint/suspicious/noEmptyBlockStatements: intentionally swallow previous rebuild errors to keep the chain alive
+        .catch(() => {})
+        .then(() => this.buildSnapshot(state.chainId))
+        .then(() => {
+          if (this.generation !== gen) return;
+          this.referenceSnapshot = this.snapshots.get(state.chainId);
+          process.stderr.write(
+            `[goat] Rebuilt snapshot for chain ${state.chainId} after wallet change\n`
+          );
+        })
+        .catch((e: unknown) => {
+          process.stderr.write(`[goat] Failed to rebuild snapshot after wallet change: ${e}\n`);
+        });
+    };
+    walletEvents.on("wallet-changed", this.walletChangeHandler);
+  }
+
+  /** Wait for any in-flight rebuild triggered by a wallet change. */
+  async waitForRebuild(): Promise<void> {
+    await this.rebuildPromise;
+  }
+
+  shutdown(): void {
+    if (this.walletChangeHandler) {
+      walletEvents.off("wallet-changed", this.walletChangeHandler);
+      this.walletChangeHandler = undefined;
+    }
   }
 
   private async buildSnapshot(chainId: number): Promise<void> {
