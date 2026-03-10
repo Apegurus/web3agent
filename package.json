@@ -1,11 +1,30 @@
 {
   "name": "web3agent",
   "version": "0.1.0",
+  "description": "Web3 MCP proxy server — gives AI agents complete blockchain capabilities through a single install",
+  "license": "MIT",
+  "author": "Apeguru <hello@apeguru.dev>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apegurus/web3agent.git"
+  },
+  "keywords": [
+    "web3",
+    "mcp",
+    "blockchain",
+    "ethereum",
+    "defi",
+    "ai-agent",
+    "wallet",
+    "evm",
+    "claude",
+    "cursor"
+  ],
   "type": "module",
   "bin": {
     "web3agent": "dist/index.js"
   },
-  "files": ["dist", "WEB3_CONTEXT.md", "README.md"],
+  "files": ["dist", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
   "engines": {
     "node": ">=18"
   },
