@@ -250,6 +250,30 @@ export async function activateWallet(params: {
 }
 
 export async function getPersistedKeyForSubprocess(): Promise<string | null> {
+  // Check persisted wallet file FIRST — activateWallet() always writes here,
+  // so this reflects runtime wallet changes. Env vars are stale after activate.
+  const walletPath = getWalletPath();
+  if (existsSync(walletPath)) {
+    try {
+      const raw = await readFile(walletPath, "utf-8");
+      const data = JSON.parse(raw) as PersistedWallet;
+      if (data.type === "private-key") return data.privateKey;
+      if (data.type === "mnemonic") {
+        const account = mnemonicToAccount(data.mnemonic, {
+          accountIndex: data.accountIndex ?? 0,
+          addressIndex: data.addressIndex ?? 0,
+        });
+        const hdKey = account.getHdKey();
+        if (hdKey.privateKey) {
+          return `0x${Buffer.from(hdKey.privateKey).toString("hex")}`;
+        }
+      }
+    } catch {
+      /* subprocess key read failed — fall through to env vars */
+    }
+  }
+
+  // Fallback to env vars for initial startup (before any activateWallet call)
   if (process.env.PRIVATE_KEY) return process.env.PRIVATE_KEY;
 
   if (process.env.MNEMONIC) {
@@ -260,29 +284,8 @@ export async function getPersistedKeyForSubprocess(): Promise<string | null> {
     if (hdKey.privateKey) {
       return `0x${Buffer.from(hdKey.privateKey).toString("hex")}`;
     }
-    return null;
   }
 
-  const walletPath = getWalletPath();
-  if (!existsSync(walletPath)) return null;
-
-  try {
-    const raw = await readFile(walletPath, "utf-8");
-    const data = JSON.parse(raw) as PersistedWallet;
-    if (data.type === "private-key") return data.privateKey;
-    if (data.type === "mnemonic") {
-      const account = mnemonicToAccount(data.mnemonic, {
-        accountIndex: data.accountIndex ?? 0,
-        addressIndex: data.addressIndex ?? 0,
-      });
-      const hdKey = account.getHdKey();
-      if (hdKey.privateKey) {
-        return `0x${Buffer.from(hdKey.privateKey).toString("hex")}`;
-      }
-    }
-  } catch {
-    /* subprocess key read failed — return null */
-  }
   return null;
 }
 
