@@ -19,6 +19,13 @@ export interface ToolDefinition {
   description: string;
   inputSchema: Record<string, unknown>;
   handler: (params: Record<string, unknown>) => Promise<CallToolResult>;
+  annotations?: {
+    title?: string;
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
 
 export function getWalletToolDefinitions(): ToolDefinition[] {
@@ -29,12 +36,14 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Generate a new random Ethereum wallet. Returns address and private key once — never stored.",
       inputSchema: { type: "object", properties: {} },
       handler: () => walletGenerate(),
+      annotations: { readOnlyHint: true },
     },
     {
       name: "wallet_generate_mnemonic",
       description: "Generate a new BIP-39 mnemonic phrase with its first derived address.",
       inputSchema: { type: "object", properties: {} },
       handler: () => walletGenerateMnemonic(),
+      annotations: { readOnlyHint: true },
     },
     {
       name: "wallet_from_mnemonic",
@@ -56,6 +65,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         required: ["mnemonic"],
       },
       handler: (params) => walletFromMnemonic(params),
+      annotations: { readOnlyHint: true },
     },
     {
       name: "wallet_derive_addresses",
@@ -73,6 +83,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         required: ["mnemonic"],
       },
       handler: (params) => walletDeriveAddresses(params),
+      annotations: { readOnlyHint: true },
     },
     {
       name: "wallet_get_active",
@@ -80,6 +91,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Get the currently active wallet address, chain ID, and mode (private-key, mnemonic, or read-only).",
       inputSchema: { type: "object", properties: {} },
       handler: () => walletGetActive(),
+      annotations: { readOnlyHint: true },
     },
     {
       name: "wallet_activate",
@@ -107,6 +119,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         },
       },
       handler: (params) => walletActivate(params),
+      annotations: { destructiveHint: true },
     },
     {
       name: "wallet_deactivate",
@@ -114,6 +127,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Deactivate the current wallet, delete persisted key file, and revert to read-only ephemeral mode.",
       inputSchema: { type: "object", properties: {} },
       handler: () => walletDeactivate(),
+      annotations: { destructiveHint: true },
     },
     {
       name: "wallet_set_confirmation",
@@ -130,6 +144,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         required: ["enabled"],
       },
       handler: (params) => walletSetConfirmation(params),
+      annotations: { idempotentHint: true },
     },
   ];
 }
@@ -151,6 +166,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
         required: ["id"],
       },
       handler: (params) => transactionConfirm(params),
+      annotations: { destructiveHint: true },
     },
     {
       name: "transaction_deny",
@@ -166,6 +182,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
         required: ["id"],
       },
       handler: (params) => transactionDeny(params),
+      annotations: { idempotentHint: true },
     },
     {
       name: "transaction_list",
@@ -173,6 +190,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
         "List all pending operations awaiting confirmation. Automatically prunes expired entries.",
       inputSchema: { type: "object", properties: {} },
       handler: () => transactionList(),
+      annotations: { readOnlyHint: true },
     },
   ];
 }
@@ -185,6 +203,7 @@ export function getUtilityToolDefinitions(): ToolDefinition[] {
         "Get current server status including wallet mode, active chain, confirmation setting, and backend health.",
       inputSchema: { type: "object", properties: {} },
       handler: () => serverStatus(),
+      annotations: { readOnlyHint: true },
     },
     {
       name: "list_supported_chains",
@@ -192,6 +211,7 @@ export function getUtilityToolDefinitions(): ToolDefinition[] {
         "List all supported EVM chains with their chain IDs, names, and native currencies.",
       inputSchema: { type: "object", properties: {} },
       handler: () => listSupportedChains(),
+      annotations: { readOnlyHint: true },
     },
   ];
 }

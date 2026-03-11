@@ -122,6 +122,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
         required: [],
       },
       handler: lifiGetChains,
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
       name: "lifi_get_quote",
@@ -156,6 +157,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
         required: ["fromChainId", "toChainId", "fromTokenAddress", "toTokenAddress", "fromAmount"],
       },
       handler: lifiGetQuote,
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
       name: "lifi_execute_bridge",
@@ -174,6 +176,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
         required: ["fromChainId", "toChainId", "fromTokenAddress", "toTokenAddress", "fromAmount"],
       },
       handler: lifiExecuteBridge,
+      annotations: { destructiveHint: true, openWorldHint: true },
     },
   ];
 }

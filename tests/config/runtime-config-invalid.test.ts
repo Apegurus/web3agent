@@ -13,7 +13,7 @@ describe("runtime config validation errors", () => {
   it("ValidationError has field property", () => {
     try {
       parseEnv({ CHAIN_ID: "not-a-number" });
-    } catch (e) {
+    } catch (e: unknown) {
       expect(e).toBeInstanceOf(ValidationError);
       expect((e as ValidationError).field).toBe("CHAIN_ID");
       expect((e as ValidationError).rawValue).toBe("not-a-number");

@@ -26,12 +26,16 @@ npx web3agent --version
 
 ## What you get
 
-- **Blockscout** — indexed blockchain data (address info, tx history, NFTs, contract ABIs)
-- **EVM MCP** — live on-chain state (balances, contract reads, gas, ENS)
-- **GOAT plugins** — Uniswap, Balancer, ERC-20/721, DexScreener
-- **LI.FI** — cross-chain bridging and swaps
+- **Blockscout** — indexed blockchain data (address info, tx history, NFTs, contract ABIs). Supported on 8 chains: Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era.
+- **Etherscan** — contract ABI fetching (requires `ETHERSCAN_API_KEY`)
+- **EVM MCP** — live on-chain state (balances, contract reads/writes, gas, ENS, multicall)
+- **GOAT plugins** — Uniswap, Balancer, ERC-20/721, ENS, DexScreener
+- **Optional GOAT plugins** — 0x (requires `ZEROX_API_KEY`), CoinGecko (requires `COINGECKO_API_KEY`)
+- **LI.FI** — cross-chain bridging and swaps across 20+ chains
 - **Orbs** — Liquidity Hub aggregated swaps, dTWAP, dLIMIT orders
-- **Wallet management** — generate, persist, derive addresses
+- **Token resolver** — symbol-to-address resolution with built-in registry and DexScreener fallback
+- **Wallet management** — generate, persist, activate/deactivate, derive addresses, sign messages
+- **Confirmation queue** — write operations require explicit confirmation by default
 
 ## Supported Hosts
 
@@ -51,6 +55,12 @@ Default: **Base (8453)**. Override with `CHAIN_ID` env var or `chainId` paramete
 ## Environment Variables
 
 See [WEB3_CONTEXT.md](./WEB3_CONTEXT.md) for the full environment variable table.
+
+## Known Limitations
+
+- **Blockscout** tools only work on 8 chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
+- **dSLTP** (stop-loss/take-profit orders) is not yet available
+- **0x** and **CoinGecko** plugins require their respective API keys
 
 ## Requirements
 

@@ -53,7 +53,17 @@ export class ProxyServer {
   ) {
     this.server = new Server(
       { name: "web3agent", version: VERSION },
-      { capabilities: { tools: {} } }
+      {
+        capabilities: { tools: { listChanged: true } },
+        instructions: [
+          "web3agent is a unified Web3 MCP proxy server.",
+          "Token resolution: ALWAYS call resolve_token before swaps/bridges to get the correct contract address.",
+          "Write operations: By default, writes (swaps, bridges, transfers) are queued. Call transaction_confirm(id) to execute, transaction_deny(id) to discard.",
+          "Wallet activation: Call wallet_activate with a private key or mnemonic to enable write operations. Call wallet_get_active to check current state.",
+          "Chain selection: Most tools accept an optional chainId parameter. Default chain is Base (8453).",
+          "Tool routing: Use blockscout_* for historical/indexed data, evm_* for live on-chain state, other tools for DeFi operations.",
+        ].join(" "),
+      }
     );
     this.frameworkTools = [
       ...getWalletToolDefinitions(),
@@ -143,7 +153,7 @@ export class ProxyServer {
       properties.chainId = {
         type: "number",
         description:
-          "Optional EVM chain ID to run this tool on (e.g. 1 for Ethereum, 8453 for Base, 9745 for Plasma). Defaults to the active wallet chain.",
+          "Optional EVM chain ID to run this tool on (e.g. 1 for Ethereum, 8453 for Base, 42161 for Arbitrum). Defaults to the active wallet chain.",
       };
 
       let description = tool.description;
@@ -159,6 +169,7 @@ export class ProxyServer {
         name: tool.name,
         description,
         inputSchema: { ...schema, properties },
+        annotations: { openWorldHint: true },
       };
     });
   }
@@ -169,6 +180,7 @@ export class ProxyServer {
         name: tool.name,
         description: tool.description,
         inputSchema: normalizeInputSchema(tool.inputSchema),
+        ...(tool.annotations && { annotations: tool.annotations }),
       })),
       ...this.getGoatTools(),
       ...this.blockscoutAdapter.getTools(),
@@ -178,16 +190,19 @@ export class ProxyServer {
         name: tool.name,
         description: tool.description,
         inputSchema: normalizeInputSchema(tool.inputSchema),
+        ...(tool.annotations && { annotations: tool.annotations }),
       })),
       ...this.orbsTools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: normalizeInputSchema(tool.inputSchema),
+        ...(tool.annotations && { annotations: tool.annotations }),
       })),
       ...this.tokenTools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: normalizeInputSchema(tool.inputSchema),
+        ...(tool.annotations && { annotations: tool.annotations }),
       })),
     ];
   }

@@ -49,7 +49,7 @@ describe("host matrix tests", () => {
           encoding: "utf-8",
           stdio: ["pipe", "pipe", "pipe"],
         });
-      } catch (error) {
+      } catch (error: unknown) {
         exitCode = (error as { status?: number }).status ?? 1;
         stderr = (error as { stderr?: string }).stderr ?? "";
       }

@@ -18,6 +18,9 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `wallet_from_mnemonic` — derive address from mnemonic
 - `wallet_derive_addresses` — batch derive 1-20 addresses
 - `wallet_get_active` — get current wallet address, chain, mode
+- `wallet_activate` — activate wallet from private key or mnemonic, persists to disk (mode 0600)
+- `wallet_deactivate` — deactivate current wallet, delete key file, revert to read-only
+- `wallet_set_confirmation` — toggle write confirmation at runtime (enabled/disabled)
 
 ### Transaction management
 - `transaction_confirm(id)` — execute a queued write operation
@@ -39,9 +42,14 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 **Orbs DeFi** (prefix: `orbs_`):
 - `orbs_get_quote` — Liquidity Hub aggregated swap quote (chains: 137, 56, 8453, 59144, 81457, 42161)
 - `orbs_swap` — execute swap (write, confirmation-gated)
+- `orbs_swap_status` — check status of a pending Liquidity Hub swap (takes chainId, sessionId, user)
 - `orbs_place_twap` — place dTWAP order (write, confirmation-gated)
 - `orbs_place_limit` — place dLIMIT order (write, confirmation-gated)
 - `orbs_list_orders` — list open TWAP/dLIMIT orders
+
+### Token resolution (prefix: none)
+- `resolve_token(symbol, chainId)` — resolve token symbol to contract address and decimals. Uses built-in registry with DexScreener fallback. ALWAYS use this before swaps/bridges.
+- `list_chain_tokens(chainId)` — list all well-known tokens for a chain from the built-in registry
 
 ### Utilities
 - `server_status` — wallet mode, active chain, confirmation setting, backend health
@@ -89,3 +97,9 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `LIFI_API_KEY` | — | LI.Fi API key |
 | `ZEROX_API_KEY` | — | 0x API key (enables 0x plugin) |
 | `COINGECKO_API_KEY` | — | CoinGecko API key (enables CoinGecko plugin) |
+
+## Known Limitations
+
+- **Blockscout chain coverage**: Blockscout hosted instances support only 8 chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era). Other chains (BSC, Linea, Avalanche, Blast, Mantle, Mode) are NOT supported by Blockscout tools.
+- **dSLTP (Stop Loss/Take Profit)**: Not yet available. Feature-gated for future release.
+- **CoinGecko and 0x plugins**: Require API keys (`COINGECKO_API_KEY`, `ZEROX_API_KEY`) to activate.

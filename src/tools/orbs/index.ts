@@ -408,6 +408,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "fromToken", "toToken", "inAmount"],
       },
       handler: orbsGetQuote,
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
       name: "orbs_swap",
@@ -427,6 +428,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "fromToken", "toToken", "inAmount"],
       },
       handler: orbsSwap,
+      annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
       name: "orbs_place_twap",
@@ -453,6 +455,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "srcToken", "dstToken", "srcAmount", "chunks", "fillDelay"],
       },
       handler: orbsPlaceTwap,
+      annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
       name: "orbs_place_limit",
@@ -476,6 +479,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "srcToken", "dstToken", "srcAmount", "dstMinAmount"],
       },
       handler: orbsPlaceLimit,
+      annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
       name: "orbs_swap_status",
@@ -500,6 +504,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "sessionId", "user"],
       },
       handler: orbsSwapStatus,
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
       name: "orbs_list_orders",
@@ -512,6 +517,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId"],
       },
       handler: orbsListOrders,
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     ...getDsltpToolDefinitions(),
   ];

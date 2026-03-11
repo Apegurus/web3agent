@@ -30,7 +30,7 @@ Initial public release. A unified MCP proxy server that gives AI agents complete
 - **Graceful shutdown** with SIGINT/SIGTERM handlers and resource cleanup
 - **Single dispatch map** in ProxyServer preventing duplicate tool registrations
 - **WEB3_CONTEXT.md** — ships in the tarball as an AI-readable tool routing guide
-- **262 tests** across 40 test files (Vitest) covering all modules
+- **268 tests** across 41 test files (Vitest) covering all modules
 - **CI pipeline** (GitHub Actions) with lint, typecheck, build, and test gates
 - **Biome** linting and formatting with `noEmptyBlockStatements` enforcement
 

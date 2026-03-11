@@ -72,6 +72,7 @@ export function getTokenToolDefinitions(): ToolDefinition[] {
         required: ["symbol", "chainId"],
       },
       handler: (params) => handleResolveToken(params),
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
       name: "list_chain_tokens",
@@ -89,6 +90,7 @@ export function getTokenToolDefinitions(): ToolDefinition[] {
         required: ["chainId"],
       },
       handler: (params) => Promise.resolve(handleListTokens(params)),
+      annotations: { readOnlyHint: true },
     },
   ];
 }
