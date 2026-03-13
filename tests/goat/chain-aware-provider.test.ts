@@ -67,9 +67,28 @@ vi.mock("../../src/config/wallet-factory.js", () => ({
 }));
 
 describe("GoatProvider — chain-aware dispatch", () => {
+  const runtimeConfig = {
+    chainId: 8453,
+    privateKey: undefined,
+    mnemonic: undefined,
+    walletAccountIndex: 0,
+    walletAddressIndex: 0,
+    rpcUrl: undefined,
+    chainRpcUrls: {},
+    confirmWrites: true,
+    confirmTtlMinutes: 30,
+    blockscoutMcpUrl: "https://blockscout.mock",
+    etherscanMcpUrl: "https://etherscan.mock",
+    etherscanApiKey: undefined,
+    lifiApiKey: undefined,
+    zeroxApiKey: undefined,
+    coingeckoApiKey: undefined,
+    orbsPartner: undefined,
+  };
+
   it("builds snapshot on-demand for different chains", async () => {
     const provider = new GoatProvider();
-    await provider.initialize({});
+    await provider.initialize(runtimeConfig);
 
     const snapshot8453 = await provider.getOrBuildSnapshot(8453);
     const snapshot1 = await provider.getOrBuildSnapshot(1);
@@ -82,7 +101,7 @@ describe("GoatProvider — chain-aware dispatch", () => {
 
   it("same tool routes to different handlers by chainId", async () => {
     const provider = new GoatProvider();
-    await provider.initialize({});
+    await provider.initialize(runtimeConfig);
 
     const snapshot1 = await provider.getOrBuildSnapshot(1);
     const snapshot8453 = await provider.getOrBuildSnapshot(8453);
@@ -96,7 +115,7 @@ describe("GoatProvider — chain-aware dispatch", () => {
 
   it("exposes tool names from reference snapshot", async () => {
     const provider = new GoatProvider();
-    await provider.initialize({});
+    await provider.initialize(runtimeConfig);
 
     const names = provider.getAllToolNames();
     expect(names).toContain("get_balance");
@@ -105,7 +124,7 @@ describe("GoatProvider — chain-aware dispatch", () => {
 
   it("getReferenceSnapshot returns the default chain snapshot", async () => {
     const provider = new GoatProvider();
-    await provider.initialize({});
+    await provider.initialize(runtimeConfig);
 
     const ref = provider.getReferenceSnapshot();
     expect(ref).toBeDefined();
@@ -114,7 +133,7 @@ describe("GoatProvider — chain-aware dispatch", () => {
 
   it("caches snapshots and returns same instance on repeated calls", async () => {
     const provider = new GoatProvider();
-    await provider.initialize({});
+    await provider.initialize(runtimeConfig);
 
     const first = await provider.getOrBuildSnapshot(137);
     const second = await provider.getOrBuildSnapshot(137);
@@ -123,7 +142,7 @@ describe("GoatProvider — chain-aware dispatch", () => {
 
   it("reports loaded plugins", async () => {
     const provider = new GoatProvider();
-    await provider.initialize({});
+    await provider.initialize(runtimeConfig);
 
     const plugins = provider.getLoadedPlugins();
     expect(plugins).toContain("erc20");

@@ -95,6 +95,16 @@ vi.mock("../../src/wallet/persistence.js", () => ({
 }));
 
 describe("LI.FI tools", () => {
+  it("exports explicit categories for LI.FI tool definitions", () => {
+    const categories = Object.fromEntries(
+      getLifiToolDefinitions().map((tool) => [tool.name, tool.category])
+    );
+
+    expect(categories.lifi_get_chains).toBe("status");
+    expect(categories.lifi_get_quote).toBe("swap");
+    expect(categories.lifi_execute_bridge).toBe("swap");
+  });
+
   it("lifi_get_chains returns list of chains", async () => {
     const tools = getLifiToolDefinitions();
     const getChainsTool = tools.find((t) => t.name === "lifi_get_chains") as ToolDefinition;

@@ -52,6 +52,7 @@ export function getTokenToolDefinitions(): ToolDefinition[] {
   return [
     {
       name: "resolve_token",
+      category: "tokens",
       description:
         "Resolve a token symbol (e.g. 'USDT', 'WBNB') to its contract address and decimals on a specific chain. " +
         "Uses a built-in registry of verified canonical addresses for major tokens with DexScreener fallback. " +
@@ -76,6 +77,7 @@ export function getTokenToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "list_chain_tokens",
+      category: "tokens",
       description:
         "List all well-known tokens available in the built-in registry for a specific chain. " +
         "Returns symbol, address, decimals, and name for each token.",

@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { RESTRICTED_PLUGIN_CHAINS, dispatchGoatTool } from "../goat/dispatch.js";
+import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
@@ -19,38 +19,204 @@ import type { EvmAdapter } from "../upstream/evm/adapter.js";
 import { formatToolError } from "../utils/errors.js";
 import { VERSION } from "../version.js";
 import { walletEvents } from "../wallet/events.js";
+import type { ManagedRuntime } from "./managed-runtime.js";
+import { createGoatToolMetadata, normalizeInputSchema } from "./tool-metadata.js";
 
-type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
+interface RuntimeBridge {
+  getMcpTools(): Tool[];
+  invokeTool(name: string, args?: Record<string, unknown>): Promise<CallToolResult>;
+  onToolsChanged(listener: () => void): () => void;
+  shutdown(): Promise<void>;
+}
 
-function normalizeInputSchema(schema: Record<string, unknown> | object): {
-  type: "object";
-  properties?: { [key: string]: object };
-  required?: string[];
-  [key: string]: unknown;
-} {
-  const candidate = schema as { type?: unknown } & Record<string, unknown>;
-  return {
-    ...candidate,
-    type: "object",
+function getGoatTools(goatProvider: GoatProvider): Tool[] {
+  const snapshot = goatProvider.getReferenceSnapshot();
+  if (!snapshot) return [];
+  return snapshot.listOfTools.map((tool) => createGoatToolMetadata(tool));
+}
+
+function createLegacyRuntimeBridge(
+  blockscoutAdapter: BlockscoutAdapter,
+  etherscanAdapter: EtherscanAdapter,
+  evmAdapter: EvmAdapter,
+  goatProvider: GoatProvider
+): RuntimeBridge {
+  type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
+
+  const frameworkTools = [
+    ...getWalletToolDefinitions(),
+    ...getTransactionToolDefinitions(),
+    ...getUtilityToolDefinitions(),
+  ];
+  const lifiTools = getLifiToolDefinitions();
+  const orbsTools = getOrbsToolDefinitions();
+  const tokenTools = getTokenToolDefinitions();
+  let goatToolNames = new Set(goatProvider.getAllToolNames());
+  const toolDispatch = new Map<string, ToolHandler>();
+
+  const rebuildDispatchMap = () => {
+    toolDispatch.clear();
+
+    for (const tool of blockscoutAdapter.getTools()) {
+      toolDispatch.set(
+        tool.name,
+        (args) => blockscoutAdapter.callTool(tool.name, args) as Promise<CallToolResult>
+      );
+    }
+
+    for (const tool of etherscanAdapter.getTools()) {
+      toolDispatch.set(
+        tool.name,
+        (args) => etherscanAdapter.callTool(tool.name, args) as Promise<CallToolResult>
+      );
+    }
+
+    for (const tool of evmAdapter.getTools()) {
+      toolDispatch.set(
+        tool.name,
+        (args) => evmAdapter.callTool(tool.name, args) as Promise<CallToolResult>
+      );
+    }
+
+    for (const tool of tokenTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
+    for (const name of goatToolNames) {
+      toolDispatch.set(name, (args) => dispatchGoatTool(name, args));
+    }
+
+    for (const tool of lifiTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
+    for (const tool of orbsTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
+    for (const tool of frameworkTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
   };
+
+  rebuildDispatchMap();
+
+  return {
+    getMcpTools(): Tool[] {
+      return [
+        ...frameworkTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...getGoatTools(goatProvider),
+        ...blockscoutAdapter.getTools(),
+        ...etherscanAdapter.getTools(),
+        ...evmAdapter.getTools(),
+        ...lifiTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...orbsTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...tokenTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+      ];
+    },
+    async invokeTool(
+      name: string,
+      args: Record<string, unknown> = {}
+    ): Promise<CallToolResult> {
+      const handler = toolDispatch.get(name);
+      if (!handler) {
+        return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);
+      }
+      return handler(args);
+    },
+    onToolsChanged(listener: () => void): () => void {
+      const handler = () => {
+        goatProvider
+          .waitForRebuild()
+          .then(() => {
+            goatToolNames = new Set(goatProvider.getAllToolNames());
+            rebuildDispatchMap();
+            listener();
+          })
+          .catch((e: unknown) => {
+            process.stderr.write(`[web3agent] Failed to update tools after wallet change: ${e}\n`);
+          });
+      };
+      walletEvents.on("wallet-changed", handler);
+      return () => {
+        walletEvents.off("wallet-changed", handler);
+      };
+    },
+    async shutdown(): Promise<void> {
+      goatProvider.shutdown();
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort wait before adapter teardown
+      await goatProvider.waitForRebuild().catch(() => {});
+      await Promise.allSettled([
+        blockscoutAdapter.shutdown(),
+        etherscanAdapter.shutdown(),
+        evmAdapter.shutdown(),
+      ]);
+    },
+  };
+}
+
+function isRuntimeBridge(value: unknown): value is RuntimeBridge {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<RuntimeBridge>;
+  return (
+    typeof candidate.getMcpTools === "function" &&
+    typeof candidate.invokeTool === "function" &&
+    typeof candidate.onToolsChanged === "function" &&
+    typeof candidate.shutdown === "function"
+  );
+}
+
+function requireLegacyAdapter<T>(
+  value: T | undefined,
+  name: "etherscanAdapter" | "evmAdapter" | "goatProvider"
+): T {
+  if (value === undefined) {
+    throw new Error(
+      `Legacy ProxyServer construction requires ${name}; use createRuntime() for the managed runtime path`
+    );
+  }
+  return value;
 }
 
 export class ProxyServer {
   private readonly server: Server;
-  private readonly frameworkTools: ToolDefinition[];
-  private readonly lifiTools: ToolDefinition[];
-  private readonly orbsTools: ToolDefinition[];
-  private readonly tokenTools: ToolDefinition[];
-  private goatToolNames: Set<string>;
-  private toolDispatch = new Map<string, ToolHandler>();
-  private walletChangeHandler?: () => void;
+  private removeToolsChangedListener?: () => void;
+  private readonly runtime: RuntimeBridge;
 
   constructor(
-    private readonly blockscoutAdapter: BlockscoutAdapter,
-    private readonly etherscanAdapter: EtherscanAdapter,
-    private readonly evmAdapter: EvmAdapter,
-    private readonly goatProvider: GoatProvider
+    runtimeOrBlockscout: ManagedRuntime | BlockscoutAdapter,
+    etherscanAdapter?: EtherscanAdapter,
+    evmAdapter?: EvmAdapter,
+    goatProviderInstance?: GoatProvider
   ) {
+    this.runtime = isRuntimeBridge(runtimeOrBlockscout)
+      ? runtimeOrBlockscout
+      : createLegacyRuntimeBridge(
+          runtimeOrBlockscout,
+          requireLegacyAdapter(etherscanAdapter, "etherscanAdapter"),
+          requireLegacyAdapter(evmAdapter, "evmAdapter"),
+          requireLegacyAdapter(goatProviderInstance, "goatProvider")
+        );
     this.server = new Server(
       { name: "web3agent", version: VERSION },
       {
@@ -65,64 +231,14 @@ export class ProxyServer {
         ].join(" "),
       }
     );
-    this.frameworkTools = [
-      ...getWalletToolDefinitions(),
-      ...getTransactionToolDefinitions(),
-      ...getUtilityToolDefinitions(),
-    ];
-    this.lifiTools = getLifiToolDefinitions();
-    this.orbsTools = getOrbsToolDefinitions();
-    this.tokenTools = getTokenToolDefinitions();
-    this.goatToolNames = new Set(this.goatProvider.getAllToolNames());
-
-    this.rebuildDispatchMap();
     this.registerHandlers();
-    this.registerWalletChangeNotification();
-  }
-
-  private rebuildDispatchMap(): void {
-    this.toolDispatch.clear();
-
-    for (const tool of this.blockscoutAdapter.getTools()) {
-      this.toolDispatch.set(
-        tool.name,
-        (args) => this.blockscoutAdapter.callTool(tool.name, args) as Promise<CallToolResult>
-      );
-    }
-
-    for (const tool of this.etherscanAdapter.getTools()) {
-      this.toolDispatch.set(
-        tool.name,
-        (args) => this.etherscanAdapter.callTool(tool.name, args) as Promise<CallToolResult>
-      );
-    }
-
-    for (const tool of this.evmAdapter.getTools()) {
-      this.toolDispatch.set(
-        tool.name,
-        (args) => this.evmAdapter.callTool(tool.name, args) as Promise<CallToolResult>
-      );
-    }
-
-    for (const tool of this.tokenTools) {
-      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
-    }
-
-    for (const name of this.goatToolNames) {
-      this.toolDispatch.set(name, (args) => dispatchGoatTool(name, args));
-    }
-
-    for (const tool of this.lifiTools) {
-      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
-    }
-
-    for (const tool of this.orbsTools) {
-      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
-    }
-
-    for (const tool of this.frameworkTools) {
-      this.toolDispatch.set(tool.name, (args) => tool.handler(args));
-    }
+    this.removeToolsChangedListener = this.runtime.onToolsChanged(() => {
+      this.server
+        .notification({ method: "notifications/tools/list_changed" })
+        .catch((e: unknown) => {
+          process.stderr.write(`[web3agent] Failed to emit tools/list_changed: ${e}\n`);
+        });
+    });
   }
 
   private registerHandlers(): void {
@@ -133,109 +249,20 @@ export class ProxyServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const name = request.params.name;
       const args = (request.params.arguments ?? {}) as Record<string, unknown>;
-
-      const handler = this.toolDispatch.get(name);
-      if (handler) {
-        return handler(args);
-      }
-
-      return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);
-    });
-  }
-
-  private getGoatTools(): Tool[] {
-    const snapshot = this.goatProvider.getReferenceSnapshot();
-    if (!snapshot) return [];
-
-    return snapshot.listOfTools.map((tool) => {
-      const schema = normalizeInputSchema(tool.inputSchema);
-      const properties = (schema.properties ?? {}) as Record<string, object>;
-      properties.chainId = {
-        type: "number",
-        description:
-          "Optional EVM chain ID to run this tool on (e.g. 1 for Ethereum, 8453 for Base, 42161 for Arbitrum). Defaults to the active wallet chain.",
-      };
-
-      let description = tool.description;
-      const lowerName = tool.name.toLowerCase();
-      for (const [plugin, chains] of Object.entries(RESTRICTED_PLUGIN_CHAINS)) {
-        if (lowerName.startsWith(plugin)) {
-          description += ` Only available on chains: ${chains.join(", ")}.`;
-          break;
-        }
-      }
-
-      return {
-        name: tool.name,
-        description,
-        inputSchema: { ...schema, properties },
-        annotations: { openWorldHint: true },
-      };
+      return this.runtime.invokeTool(name, args);
     });
   }
 
   private getAggregatedTools(): Tool[] {
-    return [
-      ...this.frameworkTools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: normalizeInputSchema(tool.inputSchema),
-        ...(tool.annotations && { annotations: tool.annotations }),
-      })),
-      ...this.getGoatTools(),
-      ...this.blockscoutAdapter.getTools(),
-      ...this.etherscanAdapter.getTools(),
-      ...this.evmAdapter.getTools(),
-      ...this.lifiTools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: normalizeInputSchema(tool.inputSchema),
-        ...(tool.annotations && { annotations: tool.annotations }),
-      })),
-      ...this.orbsTools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: normalizeInputSchema(tool.inputSchema),
-        ...(tool.annotations && { annotations: tool.annotations }),
-      })),
-      ...this.tokenTools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: normalizeInputSchema(tool.inputSchema),
-        ...(tool.annotations && { annotations: tool.annotations }),
-      })),
-    ];
-  }
-
-  private registerWalletChangeNotification(): void {
-    this.walletChangeHandler = () => {
-      this.goatProvider
-        .waitForRebuild()
-        .then(() => {
-          this.goatToolNames = new Set(this.goatProvider.getAllToolNames());
-          this.rebuildDispatchMap();
-          return this.server.notification({ method: "notifications/tools/list_changed" });
-        })
-        .catch((e: unknown) => {
-          process.stderr.write(`[web3agent] Failed to update tools after wallet change: ${e}\n`);
-        });
-    };
-    walletEvents.on("wallet-changed", this.walletChangeHandler);
+    return this.runtime.getMcpTools();
   }
 
   async shutdown(): Promise<void> {
-    if (this.walletChangeHandler) {
-      walletEvents.off("wallet-changed", this.walletChangeHandler);
-      this.walletChangeHandler = undefined;
+    if (this.removeToolsChangedListener) {
+      this.removeToolsChangedListener();
+      this.removeToolsChangedListener = undefined;
     }
-    this.goatProvider.shutdown();
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: swallow rebuild errors during shutdown — adapter cleanup follows
-    await this.goatProvider.waitForRebuild().catch(() => {});
-    await Promise.allSettled([
-      this.blockscoutAdapter.shutdown(),
-      this.etherscanAdapter.shutdown(),
-      this.evmAdapter.shutdown(),
-    ]);
+    await this.runtime.shutdown();
     await this.server.close().catch((e: unknown) => {
       process.stderr.write(`[web3agent] Failed to close MCP server: ${e}\n`);
     });

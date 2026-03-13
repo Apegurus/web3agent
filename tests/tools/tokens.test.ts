@@ -44,6 +44,16 @@ describe("token tool handlers", () => {
     expect(resolverMocks.resolveToken).toHaveBeenCalledWith("USDC", 1);
   });
 
+  it("exports explicit token categories on tool definitions", async () => {
+    const { getTokenToolDefinitions } = await import("../../src/tools/tokens/index.js");
+    const categories = Object.fromEntries(
+      getTokenToolDefinitions().map((tool) => [tool.name, tool.category])
+    );
+
+    expect(categories.resolve_token).toBe("tokens");
+    expect(categories.list_chain_tokens).toBe("tokens");
+  });
+
   it("resolve_token returns TOKEN_NOT_FOUND for unknown symbol", async () => {
     chainRegistryMocks.getChainById.mockReturnValue({ id: 1, name: "Ethereum" });
     resolverMocks.resolveToken.mockResolvedValue(null);

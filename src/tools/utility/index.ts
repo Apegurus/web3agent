@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getChainById } from "../../chains/registry.js";
+import { getConfig } from "../../config/env.js";
 import { RESTRICTED_PLUGIN_CHAINS } from "../../goat/dispatch.js";
 import { LIQUIDITY_HUB_CHAINS } from "../../orbs/chains.js";
 import type { HealthStatus } from "../../types/health.js";
@@ -37,7 +38,7 @@ export async function serverStatus(): Promise<CallToolResult> {
         };
     return formatToolResponse({
       walletMode: wallet.mode,
-      activeChainId: wallet.chainId,
+      activeChainId: getConfig().chainId,
       confirmWrites: confirmationQueue.enabled,
       backends,
       toolCount: _totalToolCount,

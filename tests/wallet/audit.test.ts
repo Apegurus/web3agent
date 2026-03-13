@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +10,7 @@ vi.mock("node:os", async () => {
 });
 
 import { homedir } from "node:os";
-import { appendAuditLog } from "../../src/wallet/audit.js";
+import { appendAuditLog, readAuditLog } from "../../src/wallet/audit.js";
 
 describe("audit log", () => {
   let testDir: string;
@@ -81,5 +81,38 @@ describe("audit log", () => {
     expect(content).toContain("EXPIRED");
     expect(content).toContain("unknown");
     expect(content).toContain("id=id-3");
+  });
+
+  it("round-trips appended audit entries through readAuditLog", async () => {
+    await appendAuditLog({
+      action: "CONFIRMED",
+      operationType: "orbs_swap",
+      operationId: "id-roundtrip",
+      walletAddress: "0x1234",
+      description: "swap | with separators",
+    });
+
+    const entries = await readAuditLog();
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      action: "CONFIRMED",
+      operationType: "orbs_swap",
+      operationId: "id-roundtrip",
+      walletAddress: "0x1234",
+      description: "swap | with separators",
+    });
+  });
+
+  it("keeps the raw description when the parsed JSON value is not a string", async () => {
+    const logPath = join(testDir, ".web3agent", "audit.log");
+    await mkdir(join(testDir, ".web3agent"), { recursive: true });
+    await writeFile(
+      logPath,
+      '2026-03-13T12:00:00.000Z | DENIED | orbs_swap | unknown | {"nested":true} | id=id-safe-parse\n'
+    );
+
+    const entries = await readAuditLog();
+    expect(entries[0]?.description).toBe('{"nested":true}');
   });
 });

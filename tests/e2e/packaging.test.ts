@@ -1,16 +1,34 @@
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
+const DIST_CLI = join(ROOT, "dist/cli.js");
 const DIST_INDEX = join(ROOT, "dist/index.js");
+const DIST_RUNTIME = join(ROOT, "dist/runtime/index.js");
+const DIST_MCP = join(ROOT, "dist/mcp/index.js");
+const EXAMPLE_ROOT_API = join(ROOT, "examples/root-api-smoke.mjs");
+const EXAMPLE_RUNTIME = join(ROOT, "examples/runtime-smoke.mjs");
 
 describe("packaging tests", () => {
-  it("dist/index.js exists and has shebang", () => {
-    expect(existsSync(DIST_INDEX)).toBe(true);
-    const content = readFileSync(DIST_INDEX, "utf-8");
+  beforeAll(() => {
+    execSync("pnpm build", {
+      cwd: ROOT,
+      encoding: "utf-8",
+    });
+  });
+
+  it("dist/cli.js exists and has shebang", () => {
+    expect(existsSync(DIST_CLI)).toBe(true);
+    const content = readFileSync(DIST_CLI, "utf-8");
     expect(content.startsWith("#!/usr/bin/env node")).toBe(true);
+  });
+
+  it("library and subpath builds exist", () => {
+    expect(existsSync(DIST_INDEX)).toBe(true);
+    expect(existsSync(DIST_RUNTIME)).toBe(true);
+    expect(existsSync(DIST_MCP)).toBe(true);
   });
 
   it("WEB3_CONTEXT.md exists at package root", () => {
@@ -23,8 +41,13 @@ describe("packaging tests", () => {
     expect(existsSync(path)).toBe(true);
   });
 
+  it("example smoke scripts exist", () => {
+    expect(existsSync(EXAMPLE_ROOT_API)).toBe(true);
+    expect(existsSync(EXAMPLE_RUNTIME)).toBe(true);
+  });
+
   it("--help exits 0 and outputs to stderr", () => {
-    const result = execSync(`node ${DIST_INDEX} --help 2>&1`, {
+    const result = execSync(`node ${DIST_CLI} --help 2>&1`, {
       encoding: "utf-8",
     });
     expect(result).toContain("web3agent");
@@ -32,10 +55,56 @@ describe("packaging tests", () => {
   });
 
   it("--version exits 0 and prints version to stderr", () => {
-    const result = execSync(`node ${DIST_INDEX} --version 2>&1`, {
+    const result = execSync(`node ${DIST_CLI} --version 2>&1`, {
       encoding: "utf-8",
     });
     expect(result.trim()).toBe("web3agent 0.1.0");
+  });
+
+  it("public package exports are importable", () => {
+    const result = execSync(
+      `node --input-type=module -e "import { getSwapQuote } from './dist/index.js'; import { createRuntime, shutdownDefaultRuntime } from './dist/runtime/index.js'; import { startServer } from './dist/mcp/index.js'; console.log(typeof getSwapQuote, typeof createRuntime, typeof shutdownDefaultRuntime, typeof startServer)"`,
+      {
+        encoding: "utf-8",
+        cwd: ROOT,
+      }
+    );
+
+    expect(result.trim()).toBe("function function function function");
+  });
+
+  it("root API smoke example runs against the built package", () => {
+    const result = execSync(`node ${EXAMPLE_ROOT_API}`, {
+      encoding: "utf-8",
+      cwd: ROOT,
+    });
+
+    const payload = JSON.parse(result) as {
+      supported: boolean;
+      tokenCount: number;
+      sampleToken: { symbol: string } | null;
+    };
+
+    expect(payload.supported).toBe(true);
+    expect(payload.tokenCount).toBeGreaterThan(0);
+    expect(payload.sampleToken?.symbol).toBe("USDC");
+  });
+
+  it("runtime smoke example supports the safe imports-only mode", () => {
+    const result = execSync(`node ${EXAMPLE_RUNTIME}`, {
+      encoding: "utf-8",
+      cwd: ROOT,
+    });
+
+    const payload = JSON.parse(result) as {
+      createRuntime: string;
+      mode: string;
+      hint: string;
+    };
+
+    expect(payload.createRuntime).toBe("function");
+    expect(payload.mode).toBe("imports-only");
+    expect(payload.hint).toContain("--run");
   });
 
   it("pnpm pack --json includes required files", () => {
@@ -44,7 +113,12 @@ describe("packaging tests", () => {
       cwd: ROOT,
     });
 
+    expect(output).toContain("dist/cli.js");
     expect(output).toContain("dist/index.js");
+    expect(output).toContain("dist/runtime/index.js");
+    expect(output).toContain("dist/mcp/index.js");
+    expect(output).toContain("examples/root-api-smoke.mjs");
+    expect(output).toContain("examples/runtime-smoke.mjs");
     expect(output).toContain("WEB3_CONTEXT.md");
     expect(output).toContain("README.md");
   });

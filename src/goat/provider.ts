@@ -4,6 +4,7 @@ import type { WalletClientBase } from "@goat-sdk/core";
 import { viem } from "@goat-sdk/wallet-viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { createWalletClientForChain } from "../config/wallet-factory.js";
+import type { RuntimeConfig } from "../types/config.js";
 import { walletEvents } from "../wallet/events.js";
 import { getActiveAccount, getWalletState } from "../wallet/persistence.js";
 import { type PluginLoadResult, loadPlugins } from "./plugins.js";
@@ -26,16 +27,12 @@ export class GoatProvider {
   private pluginResult: PluginLoadResult | undefined;
   private referenceSnapshot: GoatToolSnapshot | undefined;
   private generation = 0;
-  private initConfig?: { zeroxApiKey?: string; coingeckoApiKey?: string; rpcUrl?: string };
+  private runtimeConfig?: RuntimeConfig;
   private walletChangeHandler?: (state: import("../types/wallet.js").WalletState) => void;
   private rebuildPromise: Promise<void> = Promise.resolve();
 
-  async initialize(config: {
-    zeroxApiKey?: string;
-    coingeckoApiKey?: string;
-    rpcUrl?: string;
-  }): Promise<void> {
-    this.initConfig = config;
+  async initialize(config: RuntimeConfig): Promise<void> {
+    this.runtimeConfig = config;
     const walletState = getWalletState();
     const hasWallet = walletState.mode !== "read-only";
 
@@ -56,9 +53,9 @@ export class GoatProvider {
       const hasWallet = state.mode !== "read-only";
       this.pluginResult = loadPlugins({
         hasWallet,
-        zeroxApiKey: this.initConfig?.zeroxApiKey,
-        coingeckoApiKey: this.initConfig?.coingeckoApiKey,
-        rpcUrl: this.initConfig?.rpcUrl,
+        zeroxApiKey: this.runtimeConfig?.zeroxApiKey,
+        coingeckoApiKey: this.runtimeConfig?.coingeckoApiKey,
+        rpcUrl: this.runtimeConfig?.rpcUrl,
       });
       // Chain onto existing promise so waitForRebuild() always awaits the latest.
       // Keep old referenceSnapshot visible until new one is ready (no availability gap).
@@ -107,7 +104,7 @@ export class GoatProvider {
       account = privateKeyToAccount(ephemeralKey);
     }
 
-    const walletClient = createWalletClientForChain(account, chainId);
+    const walletClient = createWalletClientForChain(account, chainId, this.runtimeConfig);
     const tools = await getOnChainTools({
       wallet: viem(walletClient),
       plugins: this.pluginResult.plugins,

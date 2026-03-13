@@ -94,3 +94,23 @@ export function getConfig(): RuntimeConfig {
   }
   return cached;
 }
+
+export async function withConfig<T>(config: RuntimeConfig, fn: () => Promise<T>): Promise<T> {
+  const previous = cached;
+  cached = config;
+  try {
+    return await fn();
+  } finally {
+    cached = previous;
+  }
+}
+
+export function withConfigSync<T>(config: RuntimeConfig, fn: () => T): T {
+  const previous = cached;
+  cached = config;
+  try {
+    return fn();
+  } finally {
+    cached = previous;
+  }
+}

@@ -21,10 +21,24 @@
     "cursor"
   ],
   "type": "module",
-  "bin": {
-    "web3agent": "dist/index.js"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
+    }
   },
-  "files": ["dist", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
+  "bin": {
+    "web3agent": "dist/cli.js"
+  },
+  "files": ["dist", "examples", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
   "engines": {
     "node": ">=18"
   },

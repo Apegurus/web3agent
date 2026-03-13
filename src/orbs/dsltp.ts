@@ -4,11 +4,13 @@
 export const DSLTP_AVAILABLE = false;
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { ToolCategory } from "../runtime/types.js";
 
 export interface DsltpToolDefinition {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  category: ToolCategory;
   handler: (params: Record<string, unknown>) => Promise<CallToolResult>;
 }
 

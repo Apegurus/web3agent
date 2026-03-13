@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Account } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
+import { getConfig } from "../config/env.js";
 import type { WalletMode, WalletState } from "../types/wallet.js";
 import { walletEvents } from "./events.js";
 
@@ -41,8 +42,19 @@ function getWalletPath(): string {
   return join(getWalletDir(), "wallet.json");
 }
 
+function getConfiguredChainId(): number {
+  try {
+    return getConfig().chainId;
+  } catch (_error: unknown) {
+    return currentState.chainId;
+  }
+}
+
 export function getWalletState(): WalletState {
-  return { ...currentState };
+  return {
+    ...currentState,
+    chainId: getConfiguredChainId(),
+  };
 }
 
 export function getActiveAccount(): Account {
@@ -214,7 +226,7 @@ export async function activateWallet(params: {
   accountIndex?: number;
   addressIndex?: number;
 }): Promise<WalletState> {
-  const chainId = currentState.chainId;
+  const chainId = getConfiguredChainId();
   const accountIndex = params.accountIndex ?? 0;
   const addressIndex = params.addressIndex ?? 0;
 
@@ -295,7 +307,7 @@ export async function deactivateWallet(): Promise<void> {
     await unlink(walletPath);
   }
 
-  const ephemeral = resolveEphemeral(currentState.chainId);
+  const ephemeral = resolveEphemeral(getConfiguredChainId());
   currentAccount = ephemeral.account;
   currentState = ephemeral.state;
   walletEvents.emit("wallet-changed", currentState);

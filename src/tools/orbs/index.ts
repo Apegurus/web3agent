@@ -381,6 +381,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     {
       name: "orbs_get_quote",
+      category: "swap",
       description:
         "Get a quote from Orbs Liquidity Hub for same-chain aggregated swap. " +
         "Requires token addresses — use resolve_token first to get addresses.",
@@ -412,6 +413,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "orbs_swap",
+      category: "swap",
       description:
         "Execute a same-chain swap via Orbs Liquidity Hub (write, confirmation-gated). " +
         "Supported chains: 137 (Polygon), 56 (BSC), 8453 (Base), 59144 (Linea), 81457 (Blast), 42161 (Arbitrum). " +
@@ -432,6 +434,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "orbs_place_twap",
+      category: "orders",
       description: "Place a dTWAP (time-weighted average price) order (write, confirmation-gated)",
       inputSchema: {
         type: "object" as const,
@@ -459,6 +462,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "orbs_place_limit",
+      category: "orders",
       description: "Place a dLIMIT order (write, confirmation-gated)",
       inputSchema: {
         type: "object" as const,
@@ -483,6 +487,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "orbs_swap_status",
+      category: "swap",
       description: "Check the status of a pending Orbs Liquidity Hub swap",
       inputSchema: {
         type: "object" as const,
@@ -508,6 +513,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "orbs_list_orders",
+      category: "orders",
       description: "List open TWAP/dLIMIT orders for active wallet",
       inputSchema: {
         type: "object" as const,

@@ -6,6 +6,13 @@ describe("formatToolError", () => {
     const result = formatToolError("INVALID_INPUT", "missing parameter");
 
     expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual({
+      ok: false,
+      error: {
+        code: "INVALID_INPUT",
+        message: "missing parameter",
+      },
+    });
     expect(result.content).toHaveLength(1);
     expect(result.content[0]).toEqual({
       type: "text",
@@ -20,6 +27,14 @@ describe("formatToolError", () => {
     const details = { field: "address", reason: "invalid format" };
     const result = formatToolError("VALIDATION_ERROR", "bad input", details);
 
+    expect(result.structuredContent).toEqual({
+      ok: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "bad input",
+        details,
+      },
+    });
     const parsed = JSON.parse((result.content[0] as { text: string }).text);
     expect(parsed).toEqual({
       error: "VALIDATION_ERROR",
@@ -41,6 +56,10 @@ describe("formatToolResponse", () => {
     const result = formatToolResponse(data);
 
     expect(result.isError).toBe(false);
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data,
+    });
     expect(result.content).toHaveLength(1);
     expect(result.content[0]).toEqual({
       type: "text",
@@ -51,6 +70,10 @@ describe("formatToolResponse", () => {
   it("returns raw string when data is a string", () => {
     const result = formatToolResponse("hello world");
 
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: "hello world",
+    });
     expect(result.content[0]).toEqual({
       type: "text",
       text: "hello world",

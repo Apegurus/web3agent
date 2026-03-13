@@ -24,6 +24,67 @@ npx web3agent --help
 npx web3agent --version
 ```
 
+## Programmatic Usage
+
+### Root API
+
+Use the package root when you want stable, typed Web3 capabilities from another app or agent layer.
+
+```js
+import { getChain, listChainTokens, resolveCanonicalTokenSync, resolveToken } from "web3agent";
+
+const chain = getChain(8453);
+const usdc = resolveCanonicalTokenSync({ symbol: "USDC", chainId: 8453 });
+const tokens = listChainTokens({ chainId: 8453 });
+const discovered = await resolveToken({ symbol: "DEGEN", chainId: 8453 });
+
+console.log(chain?.name, usdc?.address, discovered.address, tokens.tokens.length);
+```
+
+Use `resolveCanonicalToken()` / `resolveCanonicalTokenSync()` when you only want well-known registry tokens and native-token aliases. Use `resolveToken()` when you want registry resolution plus DexScreener discovery fallback for long-tail assets.
+
+Root API helpers lazily create a shared default runtime under the hood. Long-lived processes can import `shutdownDefaultRuntime` from `web3agent/runtime` to release those resources when finished.
+
+### Runtime API
+
+Use `web3agent/runtime` when you need tool discovery, generic invocation, wallet flows, or upstream passthrough tools.
+
+```js
+import { createRuntime } from "web3agent/runtime";
+
+const runtime = await createRuntime();
+
+try {
+  console.log(runtime.getHealth());
+  console.log(runtime.listTools().slice(0, 5).map((tool) => tool.name));
+  const result = await runtime.invokeTool("list_supported_chains");
+  console.log(result.structuredContent);
+} finally {
+  await runtime.shutdown();
+}
+```
+
+## Smoke Tests
+
+Run the standard repo checks first:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+Then run the packaged API smoke scripts:
+
+```bash
+node examples/root-api-smoke.mjs
+node examples/runtime-smoke.mjs
+node examples/runtime-smoke.mjs --run
+```
+
+`root-api-smoke.mjs` is fully local. `runtime-smoke.mjs` without flags verifies the runtime import surface only. `runtime-smoke.mjs --run` starts the real runtime in read-only mode, so upstream services may appear as degraded or fail if network access is unavailable.
+
 ## What you get
 
 - **Blockscout** — indexed blockchain data (address info, tx history, NFTs, contract ABIs). Supported on 8 chains: Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era.

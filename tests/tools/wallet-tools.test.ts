@@ -8,6 +8,10 @@ const viemAccountMocks = vi.hoisted(() => ({
   english: {},
 }));
 
+const configMocks = vi.hoisted(() => ({
+  getConfig: vi.fn().mockReturnValue({ chainId: 1 }),
+}));
+
 const persistenceMocks = vi.hoisted(() => ({
   activateWallet: vi.fn(),
   deactivateWallet: vi.fn(),
@@ -36,6 +40,10 @@ vi.mock("../../src/wallet/persistence.js", () => persistenceMocks);
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: confirmationQueueMock,
+}));
+
+vi.mock("../../src/config/env.js", () => ({
+  getConfig: (...args: unknown[]) => configMocks.getConfig(...args),
 }));
 
 describe("wallet tool handlers", () => {

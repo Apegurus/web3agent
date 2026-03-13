@@ -7,6 +7,7 @@ const mockState = vi.hoisted(() => {
     handlers: Map<unknown, (request: any) => Promise<any>>;
     connect: ReturnType<typeof vi.fn>;
     notification: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
   }> = [];
 
   const schemas = {
@@ -25,6 +26,12 @@ const mockState = vi.hoisted(() => {
     on: vi.fn((_event: string, listener: (state: unknown) => void) => {
       walletListeners.push(listener);
     }),
+    off: vi.fn((_event: string, listener: (state: unknown) => void) => {
+      const index = walletListeners.indexOf(listener);
+      if (index >= 0) {
+        walletListeners.splice(index, 1);
+      }
+    }),
     emit: vi.fn((_event: string, state: unknown) => {
       for (const listener of walletListeners) {
         listener(state);
@@ -42,6 +49,7 @@ const mockState = vi.hoisted(() => {
     walletHandler,
     transactionHandler,
     utilityHandler,
+    walletListeners,
     walletEvents,
   };
 });
@@ -52,12 +60,14 @@ vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
     private readonly handlers = new Map<unknown, (request: any) => Promise<any>>();
     private readonly connectSpy = vi.fn().mockResolvedValue(undefined);
     private readonly notificationSpy = vi.fn();
+    private readonly closeSpy = vi.fn().mockResolvedValue(undefined);
 
     constructor() {
       mockState.serverInstances.push({
         handlers: this.handlers,
         connect: this.connectSpy,
         notification: this.notificationSpy,
+        close: this.closeSpy,
       });
     }
 
@@ -73,6 +83,10 @@ vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
     notification(payload: unknown): Promise<void> {
       this.notificationSpy(payload);
       return Promise.resolve();
+    }
+
+    async close(): Promise<void> {
+      await this.closeSpy();
     }
   },
 }));
@@ -100,6 +114,7 @@ vi.mock("../../src/tools/register.js", () => ({
   getWalletToolDefinitions: vi.fn().mockReturnValue([
     {
       name: "wallet_generate",
+      category: "wallet",
       description: "wallet",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.walletHandler,
@@ -108,6 +123,7 @@ vi.mock("../../src/tools/register.js", () => ({
   getTransactionToolDefinitions: vi.fn().mockReturnValue([
     {
       name: "transaction_confirm",
+      category: "transaction",
       description: "transaction",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.transactionHandler,
@@ -116,6 +132,7 @@ vi.mock("../../src/tools/register.js", () => ({
   getUtilityToolDefinitions: vi.fn().mockReturnValue([
     {
       name: "server_status",
+      category: "status",
       description: "utility",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.utilityHandler,
@@ -127,6 +144,7 @@ vi.mock("../../src/tools/lifi/index.js", () => ({
   getLifiToolDefinitions: vi.fn().mockReturnValue([
     {
       name: "lifi_get_quote",
+      category: "swap",
       description: "lifi",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.lifiHandler,
@@ -138,6 +156,7 @@ vi.mock("../../src/tools/orbs/index.js", () => ({
   getOrbsToolDefinitions: vi.fn().mockReturnValue([
     {
       name: "orbs_get_quote",
+      category: "swap",
       description: "orbs",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.orbsHandler,
@@ -149,12 +168,14 @@ vi.mock("../../src/tools/tokens/index.js", () => ({
   getTokenToolDefinitions: vi.fn().mockReturnValue([
     {
       name: "resolve_token",
+      category: "tokens",
       description: "resolve_token",
       inputSchema: { type: "object", properties: {} },
       handler: vi.fn(),
     },
     {
       name: "list_chain_tokens",
+      category: "tokens",
       description: "list_chain_tokens",
       inputSchema: { type: "object", properties: {} },
       handler: vi.fn(),
@@ -170,6 +191,9 @@ describe("ProxyServer", () => {
   const blockscoutCallTool = vi.fn();
   const etherscanCallTool = vi.fn();
   const evmCallTool = vi.fn();
+  const blockscoutShutdown = vi.fn().mockResolvedValue(undefined);
+  const etherscanShutdown = vi.fn().mockResolvedValue(undefined);
+  const evmShutdown = vi.fn().mockResolvedValue(undefined);
 
   const blockscoutAdapter = {
     getTools: vi.fn().mockReturnValue([
@@ -182,6 +206,7 @@ describe("ProxyServer", () => {
       },
     ]),
     callTool: blockscoutCallTool,
+    shutdown: blockscoutShutdown,
   };
 
   const etherscanAdapter = {
@@ -195,6 +220,7 @@ describe("ProxyServer", () => {
       },
     ]),
     callTool: etherscanCallTool,
+    shutdown: etherscanShutdown,
   };
 
   const evmAdapter = {
@@ -208,15 +234,16 @@ describe("ProxyServer", () => {
       },
     ]),
     callTool: evmCallTool,
+    shutdown: evmShutdown,
   };
 
   const goatProvider = {
-    getAllToolNames: vi.fn().mockReturnValue(["goat_swap"]),
+    getAllToolNames: vi.fn().mockReturnValue(["uniswap_swap"]),
     getReferenceSnapshot: vi.fn().mockReturnValue({
       chainId: 1,
       listOfTools: [
         {
-          name: "goat_swap",
+          name: "uniswap_swap",
           description: "goat",
           inputSchema: { type: "object", properties: {} },
         },
@@ -229,15 +256,24 @@ describe("ProxyServer", () => {
 
   beforeEach(() => {
     mockState.serverInstances.length = 0;
+    mockState.walletListeners.length = 0;
     blockscoutCallTool.mockReset();
     etherscanCallTool.mockReset();
     evmCallTool.mockReset();
+    blockscoutShutdown.mockClear();
+    etherscanShutdown.mockClear();
+    evmShutdown.mockClear();
     mockState.dispatchGoatTool.mockReset();
     mockState.lifiHandler.mockReset();
     mockState.orbsHandler.mockReset();
     mockState.walletHandler.mockReset();
     mockState.transactionHandler.mockReset();
     mockState.utilityHandler.mockReset();
+    mockState.walletEvents.on.mockClear();
+    mockState.walletEvents.off.mockClear();
+    mockState.walletEvents.emit.mockClear();
+    goatProvider.waitForRebuild.mockReset().mockResolvedValue(undefined);
+    goatProvider.shutdown.mockClear();
   });
 
   function setup() {
@@ -265,12 +301,18 @@ describe("ProxyServer", () => {
     const { listHandler } = setup();
     const result = await listHandler({});
     const names = result.tools.map((tool: { name: string }) => tool.name);
+    const goatToolHasRestriction = result.tools.some(
+      (tool: { name: string; description?: string }) =>
+        tool.name === "uniswap_swap" &&
+        typeof tool.description === "string" &&
+        tool.description.includes("Only available on chains:")
+    );
 
     expect(names).toEqual([
       "wallet_generate",
       "transaction_confirm",
       "server_status",
-      "goat_swap",
+      "uniswap_swap",
       "blockscout_get_address",
       "etherscan_get_address_balance",
       "evm_get_balance",
@@ -279,6 +321,7 @@ describe("ProxyServer", () => {
       "resolve_token",
       "list_chain_tokens",
     ]);
+    expect(goatToolHasRestriction).toBe(true);
   });
 
   it("routes blockscout tools to blockscout adapter", async () => {
@@ -324,9 +367,9 @@ describe("ProxyServer", () => {
     const { callHandler } = setup();
     mockState.dispatchGoatTool.mockResolvedValue({ isError: false, content: [] });
 
-    await callHandler({ params: { name: "goat_swap", arguments: { amount: 1 } } });
+    await callHandler({ params: { name: "uniswap_swap", arguments: { amount: 1 } } });
 
-    expect(mockState.dispatchGoatTool).toHaveBeenCalledWith("goat_swap", {
+    expect(mockState.dispatchGoatTool).toHaveBeenCalledWith("uniswap_swap", {
       amount: 1,
     });
   });
@@ -388,5 +431,54 @@ describe("ProxyServer", () => {
         method: "notifications/tools/list_changed",
       });
     });
+  });
+
+  it("waits for GOAT rebuild before tearing down legacy adapters", async () => {
+    let resolveRebuild: (() => void) | undefined;
+    goatProvider.waitForRebuild.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRebuild = resolve;
+        })
+    );
+
+    const server = new ProxyServer(
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      blockscoutAdapter as any,
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      etherscanAdapter as any,
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      evmAdapter as any,
+      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
+      goatProvider as any
+    );
+
+    const shutdownPromise = server.shutdown();
+
+    expect(goatProvider.shutdown).toHaveBeenCalledTimes(1);
+    expect(goatProvider.waitForRebuild).toHaveBeenCalledTimes(1);
+    expect(blockscoutShutdown).not.toHaveBeenCalled();
+    expect(etherscanShutdown).not.toHaveBeenCalled();
+    expect(evmShutdown).not.toHaveBeenCalled();
+
+    if (!resolveRebuild) {
+      throw new Error("Missing rebuild resolver");
+    }
+    resolveRebuild();
+    await shutdownPromise;
+
+    expect(blockscoutShutdown).toHaveBeenCalledTimes(1);
+    expect(etherscanShutdown).toHaveBeenCalledTimes(1);
+    expect(evmShutdown).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects incomplete legacy constructor arguments", () => {
+    expect(
+      () =>
+        new ProxyServer(
+          // biome-ignore lint/suspicious/noExplicitAny: incomplete legacy constructor path is under test
+          blockscoutAdapter as any
+        )
+    ).toThrowError(/requires etherscanAdapter/);
   });
 });

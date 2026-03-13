@@ -1,37 +1,102 @@
-import { VERSION } from "./version.js";
-
-const args = process.argv.slice(2);
-
-if (args[0] === "init") {
-  import("./cli/init.js").then(({ runInit }) => {
-    runInit(args.slice(1)).catch((e: Error) => {
-      process.stderr.write(`Error: ${e.message}\n`);
-      process.exit(1);
-    });
-  });
-} else if (args.includes("--version")) {
-  process.stderr.write(`web3agent ${VERSION}\n`);
-  process.exit(0);
-} else if (args.includes("--help")) {
-  process.stderr.write(
-    `${[
-      "web3agent — Web3 MCP proxy server",
-      "",
-      "Usage:",
-      "  web3agent        Start MCP proxy server (stdio)",
-      "  web3agent init   Configure your AI agent host",
-      "",
-      "Options:",
-      "  --version        Print version",
-      "  --help           Print this help",
-    ].join("\n")}\n`
-  );
-  process.exit(0);
-} else {
-  import("./runtime/startup.js").then(({ startServer }) => {
-    startServer().catch((e: Error) => {
-      process.stderr.write(`Fatal: ${e.message}\n`);
-      process.exit(1);
-    });
-  });
-}
+export { Web3AgentError } from "./api/errors.js";
+export {
+  findChainByName,
+  getChain,
+  isSupportedChain,
+  listSupportedChainEntries,
+  listSupportedChains,
+} from "./api/chains.js";
+export { listOrders, placeLimitOrder, placeTwapOrder } from "./api/orders.js";
+export {
+  executeBridge,
+  executeSameChainSwap,
+  getSwapHistory,
+  getSwapQuote,
+  getSwapStatus,
+  isTokenSwappable,
+} from "./api/swaps.js";
+export {
+  listChainTokens,
+  resolveCanonicalToken,
+  resolveCanonicalTokenSync,
+  resolveToken,
+  resolveTokenSync,
+} from "./api/tokens.js";
+export type {
+  CallToolResult,
+  ChainLookupResult,
+  CompletedOperationResult,
+  CrossChainSwapQuoteResult,
+  CrossChainSwapQuoteSummary,
+  CreateRuntimeOptions,
+  ExecuteBridgeInput,
+  ExecuteSameChainSwapInput,
+  LifiQuoteInput,
+  ListChainTokensInput,
+  ListOrdersInput,
+  ListOrdersResult,
+  PendingConfirmationResult,
+  PlaceLimitOrderInput,
+  PlaceTwapOrderInput,
+  ResolveTokenInput,
+  RootResolveTokenResult,
+  RuntimeBoundOptions,
+  RuntimeHealth,
+  RuntimeToolListener,
+  SameChainSwapQuoteResult,
+  ServerStatusResult,
+  SupportedChainEntry,
+  SupportedChainsResult,
+  SwapHistoryEntry,
+  SwapHistoryResult,
+  SwapQuoteResult,
+  SwapStatusInput,
+  SwapStatusResult,
+  TokenSwappableResult,
+  ToolCatalogEntry,
+  ToolCategory,
+  ToolErrorPayload,
+  ToolResultError,
+  ToolResultPayload,
+  ToolSource,
+  ToolSuccessPayload,
+  TransactionConfirmInput,
+  TransactionDenyInput,
+  TransactionDenyResult,
+  TransactionListEntry,
+  TransactionListResult,
+  WalletActivateInput,
+  WalletAddressDerivationResult,
+  WalletConfirmationResult,
+  WalletDeactivationResult,
+  WalletDerivedAddressEntry,
+  WalletDeriveAddressesInput,
+  WalletFromMnemonicInput,
+  WalletGenerateMnemonicResult,
+  WalletGenerateResult,
+  WalletSetConfirmationInput,
+  WalletState,
+  Web3AgentRuntime,
+  WriteOperationResult,
+} from "./api/types.js";
+export {
+  lifiExecuteBridgeSchema,
+  lifiGetQuoteSchema,
+} from "./tools/lifi/schemas.js";
+export {
+  orbsGetQuoteSchema,
+  orbsListOrdersSchema,
+  orbsPlaceLimitSchema,
+  orbsPlaceTwapSchema,
+  orbsSwapSchema,
+  orbsSwapStatusSchema,
+} from "./tools/orbs/schemas.js";
+export { listChainTokensSchema, resolveTokenSchema } from "./tools/tokens/schemas.js";
+export {
+  transactionConfirmSchema,
+  transactionDenySchema,
+  walletActivateSchema,
+  walletDeriveAddressesSchema,
+  walletFromMnemonicSchema,
+  walletSetConfirmationSchema,
+} from "./tools/wallet/schemas.js";

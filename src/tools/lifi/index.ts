@@ -115,6 +115,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
   return [
     {
       name: "lifi_get_chains",
+      category: "status",
       description: "Get list of chains supported by LI.FI for cross-chain bridging",
       inputSchema: {
         type: "object" as const,
@@ -126,6 +127,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "lifi_get_quote",
+      category: "swap",
       description:
         "Get a cross-chain bridge/swap quote from LI.FI. " +
         "Supports 20+ EVM chains including Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Linea, Avalanche, zkSync, Scroll, Gnosis, and more. " +
@@ -161,6 +163,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
     },
     {
       name: "lifi_execute_bridge",
+      category: "swap",
       description:
         "Execute a cross-chain bridge (write operation, requires wallet and confirmation). " +
         "Requires token addresses — use resolve_token first to get addresses.",

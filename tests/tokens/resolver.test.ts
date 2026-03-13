@@ -1,12 +1,105 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listTokens, resolveToken, resolveTokenSync } from "../../src/tokens/resolver.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetCoinGeckoTopTokensCacheForTests } from "../../src/tokens/coingecko.js";
+import {
+  listTokens,
+  resolveCanonicalToken,
+  resolveCanonicalTokenSync,
+  resolveToken,
+  resolveTokenSync,
+} from "../../src/tokens/resolver.js";
 
 // Keep a reference to the real fetch so we can restore it
 const originalFetch = globalThis.fetch;
 
+interface MockDexPair {
+  chainId: string;
+  baseToken: { address: string; name: string; symbol: string };
+  quoteToken: { address: string; name: string; symbol: string };
+  liquidity?: { usd?: number };
+}
+
+function jsonResponse(payload: unknown, ok = true, status = 200) {
+  return {
+    ok,
+    status,
+    json: async () => payload,
+  };
+}
+
+function bytes32Hex(value: string): string {
+  return `0x${Buffer.from(value, "utf8").toString("hex").padEnd(64, "0")}`;
+}
+
+function createDiscoveryFetchMock(options: {
+  pairs: MockDexPair[];
+  coinGeckoMarkets?: Array<{ id: string; symbol: string; name?: string }>;
+  coinGeckoCoinList?: Array<{ id: string; platforms: Record<string, string> }>;
+  coinGeckoAssetPlatforms?: Array<{ id: string; chain_identifier: number }>;
+  coinListOk?: boolean;
+  assetPlatformsOk?: boolean;
+  decimalsResult?: string | null;
+  symbolResult?: string | null;
+  nameResult?: string | null;
+}) {
+  const {
+    pairs,
+    coinGeckoMarkets = [
+      { id: "bitcoin", symbol: "btc" },
+      { id: "ethereum", symbol: "eth" },
+      { id: "usd-coin", symbol: "usdc" },
+    ],
+    coinGeckoCoinList = [
+      { id: "usd-coin", platforms: { ethereum: "0xusdc" } },
+      { id: "ethereum", platforms: {} },
+    ],
+    coinGeckoAssetPlatforms = [{ id: "ethereum", chain_identifier: 1 }],
+    coinListOk = true,
+    assetPlatformsOk = true,
+    decimalsResult = "0x0000000000000000000000000000000000000000000000000000000000000012",
+    symbolResult = bytes32Hex("NEWTKN"),
+    nameResult = bytes32Hex("New Token"),
+  } = options;
+
+  return vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+
+    if (url.includes("api.dexscreener.com")) {
+      return jsonResponse({ pairs });
+    }
+
+    if (url.includes("/coins/markets")) {
+      return jsonResponse(coinGeckoMarkets);
+    }
+
+    if (url.includes("/coins/list")) {
+      return jsonResponse(coinGeckoCoinList, coinListOk, coinListOk ? 200 : 503);
+    }
+
+    if (url.includes("/asset_platforms")) {
+      return jsonResponse(coinGeckoAssetPlatforms, assetPlatformsOk, assetPlatformsOk ? 200 : 503);
+    }
+
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (body.includes("0x313ce567")) {
+      return jsonResponse({ result: decimalsResult ?? "0x" }, decimalsResult !== null);
+    }
+
+    if (body.includes("0x95d89b41")) {
+      return jsonResponse({ result: symbolResult ?? "0x" }, symbolResult !== null);
+    }
+
+    if (body.includes("0x06fdde03")) {
+      return jsonResponse({ result: nameResult ?? "0x" }, nameResult !== null);
+    }
+
+    throw new Error(`Unexpected fetch call: ${url}`);
+  }) as typeof fetch;
+}
+
 describe("token resolver", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    resetCoinGeckoTopTokensCacheForTests();
     vi.restoreAllMocks();
   });
 
@@ -30,6 +123,13 @@ describe("token resolver", () => {
       });
       const result = await resolveToken("ZZZZNOTREAL", 1);
       expect(result).toBeNull();
+    });
+
+    it("resolveCanonicalToken returns a known token from the registry", async () => {
+      const result = await resolveCanonicalToken("USDC", 1);
+      expect(result).not.toBeNull();
+      expect(result?.symbol).toBe("USDC");
+      expect(result?.source).toBe("registry");
     });
   });
 
@@ -56,38 +156,25 @@ describe("token resolver", () => {
   // ── 3. DexScreener fallback ─────────────────────────────────────────
   describe("DexScreener fallback", () => {
     it("resolves a token via DexScreener when not in registry", async () => {
-      // First call: DexScreener search API
-      // Second call: RPC eth_call for decimals
-      globalThis.fetch = vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            pairs: [
-              {
-                chainId: "ethereum",
-                baseToken: {
-                  address: "0xNewTokenAddress",
-                  name: "New Token",
-                  symbol: "NEWTKN",
-                },
-                quoteToken: {
-                  address: "0xQuote",
-                  name: "Quote",
-                  symbol: "QT",
-                },
-                liquidity: { usd: 1_000_000 },
-              },
-            ],
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            // 18 in hex = 0x12
-            result: "0x0000000000000000000000000000000000000000000000000000000000000012",
-          }),
-        });
+      globalThis.fetch = createDiscoveryFetchMock({
+        pairs: [
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xNewTokenAddress",
+              name: "New Token",
+              symbol: "NEWTKN",
+            },
+            quoteToken: {
+              address: "0xUsdc",
+              name: "USD Coin",
+              symbol: "USDC",
+            },
+            liquidity: { usd: 1_000_000 },
+          },
+        ],
+        coinGeckoCoinList: [{ id: "usd-coin", platforms: { ethereum: "0xUsdc" } }],
+      });
 
       const result = await resolveToken("NEWTKN", 1);
       expect(result).not.toBeNull();
@@ -95,6 +182,7 @@ describe("token resolver", () => {
       expect(result?.decimals).toBe(18);
       expect(result?.source).toBe("dexscreener");
       expect(result?.chainId).toBe(1);
+      expect(result?.warnings).toBeUndefined();
     });
 
     it("returns null when DexScreener API returns non-ok response", async () => {
@@ -108,42 +196,141 @@ describe("token resolver", () => {
       const result = await resolveToken("NEWTKN", 999999);
       expect(result).toBeNull();
     });
+
+    it("resolveCanonicalToken does not use DexScreener fallback", async () => {
+      globalThis.fetch = vi.fn();
+
+      const result = await resolveCanonicalToken("NEWTKN", 1);
+
+      expect(result).toBeNull();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it("adds a warning when the selected pair lacks a reputable quote token", async () => {
+      globalThis.fetch = createDiscoveryFetchMock({
+        pairs: [
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xWarnToken",
+              name: "Warn Token",
+              symbol: "WARN",
+            },
+            quoteToken: {
+              address: "0xQuote",
+              name: "Random Quote",
+              symbol: "RUGQUOTE",
+            },
+            liquidity: { usd: 200_000 },
+          },
+        ],
+      });
+
+      const result = await resolveToken("WARN", 1);
+
+      expect(result?.warnings).toContain(
+        "Selected DexScreener pair is not quoted against a CoinGecko top-100 token (quote token: RUGQUOTE)."
+      );
+    });
+
+    it("prefers a reputable quote-token pair over a less reputable one", async () => {
+      globalThis.fetch = createDiscoveryFetchMock({
+        pairs: [
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xReputable",
+              name: "Signal Token",
+              symbol: "SIGNAL",
+            },
+            quoteToken: {
+              address: "0xUsdc",
+              name: "USD Coin",
+              symbol: "USDC",
+            },
+            liquidity: { usd: 250_000 },
+          },
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xLessTrusted",
+              name: "Signal Token",
+              symbol: "SIGNAL",
+            },
+            quoteToken: {
+              address: "0xQuote",
+              name: "Random Quote",
+              symbol: "RUGQUOTE",
+            },
+            liquidity: { usd: 500_000 },
+          },
+        ],
+        coinGeckoCoinList: [{ id: "usd-coin", platforms: { ethereum: "0xUsdc" } }],
+        symbolResult: bytes32Hex("SIGNAL"),
+        nameResult: bytes32Hex("Signal Token"),
+      });
+
+      const result = await resolveToken("SIGNAL", 1);
+
+      expect(result?.address).toBe("0xReputable");
+    });
+
+    it("adds warnings when onchain metadata does not match DexScreener metadata", async () => {
+      globalThis.fetch = createDiscoveryFetchMock({
+        pairs: [
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xMetaMismatch",
+              name: "Dex Name",
+              symbol: "DEXSYM",
+            },
+            quoteToken: {
+              address: "0xUsdc",
+              name: "USD Coin",
+              symbol: "USDC",
+            },
+            liquidity: { usd: 300_000 },
+          },
+        ],
+        coinGeckoCoinList: [{ id: "usd-coin", platforms: { ethereum: "0xUsdc" } }],
+        symbolResult: bytes32Hex("REALSYM"),
+        nameResult: bytes32Hex("Real Name"),
+      });
+
+      const result = await resolveToken("DEXSYM", 1);
+
+      expect(result?.warnings).toContain(
+        "Onchain symbol (REALSYM) does not match DexScreener metadata (DEXSYM)."
+      );
+      expect(result?.warnings).toContain(
+        "Onchain name (Real Name) does not match DexScreener metadata (Dex Name)."
+      );
+    });
   });
 
   // ── 4. Null decimals ────────────────────────────────────────────────
   describe("null decimals", () => {
     it("returns null when fetchDecimals returns null (no RPC URL)", async () => {
-      // DexScreener returns a match but the chain has no RPC URL
-      // We use chain 999999 which won't have an RPC URL in the registry,
-      // but it also has no DexScreener slug, so we need a valid slug chain
-      // with a mock that makes the RPC call fail.
-      globalThis.fetch = vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            pairs: [
-              {
-                chainId: "ethereum",
-                baseToken: {
-                  address: "0xBadToken",
-                  name: "Bad Token",
-                  symbol: "BADTKN",
-                },
-                quoteToken: {
-                  address: "0xQuote",
-                  name: "Quote",
-                  symbol: "QT",
-                },
-                liquidity: { usd: 500_000 },
-              },
-            ],
-          }),
-        })
-        .mockResolvedValueOnce({
-          // RPC call returns non-ok
-          ok: false,
-        });
+      globalThis.fetch = createDiscoveryFetchMock({
+        pairs: [
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xBadToken",
+              name: "Bad Token",
+              symbol: "BADTKN",
+            },
+            quoteToken: {
+              address: "0xQuote",
+              name: "Quote",
+              symbol: "QT",
+            },
+            liquidity: { usd: 500_000 },
+          },
+        ],
+        decimalsResult: null,
+      });
 
       const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       const result = await resolveToken("BADTKN", 1);
@@ -152,33 +339,25 @@ describe("token resolver", () => {
     });
 
     it("returns null when RPC returns empty result for decimals", async () => {
-      globalThis.fetch = vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            pairs: [
-              {
-                chainId: "ethereum",
-                baseToken: {
-                  address: "0xNoDecimalsToken",
-                  name: "No Decimals",
-                  symbol: "NODEC",
-                },
-                quoteToken: {
-                  address: "0xQuote",
-                  name: "Quote",
-                  symbol: "QT",
-                },
-                liquidity: { usd: 100_000 },
-              },
-            ],
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ result: "0x" }),
-        });
+      globalThis.fetch = createDiscoveryFetchMock({
+        pairs: [
+          {
+            chainId: "ethereum",
+            baseToken: {
+              address: "0xNoDecimalsToken",
+              name: "No Decimals",
+              symbol: "NODEC",
+            },
+            quoteToken: {
+              address: "0xQuote",
+              name: "Quote",
+              symbol: "QT",
+            },
+            liquidity: { usd: 100_000 },
+          },
+        ],
+        decimalsResult: "0x",
+      });
 
       const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       const result = await resolveToken("NODEC", 1);
@@ -252,6 +431,13 @@ describe("token resolver", () => {
     it("returns null for unknown chain", () => {
       const result = resolveTokenSync("USDT", 999999);
       expect(result).toBeNull();
+    });
+
+    it("resolveCanonicalTokenSync returns a known registry token", () => {
+      const result = resolveCanonicalTokenSync("USDT", 1);
+      expect(result).not.toBeNull();
+      expect(result?.symbol).toBe("USDT");
+      expect(result?.source).toBe("registry");
     });
   });
 });

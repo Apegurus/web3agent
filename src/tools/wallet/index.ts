@@ -6,6 +6,7 @@ import {
   mnemonicToAccount,
   privateKeyToAccount,
 } from "viem/accounts";
+import { getConfig } from "../../config/env.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
@@ -110,7 +111,7 @@ export async function walletGetActive(): Promise<CallToolResult> {
     const state = getWalletState();
     return formatToolResponse({
       address: state.address ?? getActiveAccount().address,
-      chainId: state.chainId,
+      chainId: getConfig().chainId,
       mode: state.mode,
     });
   } catch (err: unknown) {

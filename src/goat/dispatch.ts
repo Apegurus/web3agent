@@ -1,8 +1,9 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { isSupported } from "../chains/registry.js";
 import { getConfig } from "../config/env.js";
+import type { RuntimeConfig } from "../types/config.js";
 import { formatToolError } from "../utils/errors.js";
-import { goatProvider } from "./provider.js";
+import { type GoatProvider, goatProvider } from "./provider.js";
 
 export const RESTRICTED_PLUGIN_CHAINS: Record<string, number[]> = {
   uniswap: [1, 137, 43114, 8453, 10, 42161, 42220],
@@ -19,11 +20,18 @@ function findRestrictedPlugin(toolName: string): string | undefined {
   return undefined;
 }
 
+interface DispatchGoatToolOptions {
+  config?: RuntimeConfig;
+  goatProvider?: GoatProvider;
+}
+
 export async function dispatchGoatTool(
   toolName: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  options?: DispatchGoatToolOptions
 ): Promise<CallToolResult> {
-  const config = getConfig();
+  const config = options?.config ?? getConfig();
+  const activeGoatProvider = options?.goatProvider ?? goatProvider;
   const chainId = typeof params.chainId === "number" ? params.chainId : config.chainId;
 
   if (!isSupported(chainId)) {
@@ -42,7 +50,7 @@ export async function dispatchGoatTool(
     }
   }
 
-  const snapshot = await goatProvider.getOrBuildSnapshot(chainId);
+  const snapshot = await activeGoatProvider.getOrBuildSnapshot(chainId);
   if (!snapshot) {
     return formatToolError(
       "CHAIN_INIT_FAILED",

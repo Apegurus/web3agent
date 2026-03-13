@@ -115,6 +115,20 @@ describe("Orbs quote tools", () => {
     expect(names).toContain("orbs_list_orders");
   });
 
+  it("exports explicit categories for Orbs tool definitions", async () => {
+    const { getOrbsToolDefinitions } = await import("../../src/tools/orbs/index.js");
+    const categories = Object.fromEntries(
+      getOrbsToolDefinitions().map((tool) => [tool.name, tool.category])
+    );
+
+    expect(categories.orbs_get_quote).toBe("swap");
+    expect(categories.orbs_swap).toBe("swap");
+    expect(categories.orbs_swap_status).toBe("swap");
+    expect(categories.orbs_place_twap).toBe("orders");
+    expect(categories.orbs_place_limit).toBe("orders");
+    expect(categories.orbs_list_orders).toBe("orders");
+  });
+
   it("orbs_get_quote works on all supported chains", async () => {
     const { getOrbsToolDefinitions } = await import("../../src/tools/orbs/index.js");
     const tools = getOrbsToolDefinitions();
