@@ -1,6 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAcpToolDefinitions } from "../../src/tools/acp/index.js";
+import { getErc8183ToolDefinitions } from "../../src/tools/acp/index.js";
 import type { ToolDefinition } from "../../src/tools/register.js";
 
 function textOf(result: CallToolResult, index = 0): string {
@@ -69,11 +69,11 @@ vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockImplementation(() => mockConfig),
 }));
 
-describe("acp_get_job", () => {
+describe("erc8183_get_job", () => {
   it("returns NOT_CONFIGURED when ACP_CONTRACT_ADDRESS not set", async () => {
     mockConfig.acpContractAddress = undefined;
-    const tools = getAcpToolDefinitions();
-    const tool = tools.find((t) => t.name === "acp_get_job") as ToolDefinition;
+    const tools = getErc8183ToolDefinitions();
+    const tool = tools.find((t) => t.name === "erc8183_get_job") as ToolDefinition;
     const result = await tool.handler({ jobId: 1 });
     expect(result.isError).toBe(true);
     const err = JSON.parse(textOf(result));
@@ -82,8 +82,8 @@ describe("acp_get_job", () => {
 
   it("returns job data when ACP contract is configured", async () => {
     mockConfig.acpContractAddress = "0xACPContract1234567890123456789012345678";
-    const tools = getAcpToolDefinitions();
-    const tool = tools.find((t) => t.name === "acp_get_job") as ToolDefinition;
+    const tools = getErc8183ToolDefinitions();
+    const tool = tools.find((t) => t.name === "erc8183_get_job") as ToolDefinition;
     const result = await tool.handler({ jobId: 1 });
     expect(result.isError).toBe(false);
     const data = JSON.parse(textOf(result));
@@ -94,14 +94,14 @@ describe("acp_get_job", () => {
   });
 });
 
-describe("acp_create_job — confirmation gating", () => {
+describe("erc8183_create_job — confirmation gating", () => {
   beforeEach(() => {
     mockConfig.acpContractAddress = "0xACPContract1234567890123456789012345678";
   });
 
   it("queues confirmation for create job", async () => {
-    const tools = getAcpToolDefinitions();
-    const tool = tools.find((t) => t.name === "acp_create_job") as ToolDefinition;
+    const tools = getErc8183ToolDefinitions();
+    const tool = tools.find((t) => t.name === "erc8183_create_job") as ToolDefinition;
     const result = await tool.handler({
       provider: "0x1234567890123456789012345678901234567890",
       evaluator: "0x1234567890123456789012345678901234567890",
@@ -123,8 +123,8 @@ describe("acp_create_job — confirmation gating", () => {
       accountIndex: 0,
       addressIndex: 0,
     });
-    const tools = getAcpToolDefinitions();
-    const tool = tools.find((t) => t.name === "acp_create_job") as ToolDefinition;
+    const tools = getErc8183ToolDefinitions();
+    const tool = tools.find((t) => t.name === "erc8183_create_job") as ToolDefinition;
     const result = await tool.handler({
       provider: "0x1234567890123456789012345678901234567890",
       evaluator: "0x1234567890123456789012345678901234567890",
@@ -137,14 +137,14 @@ describe("acp_create_job — confirmation gating", () => {
   });
 });
 
-describe("acp_submit_job", () => {
+describe("erc8183_submit_job", () => {
   beforeEach(() => {
     mockConfig.acpContractAddress = "0xACPContract1234567890123456789012345678";
   });
 
   it("queues confirmation with deliverable info", async () => {
-    const tools = getAcpToolDefinitions();
-    const tool = tools.find((t) => t.name === "acp_submit_job") as ToolDefinition;
+    const tools = getErc8183ToolDefinitions();
+    const tool = tools.find((t) => t.name === "erc8183_submit_job") as ToolDefinition;
     const result = await tool.handler({
       jobId: 1,
       deliverable: "My deliverable",
@@ -152,7 +152,7 @@ describe("acp_submit_job", () => {
     expect(result.isError).toBe(false);
     const parsed = JSON.parse(textOf(result));
     expect(parsed.status).toBe("pending_confirmation");
-    expect(parsed.summary).toContain("Submit ACP job");
+    expect(parsed.summary).toContain("Submit ERC-8183 job");
   });
 });
 
@@ -162,28 +162,28 @@ describe("all write tools reject in read-only mode", () => {
   });
 
   const writeToolNames = [
-    "acp_create_job",
-    "acp_set_budget",
-    "acp_fund_job",
-    "acp_submit_job",
-    "acp_complete_job",
-    "acp_reject_job",
-    "acp_claim_refund",
+    "erc8183_create_job",
+    "erc8183_set_budget",
+    "erc8183_fund_job",
+    "erc8183_submit_job",
+    "erc8183_complete_job",
+    "erc8183_reject_job",
+    "erc8183_claim_refund",
   ];
 
   const writeToolParams: Record<string, Record<string, unknown>> = {
-    acp_create_job: {
+    erc8183_create_job: {
       provider: "0x1234567890123456789012345678901234567890",
       evaluator: "0x1234567890123456789012345678901234567890",
       description: "test",
       expiryDuration: 86400,
     },
-    acp_set_budget: { jobId: 1, amount: "1000000" },
-    acp_fund_job: { jobId: 1, expectedBudget: "1000000" },
-    acp_submit_job: { jobId: 1, deliverable: "test" },
-    acp_complete_job: { jobId: 1 },
-    acp_reject_job: { jobId: 1 },
-    acp_claim_refund: { jobId: 1 },
+    erc8183_set_budget: { jobId: 1, amount: "1000000" },
+    erc8183_fund_job: { jobId: 1, expectedBudget: "1000000" },
+    erc8183_submit_job: { jobId: 1, deliverable: "test" },
+    erc8183_complete_job: { jobId: 1 },
+    erc8183_reject_job: { jobId: 1 },
+    erc8183_claim_refund: { jobId: 1 },
   };
 
   for (const toolName of writeToolNames) {
@@ -195,7 +195,7 @@ describe("all write tools reject in read-only mode", () => {
         accountIndex: 0,
         addressIndex: 0,
       });
-      const tools = getAcpToolDefinitions();
+      const tools = getErc8183ToolDefinitions();
       const tool = tools.find((t) => t.name === toolName) as ToolDefinition;
       const result = await tool.handler(writeToolParams[toolName]);
       expect(result.isError).toBe(true);

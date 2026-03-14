@@ -188,7 +188,7 @@ vi.mock("../../src/tools/x402/index.js", () => ({
 }));
 
 vi.mock("../../src/tools/acp/index.js", () => ({
-  getAcpToolDefinitions: vi.fn().mockReturnValue([]),
+  getErc8183ToolDefinitions: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock("../../src/tools/agdp/index.js", () => ({

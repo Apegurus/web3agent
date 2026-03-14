@@ -19,14 +19,14 @@ import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
 import {
-  acpClaimRefundSchema,
-  acpCompleteJobSchema,
-  acpCreateJobSchema,
-  acpFundJobSchema,
-  acpGetJobSchema,
-  acpRejectJobSchema,
-  acpSetBudgetSchema,
-  acpSubmitJobSchema,
+  erc8183ClaimRefundSchema,
+  erc8183CompleteJobSchema,
+  erc8183CreateJobSchema,
+  erc8183FundJobSchema,
+  erc8183GetJobSchema,
+  erc8183RejectJobSchema,
+  erc8183SetBudgetSchema,
+  erc8183SubmitJobSchema,
 } from "./schemas.js";
 
 const ZERO_BYTES32 = `0x${"0".repeat(64)}` as Hex;
@@ -36,7 +36,7 @@ function checkAcpConfigured(): CallToolResult | null {
   if (!addr)
     return formatToolError(
       "NOT_CONFIGURED",
-      "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+      "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
     );
   return null;
 }
@@ -45,14 +45,14 @@ async function acpGetJob(params: Record<string, unknown>): Promise<CallToolResul
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpGetJobSchema, params);
+  const v = validateInput(erc8183GetJobSchema, params);
   if (!v.success) return v.error;
 
   const acpAddress = getAcpAddress();
   if (!acpAddress) {
     return formatToolError(
       "NOT_CONFIGURED",
-      "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+      "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
     );
   }
   const chainId = v.data.chainId ?? getConfig().chainId;
@@ -103,13 +103,13 @@ async function acpCreateJob(params: Record<string, unknown>): Promise<CallToolRe
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpCreateJobSchema, params);
+  const v = validateInput(erc8183CreateJobSchema, params);
   if (!v.success) return v.error;
   const { provider, evaluator, description, expiryDuration } = v.data;
 
   return executeWrite({
-    toolName: "acp_create_job",
-    description: `Create ACP job: provider=${provider}, evaluator=${evaluator}, expires in ${expiryDuration}s, description=${description}`,
+    toolName: "erc8183_create_job",
+    description: `Create ERC-8183 job: provider=${provider}, evaluator=${evaluator}, expires in ${expiryDuration}s, description=${description}`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeCreateJob,
   });
@@ -137,7 +137,7 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -171,12 +171,12 @@ async function acpSetBudget(params: Record<string, unknown>): Promise<CallToolRe
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpSetBudgetSchema, params);
+  const v = validateInput(erc8183SetBudgetSchema, params);
   if (!v.success) return v.error;
 
   return executeWrite({
-    toolName: "acp_set_budget",
-    description: `Set ACP job #${v.data.jobId} budget to ${v.data.amount}`,
+    toolName: "erc8183_set_budget",
+    description: `Set ERC-8183 job #${v.data.jobId} budget to ${v.data.amount}`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeSetBudget,
   });
@@ -198,7 +198,7 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -229,15 +229,15 @@ async function acpFundJob(params: Record<string, unknown>): Promise<CallToolResu
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpFundJobSchema, params);
+  const v = validateInput(erc8183FundJobSchema, params);
   if (!v.success) return v.error;
 
   const chainId = v.data.chainId ?? getConfig().chainId;
   const paymentToken = getPaymentTokenAddress(chainId);
 
   return executeWrite({
-    toolName: "acp_fund_job",
-    description: `Fund job #${v.data.jobId} with ${v.data.expectedBudget} tokens. This will execute up to 2 transactions: (1) approve ${v.data.expectedBudget} ${paymentToken} to ACP contract, (2) fund job escrow. If step 2 fails after step 1 succeeds, retry - the approval will be reused automatically.`,
+    toolName: "erc8183_fund_job",
+    description: `Fund ERC-8183 job #${v.data.jobId} with ${v.data.expectedBudget} tokens. This will execute up to 2 transactions: (1) approve ${v.data.expectedBudget} ${paymentToken} to ACP contract, (2) fund job escrow. If step 2 fails after step 1 succeeds, retry - the approval will be reused automatically.`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeFundJob,
   });
@@ -259,7 +259,7 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -314,12 +314,12 @@ async function acpSubmitJob(params: Record<string, unknown>): Promise<CallToolRe
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpSubmitJobSchema, params);
+  const v = validateInput(erc8183SubmitJobSchema, params);
   if (!v.success) return v.error;
 
   return executeWrite({
-    toolName: "acp_submit_job",
-    description: `Submit ACP job #${v.data.jobId} deliverable`,
+    toolName: "erc8183_submit_job",
+    description: `Submit ERC-8183 job #${v.data.jobId} deliverable`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeSubmitJob,
   });
@@ -341,7 +341,7 @@ async function executeSubmitJob(params: Record<string, unknown>): Promise<CallTo
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -379,12 +379,12 @@ async function acpCompleteJob(params: Record<string, unknown>): Promise<CallTool
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpCompleteJobSchema, params);
+  const v = validateInput(erc8183CompleteJobSchema, params);
   if (!v.success) return v.error;
 
   return executeWrite({
-    toolName: "acp_complete_job",
-    description: `Complete ACP job #${v.data.jobId}`,
+    toolName: "erc8183_complete_job",
+    description: `Complete ERC-8183 job #${v.data.jobId}`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeCompleteJob,
   });
@@ -406,7 +406,7 @@ async function executeCompleteJob(params: Record<string, unknown>): Promise<Call
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -438,12 +438,12 @@ async function acpRejectJob(params: Record<string, unknown>): Promise<CallToolRe
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpRejectJobSchema, params);
+  const v = validateInput(erc8183RejectJobSchema, params);
   if (!v.success) return v.error;
 
   return executeWrite({
-    toolName: "acp_reject_job",
-    description: `Reject ACP job #${v.data.jobId}`,
+    toolName: "erc8183_reject_job",
+    description: `Reject ERC-8183 job #${v.data.jobId}`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeRejectJob,
   });
@@ -465,7 +465,7 @@ async function executeRejectJob(params: Record<string, unknown>): Promise<CallTo
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -497,12 +497,12 @@ async function acpClaimRefund(params: Record<string, unknown>): Promise<CallTool
   const configErr = checkAcpConfigured();
   if (configErr) return configErr;
 
-  const v = validateInput(acpClaimRefundSchema, params);
+  const v = validateInput(erc8183ClaimRefundSchema, params);
   if (!v.success) return v.error;
 
   return executeWrite({
-    toolName: "acp_claim_refund",
-    description: `Claim ACP refund for job #${v.data.jobId}`,
+    toolName: "erc8183_claim_refund",
+    description: `Claim ERC-8183 refund for job #${v.data.jobId}`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeClaimRefund,
   });
@@ -519,7 +519,7 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
     if (!acpAddress) {
       return formatToolError(
         "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for acp_* tools"
+        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
       );
     }
     const chainId = rawChainId ?? getConfig().chainId;
@@ -546,12 +546,12 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
   }
 }
 
-export function getAcpToolDefinitions(): ToolDefinition[] {
+export function getErc8183ToolDefinitions(): ToolDefinition[] {
   return [
     {
-      name: "acp_create_job",
+      name: "erc8183_create_job",
       category: "agenticEconomy" as ToolCategory,
-      description: "Create an ERC-8183 ACP job.",
+      description: "Create an ERC-8183 job.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -568,9 +568,9 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_set_budget",
+      name: "erc8183_set_budget",
       category: "agenticEconomy" as ToolCategory,
-      description: "Set ACP job budget in payment token smallest units.",
+      description: "Set ERC-8183 job budget in payment token smallest units.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -584,10 +584,10 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_fund_job",
+      name: "erc8183_fund_job",
       category: "agenticEconomy" as ToolCategory,
       description:
-        "Fund ACP job escrow. Performs allowance check + approve if needed, then funds in one confirmation flow.",
+        "Fund ERC-8183 job escrow. Performs allowance check + approve if needed, then funds in one confirmation flow.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -604,9 +604,9 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_submit_job",
+      name: "erc8183_submit_job",
       category: "agenticEconomy" as ToolCategory,
-      description: "Submit job deliverable hash for an ACP job.",
+      description: "Submit job deliverable hash for an ERC-8183 job.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -623,9 +623,9 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_complete_job",
+      name: "erc8183_complete_job",
       category: "agenticEconomy" as ToolCategory,
-      description: "Complete an ACP job and release escrow.",
+      description: "Complete an ERC-8183 job and release escrow.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -639,9 +639,9 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_reject_job",
+      name: "erc8183_reject_job",
       category: "agenticEconomy" as ToolCategory,
-      description: "Reject an ACP job.",
+      description: "Reject an ERC-8183 job.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -655,9 +655,9 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_claim_refund",
+      name: "erc8183_claim_refund",
       category: "agenticEconomy" as ToolCategory,
-      description: "Claim refund from an expired/rejected ACP job.",
+      description: "Claim refund from an expired/rejected ERC-8183 job.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -670,9 +670,9 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
-      name: "acp_get_job",
+      name: "erc8183_get_job",
       category: "agenticEconomy" as ToolCategory,
-      description: "Read ACP job details by ID.",
+      description: "Read ERC-8183 job details by ID.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -687,12 +687,12 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
   ];
 }
 
-export function registerAcpExecutors(): void {
-  registerExecutor("acp_create_job", executeCreateJob);
-  registerExecutor("acp_set_budget", executeSetBudget);
-  registerExecutor("acp_fund_job", executeFundJob);
-  registerExecutor("acp_submit_job", executeSubmitJob);
-  registerExecutor("acp_complete_job", executeCompleteJob);
-  registerExecutor("acp_reject_job", executeRejectJob);
-  registerExecutor("acp_claim_refund", executeClaimRefund);
+export function registerErc8183Executors(): void {
+  registerExecutor("erc8183_create_job", executeCreateJob);
+  registerExecutor("erc8183_set_budget", executeSetBudget);
+  registerExecutor("erc8183_fund_job", executeFundJob);
+  registerExecutor("erc8183_submit_job", executeSubmitJob);
+  registerExecutor("erc8183_complete_job", executeCompleteJob);
+  registerExecutor("erc8183_reject_job", executeRejectJob);
+  registerExecutor("erc8183_claim_refund", executeClaimRefund);
 }

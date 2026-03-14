@@ -4,7 +4,7 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
-import { getAcpToolDefinitions } from "../tools/acp/index.js";
+import { getErc8183ToolDefinitions } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions } from "../tools/erc8004/index.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
@@ -56,7 +56,7 @@ function createLegacyRuntimeBridge(
   const orbsTools = getOrbsToolDefinitions();
   const tokenTools = getTokenToolDefinitions();
   const x402Tools = getX402ToolDefinitions();
-  const acpTools = getAcpToolDefinitions();
+  const erc8183Tools = getErc8183ToolDefinitions();
   const agdpTools = getAgdpToolDefinitions();
   const erc8004Tools = getErc8004ToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
@@ -105,7 +105,7 @@ function createLegacyRuntimeBridge(
     for (const tool of x402Tools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
-    for (const tool of acpTools) {
+    for (const tool of erc8183Tools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
     for (const tool of agdpTools) {
@@ -159,7 +159,7 @@ function createLegacyRuntimeBridge(
           inputSchema: normalizeInputSchema(tool.inputSchema),
           ...(tool.annotations && { annotations: tool.annotations }),
         })),
-        ...acpTools.map((tool) => ({
+        ...erc8183Tools.map((tool) => ({
           name: tool.name,
           description: tool.description,
           inputSchema: normalizeInputSchema(tool.inputSchema),
