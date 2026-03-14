@@ -11,6 +11,7 @@ import {
 import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
+import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
 import {
@@ -26,7 +27,6 @@ import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
-import { EvmAdapter } from "../upstream/evm/adapter.js";
 import { formatToolError } from "../utils/errors.js";
 import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
@@ -101,6 +101,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerAcpVirtualsExecutors();
   registerAgdpExecutors();
   registerErc8004Executors();
+  registerEvmExecutors();
   initializeLifi(config.lifiApiKey);
   return confirmationQueue.loadQueue();
 }
@@ -132,6 +133,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly acpVirtualsTools: ToolDefinition[];
   private readonly agdpTools: ToolDefinition[];
   private readonly erc8004Tools: ToolDefinition[];
+  private readonly evmTools: ToolDefinition[];
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -143,7 +145,6 @@ export class ManagedRuntime implements Web3AgentRuntime {
     readonly config: RuntimeConfig,
     private readonly blockscoutAdapter: BlockscoutAdapter,
     private readonly etherscanAdapter: EtherscanAdapter,
-    private readonly evmAdapter: EvmAdapter,
     goatProvider: GoatProvider,
     pendingOpsRestored: number
   ) {
@@ -162,6 +163,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.acpVirtualsTools = getAcpVirtualsToolDefinitions();
     this.agdpTools = getAgdpToolDefinitions();
     this.erc8004Tools = getErc8004ToolDefinitions();
+    this.evmTools = getEvmToolDefinitions();
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
@@ -282,11 +284,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.goatProvider.shutdown();
     // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort wait before adapter teardown
     await this.goatProvider.waitForRebuild().catch(() => {});
-    await Promise.allSettled([
-      this.blockscoutAdapter.shutdown(),
-      this.etherscanAdapter.shutdown(),
-      this.evmAdapter.shutdown(),
-    ]);
+    await Promise.allSettled([this.blockscoutAdapter.shutdown(), this.etherscanAdapter.shutdown()]);
   }
 
   private async requireToolData<T = unknown>(
@@ -310,7 +308,12 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private refreshHealthStatus(): void {
     this.health.blockscout = this.blockscoutAdapter.getHealth();
     this.health.etherscan = this.etherscanAdapter.getHealth();
-    this.health.evm = this.evmAdapter.getHealth();
+    this.health.evm = {
+      name: "evm",
+      status: "ok",
+      toolCount: this.evmTools.length,
+      message: `Loaded ${this.evmTools.length} native tools`,
+    };
     this.health.goat = {
       name: "goat",
       status: "ok",
@@ -414,10 +417,10 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
 
-    for (const tool of this.evmAdapter.getTools()) {
+    for (const tool of this.evmTools) {
       this.toolRecords.set(tool.name, {
-        ...toCatalogEntry({ ...tool, category: "onchain" }, "evm"),
-        handler: (args) => this.evmAdapter.callTool(tool.name, args) as Promise<CallToolResult>,
+        ...toCatalogEntry(tool, "evm"),
+        handler: (args) => tool.handler(args),
       });
     }
 
@@ -471,7 +474,6 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
 
   const blockscoutAdapter = new BlockscoutAdapter(config.blockscoutMcpUrl);
   const etherscanAdapter = new EtherscanAdapter(config.etherscanMcpUrl, config.etherscanApiKey);
-  const evmAdapter = new EvmAdapter();
 
   try {
     await blockscoutAdapter.initialize();
@@ -485,12 +487,6 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     process.stderr.write(`[web3agent] Etherscan degraded: ${String(error)}\n`);
   }
 
-  try {
-    await evmAdapter.initialize();
-  } catch (error: unknown) {
-    process.stderr.write(`[web3agent] EVM degraded: ${String(error)}\n`);
-  }
-
   const runtimeGoatProvider = new GoatProvider();
   await runtimeGoatProvider.initialize(config);
 
@@ -498,7 +494,6 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     config,
     blockscoutAdapter,
     etherscanAdapter,
-    evmAdapter,
     runtimeGoatProvider,
     pendingOpsRestored
   );
