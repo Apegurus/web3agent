@@ -4,6 +4,10 @@ import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
+import { resolvePolicy } from "../policy/config.js";
+import { evaluatePolicy } from "../policy/engine.js";
+import { loadSpendLog } from "../policy/spend-tracker.js";
+import type { RiskLevel, TreasuryPolicy } from "../policy/types.js";
 import {
   getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
   registerAcpExecutors as registerAcpVirtualsExecutors,
@@ -15,6 +19,7 @@ import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
+import { getPolicyToolDefinitions } from "../tools/policy/index.js";
 import {
   type ToolDefinition,
   getTransactionToolDefinitions,
@@ -29,6 +34,7 @@ import type { HealthStatus } from "../types/health.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import { formatToolError } from "../utils/errors.js";
+import { sanitizeToolInput } from "../utils/sanitize.js";
 import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { walletEvents } from "../wallet/events.js";
@@ -61,12 +67,34 @@ interface RuntimeToolRecord extends ToolCatalogEntry {
   handler: RuntimeToolHandler;
 }
 
+function extractEstimatedUsd(args: Record<string, unknown>): number {
+  // Tools pass amounts in various shapes. We check common field names.
+  // For tools where the amount is in token units, we use it as-is as an
+  // approximation. A price oracle integration can refine this later.
+  for (const key of ["amountUsd", "amount_usd", "estimatedUsd"]) {
+    if (typeof args[key] === "number" && args[key] > 0) return args[key] as number;
+    if (typeof args[key] === "string") {
+      const parsed = Number(args[key]);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+  }
+  for (const key of ["amount", "budget", "fromAmount", "value"]) {
+    if (typeof args[key] === "number" && args[key] > 0) return args[key] as number;
+    if (typeof args[key] === "string") {
+      const parsed = Number(args[key]);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+  }
+  return 0;
+}
+
 function toCatalogEntry(
   tool: {
     name: string;
     description?: string;
     inputSchema: Record<string, unknown> | object;
     category: ToolCategory;
+    riskLevel?: RiskLevel;
     annotations?: Tool["annotations"];
   },
   source: ToolSource,
@@ -79,6 +107,7 @@ function toCatalogEntry(
     source,
     category: tool.category,
     dynamic,
+    riskLevel: tool.riskLevel ?? "safe",
     ...(tool.annotations ? { annotations: tool.annotations } : {}),
   };
 }
@@ -104,6 +133,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerErc8004Executors();
   registerEvmExecutors();
   initializeLifi(config.lifiApiKey);
+  await loadSpendLog();
   return confirmationQueue.loadQueue();
 }
 
@@ -124,6 +154,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   readonly transactions;
   readonly status;
   readonly pendingOpsRestored: number;
+  readonly treasuryPolicy: TreasuryPolicy;
 
   private readonly frameworkTools: ToolDefinition[];
   private readonly lifiTools: ToolDefinition[];
@@ -135,6 +166,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly agdpTools: ToolDefinition[];
   private readonly erc8004Tools: ToolDefinition[];
   private readonly evmTools: ToolDefinition[];
+  private readonly policyTools: ToolDefinition[];
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -151,6 +183,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   ) {
     this.goatProvider = goatProvider;
     this.pendingOpsRestored = pendingOpsRestored;
+    this.treasuryPolicy = resolvePolicy(config);
     this.frameworkTools = [
       ...getWalletToolDefinitions(),
       ...getOperationToolDefinitions(),
@@ -166,6 +199,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.agdpTools = getAgdpToolDefinitions();
     this.erc8004Tools = getErc8004ToolDefinitions();
     this.evmTools = getEvmToolDefinitions();
+    this.policyTools = getPolicyToolDefinitions();
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
@@ -246,6 +280,43 @@ export class ManagedRuntime implements Web3AgentRuntime {
     const tool = this.toolRecords.get(name);
     if (!tool) {
       return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);
+    }
+
+    const sanitization = sanitizeToolInput(args, tool.riskLevel);
+    if (!sanitization.safe) {
+      return formatToolError("INPUT_BLOCKED", "Input blocked by injection defense", {
+        threats: sanitization.threats.map((t) => ({
+          check: t.check,
+          severity: t.severity,
+          detail: t.detail,
+        })),
+      });
+    }
+    if (sanitization.threats.length > 0) {
+      process.stderr.write(
+        `[web3agent] Input warning for ${name}: ${sanitization.threats.map((t) => t.check).join(", ")}\n`
+      );
+    }
+
+    if (tool.riskLevel === "financial") {
+      const estimatedUsd = extractEstimatedUsd(args);
+      const decision = evaluatePolicy(this.treasuryPolicy, {
+        toolName: name,
+        riskLevel: tool.riskLevel,
+        estimatedUsd,
+      });
+
+      if (decision.action === "deny") {
+        return formatToolError("POLICY_DENIED", decision.message, {
+          reasonCode: decision.reasonCode,
+          currentSpend: decision.currentSpend,
+          limits: {
+            maxSingleTransactionUsd: decision.appliedPolicy.maxSingleTransactionUsd,
+            maxHourlyUsd: decision.appliedPolicy.maxHourlyUsd,
+            maxDailyUsd: decision.appliedPolicy.maxDailyUsd,
+          },
+        });
+      }
     }
 
     try {
@@ -383,6 +454,13 @@ export class ManagedRuntime implements Web3AgentRuntime {
     for (const tool of this.orbsTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "orbs"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+
+    for (const tool of this.policyTools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "utility"),
         handler: (args) => tool.handler(args),
       });
     }

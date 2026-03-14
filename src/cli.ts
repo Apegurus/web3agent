@@ -9,6 +9,13 @@ if (args[0] === "init") {
       process.exit(1);
     });
   });
+} else if (args[0] === "policy") {
+  import("./cli/policy.js").then(({ runPolicy }) => {
+    runPolicy(args.slice(1)).catch((e: Error) => {
+      process.stderr.write(`Error: ${e.message}\n`);
+      process.exit(1);
+    });
+  });
 } else if (args.includes("--version")) {
   process.stderr.write(`web3agent ${VERSION}\n`);
   process.exit(0);
