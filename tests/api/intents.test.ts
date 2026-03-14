@@ -275,13 +275,29 @@ describe("browser wallet intent APIs", () => {
     const { submitSignedSwap } = await import("../../src/api/intents.js");
     const result = await submitSignedSwap({
       chainId: 8453,
-      quote: { sessionId: "session-1" },
+      quote: {
+        sessionId: "session-1",
+        inToken: "0x4200000000000000000000000000000000000006",
+        outToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        inAmount: "1000000000000000000",
+        outAmount: "3200000000",
+        minAmountOut: "3100000000",
+        user: "0x1234567890123456789012345678901234567890",
+      },
       signature: "0xsigned",
     });
 
     expect(liquidityHubMocks.submitSwap).toHaveBeenCalledWith({
       chainId: 8453,
-      quote: { sessionId: "session-1" },
+      quote: {
+        sessionId: "session-1",
+        inToken: "0x4200000000000000000000000000000000000006",
+        outToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        inAmount: "1000000000000000000",
+        outAmount: "3200000000",
+        minAmountOut: "3100000000",
+        user: "0x1234567890123456789012345678901234567890",
+      },
       signature: "0xsigned",
     });
     expect(result).toEqual({

@@ -50,10 +50,18 @@ Root API helpers lazily create a shared default runtime under the hood. Long-liv
 Use the root package API when your app owns the signer, for example a browser wallet connected through wagmi or AppKit.
 
 ```js
-import { prepareSwapIntent, simulateTransaction, submitSignedSwap } from "web3agent";
+import { prepareOperation, resumeOperation, simulateTransaction } from "web3agent";
 ```
 
-These helpers prepare intent payloads, approval transactions, and signed-submission calls without requiring a server-side private key.
+The primary flow is generic:
+
+1. `prepareOperation(...)` returns the next wallet actions plus `resumeState`
+2. Your app executes those actions with the browser wallet
+3. `resumeOperation(...)` continues until the operation completes
+
+Protocol-specific helpers like `prepareSwapIntent()` and `submitSignedSwap()` remain available as compatibility wrappers, but new integrations should target the generic prepared-operation API first.
+
+Architecture notes live in [docs/architecture/browser-wallet-operations.md](./docs/architecture/browser-wallet-operations.md).
 
 ### Runtime API
 

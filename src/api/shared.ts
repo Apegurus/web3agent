@@ -2,9 +2,6 @@ import { getDefaultRuntime } from "../runtime/default.js";
 import { getToolResultPayload } from "../utils/tool-results.js";
 import { Web3AgentError } from "./errors.js";
 import type { RuntimeBoundOptions, Web3AgentRuntime } from "./types.js";
-import { parseInput } from "./validation.js";
-
-export { parseInput };
 
 export async function getRuntime(options?: RuntimeBoundOptions): Promise<Web3AgentRuntime> {
   if (options?.runtime) {

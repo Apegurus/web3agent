@@ -1,4 +1,5 @@
 export { Web3AgentError } from "./api/errors.js";
+export { parseEnv, resetConfig, setConfig } from "./config/env.js";
 export {
   findChainByName,
   getChain,
@@ -23,7 +24,6 @@ export {
   resolveTokenSync,
 } from "./api/tokens.js";
 export {
-  getRequiredApprovals,
   prepareBridgeIntent,
   prepareLimitIntent,
   prepareSwapIntent,
@@ -31,7 +31,8 @@ export {
   submitSignedSwap,
   submitSignedTwapOrder,
 } from "./api/intents.js";
-export { simulateTransaction } from "./api/simulation.js";
+export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
+export { simulateTransaction, clearTraceSupportCache } from "./api/simulation.js";
 export { normalizeEip712ForSigning } from "./orbs/liquidity-hub.js";
 export type {
   ApprovalStep,
@@ -52,14 +53,31 @@ export type {
   ListChainTokensInput,
   ListOrdersInput,
   ListOrdersResult,
+  OperationActionResult,
+  OperationMessageSignatureResult,
+  OperationResumeState,
+  OperationSignatureResult,
+  OperationTransactionResult,
   PendingConfirmationResult,
   PlaceLimitOrderInput,
   PlaceTwapOrderInput,
+  PrepareOperationInput,
+  PrepareOperationResult,
   PrepareBridgeIntentInput,
   PrepareLimitIntentInput,
   PrepareSwapIntentInput,
+  PreparedAction,
+  PreparedOperation,
+  PreparedOperationIntegration,
+  PreparedSignMessageAction,
+  PreparedSignTypedDataAction,
+  PreparedTransactionAction,
   PrepareTwapIntentInput,
   ResolveTokenInput,
+  ResumeOperationCompletedResult,
+  ResumeOperationInput,
+  ResumeOperationPendingResult,
+  ResumeOperationResult,
   RootResolveTokenResult,
   RuntimeBoundOptions,
   RuntimeHealth,
@@ -127,6 +145,12 @@ export {
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./tools/orbs/schemas.js";
+export {
+  operationActionResultSchema,
+  operationResumeStateSchema,
+  prepareOperationSchema,
+  resumeOperationSchema,
+} from "./tools/operations/schemas.js";
 export { listChainTokensSchema, resolveTokenSchema } from "./tools/tokens/schemas.js";
 export {
   transactionConfirmSchema,

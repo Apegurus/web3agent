@@ -126,6 +126,47 @@ describe("simulateTransaction", () => {
     expect(second.balanceChanges).toEqual(first.balanceChanges);
   });
 
+  it("falls back to static decoding when debug_traceCall returns an unusable payload", async () => {
+    const request = vi.fn().mockResolvedValue({ output: "0x" });
+    const call = vi.fn().mockResolvedValue({ data: "0x" });
+
+    clientMocks.createPublicClient.mockReturnValue({
+      estimateGas: vi.fn().mockResolvedValue(52000n),
+      request,
+      call,
+    });
+
+    const transferData = encodeFunctionData({
+      abi: parseAbi(["function transfer(address to, uint256 amount)"]),
+      functionName: "transfer",
+      args: ["0x9999999999999999999999999999999999999999", 456n],
+    });
+
+    const { clearTraceSupportCache, simulateTransaction } = await import(
+      "../../src/api/simulation.js"
+    );
+    clearTraceSupportCache();
+
+    const result = await simulateTransaction({
+      chainId: 8453,
+      from: "0x1234567890123456789012345678901234567890",
+      to: BASE_USDC,
+      data: transferData,
+    });
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(result.balanceChanges).toEqual([
+      {
+        token: BASE_USDC,
+        symbol: "USDC",
+        decimals: 6,
+        amount: "456",
+        direction: "out",
+      },
+    ]);
+  });
+
   it("returns null token metadata when the token is unknown", async () => {
     clientMocks.createPublicClient.mockReturnValue({
       estimateGas: vi.fn().mockResolvedValue(30000n),

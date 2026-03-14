@@ -117,7 +117,7 @@ export function normalizeEip712ForSigning(
 
 type LiquidityHubSDK = ReturnType<typeof constructSDK>;
 
-const sdkCache = new Map<number, LiquidityHubSDK>();
+const sdkCache = new Map<string, LiquidityHubSDK>();
 
 const DEFAULT_PARTNERS: Record<number, string> = {
   56: "thena",
@@ -126,18 +126,44 @@ const DEFAULT_PARTNERS: Record<number, string> = {
   59144: "lynex",
 };
 
-// Use ORBS_PARTNER env var to override per-chain defaults.
+function readConfiguredPartnerOverride(): string | undefined {
+  try {
+    return getConfig().orbsPartner ?? process.env.ORBS_PARTNER ?? undefined;
+  } catch (e: unknown) {
+    if (
+      e instanceof Error &&
+      e.message === "Config not initialized — call setConfig() during startup"
+    ) {
+      return process.env.ORBS_PARTNER ?? undefined;
+    }
+
+    process.stderr.write(`[orbs] Failed to read configured partner override: ${e}\n`);
+    return process.env.ORBS_PARTNER ?? undefined;
+  }
+}
+
+// Use ORBS_PARTNER env var or configured override to replace per-chain defaults.
 function getPartner(chainId: number): string {
-  return getConfig().orbsPartner || DEFAULT_PARTNERS[chainId] || "widget";
+  return readConfiguredPartnerOverride() || DEFAULT_PARTNERS[chainId] || "widget";
+}
+
+function getSdkCacheKey(chainId: number, partner: string): string {
+  return `${chainId}:${partner}`;
 }
 
 export function getSdk(chainId: number): LiquidityHubSDK {
-  let sdk = sdkCache.get(chainId);
+  const partner = getPartner(chainId);
+  const cacheKey = getSdkCacheKey(chainId, partner);
+  let sdk = sdkCache.get(cacheKey);
   if (!sdk) {
-    sdk = constructSDK({ partner: getPartner(chainId), chainId });
-    sdkCache.set(chainId, sdk);
+    sdk = constructSDK({ partner, chainId });
+    sdkCache.set(cacheKey, sdk);
   }
   return sdk;
+}
+
+export function clearLiquidityHubSdkCacheForTests(): void {
+  sdkCache.clear();
 }
 
 const API_URLS: Record<number, string> = {

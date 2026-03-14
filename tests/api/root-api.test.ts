@@ -141,15 +141,22 @@ describe("root API", () => {
     const root = await import("../../src/index.js");
 
     expect(typeof root.prepareSwapIntent).toBe("function");
+    expect(typeof root.prepareOperation).toBe("function");
     expect(typeof root.getRequiredApprovals).toBe("function");
     expect(typeof root.prepareTwapIntent).toBe("function");
     expect(typeof root.prepareLimitIntent).toBe("function");
     expect(typeof root.prepareBridgeIntent).toBe("function");
+    expect(typeof root.resumeOperation).toBe("function");
+    expect(typeof root.parseEnv).toBe("function");
+    expect(typeof root.resetConfig).toBe("function");
+    expect(typeof root.setConfig).toBe("function");
     expect(typeof root.submitSignedSwap).toBe("function");
     expect(typeof root.submitSignedTwapOrder).toBe("function");
     expect(typeof root.simulateTransaction).toBe("function");
     expect(root.orbsPrepareSwapIntentSchema).toBeDefined();
     expect(root.lifiPrepareBridgeIntentSchema).toBeDefined();
+    expect(root.prepareOperationSchema).toBeDefined();
+    expect(root.resumeOperationSchema).toBeDefined();
     expect(root.transactionSimulateSchema).toBeDefined();
   });
 });

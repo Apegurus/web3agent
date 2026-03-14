@@ -1,24 +1,17 @@
-import {
-  type Hex,
-  createPublicClient,
-  decodeErrorResult,
-  decodeFunctionData,
-  numberToHex,
-  parseAbi,
-} from "viem";
-import { getChainById } from "../chains/registry.js";
-import { parseEnv } from "../config/env.js";
-import { getTransportForChain } from "../config/wallet-factory.js";
+import { type Hex, decodeErrorResult, decodeFunctionData, numberToHex, parseAbi } from "viem";
+import { ChainAccess } from "../operations/chain-access.js";
+import { assertAddress, assertChainSupported, assertHex } from "../operations/validation.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
-import { transactionSimulateSchema } from "../tools/wallet/schemas.js";
 import { Web3AgentError } from "./errors.js";
+import { transactionSimulateSchema } from "./schemas.js";
 import type { BalanceChange, SimulateTransactionInput, SimulationResult } from "./types.js";
 import { parseInput } from "./validation.js";
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const NATIVE_ASSET_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as const;
+const TRACE_SUPPORT_TTL_MS = 5 * 60 * 1000;
 
-const traceSupportCache = new Map<number, boolean>();
+const traceSupportCache = new Map<number, { supported: boolean; checkedAt: number }>();
 
 const fallbackSimulationAbi = parseAbi([
   "function transfer(address to, uint256 amount)",
@@ -50,23 +43,28 @@ interface TraceCallNode {
   calls?: TraceCallNode[];
 }
 
-function getStandaloneTransport(chainId: number) {
-  const config = parseEnv({ CHAIN_ID: String(chainId) });
-  return getTransportForChain(chainId, config);
-}
-
-function toHex(value: string, field: string): `0x${string}` {
-  if (!value.startsWith("0x")) {
-    throw new Web3AgentError({
-      code: "INVALID_PARAMS",
-      message: `${field} must be a 0x-prefixed hex string`,
-    });
-  }
-  return value as `0x${string}`;
-}
-
 function normalizeAddress(value: string): string {
   return value.toLowerCase();
+}
+
+function getCachedTraceSupport(chainId: number): boolean | undefined {
+  const cached = traceSupportCache.get(chainId);
+  if (!cached) return undefined;
+
+  if (Date.now() - cached.checkedAt > TRACE_SUPPORT_TTL_MS) {
+    traceSupportCache.delete(chainId);
+    return undefined;
+  }
+
+  return cached.supported;
+}
+
+function setCachedTraceSupport(chainId: number, supported: boolean): void {
+  traceSupportCache.set(chainId, { supported, checkedAt: Date.now() });
+}
+
+export function clearTraceSupportCache(): void {
+  traceSupportCache.clear();
 }
 
 function getAddressFromTopic(topic: string): `0x${string}` {
@@ -166,7 +164,7 @@ function collectTraceChanges(
       if (!log.address || !log.topics || log.topics.length < 3 || !log.data) continue;
       if (log.topics[0]?.toLowerCase() !== TRANSFER_TOPIC) continue;
 
-      const token = toHex(log.address, "trace.log.address");
+      const token = assertAddress(log.address, "trace.log.address");
       const from = normalizeAddress(getAddressFromTopic(log.topics[1]));
       const to = normalizeAddress(getAddressFromTopic(log.topics[2]));
       const amount = parseNumericValue(log.data);
@@ -195,6 +193,16 @@ function collectTraceChanges(
   for (const child of node.calls ?? []) {
     collectTraceChanges(child, monitoredAddress, changes);
   }
+}
+
+function isUsableTrace(trace: TraceCallNode): boolean {
+  return (
+    Array.isArray(trace.logs) ||
+    Array.isArray(trace.calls) ||
+    typeof trace.value === "string" ||
+    typeof trace.from === "string" ||
+    typeof trace.to === "string"
+  );
 }
 
 function readRecordField<T>(value: unknown, field: string): T | undefined {
@@ -281,13 +289,18 @@ function decodeFallbackBalanceChanges(
         if (normalizeAddress(owner) === normalizeAddress(input.from)) {
           addAggregatedChange(
             changes,
-            toHex(token, "permit.permitted.token"),
+            assertAddress(token, "permit.permitted.token"),
             "out",
             requestedAmount
           );
         }
         if (recipient && normalizeAddress(recipient) === normalizeAddress(input.from)) {
-          addAggregatedChange(changes, toHex(token, "transferDetails.to"), "in", requestedAmount);
+          addAggregatedChange(
+            changes,
+            assertAddress(token, "permit.permitted.token"),
+            "in",
+            requestedAmount
+          );
         }
       }
       break;
@@ -313,7 +326,7 @@ function decodeFallbackBalanceChanges(
       const recipient = readRecordField<string>(params, "recipient");
 
       if (tokenIn && amountIn !== undefined) {
-        addAggregatedChange(changes, toHex(tokenIn, "params.tokenIn"), "out", amountIn);
+        addAggregatedChange(changes, assertAddress(tokenIn, "params.tokenIn"), "out", amountIn);
       }
       if (
         tokenOut &&
@@ -321,7 +334,12 @@ function decodeFallbackBalanceChanges(
         recipient &&
         normalizeAddress(recipient) === normalizeAddress(input.from)
       ) {
-        addAggregatedChange(changes, toHex(tokenOut, "params.tokenOut"), "in", amountOutMinimum);
+        addAggregatedChange(
+          changes,
+          assertAddress(tokenOut, "params.tokenOut"),
+          "in",
+          amountOutMinimum
+        );
       }
       break;
     }
@@ -353,13 +371,7 @@ async function resolveBalanceChanges(
   chainId: number,
   changes: Map<string, bigint>
 ): Promise<BalanceChange[]> {
-  const chain = getChainById(chainId);
-  if (!chain) {
-    throw new Web3AgentError({
-      code: "CHAIN_NOT_SUPPORTED",
-      message: `Unsupported chain ID: ${chainId}`,
-    });
-  }
+  const chain = assertChainSupported(chainId);
 
   return [...changes.entries()].map(([key, amount]) => {
     const [tokenAddress, direction] = key.split(":");
@@ -388,22 +400,14 @@ export async function simulateTransaction(
   params: SimulateTransactionInput
 ): Promise<SimulationResult> {
   const input = parseInput(transactionSimulateSchema, params);
-  const chain = getChainById(input.chainId);
-  if (!chain) {
-    throw new Web3AgentError({
-      code: "CHAIN_NOT_SUPPORTED",
-      message: `Unsupported chain ID: ${input.chainId}`,
-    });
-  }
+  assertChainSupported(input.chainId);
 
-  const publicClient = createPublicClient({
-    chain,
-    transport: getStandaloneTransport(input.chainId),
-  });
+  const chainAccess = new ChainAccess();
+  const publicClient = chainAccess.createPublicClient(input.chainId);
   const tx = {
-    account: toHex(input.from, "from"),
-    to: toHex(input.to, "to"),
-    data: toHex(input.data, "data"),
+    account: assertAddress(input.from, "from"),
+    to: assertAddress(input.to, "to"),
+    data: assertHex(input.data, "data"),
     value: input.value ? BigInt(input.value) : 0n,
   };
   const decodedTx = {
@@ -425,7 +429,7 @@ export async function simulateTransaction(
   }
 
   const changes = new Map<string, bigint>();
-  const traceSupported = traceSupportCache.get(input.chainId);
+  const traceSupported = getCachedTraceSupport(input.chainId);
 
   if (traceSupported !== false) {
     try {
@@ -445,17 +449,19 @@ export async function simulateTransaction(
           { tracer: "callTracer", tracerConfig: { withLog: true } },
         ],
       })) as TraceCallNode;
-      traceSupportCache.set(input.chainId, true);
+      setCachedTraceSupport(input.chainId, true);
 
-      collectTraceChanges(trace, normalizeAddress(tx.account), changes);
-      return {
-        success: true,
-        gasEstimate: gasEstimate.toString(),
-        balanceChanges: await resolveBalanceChanges(input.chainId, changes),
-      };
+      if (isUsableTrace(trace)) {
+        collectTraceChanges(trace, normalizeAddress(tx.account), changes);
+        return {
+          success: true,
+          gasEstimate: gasEstimate.toString(),
+          balanceChanges: await resolveBalanceChanges(input.chainId, changes),
+        };
+      }
     } catch (error: unknown) {
       if (isDebugTraceUnsupported(error)) {
-        traceSupportCache.set(input.chainId, false);
+        setCachedTraceSupport(input.chainId, false);
       } else {
         throw new Web3AgentError({
           code: "SIMULATION_ERROR",

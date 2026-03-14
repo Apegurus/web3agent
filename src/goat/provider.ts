@@ -1,5 +1,3 @@
-import type { GetOnChainToolsParams } from "@goat-sdk/adapter-model-context-protocol";
-import { getOnChainTools } from "@goat-sdk/adapter-model-context-protocol";
 import type { WalletClientBase } from "@goat-sdk/core";
 import { viem } from "@goat-sdk/wallet-viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -8,19 +6,7 @@ import type { RuntimeConfig } from "../types/config.js";
 import { walletEvents } from "../wallet/events.js";
 import { getActiveAccount, getWalletState } from "../wallet/persistence.js";
 import { type PluginLoadResult, loadPlugins } from "./plugins.js";
-
-export interface GoatToolSnapshot {
-  listOfTools: Array<{
-    name: string;
-    description: string;
-    inputSchema: object;
-  }>;
-  toolHandler: (
-    toolName: string,
-    params: unknown
-  ) => Promise<{ content: Array<{ type: string; text: string }> }>;
-  chainId: number;
-}
+import { type GoatToolSnapshot, buildGoatTools, createGoatToolSnapshot } from "./toolset.js";
 
 export class GoatProvider {
   private snapshots = new Map<number, GoatToolSnapshot>();
@@ -105,17 +91,12 @@ export class GoatProvider {
     }
 
     const walletClient = createWalletClientForChain(account, chainId, this.runtimeConfig);
-    const tools = await getOnChainTools({
-      wallet: viem(walletClient),
-      plugins: this.pluginResult.plugins,
-      // biome-ignore lint/suspicious/noExplicitAny: GOAT SDK generics require flexible typing for cross-plugin wallet compat
-    } as GetOnChainToolsParams<any>);
-
-    this.snapshots.set(chainId, {
-      listOfTools: tools.listOfTools(),
-      toolHandler: tools.toolHandler,
-      chainId,
+    const tools = await buildGoatTools({
+      wallet: viem(walletClient) as unknown as WalletClientBase,
+      pluginResult: this.pluginResult,
     });
+
+    this.snapshots.set(chainId, createGoatToolSnapshot(chainId, tools));
   }
 
   async getOrBuildSnapshot(chainId: number): Promise<GoatToolSnapshot | undefined> {

@@ -12,6 +12,7 @@ import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/ac
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
+import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
 import {
   type ToolDefinition,
@@ -151,6 +152,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.pendingOpsRestored = pendingOpsRestored;
     this.frameworkTools = [
       ...getWalletToolDefinitions(),
+      ...getOperationToolDefinitions(),
       ...getTransactionToolDefinitions(),
       ...getUtilityToolDefinitions(),
     ];
@@ -450,6 +452,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
   private getFrameworkSource(toolName: string): ToolSource {
     if (toolName.startsWith("wallet_")) return "wallet";
+    if (toolName.startsWith("operation_")) return "operation";
     if (toolName.startsWith("transaction_")) return "transaction";
     return "utility";
   }
