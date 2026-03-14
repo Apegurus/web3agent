@@ -71,53 +71,53 @@ const SELF_HARM_PATTERNS = [
   /disable\s+(your\s+)?(heartbeat|service)/i,
 ];
 
-function testPatterns(text: string, patterns: RegExp[]): boolean {
-  return patterns.some((p) => p.test(text));
+interface ThreatRule {
+  patterns: RegExp[];
+  check: string;
+  severity: SanitizationThreat["severity"];
+  detail: string;
 }
+
+const THREAT_RULES: ThreatRule[] = [
+  {
+    patterns: FINANCIAL_MANIPULATION_PATTERNS,
+    check: "financial_manipulation",
+    severity: "critical",
+    detail: "Input contains patterns attempting to manipulate financial operations",
+  },
+  {
+    patterns: SELF_HARM_PATTERNS,
+    check: "self_harm",
+    severity: "critical",
+    detail: "Input contains patterns that could damage agent state or infrastructure",
+  },
+  {
+    patterns: BOUNDARY_PATTERNS,
+    check: "boundary_manipulation",
+    severity: "high",
+    detail: "Input contains prompt boundary markers or invisible characters",
+  },
+  {
+    patterns: INSTRUCTION_INJECTION_PATTERNS,
+    check: "instruction_injection",
+    severity: "medium",
+    detail: "Input contains instruction override patterns",
+  },
+  {
+    patterns: AUTHORITY_CLAIM_PATTERNS,
+    check: "authority_spoofing",
+    severity: "medium",
+    detail: "Input contains false authority claims",
+  },
+];
 
 function detectThreats(text: string): SanitizationThreat[] {
   const threats: SanitizationThreat[] = [];
-
-  if (testPatterns(text, FINANCIAL_MANIPULATION_PATTERNS)) {
-    threats.push({
-      check: "financial_manipulation",
-      severity: "critical",
-      detail: "Input contains patterns attempting to manipulate financial operations",
-    });
+  for (const rule of THREAT_RULES) {
+    if (rule.patterns.some((p) => p.test(text))) {
+      threats.push({ check: rule.check, severity: rule.severity, detail: rule.detail });
+    }
   }
-
-  if (testPatterns(text, SELF_HARM_PATTERNS)) {
-    threats.push({
-      check: "self_harm",
-      severity: "critical",
-      detail: "Input contains patterns that could damage agent state or infrastructure",
-    });
-  }
-
-  if (testPatterns(text, BOUNDARY_PATTERNS)) {
-    threats.push({
-      check: "boundary_manipulation",
-      severity: "high",
-      detail: "Input contains prompt boundary markers or invisible characters",
-    });
-  }
-
-  if (testPatterns(text, INSTRUCTION_INJECTION_PATTERNS)) {
-    threats.push({
-      check: "instruction_injection",
-      severity: "medium",
-      detail: "Input contains instruction override patterns",
-    });
-  }
-
-  if (testPatterns(text, AUTHORITY_CLAIM_PATTERNS)) {
-    threats.push({
-      check: "authority_spoofing",
-      severity: "medium",
-      detail: "Input contains false authority claims",
-    });
-  }
-
   return threats;
 }
 

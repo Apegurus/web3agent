@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { RuntimeConfig } from "../types/config.js";
@@ -19,16 +19,19 @@ function loadPolicyFile(): Partial<TreasuryPolicy> {
     const result: Partial<TreasuryPolicy> = {};
 
     if (typeof parsed.enabled === "boolean") result.enabled = parsed.enabled;
-    if (typeof parsed.maxSingleTransactionUsd === "number" && parsed.maxSingleTransactionUsd >= 0)
-      result.maxSingleTransactionUsd = parsed.maxSingleTransactionUsd;
-    if (typeof parsed.maxHourlyUsd === "number" && parsed.maxHourlyUsd >= 0)
-      result.maxHourlyUsd = parsed.maxHourlyUsd;
-    if (typeof parsed.maxDailyUsd === "number" && parsed.maxDailyUsd >= 0)
-      result.maxDailyUsd = parsed.maxDailyUsd;
-    if (typeof parsed.minReserveUsd === "number" && parsed.minReserveUsd >= 0)
-      result.minReserveUsd = parsed.minReserveUsd;
-    if (typeof parsed.maxX402PaymentUsd === "number" && parsed.maxX402PaymentUsd >= 0)
-      result.maxX402PaymentUsd = parsed.maxX402PaymentUsd;
+
+    const numericFields: Array<keyof Omit<TreasuryPolicy, "enabled">> = [
+      "maxSingleTransactionUsd",
+      "maxHourlyUsd",
+      "maxDailyUsd",
+      "minReserveUsd",
+      "maxX402PaymentUsd",
+    ];
+    for (const field of numericFields) {
+      if (typeof parsed[field] === "number" && (parsed[field] as number) >= 0) {
+        result[field] = parsed[field] as number;
+      }
+    }
 
     return result;
   } catch (e: unknown) {
@@ -76,11 +79,4 @@ export async function savePolicyFile(policy: Partial<TreasuryPolicy>): Promise<s
   const merged = { ...existing, ...policy };
   await writeFile(filePath, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
   return filePath;
-}
-
-export async function readPolicyFile(): Promise<Partial<TreasuryPolicy>> {
-  const filePath = getPolicyFilePath();
-  if (!existsSync(filePath)) return {};
-  const raw = await readFile(filePath, "utf-8");
-  return JSON.parse(raw) as Partial<TreasuryPolicy>;
 }

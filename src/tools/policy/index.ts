@@ -1,4 +1,5 @@
 import { getConfig } from "../../config/env.js";
+import { getRemainingBudget } from "../../policy/budget.js";
 import { resolvePolicy } from "../../policy/config.js";
 import { getRecentRecords, getSpendWindow } from "../../policy/spend-tracker.js";
 import { formatToolResponse } from "../../utils/errors.js";
@@ -36,10 +37,7 @@ export function getPolicyToolDefinitions(): ToolDefinition[] {
             maxX402PaymentUsd: policy.maxX402PaymentUsd,
           },
           currentSpend: spend,
-          remainingBudget: {
-            hourlyUsd: Math.max(0, policy.maxHourlyUsd - spend.hourlyUsd),
-            dailyUsd: Math.max(0, policy.maxDailyUsd - spend.dailyUsd),
-          },
+          remainingBudget: getRemainingBudget(policy, spend),
           ...(recentSpends ? { recentSpends } : {}),
         });
       },

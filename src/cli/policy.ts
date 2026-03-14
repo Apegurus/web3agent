@@ -1,7 +1,7 @@
 import { parseEnv } from "../config/env.js";
-import { readPolicyFile, resolvePolicy, savePolicyFile } from "../policy/config.js";
-import { loadSpendLog } from "../policy/spend-tracker.js";
-import { getRecentRecords, getSpendWindow } from "../policy/spend-tracker.js";
+import { getRemainingBudget } from "../policy/budget.js";
+import { resolvePolicy, savePolicyFile } from "../policy/config.js";
+import { getRecentRecords, getSpendWindow, loadSpendLog } from "../policy/spend-tracker.js";
 
 function printPolicy(label: string, value: number): void {
   process.stderr.write(`  ${label.padEnd(30)} $${value.toFixed(2)}\n`);
@@ -28,9 +28,10 @@ async function showPolicy(): Promise<void> {
   process.stderr.write(`  Hourly transactions:${" ".repeat(10)}${spend.hourlyCount}\n`);
   process.stderr.write(`  Daily transactions:${" ".repeat(11)}${spend.dailyCount}\n`);
 
+  const remaining = getRemainingBudget(policy, spend);
   process.stderr.write("\nRemaining Budget\n");
-  printPolicy("Hourly:", Math.max(0, policy.maxHourlyUsd - spend.hourlyUsd));
-  printPolicy("Daily:", Math.max(0, policy.maxDailyUsd - spend.dailyUsd));
+  printPolicy("Hourly:", remaining.hourlyUsd);
+  printPolicy("Daily:", remaining.dailyUsd);
 
   if (recent.length > 0) {
     process.stderr.write("\nRecent Transactions\n");
@@ -42,44 +43,31 @@ async function showPolicy(): Promise<void> {
   process.stderr.write("\n");
 }
 
+const NUMERIC_FLAGS: Record<string, string> = {
+  "--max-single-tx": "maxSingleTransactionUsd",
+  "--max-hourly": "maxHourlyUsd",
+  "--max-daily": "maxDailyUsd",
+  "--min-reserve": "minReserveUsd",
+  "--max-x402": "maxX402PaymentUsd",
+};
+
 async function setPolicy(args: string[]): Promise<void> {
   const updates: Record<string, number | boolean> = {};
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    const nextVal = i + 1 < args.length ? args[++i] : undefined;
+    const policyField = NUMERIC_FLAGS[arg];
 
-    switch (arg) {
-      case "--max-single-tx":
-        if (!nextVal) throw new Error("--max-single-tx requires a value");
-        updates.maxSingleTransactionUsd = Number.parseFloat(nextVal);
-        break;
-      case "--max-hourly":
-        if (!nextVal) throw new Error("--max-hourly requires a value");
-        updates.maxHourlyUsd = Number.parseFloat(nextVal);
-        break;
-      case "--max-daily":
-        if (!nextVal) throw new Error("--max-daily requires a value");
-        updates.maxDailyUsd = Number.parseFloat(nextVal);
-        break;
-      case "--min-reserve":
-        if (!nextVal) throw new Error("--min-reserve requires a value");
-        updates.minReserveUsd = Number.parseFloat(nextVal);
-        break;
-      case "--max-x402":
-        if (!nextVal) throw new Error("--max-x402 requires a value");
-        updates.maxX402PaymentUsd = Number.parseFloat(nextVal);
-        break;
-      case "--enable":
-        updates.enabled = true;
-        i--;
-        break;
-      case "--disable":
-        updates.enabled = false;
-        i--;
-        break;
-      default:
-        throw new Error(`Unknown policy option: ${arg}`);
+    if (policyField) {
+      const nextVal = args[++i];
+      if (!nextVal) throw new Error(`${arg} requires a value`);
+      updates[policyField] = Number.parseFloat(nextVal);
+    } else if (arg === "--enable") {
+      updates.enabled = true;
+    } else if (arg === "--disable") {
+      updates.enabled = false;
+    } else {
+      throw new Error(`Unknown policy option: ${arg}`);
     }
   }
 

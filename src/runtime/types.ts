@@ -33,8 +33,6 @@ export type ToolCategory =
   | "explorer"
   | "agenticEconomy";
 
-export type { RiskLevel } from "../policy/types.js";
-
 export interface ToolCatalogEntry {
   name: string;
   description: string;

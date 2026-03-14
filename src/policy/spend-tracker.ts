@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { atomicWriteJson } from "../utils/atomic-write.js";
 import type { SpendRecord, SpendWindow } from "./types.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -60,21 +61,7 @@ function pruneOldRecords(): void {
 }
 
 async function persistSpendLog(): Promise<void> {
-  const filePath = getSpendLogPath();
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
-  }
-
-  const tmpPath = `${filePath}.tmp`;
-  const fd = await open(tmpPath, "w", 0o600);
-  try {
-    await fd.writeFile(JSON.stringify(records, null, 2));
-    await fd.sync();
-  } finally {
-    await fd.close();
-  }
-  await rename(tmpPath, filePath);
+  await atomicWriteJson(getSpendLogPath(), records);
 }
 
 export async function loadSpendLog(): Promise<number> {

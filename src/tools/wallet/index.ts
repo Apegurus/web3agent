@@ -236,28 +236,31 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       );
     }
 
-    const config = getConfig();
-    const policy = resolvePolicy(config);
+    const opRiskLevel = result.operation.riskLevel ?? "financial";
     const opParams = result.operation.params;
-    const estimatedUsd = extractEstimatedUsd(opParams);
+    const estimatedUsd = opRiskLevel === "safe" ? 0 : extractEstimatedUsd(opParams);
 
-    const policyDecision = evaluatePolicy(policy, {
-      toolName: result.operation.type,
-      riskLevel: "financial",
-      estimatedUsd,
-    });
-
-    if (policyDecision.action === "deny") {
-      return formatToolError("POLICY_DENIED", policyDecision.message, {
-        reasonCode: policyDecision.reasonCode,
-        currentSpend: policyDecision.currentSpend,
-        note: "Policy re-evaluated at confirm time",
+    if (opRiskLevel === "financial") {
+      const config = getConfig();
+      const policy = resolvePolicy(config);
+      const policyDecision = evaluatePolicy(policy, {
+        toolName: result.operation.type,
+        riskLevel: opRiskLevel,
+        estimatedUsd,
       });
+
+      if (policyDecision.action === "deny") {
+        return formatToolError("POLICY_DENIED", policyDecision.message, {
+          reasonCode: policyDecision.reasonCode,
+          currentSpend: policyDecision.currentSpend,
+          note: "Policy re-evaluated at confirm time",
+        });
+      }
     }
 
     const execResult = await result.operation.executor(opParams);
 
-    if (!execResult.isError) {
+    if (opRiskLevel === "financial" && !execResult.isError) {
       recordSpend(result.operation.type, estimatedUsd, walletState.address);
     }
 

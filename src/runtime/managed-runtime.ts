@@ -278,8 +278,10 @@ export class ManagedRuntime implements Web3AgentRuntime {
       );
     }
 
-    if (tool.riskLevel === "financial") {
-      const estimatedUsd = extractEstimatedUsd(args);
+    const isFinancial = tool.riskLevel === "financial";
+    const estimatedUsd = isFinancial ? extractEstimatedUsd(args) : 0;
+
+    if (isFinancial) {
       if (estimatedUsd === 0) {
         process.stderr.write(
           `[web3agent] Warning: no USD estimate for financial tool "${name}" — spend limits cannot be enforced for this call\n`
@@ -308,10 +310,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
       const result = await withConfig(this.config, () => tool.handler(args));
       const normalized = normalizeCallToolResult(result);
 
-      if (tool.riskLevel === "financial" && !normalized.isError) {
-        const estimatedUsd = extractEstimatedUsd(args);
-        const wallet = getWalletState();
-        recordSpend(name, estimatedUsd, wallet.address);
+      if (isFinancial && !normalized.isError) {
+        recordSpend(name, estimatedUsd, getWalletState().address);
       }
 
       return normalized;

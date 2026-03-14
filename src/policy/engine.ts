@@ -6,13 +6,38 @@ import {
   evaluateX402Limit,
 } from "./rules.js";
 import { getSpendWindow } from "./spend-tracker.js";
-import type { PolicyDecision, RiskLevel, TreasuryPolicy } from "./types.js";
+import type {
+  PolicyAction,
+  PolicyDecision,
+  RiskLevel,
+  SpendWindow,
+  TreasuryPolicy,
+} from "./types.js";
 
 export interface PolicyEvaluationRequest {
   toolName: string;
   riskLevel: RiskLevel;
   estimatedUsd: number;
   walletBalanceUsd?: number | null;
+}
+
+function buildDecision(
+  action: PolicyAction,
+  reasonCode: string,
+  message: string,
+  request: PolicyEvaluationRequest,
+  spend: SpendWindow,
+  policy: TreasuryPolicy
+): PolicyDecision {
+  return {
+    action,
+    reasonCode,
+    message,
+    riskLevel: request.riskLevel,
+    toolName: request.toolName,
+    currentSpend: spend,
+    appliedPolicy: policy,
+  };
 }
 
 export function evaluatePolicy(
@@ -22,27 +47,25 @@ export function evaluatePolicy(
   const spend = getSpendWindow();
 
   if (!policy.enabled) {
-    return {
-      action: "allow",
-      reasonCode: "POLICY_DISABLED",
-      message: "Treasury policy is disabled",
-      riskLevel: request.riskLevel,
-      toolName: request.toolName,
-      currentSpend: spend,
-      appliedPolicy: policy,
-    };
+    return buildDecision(
+      "allow",
+      "POLICY_DISABLED",
+      "Treasury policy is disabled",
+      request,
+      spend,
+      policy
+    );
   }
 
   if (request.riskLevel === "safe") {
-    return {
-      action: "allow",
-      reasonCode: "SAFE_TOOL",
-      message: "Read-only tools are always allowed",
-      riskLevel: request.riskLevel,
-      toolName: request.toolName,
-      currentSpend: spend,
-      appliedPolicy: policy,
-    };
+    return buildDecision(
+      "allow",
+      "SAFE_TOOL",
+      "Read-only tools are always allowed",
+      request,
+      spend,
+      policy
+    );
   }
 
   const rules = [
@@ -62,25 +85,16 @@ export function evaluatePolicy(
   for (const rule of rules) {
     const result = rule();
     if (result?.action === "deny") {
-      return {
-        action: "deny",
-        reasonCode: result.reasonCode,
-        message: result.message,
-        riskLevel: request.riskLevel,
-        toolName: request.toolName,
-        currentSpend: spend,
-        appliedPolicy: policy,
-      };
+      return buildDecision("deny", result.reasonCode, result.message, request, spend, policy);
     }
   }
 
-  return {
-    action: "allow",
-    reasonCode: "ALLOWED",
-    message: "All treasury policy checks passed",
-    riskLevel: request.riskLevel,
-    toolName: request.toolName,
-    currentSpend: spend,
-    appliedPolicy: policy,
-  };
+  return buildDecision(
+    "allow",
+    "ALLOWED",
+    "All treasury policy checks passed",
+    request,
+    spend,
+    policy
+  );
 }
