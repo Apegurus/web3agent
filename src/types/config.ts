@@ -16,4 +16,9 @@ export interface RuntimeConfig {
   zeroxApiKey?: string;
   coingeckoApiKey?: string;
   orbsPartner?: string;
+  acpContractAddress?: string; // ERC-8183 contract address (from ACP_CONTRACT_ADDRESS)
+  acpPaymentToken?: string; // ERC-20 token for ACP escrow (from ACP_PAYMENT_TOKEN, default USDC)
+  pinataJwt?: string; // Pinata JWT for IPFS pinning (from PINATA_JWT)
+  mcpEndpointUrl?: string; // Advertised MCP endpoint for ERC-8004 (from MCP_ENDPOINT_URL)
+  agdpApiUrl?: string; // aGDP API base URL (from AGDP_API_URL, default https://acpx.virtuals.io/api)
 }

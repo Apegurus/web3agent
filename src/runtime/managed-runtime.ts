@@ -26,7 +26,6 @@ import { walletEvents } from "../wallet/events.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
 import { createGoatToolMetadata, normalizeInputSchema } from "./tool-metadata.js";
 import {
-  toHealthStatus,
   type CreateRuntimeOptions,
   type RuntimeHealth,
   type RuntimeToolListener,
@@ -44,6 +43,7 @@ import {
   type WalletGenerateMnemonicResult,
   type WalletGenerateResult,
   type Web3AgentRuntime,
+  toHealthStatus,
 } from "./types.js";
 
 type RuntimeToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult | unknown>;
@@ -100,6 +100,7 @@ function summarizeBackends(health: HealthStatus): RuntimeHealth["backends"] {
     goat: { ...health.goat },
     lifi: { ...health.lifi },
     orbs: { ...health.orbs },
+    agenticEconomy: { ...health.agenticEconomy },
   };
 }
 

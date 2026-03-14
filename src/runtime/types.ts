@@ -13,7 +13,11 @@ export type ToolSource =
   | "goat"
   | "blockscout"
   | "etherscan"
-  | "evm";
+  | "evm"
+  | "x402"
+  | "acp"
+  | "agdp"
+  | "erc8004";
 
 export type ToolCategory =
   | "wallet"
@@ -23,7 +27,8 @@ export type ToolCategory =
   | "swap"
   | "orders"
   | "onchain"
-  | "explorer";
+  | "explorer"
+  | "agenticEconomy";
 
 export interface ToolCatalogEntry {
   name: string;
@@ -66,6 +71,7 @@ export interface RuntimeHealth {
     goat: BackendStatus;
     lifi: BackendStatus;
     orbs: BackendStatus;
+    agenticEconomy: BackendStatus;
   };
 }
 
@@ -87,6 +93,7 @@ export function toHealthStatus(health: RuntimeHealth): HealthStatus {
     goat: health.backends.goat,
     lifi: health.backends.lifi,
     orbs: health.backends.orbs,
+    agenticEconomy: health.backends.agenticEconomy,
   };
 }
 

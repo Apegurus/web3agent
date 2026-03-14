@@ -75,6 +75,11 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     zeroxApiKey: env.ZEROX_API_KEY || undefined,
     coingeckoApiKey: env.COINGECKO_API_KEY || undefined,
     orbsPartner: env.ORBS_PARTNER || undefined,
+    acpContractAddress: env.ACP_CONTRACT_ADDRESS || undefined,
+    acpPaymentToken: env.ACP_PAYMENT_TOKEN || undefined,
+    pinataJwt: env.PINATA_JWT || undefined,
+    mcpEndpointUrl: env.MCP_ENDPOINT_URL || undefined,
+    agdpApiUrl: env.AGDP_API_URL || "https://acpx.virtuals.io/api",
   };
 }
 
