@@ -193,11 +193,21 @@ export function getAcpRouterAddress(chainId: number): Hex | null {
 }
 
 type AcpMemo = {
-  id?: bigint;
-  memoId?: bigint;
+  id: bigint;
+  jobId: bigint;
   sender: Hex;
   content: string;
   memoType: number;
+  createdAt: bigint;
+  isApproved: boolean;
+  approvedBy: Hex;
+  approvedAt: bigint;
+  requiresApproval: boolean;
+  metadata: string;
+  isSecured: boolean;
+  nextPhase: number;
+  expiredAt: bigint;
+  state: number;
 };
 
 export async function resolvePendingMemo(
@@ -217,12 +227,9 @@ export async function resolvePendingMemo(
 
   for (let i = memoList.length - 1; i >= 0; i--) {
     const memo = memoList[i];
+    if (!memo.requiresApproval || memo.isApproved) continue;
     if (memo.sender.toLowerCase() === signerAddress.toLowerCase()) continue;
-
-    const memoId = memo.memoId ?? memo.id;
-    if (memoId === undefined) continue;
-
-    return { memoId, content: memo.content, memoType: memo.memoType };
+    return { memoId: memo.id, content: memo.content, memoType: memo.memoType };
   }
 
   return null;

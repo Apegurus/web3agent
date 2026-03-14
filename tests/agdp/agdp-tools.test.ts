@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAgdpToolDefinitions } from "../../src/tools/agdp/index.js";
 import type { ToolDefinition } from "../../src/tools/register.js";
 
@@ -114,6 +114,10 @@ vi.mock("../../src/config/env.js", async (importOriginal) => {
       etherscanMcpUrl: "https://mcp.etherscan.io/mcp",
     }),
   };
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
 });
 
 describe("agdp_get_offerings", () => {

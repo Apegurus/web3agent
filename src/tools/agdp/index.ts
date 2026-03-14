@@ -1,6 +1,4 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createPublicClient, zeroAddress } from "viem";
-import { erc8183Abi, getAcpAddress } from "../../acp/contract.js";
 import {
   type AgdpAgent,
   createJobViaApi,
@@ -9,9 +7,7 @@ import {
   getOfferingById,
   searchOfferings,
 } from "../../agdp/api.js";
-import { getChainById } from "../../chains/registry.js";
 import { getConfig } from "../../config/env.js";
-import { createWalletClientForChain, getTransportForChain } from "../../config/wallet-factory.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
@@ -47,7 +43,7 @@ async function agdpGetOfferings(params: Record<string, unknown>): Promise<CallTo
       })),
     });
   } catch (e: unknown) {
-    return formatToolError("AGDP_ERROR", String(e));
+    return formatToolError("AGDP_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -59,7 +55,7 @@ async function agdpGetOffering(params: Record<string, unknown>): Promise<CallToo
     if (!agent) return formatToolError("NOT_FOUND", `Agent ${v.data.offeringId} not found`);
     return formatToolResponse(agent);
   } catch (e: unknown) {
-    return formatToolError("AGDP_ERROR", String(e));
+    return formatToolError("AGDP_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -76,7 +72,7 @@ async function agdpGetMyJobs(params: Record<string, unknown>): Promise<CallToolR
     });
     return formatToolResponse({ count: jobs.length, jobs });
   } catch (e: unknown) {
-    return formatToolError("AGDP_ERROR", String(e));
+    return formatToolError("AGDP_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -91,49 +87,8 @@ async function executeHireAgent(params: Record<string, unknown>): Promise<CallTo
     if (!agent)
       return formatToolError("NOT_FOUND", `Agent ${offeringId} not found in aGDP marketplace`);
 
-    const acpAddress = getAcpAddress();
-
-    if (acpAddress) {
-      const chainId = (params.chainId as number | undefined) ?? getConfig().chainId;
-      const account = getActiveAccount();
-      const chain = getChainById(chainId);
-      if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} is not supported`);
-
-      const walletClient = createWalletClientForChain(account, chainId);
-      const publicClient = createPublicClient({
-        chain,
-        transport: getTransportForChain(chainId),
-      });
-
-      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 86400);
-
-      const hash = await walletClient.writeContract({
-        address: acpAddress as `0x${string}`,
-        abi: erc8183Abi,
-        functionName: "createJob",
-        args: [
-          agent.walletAddress as `0x${string}`,
-          zeroAddress,
-          expiredAt,
-          `Hired via aGDP: ${agent.name}`,
-          zeroAddress,
-        ],
-        chain,
-        account,
-      });
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      return formatToolResponse({
-        status: "hired_on_chain",
-        agent: {
-          id: agent.id,
-          name: agent.name,
-          walletAddress: agent.walletAddress,
-        },
-        txHash: hash,
-      });
-    }
-
+    // Hire via aGDP API (the on-chain ACP job creation should be done
+    // separately using acp_create_job which targets the actual Virtuals ACPRouter V2)
     const firstOffering = agent.jobs?.[0];
     const result = await createJobViaApi({
       providerWalletAddress: agent.walletAddress,
@@ -146,7 +101,7 @@ async function executeHireAgent(params: Record<string, unknown>): Promise<CallTo
       job: result,
     });
   } catch (e: unknown) {
-    return formatToolError("AGDP_HIRE_ERROR", String(e));
+    return formatToolError("AGDP_HIRE_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -186,7 +141,7 @@ async function executeCreateOffering(params: Record<string, unknown>): Promise<C
     });
     return formatToolResponse(result);
   } catch (e: unknown) {
-    return formatToolError("NOT_SUPPORTED", String(e));
+    return formatToolError("NOT_SUPPORTED", e instanceof Error ? e.message : String(e));
   }
 }
 

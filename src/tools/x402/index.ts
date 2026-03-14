@@ -27,7 +27,7 @@ async function x402CheckRequirements(params: Record<string, unknown>): Promise<C
       requirements,
     });
   } catch (e: unknown) {
-    return formatToolError("X402_ERROR", String(e));
+    return formatToolError("X402_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -40,8 +40,23 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
   try {
     const requirements = await probePaymentRequirements(url, method, headers);
     if (!requirements) {
-      // No payment required — execute directly without going through confirmation queue
-      return executeFetchNow(v.data as unknown as Record<string, unknown>);
+      // No payment required — use plain fetch (NOT fetchWithPayment which auto-pays)
+      try {
+        const response = await globalThis.fetch(url, {
+          method: method ?? "GET",
+          body: v.data.body ?? undefined,
+          headers,
+        });
+        const responseText = await response.text();
+        return formatToolResponse({
+          status: response.status,
+          ok: response.ok,
+          body: responseText,
+          paymentMade: false,
+        });
+      } catch (e: unknown) {
+        return formatToolError("X402_FETCH_ERROR", e instanceof Error ? e.message : String(e));
+      }
     }
     const firstAccept = requirements.accepts?.[0];
     const amount = firstAccept?.amount ?? "unknown";
@@ -91,7 +106,7 @@ async function executeFetchNow(params: Record<string, unknown>): Promise<CallToo
       body: responseText,
     });
   } catch (e: unknown) {
-    return formatToolError("X402_FETCH_ERROR", String(e));
+    return formatToolError("X402_FETCH_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 

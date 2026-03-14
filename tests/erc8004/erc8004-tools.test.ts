@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getErc8004ToolDefinitions } from "../../src/tools/erc8004/index.js";
 import type { ToolDefinition } from "../../src/tools/register.js";
 
@@ -70,6 +70,12 @@ vi.mock("../../src/config/env.js", async (importOriginal) => {
     ...real,
     getConfig: vi.fn().mockReturnValue(mockConfig),
   };
+});
+
+const originalConfig = { ...mockConfig };
+beforeEach(() => {
+  vi.clearAllMocks();
+  Object.assign(mockConfig, originalConfig);
 });
 
 describe("erc8004_register_agent", () => {

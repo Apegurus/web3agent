@@ -15,7 +15,7 @@ import { getConfig } from "../../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../../config/wallet-factory.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
-import { validateInput } from "../../utils/validation.js";
+import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
@@ -156,7 +156,7 @@ async function acpGetJob(params: Record<string, unknown>): Promise<CallToolResul
       pendingMemos,
     });
   } catch (e: unknown) {
-    return formatToolError("ACP_READ_ERROR", String(e));
+    return formatToolError("ACP_READ_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -217,6 +217,12 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
     const walletClient = createWalletClientForChain(account, chainId);
     const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
 
+    const addrErr =
+      validateAddress(provider, "provider") ??
+      validateAddress(evaluator, "evaluator") ??
+      (rawPaymentToken ? validateAddress(rawPaymentToken, "paymentToken") : null);
+    if (addrErr) return addrErr;
+
     const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryDuration);
     const paymentToken = (rawPaymentToken ?? getPaymentTokenAddress(chainId)) as Hex;
     const budget = rawBudget ? BigInt(rawBudget) : 0n;
@@ -233,7 +239,7 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
 
     return formatToolResponse({ status: "created", txHash: hash });
   } catch (e: unknown) {
-    return formatToolError("ACP_CREATE_ERROR", String(e));
+    return formatToolError("ACP_CREATE_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -284,6 +290,11 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
+    if (rawPaymentToken) {
+      const addrErr = validateAddress(rawPaymentToken, "paymentToken");
+      if (addrErr) return addrErr;
+    }
+
     const account = getActiveAccount();
     const walletClient = createWalletClientForChain(account, chainId);
     const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
@@ -301,7 +312,7 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
 
     return formatToolResponse({ status: "budget_set", jobId, amount, paymentToken, txHash: hash });
   } catch (e: unknown) {
-    return formatToolError("ACP_SET_BUDGET_ERROR", String(e));
+    return formatToolError("ACP_SET_BUDGET_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -387,6 +398,8 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
     });
 
     let approveTxHash: string | undefined;
+    // TODO: USDT-style tokens require resetting allowance to 0 before re-approving.
+    // Default token is USDC (safe), but custom tokens via ACP_PAYMENT_TOKEN may need approve(0) first.
     if ((allowance as bigint) < amount) {
       const approveHash = await walletClient.writeContract({
         address: paymentToken,
@@ -424,7 +437,7 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
 
     return formatToolResponse({ status: "funded", jobId, txHash: hash, approveTxHash });
   } catch (e: unknown) {
-    return formatToolError("ACP_FUND_ERROR", String(e));
+    return formatToolError("ACP_FUND_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -489,7 +502,7 @@ async function executeSubmitJob(params: Record<string, unknown>): Promise<CallTo
 
     return formatToolResponse({ status: "submitted", jobId, deliverable, txHash: hash });
   } catch (e: unknown) {
-    return formatToolError("ACP_SUBMIT_ERROR", String(e));
+    return formatToolError("ACP_SUBMIT_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -567,7 +580,7 @@ async function executeCompleteJob(params: Record<string, unknown>): Promise<Call
       txHash: hash,
     });
   } catch (e: unknown) {
-    return formatToolError("ACP_COMPLETE_ERROR", String(e));
+    return formatToolError("ACP_COMPLETE_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -645,7 +658,7 @@ async function executeRejectJob(params: Record<string, unknown>): Promise<CallTo
       txHash: hash,
     });
   } catch (e: unknown) {
-    return formatToolError("ACP_REJECT_ERROR", String(e));
+    return formatToolError("ACP_REJECT_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -705,7 +718,7 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
 
     return formatToolResponse({ status: "claimed", jobId, txHash: hash });
   } catch (e: unknown) {
-    return formatToolError("ACP_CLAIM_REFUND_ERROR", String(e));
+    return formatToolError("ACP_CLAIM_REFUND_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 

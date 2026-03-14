@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolDefinition } from "../../src/tools/register.js";
 import { getX402ToolDefinitions } from "../../src/tools/x402/index.js";
 
@@ -48,6 +48,11 @@ vi.mock("../../src/wallet/confirmation.js", async (importOriginal) => {
     confirmationQueue: new real.ConfirmationQueueManager(true),
     registerExecutor: vi.fn(),
   };
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("response body", { status: 200 }));
 });
 
 function mockPaymentRequired() {

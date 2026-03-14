@@ -12,7 +12,7 @@ import {
 import { buildRegistrationJson, validateRegistrationJson } from "../../erc8004/registration.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
-import { validateInput } from "../../utils/validation.js";
+import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
@@ -221,7 +221,7 @@ async function executeRegisterAgent(params: Record<string, unknown>): Promise<Ca
       txHash,
     });
   } catch (e: unknown) {
-    return formatToolError("ERC8004_REGISTER_ERROR", String(e));
+    return formatToolError("ERC8004_REGISTER_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -244,6 +244,10 @@ async function erc8004GetAgent(params: Record<string, unknown>): Promise<CallToo
     if (v.data.agentId !== undefined) {
       agentId = BigInt(v.data.agentId);
     } else {
+      if (v.data.walletAddress) {
+        const addrErr = validateAddress(v.data.walletAddress, "walletAddress");
+        if (addrErr) return addrErr;
+      }
       agentId = (await publicClient.readContract({
         address: identityAddress,
         abi: identityRegistryAbi,
@@ -272,7 +276,7 @@ async function erc8004GetAgent(params: Record<string, unknown>): Promise<CallToo
       agentURI,
     });
   } catch (e: unknown) {
-    return formatToolError("ERC8004_READ_ERROR", String(e));
+    return formatToolError("ERC8004_READ_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -423,7 +427,7 @@ async function executeUpdateAgent(params: Record<string, unknown>): Promise<Call
       txHash,
     });
   } catch (e: unknown) {
-    return formatToolError("ERC8004_UPDATE_ERROR", String(e));
+    return formatToolError("ERC8004_UPDATE_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -451,7 +455,6 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
       tag1,
       tag2,
       endpoint,
-      feedbackDescription,
       chainId: rawChainId,
     } = params as {
       agentId: number;
@@ -459,7 +462,6 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
       tag1?: string;
       tag2?: string;
       endpoint?: string;
-      feedbackDescription?: string;
       chainId?: number;
     };
 
@@ -506,11 +508,10 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
       tag1: tag1 ?? "",
       tag2: tag2 ?? "",
       endpoint: endpoint ?? "",
-      feedbackDescription: feedbackDescription ?? "",
       txHash,
     });
   } catch (e: unknown) {
-    return formatToolError("ERC8004_FEEDBACK_ERROR", String(e));
+    return formatToolError("ERC8004_FEEDBACK_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -544,7 +545,10 @@ async function erc8004GetFeedback(params: Record<string, unknown>): Promise<Call
       decimals: summary[2],
     });
   } catch (e: unknown) {
-    return formatToolError("ERC8004_FEEDBACK_READ_ERROR", String(e));
+    return formatToolError(
+      "ERC8004_FEEDBACK_READ_ERROR",
+      e instanceof Error ? e.message : String(e)
+    );
   }
 }
 
@@ -593,7 +597,8 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
     {
       name: "erc8004_get_agent",
       category: CATEGORY,
-      description: "Get ERC-8004 agent identity by token ID or wallet address.",
+      description:
+        "Get ERC-8004 agent identity. Requires either agentId (token ID) or walletAddress — provide at least one.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -655,10 +660,6 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
           tag1: { type: "string", description: "Feedback tag 1" },
           tag2: { type: "string", description: "Feedback tag 2" },
           endpoint: { type: "string", description: "Service endpoint this feedback refers to" },
-          feedbackDescription: {
-            type: "string",
-            description: "Human-readable feedback text",
-          },
           chainId: { type: "number", description: "Target chain ID (default from runtime config)" },
         },
         required: ["agentId", "value"],

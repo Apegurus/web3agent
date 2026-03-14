@@ -47,7 +47,6 @@ export const erc8004SubmitFeedbackSchema = z.object({
   tag1: z.string().optional().describe("Feedback tag 1"),
   tag2: z.string().optional().describe("Feedback tag 2"),
   endpoint: z.string().optional().describe("Service endpoint this feedback relates to"),
-  feedbackDescription: z.string().optional().describe("Human-readable feedback text"),
   chainId: z.number().optional(),
 });
 

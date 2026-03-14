@@ -65,6 +65,10 @@ vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockImplementation(() => mockConfig),
 }));
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 const mockJobTuple = [
   1n, // id
   "0xclient1111111111111111111111111111111111", // client

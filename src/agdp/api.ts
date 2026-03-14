@@ -101,13 +101,8 @@ export async function searchOfferings(params: { query?: string; topK?: number })
 }
 
 export async function getOfferingById(offeringId: number | string): Promise<AgdpAgent | null> {
-  try {
-    const agents = await searchOfferings({ topK: 100 });
-    const found = agents.find((a) => String(a.id) === String(offeringId));
-    return found ?? null;
-  } catch {
-    return null;
-  }
+  const agents = await searchOfferings({ topK: 100 });
+  return agents.find((a) => String(a.id) === String(offeringId)) ?? null;
 }
 
 export async function getJobs(params: {
@@ -117,13 +112,9 @@ export async function getJobs(params: {
   const { walletAddress, status = "active" } = params;
   const endpoint = status === "completed" ? "/acp/jobs/completed" : "/acp/jobs/active";
   const qs = new URLSearchParams({ walletAddress });
-  try {
-    const body = await agdpFetch<unknown>(`${endpoint}?${qs.toString()}`);
-    if (Array.isArray(body)) return body as AgdpJob[];
-    return flattenResponse<AgdpJob>(body);
-  } catch {
-    return [];
-  }
+  const body = await agdpFetch<unknown>(`${endpoint}?${qs.toString()}`);
+  if (Array.isArray(body)) return body as AgdpJob[];
+  return flattenResponse<AgdpJob>(body);
 }
 
 export async function createJobViaApi(params: {
