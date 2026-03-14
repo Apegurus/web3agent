@@ -4,6 +4,9 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
+import { getAcpToolDefinitions } from "../tools/acp/index.js";
+import { getAgdpToolDefinitions } from "../tools/agdp/index.js";
+import { getErc8004ToolDefinitions } from "../tools/erc8004/index.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
 import {
@@ -13,6 +16,7 @@ import {
   getWalletToolDefinitions,
 } from "../tools/register.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
+import { getX402ToolDefinitions } from "../tools/x402/index.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import type { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import type { EvmAdapter } from "../upstream/evm/adapter.js";
@@ -51,6 +55,10 @@ function createLegacyRuntimeBridge(
   const lifiTools = getLifiToolDefinitions();
   const orbsTools = getOrbsToolDefinitions();
   const tokenTools = getTokenToolDefinitions();
+  const x402Tools = getX402ToolDefinitions();
+  const acpTools = getAcpToolDefinitions();
+  const agdpTools = getAgdpToolDefinitions();
+  const erc8004Tools = getErc8004ToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
   const toolDispatch = new Map<string, ToolHandler>();
 
@@ -94,6 +102,19 @@ function createLegacyRuntimeBridge(
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
 
+    for (const tool of x402Tools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of acpTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of agdpTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of erc8004Tools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
     for (const tool of frameworkTools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
@@ -127,6 +148,30 @@ function createLegacyRuntimeBridge(
           ...(tool.annotations && { annotations: tool.annotations }),
         })),
         ...tokenTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...x402Tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...acpTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...agdpTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...erc8004Tools.map((tool) => ({
           name: tool.name,
           description: tool.description,
           inputSchema: normalizeInputSchema(tool.inputSchema),

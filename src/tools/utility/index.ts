@@ -27,6 +27,7 @@ export async function serverStatus(): Promise<CallToolResult> {
           goat: _health.goat.status,
           lifi: _health.lifi.status,
           orbs: _health.orbs.status,
+          agenticEconomy: _health.agenticEconomy?.status ?? "not_initialized",
         }
       : {
           blockscout: "not_initialized",
@@ -35,6 +36,7 @@ export async function serverStatus(): Promise<CallToolResult> {
           goat: "not_initialized",
           lifi: "not_initialized",
           orbs: "not_initialized",
+          agenticEconomy: "not_initialized",
         };
     return formatToolResponse({
       walletMode: wallet.mode,

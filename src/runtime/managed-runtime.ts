@@ -4,6 +4,9 @@ import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
+import { getAcpToolDefinitions, registerAcpExecutors } from "../tools/acp/index.js";
+import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
+import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
 import {
@@ -14,6 +17,7 @@ import {
 } from "../tools/register.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
+import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
@@ -88,6 +92,10 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
 
   registerOrbsExecutors();
   registerLifiExecutors();
+  registerX402Executors();
+  registerAcpExecutors();
+  registerAgdpExecutors();
+  registerErc8004Executors();
   initializeLifi(config.lifiApiKey);
   return confirmationQueue.loadQueue();
 }
@@ -114,6 +122,10 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
   private readonly tokenTools: ToolDefinition[];
+  private readonly x402Tools: ToolDefinition[];
+  private readonly acpTools: ToolDefinition[];
+  private readonly agdpTools: ToolDefinition[];
+  private readonly erc8004Tools: ToolDefinition[];
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -139,6 +151,10 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
     this.tokenTools = getTokenToolDefinitions();
+    this.x402Tools = getX402ToolDefinitions();
+    this.acpTools = getAcpToolDefinitions();
+    this.agdpTools = getAgdpToolDefinitions();
+    this.erc8004Tools = getErc8004ToolDefinitions();
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
@@ -306,6 +322,17 @@ export class ManagedRuntime implements Web3AgentRuntime {
       toolCount: this.orbsTools.length,
       message: `Loaded ${this.orbsTools.length} tools`,
     };
+    const agenticEconomyToolCount =
+      this.x402Tools.length +
+      this.acpTools.length +
+      this.agdpTools.length +
+      this.erc8004Tools.length;
+    this.health.agenticEconomy = {
+      name: "agentic-economy",
+      status: "ok",
+      toolCount: agenticEconomyToolCount,
+      message: `Loaded ${agenticEconomyToolCount} tools`,
+    };
     this.health.core = toHealthStatus({
       activeChainId: this.config.chainId,
       walletMode: "read-only",
@@ -343,6 +370,31 @@ export class ManagedRuntime implements Web3AgentRuntime {
     for (const tool of this.orbsTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "orbs"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+
+    for (const tool of this.x402Tools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "x402"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+    for (const tool of this.acpTools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "acp"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+    for (const tool of this.agdpTools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "agdp"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+    for (const tool of this.erc8004Tools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "erc8004"),
         handler: (args) => tool.handler(args),
       });
     }
