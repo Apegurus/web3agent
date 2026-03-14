@@ -4,6 +4,7 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
+import { getAcpToolDefinitions } from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions } from "../tools/erc8004/index.js";
@@ -57,6 +58,7 @@ function createLegacyRuntimeBridge(
   const tokenTools = getTokenToolDefinitions();
   const x402Tools = getX402ToolDefinitions();
   const erc8183Tools = getErc8183ToolDefinitions();
+  const acpVirtualsTools = getAcpToolDefinitions();
   const agdpTools = getAgdpToolDefinitions();
   const erc8004Tools = getErc8004ToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
@@ -106,6 +108,9 @@ function createLegacyRuntimeBridge(
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
     for (const tool of erc8183Tools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of acpVirtualsTools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
     for (const tool of agdpTools) {
@@ -160,6 +165,12 @@ function createLegacyRuntimeBridge(
           ...(tool.annotations && { annotations: tool.annotations }),
         })),
         ...erc8183Tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: normalizeInputSchema(tool.inputSchema),
+          ...(tool.annotations && { annotations: tool.annotations }),
+        })),
+        ...acpVirtualsTools.map((tool) => ({
           name: tool.name,
           description: tool.description,
           inputSchema: normalizeInputSchema(tool.inputSchema),

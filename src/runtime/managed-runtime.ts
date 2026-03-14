@@ -4,6 +4,10 @@ import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
+import {
+  getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
+  registerAcpExecutors as registerAcpVirtualsExecutors,
+} from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
@@ -94,6 +98,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerLifiExecutors();
   registerX402Executors();
   registerErc8183Executors();
+  registerAcpVirtualsExecutors();
   registerAgdpExecutors();
   registerErc8004Executors();
   initializeLifi(config.lifiApiKey);
@@ -124,6 +129,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly tokenTools: ToolDefinition[];
   private readonly x402Tools: ToolDefinition[];
   private readonly erc8183Tools: ToolDefinition[];
+  private readonly acpVirtualsTools: ToolDefinition[];
   private readonly agdpTools: ToolDefinition[];
   private readonly erc8004Tools: ToolDefinition[];
   private readonly goatProvider: GoatProvider;
@@ -153,6 +159,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.tokenTools = getTokenToolDefinitions();
     this.x402Tools = getX402ToolDefinitions();
     this.erc8183Tools = getErc8183ToolDefinitions();
+    this.acpVirtualsTools = getAcpVirtualsToolDefinitions();
     this.agdpTools = getAgdpToolDefinitions();
     this.erc8004Tools = getErc8004ToolDefinitions();
     this.health = createDefaultHealthStatus();
@@ -325,6 +332,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     const agenticEconomyToolCount =
       this.x402Tools.length +
       this.erc8183Tools.length +
+      this.acpVirtualsTools.length +
       this.agdpTools.length +
       this.erc8004Tools.length;
     this.health.agenticEconomy = {
@@ -381,6 +389,12 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
     for (const tool of this.erc8183Tools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "acp"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+    for (const tool of this.acpVirtualsTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "acp"),
         handler: (args) => tool.handler(args),
