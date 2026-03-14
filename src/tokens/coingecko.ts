@@ -1,4 +1,5 @@
 import { getConfig } from "../config/env.js";
+import { resilientFetch } from "../utils/resilient-fetch.js";
 
 const COINGECKO_PUBLIC_API_URL = "https://api.coingecko.com/api/v3";
 const COINGECKO_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
@@ -167,9 +168,9 @@ export async function getTopCoinGeckoSignals(): Promise<CoinGeckoTopTokenSignals
 
   try {
     const [marketsResult, coinListResult, assetPlatformsResult] = await Promise.allSettled([
-      fetch(marketsUrl, { headers }),
-      fetch(coinListUrl, { headers }),
-      fetch(assetPlatformsUrl, { headers }),
+      resilientFetch(marketsUrl, { headers }, { label: "coingecko" }),
+      resilientFetch(coinListUrl, { headers }, { label: "coingecko" }),
+      resilientFetch(assetPlatformsUrl, { headers }, { label: "coingecko" }),
     ]);
 
     if (marketsResult.status !== "fulfilled") {
