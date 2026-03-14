@@ -213,3 +213,36 @@ describe("evaluatePolicy — decision shape", () => {
     expect(decision.currentSpend).toHaveProperty("dailyCount");
   });
 });
+
+describe("evaluatePolicy — min reserve", () => {
+  it("denies when wallet balance would drop below reserve", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "transfer_token",
+      riskLevel: "financial",
+      estimatedUsd: 95,
+      walletBalanceUsd: 100,
+    });
+    expect(decision.action).toBe("deny");
+    expect(decision.reasonCode).toBe("MIN_RESERVE");
+  });
+
+  it("allows when wallet balance is unknown (null)", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "transfer_token",
+      riskLevel: "financial",
+      estimatedUsd: 50,
+      walletBalanceUsd: null,
+    });
+    expect(decision.action).toBe("allow");
+  });
+
+  it("allows when projected balance stays above reserve", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "transfer_token",
+      riskLevel: "financial",
+      estimatedUsd: 50,
+      walletBalanceUsd: 100,
+    });
+    expect(decision.action).toBe("allow");
+  });
+});

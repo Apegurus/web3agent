@@ -67,11 +67,19 @@ export function evaluateX402Limit(
   };
 }
 
-export function evaluateRiskLevel(riskLevel: RiskLevel, toolName: string): RuleResult | null {
-  if (riskLevel !== "financial") return null;
+export function evaluateMinReserve(
+  policy: TreasuryPolicy,
+  estimatedUsd: number,
+  walletBalanceUsd: number | null,
+  toolName: string
+): RuleResult | null {
+  if (walletBalanceUsd === null) return null;
+  const projectedBalance = walletBalanceUsd - estimatedUsd;
+  if (projectedBalance >= policy.minReserveUsd) return null;
+
   return {
-    action: "warn",
-    reasonCode: "FINANCIAL_TOOL",
-    message: `${toolName} is a financial operation — treasury policy checks applied`,
+    action: "deny",
+    reasonCode: "MIN_RESERVE",
+    message: `${toolName}: projected balance $${projectedBalance.toFixed(2)} would drop below minimum reserve of $${policy.minReserveUsd.toFixed(2)} (current balance $${walletBalanceUsd.toFixed(2)})`,
   };
 }

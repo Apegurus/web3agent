@@ -1,6 +1,7 @@
 import {
   evaluateDailyLimit,
   evaluateHourlyLimit,
+  evaluateMinReserve,
   evaluateSingleTransactionLimit,
   evaluateX402Limit,
 } from "./rules.js";
@@ -11,6 +12,7 @@ export interface PolicyEvaluationRequest {
   toolName: string;
   riskLevel: RiskLevel;
   estimatedUsd: number;
+  walletBalanceUsd?: number | null;
 }
 
 export function evaluatePolicy(
@@ -48,6 +50,13 @@ export function evaluatePolicy(
     () => evaluateSingleTransactionLimit(policy, request.estimatedUsd, request.toolName),
     () => evaluateHourlyLimit(policy, request.estimatedUsd, spend, request.toolName),
     () => evaluateDailyLimit(policy, request.estimatedUsd, spend, request.toolName),
+    () =>
+      evaluateMinReserve(
+        policy,
+        request.estimatedUsd,
+        request.walletBalanceUsd ?? null,
+        request.toolName
+      ),
   ];
 
   for (const rule of rules) {

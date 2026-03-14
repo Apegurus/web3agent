@@ -6,7 +6,8 @@ import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
 import { resolvePolicy } from "../policy/config.js";
 import { evaluatePolicy } from "../policy/engine.js";
-import { loadSpendLog } from "../policy/spend-tracker.js";
+import { extractEstimatedUsd } from "../policy/extract-usd.js";
+import { loadSpendLog, recordSpend } from "../policy/spend-tracker.js";
 import type { RiskLevel, TreasuryPolicy } from "../policy/types.js";
 import {
   getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
@@ -65,27 +66,6 @@ type RuntimeToolHandler = (args: Record<string, unknown>) => Promise<CallToolRes
 
 interface RuntimeToolRecord extends ToolCatalogEntry {
   handler: RuntimeToolHandler;
-}
-
-function extractEstimatedUsd(args: Record<string, unknown>): number {
-  // Tools pass amounts in various shapes. We check common field names.
-  // For tools where the amount is in token units, we use it as-is as an
-  // approximation. A price oracle integration can refine this later.
-  for (const key of ["amountUsd", "amount_usd", "estimatedUsd"]) {
-    if (typeof args[key] === "number" && args[key] > 0) return args[key] as number;
-    if (typeof args[key] === "string") {
-      const parsed = Number(args[key]);
-      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
-    }
-  }
-  for (const key of ["amount", "budget", "fromAmount", "value"]) {
-    if (typeof args[key] === "number" && args[key] > 0) return args[key] as number;
-    if (typeof args[key] === "string") {
-      const parsed = Number(args[key]);
-      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
-    }
-  }
-  return 0;
 }
 
 function toCatalogEntry(
@@ -300,6 +280,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
     if (tool.riskLevel === "financial") {
       const estimatedUsd = extractEstimatedUsd(args);
+      if (estimatedUsd === 0) {
+        process.stderr.write(
+          `[web3agent] Warning: no USD estimate for financial tool "${name}" — spend limits cannot be enforced for this call\n`
+        );
+      }
       const decision = evaluatePolicy(this.treasuryPolicy, {
         toolName: name,
         riskLevel: tool.riskLevel,
@@ -321,7 +306,15 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
     try {
       const result = await withConfig(this.config, () => tool.handler(args));
-      return normalizeCallToolResult(result);
+      const normalized = normalizeCallToolResult(result);
+
+      if (tool.riskLevel === "financial" && !normalized.isError) {
+        const estimatedUsd = extractEstimatedUsd(args);
+        const wallet = getWalletState();
+        recordSpend(name, estimatedUsd, wallet.address);
+      }
+
+      return normalized;
     } catch (e: unknown) {
       return formatToolError("TOOL_INVOCATION_FAILED", e instanceof Error ? e.message : String(e));
     }

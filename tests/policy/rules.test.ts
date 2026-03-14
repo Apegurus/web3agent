@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateDailyLimit,
   evaluateHourlyLimit,
-  evaluateRiskLevel,
+  evaluateMinReserve,
   evaluateSingleTransactionLimit,
   evaluateX402Limit,
 } from "../../src/policy/rules.js";
@@ -153,27 +153,28 @@ describe("evaluateX402Limit", () => {
   });
 });
 
-describe("evaluateRiskLevel", () => {
-  it("returns null for safe risk level", () => {
-    const result = evaluateRiskLevel("safe", "get_balance");
+describe("evaluateMinReserve", () => {
+  it("returns null when wallet balance is null (unknown)", () => {
+    const result = evaluateMinReserve(basePolicy, 50, null, "transfer");
     expect(result).toBeNull();
   });
 
-  it("returns null for destructive risk level", () => {
-    const result = evaluateRiskLevel("destructive", "some_tool");
+  it("returns null when projected balance is above reserve", () => {
+    const result = evaluateMinReserve(basePolicy, 50, 100, "transfer");
     expect(result).toBeNull();
   });
 
-  it("returns warn for financial risk level", () => {
-    const result = evaluateRiskLevel("financial", "transfer_token");
+  it("returns null when projected balance equals reserve exactly", () => {
+    const result = evaluateMinReserve(basePolicy, 90, 100, "transfer");
+    expect(result).toBeNull();
+  });
+
+  it("returns deny when projected balance drops below reserve", () => {
+    const result = evaluateMinReserve(basePolicy, 95, 100, "transfer");
     expect(result).not.toBeNull();
-    expect(result?.action).toBe("warn");
-    expect(result?.reasonCode).toBe("FINANCIAL_TOOL");
-    expect(result?.message).toContain("transfer_token");
-  });
-
-  it("includes tool name in warn message for financial tools", () => {
-    const result = evaluateRiskLevel("financial", "swap_tokens");
-    expect(result?.message).toContain("swap_tokens");
+    expect(result?.action).toBe("deny");
+    expect(result?.reasonCode).toBe("MIN_RESERVE");
+    expect(result?.message).toContain("transfer");
+    expect(result?.message).toContain("minimum reserve");
   });
 });

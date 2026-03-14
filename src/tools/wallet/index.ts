@@ -8,6 +8,10 @@ import {
 } from "viem/accounts";
 import { simulateTransaction } from "../../api/simulation.js";
 import { getConfig } from "../../config/env.js";
+import { resolvePolicy } from "../../policy/config.js";
+import { evaluatePolicy } from "../../policy/engine.js";
+import { extractEstimatedUsd } from "../../policy/extract-usd.js";
+import { recordSpend } from "../../policy/spend-tracker.js";
 import {
   formatToolError,
   formatToolErrorFromUnknown,
@@ -232,7 +236,31 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       );
     }
 
-    const execResult = await result.operation.executor(result.operation.params);
+    const config = getConfig();
+    const policy = resolvePolicy(config);
+    const opParams = result.operation.params;
+    const estimatedUsd = extractEstimatedUsd(opParams);
+
+    const policyDecision = evaluatePolicy(policy, {
+      toolName: result.operation.type,
+      riskLevel: "financial",
+      estimatedUsd,
+    });
+
+    if (policyDecision.action === "deny") {
+      return formatToolError("POLICY_DENIED", policyDecision.message, {
+        reasonCode: policyDecision.reasonCode,
+        currentSpend: policyDecision.currentSpend,
+        note: "Policy re-evaluated at confirm time",
+      });
+    }
+
+    const execResult = await result.operation.executor(opParams);
+
+    if (!execResult.isError) {
+      recordSpend(result.operation.type, estimatedUsd, walletState.address);
+    }
+
     confirmationQueue.complete(id);
     return execResult;
   } catch (err: unknown) {

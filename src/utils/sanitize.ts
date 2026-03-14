@@ -121,13 +121,22 @@ function detectThreats(text: string): SanitizationThreat[] {
   return threats;
 }
 
-function extractStringValues(args: Record<string, unknown>): string[] {
+function extractStringValues(obj: unknown, depth = 0): string[] {
+  if (depth > 5) return [];
   const values: string[] = [];
-  for (const value of Object.values(args)) {
-    if (typeof value === "string" && value.length > 0) {
-      values.push(value);
+
+  if (typeof obj === "string" && obj.length > 0) {
+    values.push(obj);
+  } else if (Array.isArray(obj)) {
+    for (const item of obj) {
+      values.push(...extractStringValues(item, depth + 1));
+    }
+  } else if (obj !== null && typeof obj === "object") {
+    for (const value of Object.values(obj)) {
+      values.push(...extractStringValues(value, depth + 1));
     }
   }
+
   return values;
 }
 

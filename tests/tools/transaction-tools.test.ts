@@ -35,6 +35,33 @@ vi.mock("../../src/api/simulation.js", () => ({
   simulateTransaction: (...args: unknown[]) => simulationMocks.simulateTransaction(...args),
 }));
 
+vi.mock("../../src/config/env.js", () => ({
+  getConfig: vi.fn().mockReturnValue({ chainId: 1 }),
+}));
+
+vi.mock("../../src/policy/config.js", () => ({
+  resolvePolicy: vi.fn().mockReturnValue({
+    enabled: true,
+    maxSingleTransactionUsd: 100,
+    maxHourlyUsd: 500,
+    maxDailyUsd: 2000,
+    minReserveUsd: 10,
+    maxX402PaymentUsd: 5,
+  }),
+}));
+
+vi.mock("../../src/policy/engine.js", () => ({
+  evaluatePolicy: vi.fn().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" }),
+}));
+
+vi.mock("../../src/policy/extract-usd.js", () => ({
+  extractEstimatedUsd: vi.fn().mockReturnValue(0),
+}));
+
+vi.mock("../../src/policy/spend-tracker.js", () => ({
+  recordSpend: vi.fn(),
+}));
+
 describe("transaction_confirm tool handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
