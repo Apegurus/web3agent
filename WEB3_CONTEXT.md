@@ -132,7 +132,7 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `ACP_CONTRACT_ADDRESS` | — | ERC-8183 job escrow contract address (required for `acp_*` tools) |
 | `ACP_PAYMENT_TOKEN` | — | ERC-20 token address for ACP escrow (defaults to USDC on active chain) |
 | `PINATA_JWT` | — | Pinata JWT for auto-pinning ERC-8004 agent registration JSON to IPFS |
-| `MCP_ENDPOINT_URL` | — | Advertised MCP endpoint URL for ERC-8004 agent registration |
+| `ERC8004_AGENT_URI` | — | Advertised MCP endpoint URI for ERC-8004 agent registration |
 | `AGDP_API_URL` | https://acpx.virtuals.io/api | aGDP marketplace API base URL |
 
 ## Known Limitations

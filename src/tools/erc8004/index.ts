@@ -168,7 +168,7 @@ async function executeRegisterAgent(params: Record<string, unknown>): Promise<Ca
     if (providedAgentURI) {
       agentURI = providedAgentURI;
     } else {
-      const mcpEndpointResolved = mcpEndpoint ?? config.mcpEndpointUrl;
+      const mcpEndpointResolved = mcpEndpoint ?? config.erc8004AgentUri;
       const registrationJson = buildRegistrationJson({
         name,
         description,
@@ -373,7 +373,7 @@ async function executeUpdateAgent(params: Record<string, unknown>): Promise<Call
           }>)
         : undefined;
 
-      const mcpEndpointResolved = mcpEndpoint ?? config.mcpEndpointUrl;
+      const mcpEndpointResolved = mcpEndpoint ?? config.erc8004AgentUri;
       const registrationJson = buildRegistrationJson({
         name: resolvedName,
         description: resolvedDescription,
@@ -564,7 +564,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
           description: { type: "string", description: "Agent description" },
           mcpEndpoint: {
             type: "string",
-            description: "MCP endpoint URL (or use MCP_ENDPOINT_URL env var)",
+            description: "MCP endpoint URL (or use ERC8004_AGENT_URI env var)",
           },
           services: {
             type: "array",

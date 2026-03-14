@@ -9,7 +9,10 @@ const serviceSchema = z.object({
 export const erc8004RegisterSchema = z.object({
   name: z.string().describe("Agent name"),
   description: z.string().describe("Agent description"),
-  mcpEndpoint: z.string().optional().describe("MCP endpoint URL (or use MCP_ENDPOINT_URL env var)"),
+  mcpEndpoint: z
+    .string()
+    .optional()
+    .describe("MCP endpoint URL (or use ERC8004_AGENT_URI env var)"),
   services: z.array(serviceSchema).optional().describe("Additional services offered"),
   agentURI: z
     .string()
