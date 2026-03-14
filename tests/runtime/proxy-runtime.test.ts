@@ -195,6 +195,27 @@ vi.mock("../../src/tools/agdp/index.js", () => ({
   getAgdpToolDefinitions: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock("../../src/tools/acp-virtuals/index.js", () => ({
+  getAcpToolDefinitions: vi.fn().mockReturnValue(
+    [
+      "acp_create_job",
+      "acp_set_budget",
+      "acp_fund_job",
+      "acp_submit_job",
+      "acp_complete_job",
+      "acp_reject_job",
+      "acp_claim_refund",
+      "acp_get_job",
+    ].map((name) => ({
+      name,
+      category: "agenticEconomy",
+      description: name,
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn(),
+    }))
+  ),
+}));
+
 vi.mock("../../src/tools/erc8004/index.js", () => ({
   getErc8004ToolDefinitions: vi.fn().mockReturnValue([]),
 }));
@@ -337,6 +358,14 @@ describe("ProxyServer", () => {
         "orbs_get_quote",
         "resolve_token",
         "list_chain_tokens",
+        "acp_create_job",
+        "acp_set_budget",
+        "acp_fund_job",
+        "acp_submit_job",
+        "acp_complete_job",
+        "acp_reject_job",
+        "acp_claim_refund",
+        "acp_get_job",
       ])
     );
     expect(goatToolHasRestriction).toBe(true);
