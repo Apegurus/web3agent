@@ -61,7 +61,7 @@ HTTP-native stablecoin payments for AI agent services. Use `x402_check_requireme
 - `x402_fetch` — fetch a URL with automatic x402 payment. Shows cost in confirmation before paying. (write, confirmation-gated)
 
 ### Agentic Economy — Job Escrow / ERC-8183 (prefix: `erc8183_`)
-On-chain job lifecycle for agent-to-agent work. Requires `ACP_CONTRACT_ADDRESS` env var. Job flow: create → setBudget → fund → submit → complete/reject. Expired jobs support `erc8183_claim_refund`.
+EIP-8183 specification reference implementation (no canonical deployed contract). Job flow: create → setBudget → fund → submit → complete/reject. Expired jobs support `erc8183_claim_refund`. Distinct from `acp_*` tools which target the Virtuals production ACPRouter on Base.
 - `erc8183_create_job` — create a new job specifying provider, evaluator, description, and expiry duration (write)
 - `erc8183_set_budget` — set the budget for a job (write)
 - `erc8183_fund_job` — approve token allowance + fund job escrow in one confirmation (write)
@@ -71,12 +71,23 @@ On-chain job lifecycle for agent-to-agent work. Requires `ACP_CONTRACT_ADDRESS` 
 - `erc8183_claim_refund` — reclaim escrowed funds after job expiry (write)
 - `erc8183_get_job` — read current job state: client, provider, budget, status, deliverable (read-only)
 
+### Agentic Economy — Virtuals ACP / ACPRouter (prefix: `acp_`)
+On-chain job lifecycle on the Virtuals ACPRouter V2 (Base mainnet and Base Sepolia). Uses a memo-based protocol: jobs progress through phases (Request → Negotiation → Transaction → Evaluation → Completed/Rejected) via memos that participants create and sign. No `ACP_CONTRACT_ADDRESS` env var needed — canonical addresses are hardcoded.
+- `acp_create_job` — create a job specifying provider, evaluator, description, expiry, and optional budget (write)
+- `acp_set_budget` — set or update job budget with payment token (write)
+- `acp_fund_job` — approve token allowance + fund job via payable escrow memo (write)
+- `acp_submit_job` — submit deliverable as a memo, advancing job to evaluation phase (write)
+- `acp_complete_job` — approve the latest pending memo (auto-resolved), completing the job (write)
+- `acp_reject_job` — reject the latest pending memo (auto-resolved), rejecting the deliverable (write)
+- `acp_claim_refund` — claim escrowed budget after job completion or expiry (write)
+- `acp_get_job` — read job state with full memo history, phase, participants, and pending actions (read-only)
+
 ### Agentic Economy — Agent Marketplace / aGDP (prefix: `agdp_`)
 Discover and hire agents on the Virtuals Protocol aGDP marketplace (`acpx.virtuals.io`). No wallet required for discovery.
 - `agdp_get_offerings` — search agent marketplace by query string; returns name, wallet, offerings, metrics (read-only)
 - `agdp_get_offering` — get details of a specific agent by ID (read-only)
 - `agdp_get_my_jobs` — list active or completed jobs for the current wallet (read-only)
-- `agdp_hire_agent` — hire an agent: creates on-chain ACP job if `ACP_CONTRACT_ADDRESS` set, otherwise API-only (write, confirmation-gated)
+- `agdp_hire_agent` — hire an agent: creates on-chain ACP job via `acp_create_job` (write, confirmation-gated)
 - `agdp_create_offering` — register an agent offering on aGDP (write, confirmation-gated)
 
 ### Agentic Economy — Agent Identity / ERC-8004 (prefix: `erc8004_`)
@@ -129,7 +140,6 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `LIFI_API_KEY` | — | LI.Fi API key |
 | `ZEROX_API_KEY` | — | 0x API key (enables 0x plugin) |
 | `COINGECKO_API_KEY` | — | CoinGecko API key (enables CoinGecko plugin) |
-| `ACP_CONTRACT_ADDRESS` | — | ERC-8183 job escrow contract address (required for `erc8183_*` tools) |
 | `ACP_PAYMENT_TOKEN` | — | ERC-20 token address for ACP escrow (defaults to USDC on active chain) |
 | `PINATA_JWT` | — | Pinata JWT for auto-pinning ERC-8004 agent registration JSON to IPFS |
 | `ERC8004_AGENT_URI` | — | Advertised MCP endpoint URI for ERC-8004 agent registration |
