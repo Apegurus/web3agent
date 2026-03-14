@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const viemMocks = vi.hoisted(() => ({
   createPublicClient: vi.fn(),
+  createClient: vi.fn(),
 }));
 
 const liquidityHubMocks = vi.hoisted(() => ({
@@ -18,7 +19,8 @@ const twapMocks = vi.hoisted(() => ({
 
 const lifiMocks = vi.hoisted(() => ({
   getQuote: vi.fn(),
-  convertQuoteToRoute: vi.fn(),
+  getChains: vi.fn(),
+  getNativePermit: vi.fn(),
 }));
 
 vi.mock("viem", async (importOriginal) => {
@@ -26,6 +28,7 @@ vi.mock("viem", async (importOriginal) => {
   return {
     ...actual,
     createPublicClient: (...args: unknown[]) => viemMocks.createPublicClient(...args),
+    createClient: (...args: unknown[]) => viemMocks.createClient(...args),
   };
 });
 
@@ -50,7 +53,8 @@ vi.mock("../../src/orbs/twap.js", async (importOriginal) => {
 
 vi.mock("@lifi/sdk", () => ({
   getQuote: (...args: unknown[]) => lifiMocks.getQuote(...args),
-  convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
+  getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
+  getNativePermit: (...args: unknown[]) => lifiMocks.getNativePermit(...args),
 }));
 
 describe("browser wallet intent APIs", () => {
@@ -59,7 +63,14 @@ describe("browser wallet intent APIs", () => {
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
     });
+    viemMocks.createClient.mockReturnValue({
+      extend: vi.fn().mockReturnValue({
+        readContract: vi.fn().mockResolvedValue(9n),
+      }),
+    });
     twapMocks.getSrcTokenChunkAmount.mockReturnValue("200");
+    lifiMocks.getChains.mockResolvedValue([{ id: 1 }, { id: 8453 }]);
+    lifiMocks.getNativePermit.mockResolvedValue(undefined);
   });
 
   it("prepareSwapIntent returns normalized quote data and required approvals", async () => {
@@ -187,46 +198,68 @@ describe("browser wallet intent APIs", () => {
     });
   });
 
-  it("prepareBridgeIntent maps raw route steps", async () => {
+  it("prepareBridgeIntent returns the staged browser-wallet action sequence", async () => {
     lifiMocks.getQuote.mockResolvedValue({
       action: {
         fromChainId: 1,
         toChainId: 8453,
-        fromToken: { symbol: "ETH" },
-        toToken: { symbol: "ETH" },
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "ETH",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
         fromAmount: "1000000000000000000",
       },
       estimate: {
+        approvalAddress: "0x1111111111111111111111111111111111111111",
         toAmount: "999000000000000000",
         toAmountMin: "990000000000000000",
         gasCosts: [{ amountUSD: "5" }],
         executionDuration: 300,
       },
-    });
-    lifiMocks.convertQuoteToRoute.mockReturnValue({
-      steps: [
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xbbbb",
+        gasLimit: "250000",
+        chainId: 1,
+      },
+      typedData: [
         {
-          type: "approval",
-          transactionRequest: {
-            to: "0x1111111111111111111111111111111111111111",
-            data: "0xaaaa",
-            value: "0",
-            gasLimit: "50000",
+          primaryType: "Permit",
+          domain: {
+            name: "USDC",
             chainId: 1,
+            verifyingContract: "0x3333333333333333333333333333333333333333",
           },
-        },
-        {
-          type: "bridge",
-          transactionRequest: {
-            to: "0x2222222222222222222222222222222222222222",
-            data: "0xbbbb",
-            value: "100",
-            gasLimit: "250000",
-            chainId: 1,
+          types: {
+            Permit: [
+              { name: "owner", type: "address" },
+              { name: "spender", type: "address" },
+              { name: "value", type: "uint256" },
+              { name: "nonce", type: "uint256" },
+              { name: "deadline", type: "uint256" },
+            ],
+          },
+          message: {
+            owner: "0x1234567890123456789012345678901234567890",
+            spender: "0x9999999999999999999999999999999999999999",
+            value: "1000000000000000000",
+            nonce: "1",
+            deadline: "9999999999",
           },
         },
       ],
     });
+    lifiMocks.getChains.mockResolvedValue([
+      {
+        id: 1,
+        permit2Proxy: "0x9999999999999999999999999999999999999999",
+      },
+      { id: 8453 },
+    ]);
 
     const { prepareBridgeIntent } = await import("../../src/api/intents.js");
     const result = await prepareBridgeIntent({
@@ -240,27 +273,29 @@ describe("browser wallet intent APIs", () => {
 
     expect(result.steps).toEqual([
       {
-        type: "approval",
-        label: "Approve bridge spender",
-        tx: {
-          to: "0x1111111111111111111111111111111111111111",
-          data: "0xaaaa",
-          value: "0",
-          gasLimit: "50000",
-          chainId: 1,
-        },
-      },
-      {
         type: "bridge",
         label: "Execute bridge",
         tx: {
           to: "0x2222222222222222222222222222222222222222",
           data: "0xbbbb",
-          value: "100",
+          value: "0",
           gasLimit: "250000",
           chainId: 1,
         },
       },
+    ]);
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        id: "bridge:typed-data:0",
+        type: "signTypedData",
+      }),
+      expect.objectContaining({
+        id: "bridge:execute:0",
+        type: "transaction",
+        tx: expect.objectContaining({
+          value: "0",
+        }),
+      }),
     ]);
     expect(result.estimate.estimatedDurationSeconds).toBe(300);
   });

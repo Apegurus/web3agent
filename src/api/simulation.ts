@@ -1,6 +1,11 @@
 import { type Hex, decodeErrorResult, decodeFunctionData, numberToHex, parseAbi } from "viem";
 import { ChainAccess } from "../operations/chain-access.js";
-import { assertAddress, assertChainSupported, assertHex } from "../operations/validation.js";
+import {
+  assertAddress,
+  assertChainSupported,
+  assertHex,
+  parseBigIntString,
+} from "../operations/validation.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
 import { Web3AgentError } from "./errors.js";
 import { transactionSimulateSchema } from "./schemas.js";
@@ -73,7 +78,7 @@ function getAddressFromTopic(topic: string): `0x${string}` {
 
 function parseNumericValue(value: string | undefined): bigint {
   if (!value || value === "0x" || value === "0") return 0n;
-  return value.startsWith("0x") ? BigInt(value) : BigInt(value);
+  return BigInt(value);
 }
 
 function isDebugTraceUnsupported(error: unknown): boolean {
@@ -408,7 +413,7 @@ export async function simulateTransaction(
     account: assertAddress(input.from, "from"),
     to: assertAddress(input.to, "to"),
     data: assertHex(input.data, "data"),
-    value: input.value ? BigInt(input.value) : 0n,
+    value: input.value ? parseBigIntString(input.value, "value") : 0n,
   };
   const decodedTx = {
     from: tx.account,
@@ -449,9 +454,9 @@ export async function simulateTransaction(
           { tracer: "callTracer", tracerConfig: { withLog: true } },
         ],
       })) as TraceCallNode;
-      setCachedTraceSupport(input.chainId, true);
 
       if (isUsableTrace(trace)) {
+        setCachedTraceSupport(input.chainId, true);
         collectTraceChanges(trace, normalizeAddress(tx.account), changes);
         return {
           success: true,
@@ -459,6 +464,8 @@ export async function simulateTransaction(
           balanceChanges: await resolveBalanceChanges(input.chainId, changes),
         };
       }
+
+      setCachedTraceSupport(input.chainId, false);
     } catch (error: unknown) {
       if (isDebugTraceUnsupported(error)) {
         setCachedTraceSupport(input.chainId, false);

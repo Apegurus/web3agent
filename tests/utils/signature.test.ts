@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitSignature } from "../../src/utils/signature.js";
+import { joinSignature, splitSignature } from "../../src/utils/signature.js";
 
 // A well-known dummy signature (65 bytes = 130 hex chars + 0x prefix = 132 chars)
 // r = 32 bytes of 'aa', s = 32 bytes of 'bb', v = 0x1b (27)
@@ -51,5 +51,17 @@ describe("splitSignature", () => {
     expect(() => splitSignature(nonHex)).toThrowError(
       "Invalid signature: contains non-hex characters"
     );
+  });
+
+  it("round-trips a split signature through joinSignature", () => {
+    const split = splitSignature(VALID_SIG_V27);
+
+    expect(
+      joinSignature({
+        r: split.r,
+        s: split.s,
+        v: split.v,
+      })
+    ).toBe(VALID_SIG_V27);
   });
 });

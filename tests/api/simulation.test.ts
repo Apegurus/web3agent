@@ -127,7 +127,10 @@ describe("simulateTransaction", () => {
   });
 
   it("falls back to static decoding when debug_traceCall returns an unusable payload", async () => {
-    const request = vi.fn().mockResolvedValue({ output: "0x" });
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({ output: "0x" })
+      .mockRejectedValue(new Error("should not retry unusable trace payloads"));
     const call = vi.fn().mockResolvedValue({ data: "0x" });
 
     clientMocks.createPublicClient.mockReturnValue({
@@ -153,9 +156,15 @@ describe("simulateTransaction", () => {
       to: BASE_USDC,
       data: transferData,
     });
+    const second = await simulateTransaction({
+      chainId: 8453,
+      from: "0x1234567890123456789012345678901234567890",
+      to: BASE_USDC,
+      data: transferData,
+    });
 
     expect(request).toHaveBeenCalledTimes(1);
-    expect(call).toHaveBeenCalledTimes(1);
+    expect(call).toHaveBeenCalledTimes(2);
     expect(result.balanceChanges).toEqual([
       {
         token: BASE_USDC,
@@ -165,6 +174,7 @@ describe("simulateTransaction", () => {
         direction: "out",
       },
     ]);
+    expect(second.balanceChanges).toEqual(result.balanceChanges);
   });
 
   it("returns null token metadata when the token is unknown", async () => {
@@ -219,6 +229,30 @@ describe("simulateTransaction", () => {
       name: "Web3AgentError",
       code: "SIMULATION_REVERT",
       message: "execution reverted: bad swap",
+    });
+  });
+
+  it("throws INVALID_PARAMS when value is not a valid integer string", async () => {
+    clientMocks.createPublicClient.mockReturnValue({
+      estimateGas: vi.fn(),
+      request: vi.fn(),
+      call: vi.fn(),
+    });
+
+    const { simulateTransaction } = await import("../../src/api/simulation.js");
+
+    await expect(
+      simulateTransaction({
+        chainId: 8453,
+        from: "0x1234567890123456789012345678901234567890",
+        to: BASE_USDC,
+        data: "0xdeadbeef",
+        value: "abc",
+      })
+    ).rejects.toMatchObject({
+      name: "Web3AgentError",
+      code: "INVALID_PARAMS",
+      message: "value must be a valid integer string",
     });
   });
 });

@@ -172,6 +172,8 @@ export const operationActionResultSchema = z.union([
   }),
 ]);
 
+export const operationActionResultsMapSchema = z.record(operationActionResultSchema);
+
 export const operationResumeStateSchema = z.object({
   version: z.literal(1),
   integration: z.enum(["orbs", "lifi", "goat"]),
@@ -234,5 +236,5 @@ export const prepareOperationSchema = z.union([
 
 export const resumeOperationSchema = z.object({
   resumeState: operationResumeStateSchema,
-  actionResults: z.record(operationActionResultSchema).optional(),
+  actionResults: operationActionResultsMapSchema.optional(),
 });

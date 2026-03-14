@@ -242,7 +242,7 @@ export class PreparedActionGoatWallet {
   async getTokenInfoByTicker(ticker: string): Promise<Token> {
     throw new Web3AgentError({
       code: "GOAT_TOOL_ERROR",
-      message: `Token lookup by ticker is not supported in prepared GOAT mode (${ticker})`,
+      message: `Token lookup by ticker is not supported in prepared GOAT mode (${ticker}); resolve token addresses before running prepared GOAT tools`,
     });
   }
 }

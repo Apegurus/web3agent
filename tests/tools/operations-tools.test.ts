@@ -27,6 +27,9 @@ describe("operation MCP tools", () => {
       "operation",
       "operation",
     ]);
+    const resumeTool = definitions.find((definition) => definition.name === "operation_resume");
+    expect(resumeTool?.annotations?.destructiveHint).toBe(true);
+    expect(resumeTool?.annotations?.readOnlyHint).toBeUndefined();
   });
 
   it("operation_prepare delegates to the shared operations API", async () => {

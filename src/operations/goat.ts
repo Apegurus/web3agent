@@ -59,38 +59,13 @@ function loadGoatPluginsForChain(chainAccess: ChainAccess, chainId: number) {
   });
 }
 
-async function findGoatTool(input: GoatToolOperationInput): Promise<ToolBase> {
-  assertGoatToolSupportedOnChain(input.toolName, input.chainId);
-  const chainAccess = new ChainAccess();
-  const pluginResult = loadGoatPluginsForChain(chainAccess, input.chainId);
-  const wallet = new PreparedActionGoatWallet({
-    account: input.account,
-    chainId: input.chainId,
-    chainAccess,
-    actionResults: {},
-  });
-  const tools = await buildGoatTools({
-    wallet: wallet as unknown as WalletClientBase,
-    pluginResult,
-  });
-
-  const tool = tools.find((candidate) => candidate.name === input.toolName);
-  if (!tool) {
-    throw new Web3AgentError({
-      code: "UNKNOWN_TOOL",
-      message: `Unknown GOAT tool: ${input.toolName}`,
-    });
-  }
-
-  return tool;
-}
-
-function createGoatPreparedOperation(
-  input: GoatToolOperationInput,
-  tool: ToolBase,
-  actionResults: Record<string, OperationActionResult>,
-  pause: OperationPauseError
-): PreparedOperation {
+function createGoatPreparedOperation(params: {
+  input: GoatToolOperationInput;
+  tool: ToolBase;
+  actionResults: Record<string, OperationActionResult>;
+  pause: OperationPauseError;
+}): PreparedOperation {
+  const { input, tool, actionResults, pause } = params;
   return {
     integration: "goat",
     kind: "tool",
@@ -120,7 +95,7 @@ export async function prepareOrResumeGoatOperation(params: {
   actionResults?: Record<string, OperationActionResult>;
 }): Promise<PreparedOperation | ResumeOperationCompletedResult> {
   const actionResults = params.actionResults ?? {};
-  const tool = await findGoatTool(params.input);
+  assertGoatToolSupportedOnChain(params.input.toolName, params.input.chainId);
   const chainAccess = new ChainAccess();
   const pluginResult = loadGoatPluginsForChain(chainAccess, params.input.chainId);
   const wallet = new PreparedActionGoatWallet({
@@ -152,7 +127,12 @@ export async function prepareOrResumeGoatOperation(params: {
     };
   } catch (error: unknown) {
     if (error instanceof OperationPauseError) {
-      return createGoatPreparedOperation(params.input, tool, actionResults, error);
+      return createGoatPreparedOperation({
+        input: params.input,
+        tool: executableTool,
+        actionResults,
+        pause: error,
+      });
     }
 
     throw preserveWeb3AgentError("GOAT_TOOL_ERROR", error);

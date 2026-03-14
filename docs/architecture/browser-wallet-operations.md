@@ -16,6 +16,7 @@
    - Sign messages
 3. `resumeOperation(...)`
    - Replays the operation using the provided action results
+   - Merges newly supplied results with progress already stored inside `resumeState.state.actionResults`
    - Either returns the next pending action set or a completed result
 
 ## Why This Exists
@@ -51,6 +52,8 @@ The generic MCP tools are:
 
 The older Orbs / LI.FI browser-wallet MCP tools remain available as compatibility aliases.
 
+`operation_resume` is intentionally marked destructive because a resume can advance an operation to a final signed submission or on-chain transaction.
+
 ## Internal Architecture
 
 - `src/operations/chain-access.ts`
@@ -66,4 +69,20 @@ The older Orbs / LI.FI browser-wallet MCP tools remain available as compatibilit
 
 - `simulateTransaction()` uses the same chain-access layer as prepared operations
 - Trace support is cached with a TTL and can fall back cleanly when `debug_traceCall` is unavailable or unusable
+- Prepared operations are staged
+  - `prepareOperation()` returns only the next required wallet actions, not always the full end-to-end sequence
+  - LI.FI and GOAT can require multiple resume rounds before the final transaction is available
+- Compatibility bridge intents now expose both:
+  - `steps`: transaction-only compatibility view
+  - `actions`: the browser-wallet action sequence, including typed-data signatures
+- Resume callers only need to send newly completed actions each round
+  - previously completed action results are persisted in the opaque resume state
+- The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts`](/Users/ignacioblitzer/.codex/worktrees/3cd6/web3agent-cli/tests/e2e/browser-wallet-flow.test.ts) runs when all of these variables are set:
+  - `BROWSER_WALLET_E2E`
+  - `BROWSER_WALLET_E2E_CHAIN_ID`
+  - `BROWSER_WALLET_E2E_ACCOUNT`
+  - `BROWSER_WALLET_E2E_FROM_TOKEN`
+  - `BROWSER_WALLET_E2E_TO_TOKEN`
+  - `BROWSER_WALLET_E2E_IN_AMOUNT`
+  - `BROWSER_WALLET_E2E_SIGNATURE`
 - Runtime wallet persistence, confirmation queues, and CLI startup behavior are unchanged

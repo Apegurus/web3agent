@@ -23,6 +23,7 @@ describe("LI.FI browser-wallet MCP tool", () => {
   it("delegates lifi_prepare_bridge_intent to the shared API", async () => {
     intentMocks.prepareBridgeIntent.mockResolvedValue({
       steps: [],
+      actions: [],
       estimate: {
         fromToken: "ETH",
         toToken: "ETH",

@@ -137,7 +137,6 @@ function readConfiguredPartnerOverride(): string | undefined {
       return process.env.ORBS_PARTNER ?? undefined;
     }
 
-    process.stderr.write(`[orbs] Failed to read configured partner override: ${e}\n`);
     return process.env.ORBS_PARTNER ?? undefined;
   }
 }

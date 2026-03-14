@@ -47,6 +47,29 @@ export function assertRecord(
   return value as Record<string, unknown>;
 }
 
+export function assertInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: `${field} must be an integer`,
+    });
+  }
+
+  return value;
+}
+
+export function parseBigIntString(value: string, field: string): bigint {
+  try {
+    return BigInt(value);
+  } catch (error: unknown) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: `${field} must be a valid integer string`,
+      cause: error,
+    });
+  }
+}
+
 export function preserveWeb3AgentError(
   code: string,
   error: unknown,

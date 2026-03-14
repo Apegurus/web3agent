@@ -46,7 +46,7 @@ export function getOperationToolDefinitions(): ToolDefinition[] {
         "Resume a previously prepared external-wallet operation after signatures or transactions complete externally.",
       inputSchema: zodToJsonSchema(resumeOperationSchema) as Record<string, unknown>,
       handler: operationResumeTool,
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { destructiveHint: true, openWorldHint: true },
     },
   ];
 }

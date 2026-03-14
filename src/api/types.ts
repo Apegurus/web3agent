@@ -17,6 +17,8 @@ import type { ResolvedToken } from "../tokens/resolver.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { WalletState } from "../types/wallet.js";
 
+// Keep these exported interfaces aligned with the runtime validators in src/api/schemas.ts.
+
 export interface ResolveTokenInput {
   symbol: string;
   chainId: number;
@@ -454,6 +456,7 @@ export interface BridgeTxStep {
 
 export interface BridgeIntent {
   steps: BridgeTxStep[];
+  actions: PreparedAction[];
   estimate: {
     fromToken: string;
     toToken: string;
@@ -478,9 +481,8 @@ export interface BalanceChange {
 }
 
 export interface SimulationResult {
-  success: boolean;
+  success: true;
   gasEstimate: string;
-  error?: string;
   balanceChanges: BalanceChange[];
 }
 

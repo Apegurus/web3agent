@@ -22,7 +22,12 @@ import {
   prepareSwap,
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
-import { listOrders, prepareTwapOrder, submitSignedOrder } from "../../orbs/twap.js";
+import {
+  getTwapDurationSeconds,
+  listOrders,
+  prepareTwapOrder,
+  submitSignedOrder,
+} from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import {
   formatToolError,
@@ -270,7 +275,7 @@ async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<Call
   try {
     const account = getActiveAccount();
 
-    const durationSeconds = chunks * fillDelay * 2;
+    const durationSeconds = getTwapDurationSeconds(chunks, fillDelay);
     const prepared = prepareTwapOrder({
       chainId,
       srcToken: params.srcToken as string,

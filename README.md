@@ -61,6 +61,10 @@ The primary flow is generic:
 
 Protocol-specific helpers like `prepareSwapIntent()` and `submitSignedSwap()` remain available as compatibility wrappers, but new integrations should target the generic prepared-operation API first.
 
+Prepared browser-wallet flows are staged. `prepareOperation()` and `resumeOperation()` only return the next required actions, and `resumeOperation()` persists previously completed action results inside the opaque resume state so callers only need to submit newly finished actions on each round.
+
+For LI.FI compatibility helpers, `prepareBridgeIntent()` now returns both `steps` (transaction-only compatibility view) and `actions` (the browser-wallet action sequence including signatures).
+
 Architecture notes live in [docs/architecture/browser-wallet-operations.md](./docs/architecture/browser-wallet-operations.md).
 
 ### Runtime API
@@ -102,6 +106,8 @@ node examples/runtime-smoke.mjs --run
 ```
 
 `root-api-smoke.mjs` is fully local. `runtime-smoke.mjs` without flags verifies the runtime import surface only. `runtime-smoke.mjs --run` starts the real runtime in read-only mode, so upstream services may appear as degraded or fail if network access is unavailable.
+
+The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts`](/Users/ignacioblitzer/.codex/worktrees/3cd6/web3agent-cli/tests/e2e/browser-wallet-flow.test.ts) runs when these variables are present: `BROWSER_WALLET_E2E`, `BROWSER_WALLET_E2E_CHAIN_ID`, `BROWSER_WALLET_E2E_ACCOUNT`, `BROWSER_WALLET_E2E_FROM_TOKEN`, `BROWSER_WALLET_E2E_TO_TOKEN`, `BROWSER_WALLET_E2E_IN_AMOUNT`, and `BROWSER_WALLET_E2E_SIGNATURE`.
 
 ## What you get
 
