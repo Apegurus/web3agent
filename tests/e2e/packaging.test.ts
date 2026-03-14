@@ -63,14 +63,14 @@ describe("packaging tests", () => {
 
   it("public package exports are importable", () => {
     const result = execSync(
-      `node --input-type=module -e "import { getSwapQuote } from './dist/index.js'; import { createRuntime, shutdownDefaultRuntime } from './dist/runtime/index.js'; import { startServer } from './dist/mcp/index.js'; console.log(typeof getSwapQuote, typeof createRuntime, typeof shutdownDefaultRuntime, typeof startServer)"`,
+      `node --input-type=module -e "import { getSwapQuote, parseEnv, setConfig, pollSwapStatus } from './dist/index.js'; import { createRuntime, shutdownDefaultRuntime } from './dist/runtime/index.js'; import { startServer } from './dist/mcp/index.js'; console.log(typeof getSwapQuote, typeof parseEnv, typeof setConfig, typeof pollSwapStatus, typeof createRuntime, typeof shutdownDefaultRuntime, typeof startServer)"`,
       {
         encoding: "utf-8",
         cwd: ROOT,
       }
     );
 
-    expect(result.trim()).toBe("function function function function");
+    expect(result.trim()).toBe("function function function function function function function");
   });
 
   it("root API smoke example runs against the built package", () => {

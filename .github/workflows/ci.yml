@@ -51,8 +51,4 @@ jobs:
       - name: End-user install simulation
         run: |
           TARBALL=$(ls web3agent-*.tgz)
-          mkdir -p /tmp/test-install
-          cd /tmp/test-install
-          npm install "$OLDPWD/$TARBALL"
-          node node_modules/.bin/web3agent --version
-          node node_modules/.bin/web3agent --help
+          node tests/e2e/package-install-smoke.mjs "$PWD/$TARBALL"

@@ -33,7 +33,7 @@ export {
 } from "./api/intents.js";
 export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
 export { simulateTransaction, clearTraceSupportCache } from "./api/simulation.js";
-export { normalizeEip712ForSigning } from "./orbs/liquidity-hub.js";
+export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
 export type {
   ApprovalStep,
   BalanceChange,

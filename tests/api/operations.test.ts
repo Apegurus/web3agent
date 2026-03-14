@@ -20,7 +20,8 @@ const twapMocks = vi.hoisted(() => ({
 const lifiMocks = vi.hoisted(() => ({
   getQuote: vi.fn(),
   getChains: vi.fn(),
-  getNativePermit: vi.fn(),
+  convertQuoteToRoute: vi.fn(),
+  setAllowance: vi.fn(),
 }));
 
 const goatMocks = vi.hoisted(() => ({
@@ -58,7 +59,8 @@ vi.mock("../../src/orbs/twap.js", async (importOriginal) => {
 vi.mock("@lifi/sdk", () => ({
   getQuote: (...args: unknown[]) => lifiMocks.getQuote(...args),
   getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
-  getNativePermit: (...args: unknown[]) => lifiMocks.getNativePermit(...args),
+  convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
+  setAllowance: (...args: unknown[]) => lifiMocks.setAllowance(...args),
 }));
 
 vi.mock("../../src/operations/goat.js", () => ({
@@ -67,7 +69,7 @@ vi.mock("../../src/operations/goat.js", () => ({
 }));
 
 describe("generic prepared operations API", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
@@ -87,7 +89,16 @@ describe("generic prepared operations API", () => {
         diamondAddress: "0x2222222222222222222222222222222222222222",
       },
     ]);
-    lifiMocks.getNativePermit.mockResolvedValue(undefined);
+    lifiMocks.convertQuoteToRoute.mockImplementation((quote: Record<string, unknown>) => ({
+      steps: [{ transactionRequest: quote.transactionRequest }],
+    }));
+    lifiMocks.setAllowance.mockImplementation(
+      async (_client: unknown, _token: unknown, _spender: unknown, amount: bigint) =>
+        amount === 0n ? "0x00" : "0x095ea7b3"
+    );
+
+    const { clearLifiChainsCache } = await import("../../src/api/operations.js");
+    clearLifiChainsCache();
   });
 
   it("prepareOperation builds an Orbs swap operation with approval actions", async () => {
@@ -387,6 +398,89 @@ describe("generic prepared operations API", () => {
     expect(intent.actions.find((action) => action.id === "bridge:execute:0")?.tx?.value).toBe("0");
   });
 
+  it("prepareOperation falls back to approval transactions for unsafe LI.FI permits", async () => {
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 1,
+        toChainId: 8453,
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "USDC",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000",
+      },
+      estimate: {
+        approvalAddress: "0x5555555555555555555555555555555555555555",
+        toAmount: "999",
+        toAmountMin: "990",
+      },
+      transactionRequest: {
+        to: "0x6666666666666666666666666666666666666666",
+        data: "0xabcdef",
+        chainId: 1,
+      },
+      typedData: [
+        {
+          primaryType: "Permit",
+          domain: {
+            chainId: 1,
+            name: "USDC",
+            verifyingContract: "0x3333333333333333333333333333333333333333",
+          },
+          types: {
+            Permit: [
+              { name: "owner", type: "address" },
+              { name: "spender", type: "address" },
+              { name: "value", type: "uint256" },
+              { name: "nonce", type: "uint256" },
+              { name: "deadline", type: "uint256" },
+            ],
+          },
+          message: {
+            owner: "0x1234567890123456789012345678901234567890",
+            spender: "0x5555555555555555555555555555555555555555",
+            value: "1000",
+            nonce: "1",
+            deadline: "9999999999",
+          },
+        },
+      ],
+    });
+
+    const { prepareOperation } = await import("../../src/api/operations.js");
+    const result = await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 1,
+      toChainId: 8453,
+      fromTokenAddress: "0x3333333333333333333333333333333333333333",
+      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect("completed" in result).toBe(false);
+    if ("completed" in result) return;
+
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        id: "bridge:approval:0",
+        type: "transaction",
+      }),
+    ]);
+    const intent = result.meta?.intent as {
+      actions: Array<{ id: string; type: string }>;
+    };
+    expect(intent.actions.map((action) => action.id)).toEqual([
+      "bridge:approval:0",
+      "bridge:execute:0",
+    ]);
+  });
+
   it("resumeOperation advances LI.FI permit2 bridges with only new action results", async () => {
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(maxUint256),
@@ -412,7 +506,7 @@ describe("generic prepared operations API", () => {
         executionDuration: 300,
       },
       transactionRequest: {
-        to: "0x6666666666666666666666666666666666666666",
+        to: "0x2222222222222222222222222222222222222222",
         data: "0xabcdef",
         chainId: 8453,
         value: "0",
@@ -448,6 +542,17 @@ describe("generic prepared operations API", () => {
         type: "signTypedData",
       }),
     ]);
+    expect(prepared.actions[0]).toMatchObject({
+      eip712: {
+        primaryType: "PermitWitnessTransferFrom",
+        message: {
+          witness: {
+            diamondAddress: "0x2222222222222222222222222222222222222222",
+            diamondCalldataHash: expect.any(String),
+          },
+        },
+      },
+    });
 
     const afterSignature = await resumeOperation({
       resumeState: prepared.resumeState,
@@ -491,6 +596,152 @@ describe("generic prepared operations API", () => {
         txHash: "0xbridge",
       },
     });
+  });
+
+  it("resumeOperation rejects tampered LI.FI witness final actions", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+    });
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 8453,
+        toChainId: 1,
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "USDC",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000",
+      },
+      estimate: {
+        approvalAddress: "0x5555555555555555555555555555555555555555",
+        toAmount: "999",
+        toAmountMin: "990",
+      },
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xabcdef",
+        chainId: 8453,
+      },
+    });
+    lifiMocks.getChains.mockResolvedValue([
+      {
+        id: 8453,
+        permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        permit2Proxy: "0x1111111111111111111111111111111111111111",
+        diamondAddress: "0x2222222222222222222222222222222222222222",
+      },
+      { id: 1 },
+    ]);
+
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 8453,
+      toChainId: 1,
+      fromTokenAddress: "0x3333333333333333333333333333333333333333",
+      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect("completed" in prepared).toBe(false);
+    if ("completed" in prepared) return;
+
+    const tamperedState = prepared.resumeState.state as {
+      finalAction: { tx: { to: string; data?: string } };
+    };
+
+    await expect(
+      resumeOperation({
+        resumeState: {
+          ...prepared.resumeState,
+          state: {
+            ...prepared.resumeState.state,
+            finalAction: {
+              ...tamperedState.finalAction,
+              tx: {
+                ...tamperedState.finalAction.tx,
+                data: "0xfeedface",
+              },
+            },
+          },
+        },
+        actionResults: {
+          "bridge:permit2:0": {
+            type: "signature",
+            signature: `0x${"11".repeat(65)}`,
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      name: "Web3AgentError",
+      code: "INVALID_PARAMS",
+      message: "resumeState.state.finalAction.tx.data does not match the signed Permit2 witness",
+    });
+  });
+
+  it("clearLifiChainsCache invalidates cached LI.FI chain metadata", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+    });
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 8453,
+        toChainId: 1,
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "USDC",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000",
+      },
+      estimate: {
+        approvalAddress: "0x5555555555555555555555555555555555555555",
+        toAmount: "999",
+        toAmountMin: "990",
+      },
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xabcdef",
+        chainId: 8453,
+      },
+    });
+
+    const { clearLifiChainsCache, prepareOperation } = await import("../../src/api/operations.js");
+
+    await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 8453,
+      toChainId: 1,
+      fromTokenAddress: "0x3333333333333333333333333333333333333333",
+      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    clearLifiChainsCache();
+
+    await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 8453,
+      toChainId: 1,
+      fromTokenAddress: "0x3333333333333333333333333333333333333333",
+      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect(lifiMocks.getChains).toHaveBeenCalledTimes(2);
   });
 
   it("prepareOperation delegates GOAT tool preparation to the shared GOAT adapter", async () => {

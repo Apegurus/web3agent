@@ -1,6 +1,7 @@
 import { Web3AgentError } from "./errors.js";
 import {
   getRequiredApprovals as getRequiredApprovalsForOperation,
+  prepareCompatibilityBridgeIntent,
   prepareOperation,
   submitSignedSwap as submitSignedSwapViaOperation,
   submitSignedTwapOrder as submitSignedTwapOrderViaOperation,
@@ -91,20 +92,7 @@ export async function prepareLimitIntent(params: PrepareLimitIntentInput): Promi
 }
 
 export async function prepareBridgeIntent(params: PrepareBridgeIntentInput): Promise<BridgeIntent> {
-  const result = await prepareOperation({
-    integration: "lifi",
-    kind: "bridge",
-    ...params,
-  });
-
-  if ("completed" in result) {
-    throw new Web3AgentError({
-      code: "BRIDGE_INTENT_ERROR",
-      message: "Bridge preparation completed unexpectedly without returning an intent",
-    });
-  }
-
-  return getCompatibilityIntent<BridgeIntent>(result, "bridge");
+  return prepareCompatibilityBridgeIntent(params);
 }
 
 export async function submitSignedSwap(params: {

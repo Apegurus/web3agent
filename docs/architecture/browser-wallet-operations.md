@@ -72,12 +72,14 @@ The older Orbs / LI.FI browser-wallet MCP tools remain available as compatibilit
 - Prepared operations are staged
   - `prepareOperation()` returns only the next required wallet actions, not always the full end-to-end sequence
   - LI.FI and GOAT can require multiple resume rounds before the final transaction is available
-- Compatibility bridge intents now expose both:
-  - `steps`: transaction-only compatibility view
-  - `actions`: the browser-wallet action sequence, including typed-data signatures
+- `prepareBridgeIntent()` is the Orbzy-friendly compatibility path
+  - `steps` and `actions` are both transaction-only, including any required approval transactions before the bridge call
+  - use `prepareOperation()` with `integration: "lifi"` when you need the staged external-wallet flow with typed-data signing
 - Resume callers only need to send newly completed actions each round
   - previously completed action results are persisted in the opaque resume state
-- The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts`](/Users/ignacioblitzer/.codex/worktrees/3cd6/web3agent-cli/tests/e2e/browser-wallet-flow.test.ts) runs when all of these variables are set:
+- ACP and ACP Virtuals remain direct-execution tools in this revision
+  - they do not yet expose browser-wallet compatibility helpers
+- The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts`](../../tests/e2e/browser-wallet-flow.test.ts) runs when all of these variables are set:
   - `BROWSER_WALLET_E2E`
   - `BROWSER_WALLET_E2E_CHAIN_ID`
   - `BROWSER_WALLET_E2E_ACCOUNT`

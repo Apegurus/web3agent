@@ -150,6 +150,7 @@ describe("root API", () => {
     expect(typeof root.parseEnv).toBe("function");
     expect(typeof root.resetConfig).toBe("function");
     expect(typeof root.setConfig).toBe("function");
+    expect(typeof root.pollSwapStatus).toBe("function");
     expect(typeof root.submitSignedSwap).toBe("function");
     expect(typeof root.submitSignedTwapOrder).toBe("function");
     expect(typeof root.simulateTransaction).toBe("function");

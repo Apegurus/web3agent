@@ -1,13 +1,18 @@
-import { getChains as getLifiChains, getQuote as getLifiQuote, getNativePermit } from "@lifi/sdk";
+import {
+  convertQuoteToRoute,
+  getChains as getLifiChains,
+  getQuote as getLifiQuote,
+  setAllowance,
+} from "@lifi/sdk";
 import type { LiFiStep } from "@lifi/sdk";
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
 import type { RePermitOrder } from "@orbs-network/twap-sdk";
 import {
   createClient,
   encodeFunctionData,
+  keccak256,
   maxUint256,
   parseAbi,
-  parseSignature,
   publicActions,
   zeroAddress,
 } from "viem";
@@ -46,6 +51,7 @@ import {
 import { joinSignature, splitSignature } from "../utils/signature.js";
 import { Web3AgentError } from "./errors.js";
 import {
+  lifiBridgeResumeStateStateSchema,
   operationActionResultsMapSchema,
   operationResumeStateSchema,
   orbsGetRequiredApprovalsSchema,
@@ -84,36 +90,39 @@ import { parseInput } from "./validation.js";
 
 const LIFI_PERMIT2_PROXY_ABI = parseAbi([
   "function callDiamondWithPermit2(bytes, ((address, uint256), uint256, uint256), bytes) external",
-  "function callDiamondWithEIP2612Signature(address, uint256, uint256, uint8, bytes32, bytes32, bytes) external payable",
   "function nextNonce(address) external view returns (uint256)",
   "function callDiamondWithPermit2Witness(bytes, address, ((address, uint256), uint256, uint256), bytes) external payable",
 ]);
 
-const LIFI_PERMIT2_TYPES = {
+const LIFI_PERMIT2_WITNESS_TYPES = {
   TokenPermissions: [
     { name: "token", type: "address" },
     { name: "amount", type: "uint256" },
   ],
-  PermitTransferFrom: [
+  LiFiCall: [
+    { name: "diamondAddress", type: "address" },
+    { name: "diamondCalldataHash", type: "bytes32" },
+  ],
+  PermitWitnessTransferFrom: [
     { name: "permitted", type: "TokenPermissions" },
     { name: "spender", type: "address" },
     { name: "nonce", type: "uint256" },
     { name: "deadline", type: "uint256" },
+    { name: "witness", type: "LiFiCall" },
   ],
 } satisfies TypedDataPayload["types"];
 
-let lifiChainsPromise: Promise<ExtendedChain[]> | undefined;
+const LIFI_CHAINS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let lifiChainsCache:
+  | {
+      promise: Promise<ExtendedChain[]>;
+      expiresAt: number;
+    }
+  | undefined;
 
 type LifiBridgeFinalization =
   | { kind: "none" }
-  | {
-      kind: "nativePermit";
-      signatureActionId: string;
-      tokenAddress: `0x${string}`;
-      amount: string;
-      deadline: string;
-      permit2Proxy: `0x${string}`;
-    }
   | {
       kind: "permit2";
       signatureActionId: string;
@@ -121,10 +130,11 @@ type LifiBridgeFinalization =
       amount: string;
       nonce: string;
       deadline: string;
-      permit2: `0x${string}`;
       permit2Proxy: `0x${string}`;
       account: `0x${string}`;
-      witness: boolean;
+      witness: true;
+      diamondAddress: `0x${string}`;
+      diamondCalldataHash: `0x${string}`;
     };
 
 interface ExtendedChain {
@@ -134,19 +144,23 @@ interface ExtendedChain {
   permit2Proxy?: string;
 }
 
-interface LifiTypedData {
-  primaryType: string;
-  domain: Record<string, unknown>;
-  types: Record<string, ReadonlyArray<{ name: string; type: string }>>;
-  message: Record<string, unknown>;
-}
-
 interface LifiTransactionRequest {
   to?: string;
   data?: string;
   value?: string;
   gasLimit?: string;
   chainId?: number;
+}
+
+interface LifiBridgePreparationContext {
+  quote: LiFiStep;
+  summary: string;
+  chainAccess: ChainAccess;
+  account: `0x${string}`;
+  fromTokenAddress: `0x${string}`;
+  fromAmount: bigint;
+  finalAction: PreparedTransactionAction;
+  fromChain?: ExtendedChain;
 }
 
 interface RawOrbsQuote extends Quote {
@@ -164,51 +178,6 @@ interface RawOrbsQuote extends Quote {
     primaryType?: string;
     message?: Record<string, unknown>;
   };
-}
-
-function isSourceChainPermit(typedData: LifiTypedData, chainId: number): boolean {
-  return (
-    typedData.primaryType === "Permit" &&
-    Number((typedData.domain as Record<string, unknown>).chainId) === chainId
-  );
-}
-
-function normalizeLifiTypedData(typedData: LifiTypedData): TypedDataPayload {
-  return {
-    domain: typedData.domain as Record<string, unknown>,
-    types: Object.fromEntries(
-      Object.entries(typedData.types).map(([typeName, entries]) => [
-        typeName,
-        entries.map((entry) => ({ name: entry.name, type: entry.type })),
-      ])
-    ),
-    primaryType: typedData.primaryType,
-    message: typedData.message as Record<string, unknown>,
-  };
-}
-
-function createTypedDataActions(
-  prefix: string,
-  chainId: number,
-  typedDataList: LifiTypedData[]
-): PreparedSignTypedDataAction[] {
-  return typedDataList.map((typedData, index) => {
-    const eip712 = normalizeLifiTypedData(typedData);
-    const label =
-      eip712.primaryType === "Permit"
-        ? "Sign permit"
-        : eip712.primaryType.startsWith("Permit")
-          ? "Sign Permit2 authorization"
-          : "Sign bridge typed data";
-
-    return {
-      id: `${prefix}:${index}`,
-      type: "signTypedData",
-      label,
-      chainId,
-      eip712,
-    };
-  });
 }
 
 function toBridgeStepLabel(type: BridgeTxStep["type"]): string {
@@ -297,14 +266,31 @@ function createBridgeTxStep(
   };
 }
 
-function createApprovalAction(params: {
+function createBridgeTxSteps(
+  type: BridgeTxStep["type"],
+  actions: PreparedTransactionAction[]
+): BridgeTxStep[] {
+  return actions.map((action) => createBridgeTxStep(type, action));
+}
+
+async function createAllowanceAction(params: {
   id: string;
   chainId: number;
+  client: Awaited<ReturnType<ChainAccess["createPublicClient"]>>;
   tokenAddress: `0x${string}`;
   spender: `0x${string}`;
   amount: bigint;
   label: string;
-}): PreparedTransactionAction {
+}): Promise<PreparedTransactionAction> {
+  const data = await setAllowance(
+    params.client,
+    params.tokenAddress,
+    params.spender,
+    params.amount,
+    undefined,
+    true
+  );
+
   return {
     id: params.id,
     type: "transaction",
@@ -312,13 +298,98 @@ function createApprovalAction(params: {
     tx: {
       to: params.tokenAddress,
       chainId: params.chainId,
-      data: encodeFunctionData({
-        abi: SWAP_PREPARATION_ABI,
-        functionName: "approve",
-        args: [params.spender, params.amount],
-      }),
+      data: assertHex(data, `${params.id}.tx.data`),
       value: "0",
     },
+  };
+}
+
+function getLifiBridgeTransactionRequest(quote: LiFiStep): LifiTransactionRequest {
+  try {
+    const route = convertQuoteToRoute(quote);
+    const lastStep = [...route.steps]
+      .reverse()
+      .find((candidate) => candidate.transactionRequest !== undefined);
+
+    if (lastStep?.transactionRequest) {
+      return lastStep.transactionRequest as LifiTransactionRequest;
+    }
+  } catch (error: unknown) {
+    // LI.FI route conversion can reject minimal quote payloads; the raw quote transaction request
+    // remains a valid fallback for prepared bridge intents in that case.
+    void error;
+  }
+
+  if (quote.transactionRequest && typeof quote.transactionRequest === "object") {
+    return quote.transactionRequest as LifiTransactionRequest;
+  }
+
+  throw new Web3AgentError({
+    code: "BRIDGE_INTENT_ERROR",
+    message: "Bridge quote did not include an executable transaction request",
+  });
+}
+
+async function getLifiBridgePreparationContext(
+  input: PrepareBridgeIntentInput,
+  options: { includeFromChain?: boolean } = {}
+): Promise<LifiBridgePreparationContext> {
+  const quote: LiFiStep = await getLifiQuote({
+    fromChain: input.fromChainId,
+    toChain: input.toChainId,
+    fromToken: input.fromTokenAddress,
+    toToken: input.toTokenAddress,
+    fromAmount: input.fromAmount,
+    fromAddress: input.account,
+  });
+  const finalAction = createPreparedTransactionActionFromRequest(
+    "bridge:execute:0",
+    toBridgeStepLabel("bridge"),
+    getLifiBridgeTransactionRequest(quote),
+    input.fromChainId
+  );
+  const context: LifiBridgePreparationContext = {
+    quote,
+    summary: `Prepare LI.FI bridge from ${input.fromChainId} to ${input.toChainId}`,
+    chainAccess: new ChainAccess(),
+    account: assertAddress(input.account, "account"),
+    fromTokenAddress: assertAddress(
+      quote.action.fromToken.address,
+      "quote.action.fromToken.address"
+    ),
+    fromAmount: parseBigIntString(quote.action.fromAmount, "quote.action.fromAmount"),
+    finalAction,
+  };
+
+  if (options.includeFromChain) {
+    context.fromChain = await getLifiExtendedChain(input.fromChainId);
+  }
+
+  return context;
+}
+
+function createBridgeIntentPayload(
+  input: PrepareBridgeIntentInput,
+  quote: LiFiStep,
+  steps: BridgeTxStep[],
+  actions: PreparedAction[]
+): BridgeIntent {
+  return {
+    steps,
+    actions,
+    estimate: {
+      fromToken: quote.action.fromToken?.symbol ?? input.fromTokenAddress,
+      toToken: quote.action.toToken?.symbol ?? input.toTokenAddress,
+      fromAmount: quote.action.fromAmount,
+      fromAmountUSD: quote.estimate?.fromAmountUSD,
+      toAmount: quote.estimate?.toAmount ?? "0",
+      toAmountUSD: quote.estimate?.toAmountUSD,
+      toAmountMin: quote.estimate?.toAmountMin ?? "0",
+      gasCostUSD: quote.estimate?.gasCosts?.[0]?.amountUSD,
+      estimatedDurationSeconds: quote.estimate?.executionDuration,
+    },
+    fromChainId: input.fromChainId,
+    toChainId: input.toChainId,
   };
 }
 
@@ -400,9 +471,30 @@ function getPendingPreparedActions(
   return actions.filter((action) => !assertPreparedActionResult(actionResults, action));
 }
 
+export function clearLifiChainsCache(): void {
+  lifiChainsCache = undefined;
+}
+
+async function getCachedLifiChains(): Promise<ExtendedChain[]> {
+  const now = Date.now();
+  if (!lifiChainsCache || now >= lifiChainsCache.expiresAt) {
+    const cacheEntry = {
+      promise: getLifiChains().catch((error: unknown) => {
+        if (lifiChainsCache === cacheEntry) {
+          clearLifiChainsCache();
+        }
+        throw error;
+      }),
+      expiresAt: now + LIFI_CHAINS_CACHE_TTL_MS,
+    };
+    lifiChainsCache = cacheEntry;
+  }
+
+  return lifiChainsCache.promise;
+}
+
 async function getLifiExtendedChain(chainId: number): Promise<ExtendedChain> {
-  lifiChainsPromise ??= getLifiChains();
-  const chains = await lifiChainsPromise;
+  const chains = await getCachedLifiChains();
   const chain = chains.find((candidate) => candidate.id === chainId);
 
   if (!chain) {
@@ -441,15 +533,32 @@ async function getPermit2TypedData(params: {
   amount: bigint;
   chain: ExtendedChain;
   chainAccess: ChainAccess;
+  finalAction: PreparedTransactionAction;
 }): Promise<{
   typedData: TypedDataPayload;
   nonce: string;
   deadline: string;
+  diamondAddress: `0x${string}`;
+  diamondCalldataHash: `0x${string}`;
 }> {
   if (!params.chain.permit2 || !params.chain.permit2Proxy || !params.chain.diamondAddress) {
     throw new Web3AgentError({
       code: "BRIDGE_INTENT_ERROR",
       message: `Permit2 metadata is missing for chain ${params.chain.id}`,
+    });
+  }
+  if (!params.finalAction.tx.data) {
+    throw new Web3AgentError({
+      code: "BRIDGE_INTENT_ERROR",
+      message: "Bridge transaction is missing calldata for Permit2 witness signing",
+    });
+  }
+
+  const diamondAddress = assertAddress(params.chain.diamondAddress, "fromChain.diamondAddress");
+  if (params.finalAction.tx.to.toLowerCase() !== diamondAddress.toLowerCase()) {
+    throw new Web3AgentError({
+      code: "BRIDGE_INTENT_ERROR",
+      message: "Bridge transaction target does not match LI.FI diamond address",
     });
   }
 
@@ -461,6 +570,7 @@ async function getPermit2TypedData(params: {
     args: [params.account],
   });
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 30 * 60);
+  const diamondCalldataHash = keccak256(params.finalAction.tx.data);
 
   return {
     typedData: {
@@ -468,8 +578,8 @@ async function getPermit2TypedData(params: {
         assertAddress(params.chain.permit2, "fromChain.permit2"),
         params.chain.id
       ),
-      types: LIFI_PERMIT2_TYPES,
-      primaryType: "PermitTransferFrom",
+      types: LIFI_PERMIT2_WITNESS_TYPES,
+      primaryType: "PermitWitnessTransferFrom",
       message: {
         permitted: {
           token: params.tokenAddress,
@@ -478,11 +588,84 @@ async function getPermit2TypedData(params: {
         spender: assertAddress(params.chain.permit2Proxy, "fromChain.permit2Proxy"),
         nonce: nonce.toString(),
         deadline: deadline.toString(),
+        witness: {
+          diamondAddress,
+          diamondCalldataHash,
+        },
       },
     },
     nonce: nonce.toString(),
     deadline: deadline.toString(),
+    diamondAddress,
+    diamondCalldataHash,
   };
+}
+
+function needsLifiBridgeApproval(quote: LiFiStep, fromTokenAddress: `0x${string}`): boolean {
+  return fromTokenAddress.toLowerCase() !== zeroAddress && !quote.estimate?.skipApproval;
+}
+
+function getDefaultLifiApprovalSpender(
+  quote: LiFiStep,
+  finalAction: PreparedTransactionAction
+): `0x${string}` {
+  return assertAddress(
+    quote.estimate?.approvalAddress ?? finalAction.tx.to,
+    quote.estimate?.approvalAddress ? "quote.estimate.approvalAddress" : "bridge.tx.to"
+  );
+}
+
+async function getLifiApprovalActions(params: {
+  chainId: number;
+  chainAccess: ChainAccess;
+  account: `0x${string}`;
+  fromTokenAddress: `0x${string}`;
+  fromAmount: bigint;
+  spender: `0x${string}`;
+  approvalReset?: boolean;
+  approvalAmount: bigint;
+  approvalLabel: string;
+}): Promise<PreparedTransactionAction[]> {
+  const publicClient = params.chainAccess.createPublicClient(params.chainId);
+  const allowance = (await publicClient.readContract({
+    address: params.fromTokenAddress,
+    abi: SWAP_PREPARATION_ABI,
+    functionName: "allowance",
+    args: [params.account, params.spender],
+  })) as bigint;
+
+  if (params.fromAmount <= allowance) {
+    return [];
+  }
+
+  const approvalActions: PreparedTransactionAction[] = [];
+  if (params.approvalReset && allowance > 0n) {
+    approvalActions.push(
+      await createAllowanceAction({
+        id: "bridge:approval-reset:0",
+        chainId: params.chainId,
+        client: publicClient,
+        tokenAddress: params.fromTokenAddress,
+        spender: params.spender,
+        amount: 0n,
+        label: "Reset bridge spender approval",
+      })
+    );
+  }
+
+  approvalActions.push(
+    await createAllowanceAction({
+      id: "bridge:approval:0",
+      chainId: params.chainId,
+      client: publicClient,
+      tokenAddress: params.fromTokenAddress,
+      spender: params.spender,
+      amount: params.approvalAmount,
+      label: params.approvalLabel,
+    })
+  );
+
+  return approvalActions;
 }
 
 function rewriteFinalBridgeAction(
@@ -514,29 +697,18 @@ function rewriteFinalBridgeAction(
   }
 
   const signature = assertHex(signatureResult.signature, "actionResults.signature");
-
-  if (finalization.kind === "nativePermit") {
-    const { v, r, s } = parseSignature(signature);
-    return {
-      ...finalAction,
-      tx: {
-        ...finalAction.tx,
-        to: finalization.permit2Proxy,
-        data: encodeFunctionData({
-          abi: LIFI_PERMIT2_PROXY_ABI,
-          functionName: "callDiamondWithEIP2612Signature",
-          args: [
-            finalization.tokenAddress,
-            parseBigIntString(finalization.amount, "resumeState.state.finalization.amount"),
-            parseBigIntString(finalization.deadline, "resumeState.state.finalization.deadline"),
-            Number(v),
-            r,
-            s,
-            finalAction.tx.data,
-          ],
-        }),
-      },
-    };
+  const calldataHash = keccak256(finalAction.tx.data);
+  if (finalAction.tx.to.toLowerCase() !== finalization.diamondAddress.toLowerCase()) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "resumeState.state.finalAction.tx.to does not match the signed Permit2 witness",
+    });
+  }
+  if (calldataHash !== finalization.diamondCalldataHash) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "resumeState.state.finalAction.tx.data does not match the signed Permit2 witness",
+    });
   }
 
   return {
@@ -546,35 +718,20 @@ function rewriteFinalBridgeAction(
       to: finalization.permit2Proxy,
       data: encodeFunctionData({
         abi: LIFI_PERMIT2_PROXY_ABI,
-        functionName: finalization.witness
-          ? "callDiamondWithPermit2Witness"
-          : "callDiamondWithPermit2",
-        args: finalization.witness
-          ? [
-              finalAction.tx.data,
-              finalization.account,
-              [
-                [
-                  finalization.tokenAddress,
-                  parseBigIntString(finalization.amount, "resumeState.state.finalization.amount"),
-                ],
-                parseBigIntString(finalization.nonce, "resumeState.state.finalization.nonce"),
-                parseBigIntString(finalization.deadline, "resumeState.state.finalization.deadline"),
-              ],
-              signature,
-            ]
-          : [
-              finalAction.tx.data,
-              [
-                [
-                  finalization.tokenAddress,
-                  parseBigIntString(finalization.amount, "resumeState.state.finalization.amount"),
-                ],
-                parseBigIntString(finalization.nonce, "resumeState.state.finalization.nonce"),
-                parseBigIntString(finalization.deadline, "resumeState.state.finalization.deadline"),
-              ],
-              signature,
+        functionName: "callDiamondWithPermit2Witness",
+        args: [
+          finalAction.tx.data,
+          finalization.account,
+          [
+            [
+              finalization.tokenAddress,
+              parseBigIntString(finalization.amount, "resumeState.state.finalization.amount"),
             ],
+            parseBigIntString(finalization.nonce, "resumeState.state.finalization.nonce"),
+            parseBigIntString(finalization.deadline, "resumeState.state.finalization.deadline"),
+          ],
+          signature,
+        ],
       }),
     },
   };
@@ -874,212 +1031,125 @@ async function prepareLimitOperation(input: PrepareLimitIntentInput): Promise<Pr
   }
 }
 
+export async function prepareCompatibilityBridgeIntent(
+  input: PrepareBridgeIntentInput
+): Promise<BridgeIntent> {
+  try {
+    const { quote, chainAccess, account, fromTokenAddress, fromAmount, finalAction } =
+      await getLifiBridgePreparationContext(input);
+    const actions: PreparedTransactionAction[] = [];
+    const steps: BridgeTxStep[] = [];
+
+    if (needsLifiBridgeApproval(quote, fromTokenAddress)) {
+      const approvalActions = await getLifiApprovalActions({
+        chainId: input.fromChainId,
+        chainAccess,
+        account,
+        fromTokenAddress,
+        fromAmount,
+        spender: getDefaultLifiApprovalSpender(quote, finalAction),
+        approvalReset: quote.estimate?.approvalReset,
+        approvalAmount: maxUint256,
+        approvalLabel: "Approve token for bridge",
+      });
+      actions.push(...approvalActions);
+      steps.push(...createBridgeTxSteps("approval", approvalActions));
+    }
+
+    actions.push(finalAction);
+    steps.push(createBridgeTxStep("bridge", finalAction));
+    return createBridgeIntentPayload(input, quote, steps, actions);
+  } catch (error: unknown) {
+    throw preserveWeb3AgentError("BRIDGE_INTENT_ERROR", error);
+  }
+}
+
 async function prepareBridgeOperation(input: PrepareBridgeIntentInput): Promise<PreparedOperation> {
   try {
-    const quote: LiFiStep = await getLifiQuote({
-      fromChain: input.fromChainId,
-      toChain: input.toChainId,
-      fromToken: input.fromTokenAddress,
-      toToken: input.toTokenAddress,
-      fromAmount: input.fromAmount,
-      fromAddress: input.account,
-    });
-    const summary = `Prepare LI.FI bridge from ${input.fromChainId} to ${input.toChainId}`;
-    const finalAction = createPreparedTransactionActionFromRequest(
-      "bridge:execute:0",
-      toBridgeStepLabel("bridge"),
-      (quote.transactionRequest ?? {}) as LifiTransactionRequest,
-      input.fromChainId
-    );
-    const chainAccess = new ChainAccess();
-    const account = assertAddress(input.account, "account");
-    const fromChain = await getLifiExtendedChain(input.fromChainId);
-    const fromTokenAddress = assertAddress(
-      quote.action.fromToken.address,
-      "quote.action.fromToken"
-    );
-    const fromAmount = parseBigIntString(quote.action.fromAmount, "quote.action.fromAmount");
+    const {
+      quote,
+      summary,
+      chainAccess,
+      account,
+      fromTokenAddress,
+      fromAmount,
+      finalAction,
+      fromChain,
+    } = await getLifiBridgePreparationContext(input, { includeFromChain: true });
     const stages: PreparedAction[][] = [];
     const steps: BridgeTxStep[] = [];
     let finalization: LifiBridgeFinalization = { kind: "none" };
+    const diamondAddress = fromChain?.diamondAddress
+      ? assertAddress(fromChain.diamondAddress, "fromChain.diamondAddress")
+      : undefined;
+    const needsAllowanceCheck = needsLifiBridgeApproval(quote, fromTokenAddress);
+    const permit2Eligible =
+      needsAllowanceCheck &&
+      !!fromChain?.permit2 &&
+      !!fromChain?.permit2Proxy &&
+      !!diamondAddress &&
+      !quote.estimate?.skipPermit &&
+      !!finalAction.tx.data &&
+      finalAction.tx.to.toLowerCase() === diamondAddress.toLowerCase();
 
-    const initialTypedData = (quote.typedData ?? []) as LifiTypedData[];
-    const typedDataActions = createTypedDataActions(
-      "bridge:typed-data",
-      input.fromChainId,
-      initialTypedData
-    );
-    if (typedDataActions.length > 0) {
-      stages.push(typedDataActions);
-    }
+    if (needsAllowanceCheck) {
+      const approvalActions = await getLifiApprovalActions({
+        chainId: input.fromChainId,
+        chainAccess,
+        account,
+        fromTokenAddress,
+        fromAmount,
+        spender: permit2Eligible
+          ? assertAddress(fromChain?.permit2 ?? "", "fromChain.permit2")
+          : getDefaultLifiApprovalSpender(quote, finalAction),
+        approvalReset: quote.estimate?.approvalReset,
+        approvalAmount: permit2Eligible ? maxUint256 : fromAmount,
+        approvalLabel: permit2Eligible
+          ? "Approve Permit2 (unlimited allowance)"
+          : toBridgeStepLabel("approval"),
+      });
 
-    const sourceChainPermitIndex = initialTypedData.findIndex((typedData) =>
-      isSourceChainPermit(typedData, input.fromChainId)
-    );
-    if (sourceChainPermitIndex >= 0) {
-      const sourcePermit = initialTypedData[sourceChainPermitIndex];
-      const sourcePermitAction = typedDataActions[sourceChainPermitIndex];
-      const deadline = sourcePermit?.message.deadline;
-      if (deadline === undefined || !fromChain.permit2Proxy || !sourcePermitAction) {
-        throw new Web3AgentError({
-          code: "BRIDGE_INTENT_ERROR",
-          message: "Bridge permit metadata is incomplete",
-        });
+      if (approvalActions.length > 0) {
+        stages.push(approvalActions);
+        steps.push(...createBridgeTxSteps("approval", approvalActions));
       }
 
-      finalization = {
-        kind: "nativePermit",
-        signatureActionId: sourcePermitAction.id,
-        tokenAddress: fromTokenAddress,
-        amount: fromAmount.toString(),
-        deadline: String(deadline),
-        permit2Proxy: assertAddress(fromChain.permit2Proxy, "fromChain.permit2Proxy"),
-      };
-    } else {
-      const needsAllowanceCheck =
-        fromTokenAddress.toLowerCase() !== zeroAddress &&
-        !!quote.estimate?.approvalAddress &&
-        !quote.estimate?.skipApproval;
-      const permit2Eligible =
-        needsAllowanceCheck &&
-        !!fromChain.permit2 &&
-        !!fromChain.permit2Proxy &&
-        !quote.estimate?.skipPermit;
-
-      if (needsAllowanceCheck) {
-        const permit2Address = fromChain.permit2;
-        const approvalAddress = quote.estimate?.approvalAddress;
-        const spenderAddress = assertAddress(
-          permit2Eligible ? (permit2Address ?? "") : (approvalAddress ?? ""),
-          permit2Eligible ? "fromChain.permit2" : "quote.estimate.approvalAddress"
-        );
-        const publicClient = chainAccess.createPublicClient(input.fromChainId);
-        const allowance = (await publicClient.readContract({
-          address: fromTokenAddress,
-          abi: SWAP_PREPARATION_ABI,
-          functionName: "allowance",
-          args: [account, spenderAddress],
-        })) as bigint;
-
-        if (fromAmount > allowance) {
-          if (fromChain.permit2Proxy && !quote.estimate?.skipPermit) {
-            const client = await buildLifiReadClient(account, input.fromChainId, chainAccess);
-            const nativePermitData = await getNativePermit(client, {
-              chainId: input.fromChainId,
-              tokenAddress: fromTokenAddress,
-              spenderAddress: assertAddress(fromChain.permit2Proxy, "fromChain.permit2Proxy"),
-              amount: fromAmount,
-            });
-
-            if (nativePermitData) {
-              const nativePermitAction = createTypedDataActions(
-                "bridge:native-permit",
-                input.fromChainId,
-                [nativePermitData]
-              )[0];
-              if (!nativePermitAction) {
-                throw new Web3AgentError({
-                  code: "BRIDGE_INTENT_ERROR",
-                  message: "Native permit action generation failed",
-                });
-              }
-              stages.push([nativePermitAction]);
-              finalization = {
-                kind: "nativePermit",
-                signatureActionId: nativePermitAction.id,
-                tokenAddress: fromTokenAddress,
-                amount: fromAmount.toString(),
-                deadline: String(nativePermitData.message.deadline),
-                permit2Proxy: assertAddress(fromChain.permit2Proxy, "fromChain.permit2Proxy"),
-              };
-            }
-          }
-
-          if (finalization.kind === "none") {
-            const approvalActions: PreparedTransactionAction[] = [];
-
-            if (quote.estimate?.approvalReset && allowance > 0n) {
-              approvalActions.push(
-                createApprovalAction({
-                  id: "bridge:approval-reset:0",
-                  chainId: input.fromChainId,
-                  tokenAddress: fromTokenAddress,
-                  spender: spenderAddress,
-                  amount: 0n,
-                  label: "Reset bridge spender approval",
-                })
-              );
-            }
-
-            approvalActions.push(
-              createApprovalAction({
-                id: "bridge:approval:0",
-                chainId: input.fromChainId,
-                tokenAddress: fromTokenAddress,
-                spender: spenderAddress,
-                amount: permit2Eligible ? maxUint256 : fromAmount,
-                label: permit2Eligible
-                  ? "Approve Permit2 (unlimited allowance)"
-                  : toBridgeStepLabel("approval"),
-              })
-            );
-
-            stages.push(approvalActions);
-            steps.push(...approvalActions.map((action) => createBridgeTxStep("approval", action)));
-          }
-        }
-
-        if (finalization.kind === "none" && permit2Eligible) {
-          const permit2 = await getPermit2TypedData({
-            account,
-            tokenAddress: fromTokenAddress,
-            amount: fromAmount,
-            chain: fromChain,
-            chainAccess,
-          });
-          const permit2Action: PreparedSignTypedDataAction = {
-            id: "bridge:permit2:0",
-            type: "signTypedData",
-            label: "Sign Permit2 authorization",
-            chainId: input.fromChainId,
-            eip712: permit2.typedData,
-          };
-          stages.push([permit2Action]);
-          finalization = {
-            kind: "permit2",
-            signatureActionId: permit2Action.id,
-            tokenAddress: fromTokenAddress,
-            amount: fromAmount.toString(),
-            nonce: permit2.nonce,
-            deadline: permit2.deadline,
-            permit2: assertAddress(fromChain.permit2 ?? "", "fromChain.permit2"),
-            permit2Proxy: assertAddress(fromChain.permit2Proxy ?? "", "fromChain.permit2Proxy"),
-            account,
-            witness: false,
-          };
-        }
+      if (permit2Eligible) {
+        const permit2 = await getPermit2TypedData({
+          account,
+          tokenAddress: fromTokenAddress,
+          amount: fromAmount,
+          chain: fromChain,
+          chainAccess,
+          finalAction,
+        });
+        const permit2Action: PreparedSignTypedDataAction = {
+          id: "bridge:permit2:0",
+          type: "signTypedData",
+          label: "Sign Permit2 authorization",
+          chainId: input.fromChainId,
+          eip712: permit2.typedData,
+        };
+        stages.push([permit2Action]);
+        finalization = {
+          kind: "permit2",
+          signatureActionId: permit2Action.id,
+          tokenAddress: fromTokenAddress,
+          amount: fromAmount.toString(),
+          nonce: permit2.nonce,
+          deadline: permit2.deadline,
+          permit2Proxy: assertAddress(fromChain.permit2Proxy ?? "", "fromChain.permit2Proxy"),
+          account,
+          witness: true,
+          diamondAddress: permit2.diamondAddress,
+          diamondCalldataHash: permit2.diamondCalldataHash,
+        };
       }
     }
 
     steps.push(createBridgeTxStep("bridge", finalAction));
     const actions = [...stages.flat(), finalAction];
-    const intent: BridgeIntent = {
-      steps,
-      actions,
-      estimate: {
-        fromToken: quote.action.fromToken?.symbol ?? input.fromTokenAddress,
-        toToken: quote.action.toToken?.symbol ?? input.toTokenAddress,
-        fromAmount: quote.action.fromAmount,
-        fromAmountUSD: quote.estimate?.fromAmountUSD,
-        toAmount: quote.estimate?.toAmount ?? "0",
-        toAmountUSD: quote.estimate?.toAmountUSD,
-        toAmountMin: quote.estimate?.toAmountMin ?? "0",
-        gasCostUSD: quote.estimate?.gasCosts?.[0]?.amountUSD,
-        estimatedDurationSeconds: quote.estimate?.executionDuration,
-      },
-      fromChainId: input.fromChainId,
-      toChainId: input.toChainId,
-    };
+    const intent = createBridgeIntentPayload(input, quote, steps, actions);
 
     return buildPreparedOperation(
       "lifi",
@@ -1092,7 +1162,6 @@ async function prepareBridgeOperation(input: PrepareBridgeIntentInput): Promise<
         stages,
         finalAction,
         finalization,
-        account,
       },
       { intent }
     );
@@ -1287,28 +1356,12 @@ export async function resumeOperation(
   }
 
   if (resumeState.integration === "lifi" && resumeState.kind === "bridge") {
-    const stages = Array.isArray(state.stages)
-      ? state.stages.map((stage, index) => {
-          if (!Array.isArray(stage)) {
-            throw new Web3AgentError({
-              code: "INVALID_PARAMS",
-              message: `resumeState.state.stages[${index}] must be an array`,
-            });
-          }
-          return stage as PreparedAction[];
-        })
-      : [];
-    const finalAction = state.finalAction as PreparedTransactionAction | undefined;
-    if (!finalAction) {
-      throw new Web3AgentError({
-        code: "INVALID_PARAMS",
-        message: "Bridge resume state is missing finalAction",
-      });
-    }
+    const bridgeState = parseInput(lifiBridgeResumeStateStateSchema, resumeState.state);
+    const stages = bridgeState.stages as PreparedAction[][];
+    const finalAction = bridgeState.finalAction as PreparedTransactionAction;
     const finalization =
-      state.finalization && typeof state.finalization === "object"
-        ? (state.finalization as LifiBridgeFinalization)
-        : ({ kind: "none" } satisfies LifiBridgeFinalization);
+      (bridgeState.finalization as LifiBridgeFinalization | undefined) ??
+      ({ kind: "none" } satisfies LifiBridgeFinalization);
 
     for (const stage of stages) {
       const pendingStageActions = getPendingPreparedActions(stage, actionResults);
