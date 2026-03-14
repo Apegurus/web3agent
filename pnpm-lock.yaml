@@ -53,9 +53,6 @@ importers:
       '@orbs-network/twap-sdk':
         specifier: ^5.0.0
         version: 5.0.125
-      '@orbs-network/twap-ui':
-        specifier: 4.0.26-fix.1
-        version: 4.0.26-fix.1(bignumber.js@9.3.1)(bufferutil@4.1.0)(react-dom@19.2.4(react@19.2.4))(react-number-format@5.4.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.4))(utf-8-validate@6.0.6)(zod@3.25.76)
       '@x402/core':
         specifier: ^2.6.0
         version: 2.6.0
@@ -81,6 +78,9 @@ importers:
       '@biomejs/biome':
         specifier: ^1.9.0
         version: 1.9.4
+      '@orbs-network/twap-ui':
+        specifier: 4.0.26-fix.1
+        version: 4.0.26-fix.1(bignumber.js@9.3.1)(bufferutil@4.1.0)(react-dom@19.2.4(react@19.2.4))(react-number-format@5.4.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.4))(utf-8-validate@6.0.6)(zod@3.25.76)
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.37

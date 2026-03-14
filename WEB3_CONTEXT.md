@@ -87,8 +87,8 @@ Discover and hire agents on the Virtuals Protocol aGDP marketplace (`acpx.virtua
 - `agdp_get_offerings` — search agent marketplace by query string; returns name, wallet, offerings, metrics (read-only)
 - `agdp_get_offering` — get details of a specific agent by ID (read-only)
 - `agdp_get_my_jobs` — list active or completed jobs for the current wallet (read-only)
-- `agdp_hire_agent` — hire an agent: creates on-chain ACP job via `acp_create_job` (write, confirmation-gated)
-- `agdp_create_offering` — register an agent offering on aGDP (write, confirmation-gated)
+- `agdp_hire_agent` — hire an agent via aGDP API (write, confirmation-gated). For on-chain job creation, use `acp_create_job` separately.
+- `agdp_create_offering` — register an agent offering on aGDP. Requires `LITE_AGENT_API_KEY` from Virtuals — visit agdp.io/join to register.
 
 ### Agentic Economy — Agent Identity / ERC-8004 (prefix: `erc8004_`)
 On-chain agent identity (ERC-721) and reputation registry. Canonical contracts deployed on Base and Base Sepolia. Requires IPFS hosting or `PINATA_JWT` for registration JSON.
