@@ -38,7 +38,13 @@
   "bin": {
     "web3agent": "dist/cli.js"
   },
-  "files": ["dist", "examples", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "examples",
+    "WEB3_CONTEXT.md",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
@@ -58,6 +64,9 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@orbs-network/liquidity-hub-sdk": "^1.0.74",
     "@orbs-network/twap-sdk": "^5.0.0",
+    "@x402/core": "^2.6.0",
+    "@x402/evm": "^2.6.0",
+    "@x402/fetch": "^2.6.0",
     "reflect-metadata": "^0.2.2",
     "viem": "^2.0.0",
     "zod": "^3.25.0",
