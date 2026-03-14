@@ -55,6 +55,38 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `server_status` — wallet mode, active chain, confirmation setting, backend health
 - `list_supported_chains` — all 17 supported chains with IDs and names
 
+### Agentic Economy — x402 Payments (prefix: `x402_`)
+HTTP-native stablecoin payments for AI agent services. Use `x402_check_requirements` first to preview cost, then `x402_fetch` to execute.
+- `x402_check_requirements` — probe a URL for payment requirements (amount, token, network). Returns null if no payment needed. (read-only)
+- `x402_fetch` — fetch a URL with automatic x402 payment. Shows cost in confirmation before paying. (write, confirmation-gated)
+
+### Agentic Economy — Job Escrow / ERC-8183 (prefix: `acp_`)
+On-chain job lifecycle for agent-to-agent work. Requires `ACP_CONTRACT_ADDRESS` env var. Job flow: create → setBudget → fund → submit → complete/reject. Expired jobs support `acp_claim_refund`.
+- `acp_create_job` — create a new job specifying provider, evaluator, description, and expiry duration (write)
+- `acp_set_budget` — set the budget for a job (write)
+- `acp_fund_job` — approve token allowance + fund job escrow in one confirmation (write)
+- `acp_submit_job` — submit a deliverable (string, gets keccak256-hashed on-chain) (write)
+- `acp_complete_job` — mark job complete, release payment to provider (write)
+- `acp_reject_job` — reject submitted deliverable, funds remain in escrow (write)
+- `acp_claim_refund` — reclaim escrowed funds after job expiry (write)
+- `acp_get_job` — read current job state: client, provider, budget, status, deliverable (read-only)
+
+### Agentic Economy — Agent Marketplace / aGDP (prefix: `agdp_`)
+Discover and hire agents on the Virtuals Protocol aGDP marketplace (`acpx.virtuals.io`). No wallet required for discovery.
+- `agdp_get_offerings` — search agent marketplace by query string; returns name, wallet, offerings, metrics (read-only)
+- `agdp_get_offering` — get details of a specific agent by ID (read-only)
+- `agdp_get_my_jobs` — list active or completed jobs for the current wallet (read-only)
+- `agdp_hire_agent` — hire an agent: creates on-chain ACP job if `ACP_CONTRACT_ADDRESS` set, otherwise API-only (write, confirmation-gated)
+- `agdp_create_offering` — register an agent offering on aGDP (write, confirmation-gated)
+
+### Agentic Economy — Agent Identity / ERC-8004 (prefix: `erc8004_`)
+On-chain agent identity (ERC-721) and reputation registry. Canonical contracts deployed on Base and Base Sepolia. Requires IPFS hosting or `PINATA_JWT` for registration JSON.
+- `erc8004_register_agent` — register agent on-chain: checks for duplicate, validates JSON, pins to IPFS via Pinata or uses provided `agentURI` (write, confirmation-gated)
+- `erc8004_get_agent` — get agent info by agentId or wallet address (read-only)
+- `erc8004_update_agent` — update agent registration URI on-chain (write, confirmation-gated)
+- `erc8004_submit_feedback` — submit reputation feedback (-100 to +100) for an agent (write, confirmation-gated)
+- `erc8004_get_feedback` — get aggregated reputation summary for an agent (read-only)
+
 ## Chain Selection
 Default chain: **Base (8453)**. Override per-call with `chainId` parameter.
 
@@ -97,6 +129,11 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `LIFI_API_KEY` | — | LI.Fi API key |
 | `ZEROX_API_KEY` | — | 0x API key (enables 0x plugin) |
 | `COINGECKO_API_KEY` | — | CoinGecko API key (enables CoinGecko plugin) |
+| `ACP_CONTRACT_ADDRESS` | — | ERC-8183 job escrow contract address (required for `acp_*` tools) |
+| `ACP_PAYMENT_TOKEN` | — | ERC-20 token address for ACP escrow (defaults to USDC on active chain) |
+| `PINATA_JWT` | — | Pinata JWT for auto-pinning ERC-8004 agent registration JSON to IPFS |
+| `MCP_ENDPOINT_URL` | — | Advertised MCP endpoint URL for ERC-8004 agent registration |
+| `AGDP_API_URL` | https://acpx.virtuals.io/api | aGDP marketplace API base URL |
 
 ## Known Limitations
 
