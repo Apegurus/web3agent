@@ -200,16 +200,8 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
@@ -277,16 +269,8 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
@@ -350,16 +334,8 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
@@ -473,16 +449,8 @@ async function executeSubmitJob(params: Record<string, unknown>): Promise<CallTo
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
@@ -538,16 +506,8 @@ async function executeCompleteJob(params: Record<string, unknown>): Promise<Call
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
@@ -616,16 +576,8 @@ async function executeRejectJob(params: Record<string, unknown>): Promise<CallTo
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 
@@ -689,16 +641,8 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
     };
 
     const chainId = rawChainId ?? getConfig().chainId;
-    const chainErr = checkChainSupport(chainId);
-    if (chainErr) return chainErr;
-
-    const acpAddress = getAcpRouterAddress(chainId);
-    if (!acpAddress) {
-      return formatToolError(
-        "UNSUPPORTED_CHAIN",
-        `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
+    const acpAddress = getAcpRouterAddress(chainId)!;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
 

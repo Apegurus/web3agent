@@ -382,35 +382,20 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
 
-    for (const tool of this.x402Tools) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry(tool, "x402"),
-        handler: (args) => tool.handler(args),
-      });
-    }
-    for (const tool of this.erc8183Tools) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry(tool, "acp"),
-        handler: (args) => tool.handler(args),
-      });
-    }
-    for (const tool of this.acpVirtualsTools) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry(tool, "acp"),
-        handler: (args) => tool.handler(args),
-      });
-    }
-    for (const tool of this.agdpTools) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry(tool, "agdp"),
-        handler: (args) => tool.handler(args),
-      });
-    }
-    for (const tool of this.erc8004Tools) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry(tool, "erc8004"),
-        handler: (args) => tool.handler(args),
-      });
+    const toolGroups: Array<[ToolSource, ToolDefinition[]]> = [
+      ["x402", this.x402Tools],
+      ["acp", this.erc8183Tools],
+      ["acp", this.acpVirtualsTools],
+      ["agdp", this.agdpTools],
+      ["erc8004", this.erc8004Tools],
+    ];
+    for (const [source, tools] of toolGroups) {
+      for (const tool of tools) {
+        this.toolRecords.set(tool.name, {
+          ...toCatalogEntry(tool, source),
+          handler: (args) => tool.handler(args),
+        });
+      }
     }
 
     for (const tool of this.blockscoutAdapter.getTools()) {

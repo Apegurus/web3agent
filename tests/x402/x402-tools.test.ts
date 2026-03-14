@@ -23,7 +23,10 @@ vi.mock("@x402/core/http", () => ({
 }));
 
 vi.mock("../../src/x402/client.js", () => ({
-  probePaymentRequirements: vi.fn().mockResolvedValue(null),
+  probePaymentRequirements: vi.fn().mockResolvedValue({
+    requirements: null,
+    probeResponse: new Response("response body", { status: 200 }),
+  }),
   createX402Client: vi.fn().mockReturnValue({
     client: {},
     fetchWithPayment: vi.fn().mockResolvedValue(new Response("response body", { status: 200 })),
@@ -85,10 +88,11 @@ describe("x402_check_requirements", () => {
 
   it("returns payment requirements when URL returns 402", async () => {
     const { probePaymentRequirements } = await import("../../src/x402/client.js");
-    vi.mocked(probePaymentRequirements).mockResolvedValueOnce(
+    vi.mocked(probePaymentRequirements).mockResolvedValueOnce({
+      requirements: mockPaymentRequired(),
+      probeResponse: new Response("", { status: 402 }),
       // biome-ignore lint/suspicious/noExplicitAny: mock object for testing — PaymentRequired has many required fields
-      mockPaymentRequired() as any
-    );
+    } as any);
     const tools = getX402ToolDefinitions();
     const tool = tools.find((t) => t.name === "x402_check_requirements") as ToolDefinition;
     const result = await tool.handler({ url: "https://example.com/api" });
@@ -118,10 +122,11 @@ describe("x402_fetch — confirmation gating", () => {
 
   it("queues confirmation when payment is required", async () => {
     const { probePaymentRequirements } = await import("../../src/x402/client.js");
-    vi.mocked(probePaymentRequirements).mockResolvedValueOnce(
-      // biome-ignore lint/suspicious/noExplicitAny: mock object for testing — PaymentRequired has many required fields
-      mockPaymentRequired() as any
-    );
+    vi.mocked(probePaymentRequirements).mockResolvedValueOnce({
+      requirements: mockPaymentRequired(),
+      probeResponse: new Response("", { status: 402 }),
+      // biome-ignore lint/suspicious/noExplicitAny: mock object for testing
+    } as any);
     const tools = getX402ToolDefinitions();
     const tool = tools.find((t) => t.name === "x402_fetch") as ToolDefinition;
     const result = await tool.handler({ url: "https://example.com/api" });
@@ -133,10 +138,11 @@ describe("x402_fetch — confirmation gating", () => {
 
   it("rejects in read-only mode", async () => {
     const { probePaymentRequirements } = await import("../../src/x402/client.js");
-    vi.mocked(probePaymentRequirements).mockResolvedValueOnce(
-      // biome-ignore lint/suspicious/noExplicitAny: mock object for testing — PaymentRequired has many required fields
-      mockPaymentRequired() as any
-    );
+    vi.mocked(probePaymentRequirements).mockResolvedValueOnce({
+      requirements: mockPaymentRequired(),
+      probeResponse: new Response("", { status: 402 }),
+      // biome-ignore lint/suspicious/noExplicitAny: mock object for testing
+    } as any);
     const { getWalletState } = await import("../../src/wallet/persistence.js");
     vi.mocked(getWalletState).mockReturnValueOnce({
       mode: "read-only",

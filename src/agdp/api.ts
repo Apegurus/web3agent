@@ -100,8 +100,11 @@ export async function searchOfferings(params: { query?: string; topK?: number })
   return flattenResponse<AgdpAgent>(body);
 }
 
-export async function getOfferingById(offeringId: number | string): Promise<AgdpAgent | null> {
-  const agents = await searchOfferings({ topK: 100 });
+export async function getOfferingById(
+  offeringId: number | string,
+  cachedAgents?: AgdpAgent[]
+): Promise<AgdpAgent | null> {
+  const agents = cachedAgents ?? (await searchOfferings({ topK: 500 }));
   return agents.find((a) => String(a.id) === String(offeringId)) ?? null;
 }
 

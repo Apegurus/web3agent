@@ -34,6 +34,15 @@ interface RuntimeBridge {
   shutdown(): Promise<void>;
 }
 
+function toMcpTool(tool: ToolDefinition): Tool {
+  return {
+    name: tool.name,
+    description: tool.description,
+    inputSchema: normalizeInputSchema(tool.inputSchema),
+    ...(tool.annotations && { annotations: tool.annotations }),
+  };
+}
+
 function getGoatTools(goatProvider: GoatProvider): Tool[] {
   const snapshot = goatProvider.getReferenceSnapshot();
   if (!snapshot) return [];
@@ -130,64 +139,19 @@ function createLegacyRuntimeBridge(
   return {
     getMcpTools(): Tool[] {
       return [
-        ...frameworkTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
+        ...frameworkTools.map(toMcpTool),
         ...getGoatTools(goatProvider),
         ...blockscoutAdapter.getTools(),
         ...etherscanAdapter.getTools(),
         ...evmAdapter.getTools(),
-        ...lifiTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...orbsTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...tokenTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...x402Tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...erc8183Tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...acpVirtualsTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...agdpTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...erc8004Tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
+        ...lifiTools.map(toMcpTool),
+        ...orbsTools.map(toMcpTool),
+        ...tokenTools.map(toMcpTool),
+        ...x402Tools.map(toMcpTool),
+        ...erc8183Tools.map(toMcpTool),
+        ...acpVirtualsTools.map(toMcpTool),
+        ...agdpTools.map(toMcpTool),
+        ...erc8004Tools.map(toMcpTool),
       ];
     },
     async invokeTool(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {

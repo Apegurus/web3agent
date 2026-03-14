@@ -15,7 +15,7 @@ async function x402CheckRequirements(params: Record<string, unknown>): Promise<C
   const { url, method, headers } = v.data;
 
   try {
-    const requirements = await probePaymentRequirements(url, method, headers);
+    const { requirements } = await probePaymentRequirements(url, method, headers);
     if (!requirements) {
       return formatToolResponse({
         paymentRequired: false,
@@ -38,32 +38,26 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
 
   let paymentDescription: string;
   try {
-    const requirements = await probePaymentRequirements(url, method, headers);
+    const { requirements, probeResponse } = await probePaymentRequirements(
+      url,
+      method,
+      headers,
+      v.data.body
+    );
     if (!requirements) {
-      // No payment required — use plain fetch (NOT fetchWithPayment which auto-pays)
-      try {
-        const response = await globalThis.fetch(url, {
-          method: method ?? "GET",
-          body: v.data.body ?? undefined,
-          headers,
-        });
-        const responseText = await response.text();
-        return formatToolResponse({
-          status: response.status,
-          ok: response.ok,
-          body: responseText,
-          paymentMade: false,
-        });
-      } catch (e: unknown) {
-        return formatToolError("X402_FETCH_ERROR", e instanceof Error ? e.message : String(e));
-      }
+      const responseText = await probeResponse.text();
+      return formatToolResponse({
+        status: probeResponse.status,
+        ok: probeResponse.ok,
+        body: responseText,
+        paymentMade: false,
+      });
     }
     const firstAccept = requirements.accepts?.[0];
     const amount = firstAccept?.amount ?? "unknown";
     const network = firstAccept?.network ?? "unknown network";
     paymentDescription = `Pay ${amount} on ${network} to access ${url}`;
   } catch (e: unknown) {
-    // If probe fails, proceed with description using URL only
     paymentDescription = `Fetch ${url} (may require payment)`;
   }
 

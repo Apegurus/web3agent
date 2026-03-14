@@ -228,28 +228,8 @@ describe("agdp_hire_agent — confirmation gating", () => {
   });
 });
 
-describe("agdp_create_offering — confirmation gating", () => {
-  it("queues confirmation for create offering", async () => {
-    const tools = getAgdpToolDefinitions();
-    const tool = tools.find((t) => t.name === "agdp_create_offering") as ToolDefinition;
-    const result = await tool.handler({
-      name: "My Offering",
-      description: "A test offering",
-      price: 10,
-    });
-    expect(result.isError).toBe(false);
-    const parsed = parseText(result);
-    expect(parsed.status).toBe("pending_confirmation");
-  });
-
-  it("rejects in read-only mode", async () => {
-    const { getWalletState } = await import("../../src/wallet/persistence.js");
-    vi.mocked(getWalletState).mockReturnValueOnce({
-      mode: "read-only",
-      chainId: 8453,
-      accountIndex: 0,
-      addressIndex: 0,
-    });
+describe("agdp_create_offering — fails fast without API key", () => {
+  it("returns NOT_SUPPORTED immediately without going through confirmation", async () => {
     const tools = getAgdpToolDefinitions();
     const tool = tools.find((t) => t.name === "agdp_create_offering") as ToolDefinition;
     const result = await tool.handler({
@@ -258,8 +238,9 @@ describe("agdp_create_offering — confirmation gating", () => {
       price: 10,
     });
     expect(result.isError).toBe(true);
-    const err = parseText(result);
-    expect(err.error).toBe("WALLET_READ_ONLY");
+    const parsed = parseText(result);
+    expect(parsed.error).toBe("NOT_SUPPORTED");
+    expect(parsed.message).toContain("LITE_AGENT_API_KEY");
   });
 });
 

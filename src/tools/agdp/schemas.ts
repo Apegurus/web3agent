@@ -12,7 +12,6 @@ export const agdpGetOfferingSchema = z.object({
 export const agdpHireAgentSchema = z.object({
   offeringId: z.union([z.number(), z.string()]).describe("Agent ID to hire"),
   serviceRequirements: z.record(z.unknown()).optional().describe("Service requirements"),
-  chainId: z.number().optional(),
 });
 
 export const agdpGetMyJobsSchema = z.object({

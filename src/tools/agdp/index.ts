@@ -2,7 +2,6 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   type AgdpAgent,
   createJobViaApi,
-  createOfferingViaApi,
   getJobs,
   getOfferingById,
   searchOfferings,
@@ -78,14 +77,18 @@ async function agdpGetMyJobs(params: Record<string, unknown>): Promise<CallToolR
 
 async function executeHireAgent(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const { offeringId, serviceRequirements } = params as {
+    const { offeringId, serviceRequirements, _cachedAgent } = params as {
       offeringId: number | string;
       serviceRequirements?: Record<string, unknown>;
+      _cachedAgent?: AgdpAgent;
     };
 
-    const agent = await getOfferingById(offeringId);
+    const agent = _cachedAgent ?? (await getOfferingById(offeringId));
     if (!agent)
-      return formatToolError("NOT_FOUND", `Agent ${offeringId} not found in aGDP marketplace`);
+      return formatToolError(
+        "NOT_FOUND",
+        `Agent ${offeringId} not found in aGDP marketplace. Try agdp_get_offerings with a more specific query.`
+      );
 
     // Hire via aGDP API (the on-chain ACP job creation should be done
     // separately using acp_create_job which targets the actual Virtuals ACPRouter V2)
@@ -110,11 +113,12 @@ async function agdpHireAgent(params: Record<string, unknown>): Promise<CallToolR
   if (!v.success) return v.error;
 
   let description = `Hire agent ${v.data.offeringId}`;
+  let cachedAgent: AgdpAgent | null = null;
   try {
-    const offering: AgdpAgent | null = await getOfferingById(v.data.offeringId);
-    if (offering) {
-      const price = offering.jobs?.[0]?.price;
-      description = `Hire agent "${offering.name}" (ID: ${offering.id})${price !== undefined ? ` for $${price}` : ""}`;
+    cachedAgent = await getOfferingById(v.data.offeringId);
+    if (cachedAgent) {
+      const price = cachedAgent.jobs?.[0]?.price;
+      description = `Hire agent "${cachedAgent.name}" (ID: ${cachedAgent.id})${price !== undefined ? ` for $${price}` : ""}`;
     }
     // biome-ignore lint/suspicious/noEmptyBlockStatements: proceed without offering details — best-effort enrichment
   } catch {}
@@ -122,39 +126,17 @@ async function agdpHireAgent(params: Record<string, unknown>): Promise<CallToolR
   return executeWrite({
     toolName: "agdp_hire_agent",
     description,
-    params: v.data as unknown as Record<string, unknown>,
+    params: { ...v.data, _cachedAgent: cachedAgent } as unknown as Record<string, unknown>,
     executor: executeHireAgent,
   });
 }
 
-async function executeCreateOffering(params: Record<string, unknown>): Promise<CallToolResult> {
-  try {
-    const walletState = getWalletState();
-    const result = await createOfferingViaApi({
-      ...(params as {
-        name: string;
-        description: string;
-        price: number;
-        category?: string;
-      }),
-      walletAddress: walletState.address ?? "",
-    });
-    return formatToolResponse(result);
-  } catch (e: unknown) {
-    return formatToolError("NOT_SUPPORTED", e instanceof Error ? e.message : String(e));
-  }
-}
-
-async function agdpCreateOffering(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(agdpCreateOfferingSchema, params);
-  if (!v.success) return v.error;
-
-  return executeWrite({
-    toolName: "agdp_create_offering",
-    description: `Create aGDP offering: "${v.data.name}" at $${v.data.price}`,
-    params: v.data as unknown as Record<string, unknown>,
-    executor: executeCreateOffering,
-  });
+async function agdpCreateOffering(_params: Record<string, unknown>): Promise<CallToolResult> {
+  return formatToolError(
+    "NOT_SUPPORTED",
+    "Listing on agdp.io requires a LITE_AGENT_API_KEY from Virtuals Protocol. " +
+      "Visit https://agdp.io/join to register, then use the aGDP CLI: npx openclaw-acp sell create"
+  );
 }
 
 const CATEGORY: ToolCategory = "agenticEconomy";
@@ -224,8 +206,8 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       name: "agdp_hire_agent",
       category: CATEGORY,
       description:
-        "Hire an AI agent from the aGDP marketplace (write operation, requires wallet and confirmation). " +
-        "Creates an on-chain ACP job if configured, otherwise uses the aGDP API.",
+        "Hire an AI agent from the aGDP marketplace via API (write operation, requires wallet and confirmation). " +
+        "For on-chain job creation, use acp_create_job separately.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -237,10 +219,6 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
             type: "object",
             description: "Service requirements",
           },
-          chainId: {
-            type: "number",
-            description: "Chain ID for on-chain job (defaults to configured chain)",
-          },
         },
         required: ["offeringId"],
       },
@@ -251,7 +229,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       name: "agdp_create_offering",
       category: CATEGORY,
       description:
-        "Create a new offering on the aGDP marketplace (write operation, requires wallet and confirmation).",
+        "Create a new offering on the aGDP marketplace. NOTE: requires a LITE_AGENT_API_KEY from Virtuals — visit agdp.io/join to register.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -269,12 +247,11 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
         required: ["name", "description", "price"],
       },
       handler: agdpCreateOffering,
-      annotations: { destructiveHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
   ];
 }
 
 export function registerAgdpExecutors(): void {
   registerExecutor("agdp_hire_agent", executeHireAgent);
-  registerExecutor("agdp_create_offering", executeCreateOffering);
 }

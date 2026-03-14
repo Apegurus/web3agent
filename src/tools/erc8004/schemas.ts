@@ -23,7 +23,7 @@ export const erc8004RegisterSchema = z.object({
 
 export const erc8004GetAgentSchema = z
   .object({
-    agentId: z.number().optional().describe("Agent token ID"),
+    agentId: z.number().int().optional().describe("Agent token ID"),
     walletAddress: z.string().optional().describe("Agent wallet address (alternative to agentId)"),
     chainId: z.number().optional(),
   })
@@ -32,7 +32,7 @@ export const erc8004GetAgentSchema = z
   });
 
 export const erc8004UpdateAgentSchema = z.object({
-  agentId: z.number().describe("Agent token ID to update"),
+  agentId: z.number().int().describe("Agent token ID to update"),
   name: z.string().optional(),
   description: z.string().optional(),
   mcpEndpoint: z.string().optional(),
@@ -42,8 +42,8 @@ export const erc8004UpdateAgentSchema = z.object({
 });
 
 export const erc8004SubmitFeedbackSchema = z.object({
-  agentId: z.number().describe("Agent token ID"),
-  value: z.number().min(-100).max(100).describe("Feedback value (-100 to +100)"),
+  agentId: z.number().int().describe("Agent token ID"),
+  value: z.number().int().min(-100).max(100).describe("Feedback value (-100 to +100)"),
   tag1: z.string().optional().describe("Feedback tag 1"),
   tag2: z.string().optional().describe("Feedback tag 2"),
   endpoint: z.string().optional().describe("Service endpoint this feedback relates to"),
@@ -51,7 +51,7 @@ export const erc8004SubmitFeedbackSchema = z.object({
 });
 
 export const erc8004GetFeedbackSchema = z.object({
-  agentId: z.number().describe("Agent token ID"),
+  agentId: z.number().int().describe("Agent token ID"),
   tag1: z.string().optional().describe("Filter by tag 1"),
   tag2: z.string().optional().describe("Filter by tag 2"),
   chainId: z.number().optional(),

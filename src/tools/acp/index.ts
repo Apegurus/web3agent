@@ -133,13 +133,8 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
@@ -200,13 +195,8 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
@@ -261,13 +251,8 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
@@ -344,13 +329,8 @@ async function executeSubmitJob(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
@@ -409,13 +389,8 @@ async function executeCompleteJob(params: Record<string, unknown>): Promise<Call
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
@@ -468,13 +443,8 @@ async function executeRejectJob(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
@@ -522,13 +492,8 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
       chainId?: number;
     };
 
-    const acpAddress = getAcpAddress();
-    if (!acpAddress) {
-      return formatToolError(
-        "NOT_CONFIGURED",
-        "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
-      );
-    }
+    // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
+    const acpAddress = getAcpAddress()!;
     const chainId = rawChainId ?? getConfig().chainId;
     const chain = getChainById(chainId);
     if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);

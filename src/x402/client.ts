@@ -38,24 +38,23 @@ export function createX402Client(chainId: number): X402ClientResult {
 export async function probePaymentRequirements(
   url: string,
   method = "GET",
-  headers: Record<string, string> = {}
-): Promise<PaymentRequired | null> {
-  let response: Response;
-  try {
-    response = await globalThis.fetch(url, { method, headers });
-  } catch (err: unknown) {
-    process.stderr.write(`[x402] probePaymentRequirements fetch error for ${url}: ${err}\n`);
-    return null;
-  }
+  headers: Record<string, string> = {},
+  body?: string
+): Promise<{ requirements: PaymentRequired | null; probeResponse: Response }> {
+  const response = await globalThis.fetch(url, {
+    method,
+    headers,
+    body: body ?? undefined,
+  });
 
   if (response.status !== 402) {
-    return null;
+    return { requirements: null, probeResponse: response };
   }
 
   const headerValue = response.headers.get("PAYMENT-REQUIRED");
   if (headerValue) {
     try {
-      return decodePaymentRequiredHeader(headerValue);
+      return { requirements: decodePaymentRequiredHeader(headerValue), probeResponse: response };
     } catch (err: unknown) {
       process.stderr.write(`[x402] Failed to decode PAYMENT-REQUIRED header: ${err}\n`);
     }
@@ -64,11 +63,11 @@ export async function probePaymentRequirements(
   try {
     const text = await response.text();
     if (text) {
-      return JSON.parse(text) as PaymentRequired;
+      return { requirements: JSON.parse(text) as PaymentRequired, probeResponse: response };
     }
   } catch (err: unknown) {
     process.stderr.write(`[x402] Failed to parse 402 response body from ${url}: ${err}\n`);
   }
 
-  return null;
+  return { requirements: null, probeResponse: response };
 }
