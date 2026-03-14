@@ -161,9 +161,8 @@ async function agdpHireAgent(params: Record<string, unknown>): Promise<CallToolR
       const price = offering.jobs?.[0]?.price;
       description = `Hire agent "${offering.name}" (ID: ${offering.id})${price !== undefined ? ` for $${price}` : ""}`;
     }
-  } catch {
     // biome-ignore lint/suspicious/noEmptyBlockStatements: proceed without offering details — best-effort enrichment
-  }
+  } catch {}
 
   return executeWrite({
     toolName: "agdp_hire_agent",
