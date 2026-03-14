@@ -134,10 +134,7 @@ function createLegacyRuntimeBridge(
         })),
       ];
     },
-    async invokeTool(
-      name: string,
-      args: Record<string, unknown> = {}
-    ): Promise<CallToolResult> {
+    async invokeTool(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
       const handler = toolDispatch.get(name);
       if (!handler) {
         return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);

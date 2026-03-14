@@ -25,7 +25,6 @@ export function createX402Client(chainId: number): X402ClientResult {
   const account = getActiveAccount();
   const walletClient = createWalletClient({ account, chain, transport }).extend(publicActions);
 
-  // biome-ignore lint/suspicious/noExplicitAny: walletClient.account is always a LocalAccount at runtime; viem's union type includes json-rpc accounts which lack address at top level
   const localAccount = (walletClient.account ?? account) as LocalAccount;
   const signer = toClientEvmSigner(localAccount, publicClient);
   const scheme = new ExactEvmScheme(signer);

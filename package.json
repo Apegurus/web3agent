@@ -38,13 +38,7 @@
   "bin": {
     "web3agent": "dist/cli.js"
   },
-  "files": [
-    "dist",
-    "examples",
-    "WEB3_CONTEXT.md",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "examples", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
   "engines": {
     "node": ">=18"
   },
