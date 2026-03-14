@@ -159,6 +159,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
         "Requires token addresses — use resolve_token first to get addresses.",
       inputSchema: zodToJsonSchema(lifiGetQuoteSchema) as Record<string, unknown>,
       handler: lifiExecuteBridge,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

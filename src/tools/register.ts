@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { RiskLevel } from "../policy/types.js";
 import type { ToolCategory } from "../runtime/types.js";
 import { listSupportedChains, serverStatus } from "./utility/index.js";
 import {
@@ -32,6 +33,7 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>;
   category: ToolCategory;
   handler: (params: Record<string, unknown>) => Promise<CallToolResult>;
+  riskLevel?: RiskLevel;
   annotations?: {
     title?: string;
     readOnlyHint?: boolean;
@@ -94,6 +96,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Activate a wallet from a private key or mnemonic. Persists to disk (mode 0600) and emits wallet-changed.",
       inputSchema: zodToJsonSchema(walletActivateSchema) as Record<string, unknown>,
       handler: (params) => walletActivate(params),
+      riskLevel: "destructive",
       annotations: { destructiveHint: true },
     },
     {
@@ -103,6 +106,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Deactivate the current wallet, delete persisted key file, and revert to read-only ephemeral mode.",
       inputSchema: { type: "object", properties: {} },
       handler: () => walletDeactivate(),
+      riskLevel: "destructive",
       annotations: { destructiveHint: true },
     },
     {

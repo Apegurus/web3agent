@@ -462,6 +462,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Requires token addresses — use resolve_token first.",
       inputSchema: zodToJsonSchema(orbsSwapSchema) as Record<string, unknown>,
       handler: orbsSwap,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -488,6 +489,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       description: "Place a dTWAP (time-weighted average price) order (write, confirmation-gated)",
       inputSchema: zodToJsonSchema(orbsPlaceTwapSchema) as Record<string, unknown>,
       handler: orbsPlaceTwap,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -505,6 +507,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       description: "Place a dLIMIT order (write, confirmation-gated)",
       inputSchema: zodToJsonSchema(orbsPlaceLimitSchema) as Record<string, unknown>,
       handler: orbsPlaceLimit,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

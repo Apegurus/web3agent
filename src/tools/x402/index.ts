@@ -114,6 +114,7 @@ export function getX402ToolDefinitions(): ToolDefinition[] {
         "Fetch a URL, automatically paying via x402 protocol if required. Checks payment cost first, queues confirmation if payment needed, then executes. No-op if no payment required.",
       inputSchema: zodToJsonSchema(x402FetchSchema) as Record<string, unknown>,
       handler: x402Fetch,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
   ];

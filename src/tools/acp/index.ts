@@ -514,6 +514,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       description: "Set ERC-8183 job budget in payment token smallest units.",
       inputSchema: zodToJsonSchema(erc8183SetBudgetSchema) as Record<string, unknown>,
       handler: acpSetBudget,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -523,6 +524,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
         "Fund ERC-8183 job escrow. Performs allowance check + approve if needed, then funds in one confirmation flow.",
       inputSchema: zodToJsonSchema(erc8183FundJobSchema) as Record<string, unknown>,
       handler: acpFundJob,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -539,6 +541,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       description: "Complete an ERC-8183 job and release escrow.",
       inputSchema: zodToJsonSchema(erc8183CompleteJobSchema) as Record<string, unknown>,
       handler: acpCompleteJob,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -555,6 +558,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       description: "Claim refund from an expired/rejected ERC-8183 job.",
       inputSchema: zodToJsonSchema(erc8183ClaimRefundSchema) as Record<string, unknown>,
       handler: acpClaimRefund,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
