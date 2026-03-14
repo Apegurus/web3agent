@@ -9,6 +9,7 @@ export default defineConfig([
       index: "src/index.ts",
       "runtime/index": "src/runtime/index.ts",
       "mcp/index": "src/mcp/index.ts",
+      "agdp/api": "src/agdp/api.ts",
     },
     format: ["esm"],
     target: "node18",
