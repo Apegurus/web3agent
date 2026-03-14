@@ -16,12 +16,13 @@ if (!("localStorage" in globalThis)) {
   });
 }
 
-import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
+import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import { type Account, type Hex, createPublicClient, maxUint256 } from "viem";
 import { getChainById } from "../chains/registry.js";
 import { getConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
+import { withTimeout } from "../utils/timeout.js";
 
 export type { Quote };
 
@@ -126,6 +127,9 @@ const DEFAULT_PARTNERS: Record<number, string> = {
   59144: "lynex",
 };
 
+const ORBS_REQUEST_TIMEOUT_MS = 15_000;
+export const DEX_MIN_AMOUNT_OUT_DISABLED = "-1";
+
 function readConfiguredPartnerOverride(): string | undefined {
   try {
     return getConfig().orbsPartner ?? process.env.ORBS_PARTNER ?? undefined;
@@ -137,7 +141,7 @@ function readConfiguredPartnerOverride(): string | undefined {
       return process.env.ORBS_PARTNER ?? undefined;
     }
 
-    return process.env.ORBS_PARTNER ?? undefined;
+    throw e;
   }
 }
 
@@ -205,19 +209,23 @@ export async function submitSwap(params: {
       `${quote.inAmount} ${quote.inToken} → ${quote.outToken}\n`
   );
 
-  const response = await fetch(`${apiUrl}/swap-async?chainId=${chainId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...quote,
-      inToken: quote.inToken,
-      outToken: quote.outToken,
-      inAmount: quote.inAmount,
-      user: quote.user,
-      signature,
-      sessionId: quote.sessionId,
+  const response = await withTimeout(
+    fetch(`${apiUrl}/swap-async?chainId=${chainId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...quote,
+        inToken: quote.inToken,
+        outToken: quote.outToken,
+        inAmount: quote.inAmount,
+        user: quote.user,
+        signature,
+        sessionId: quote.sessionId,
+      }),
     }),
-  });
+    ORBS_REQUEST_TIMEOUT_MS,
+    "Orbs swap submission"
+  );
 
   // biome-ignore lint/suspicious/noExplicitAny: Orbs API returns untyped JSON
   const result: any = await response.json();
@@ -247,11 +255,15 @@ export async function pollSwapStatus(params: {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     try {
-      const response = await fetch(`${apiUrl}/swap/status/${sessionId}?chainId=${chainId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user }),
-      });
+      const response = await withTimeout(
+        fetch(`${apiUrl}/swap/status/${sessionId}?chainId=${chainId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user }),
+        }),
+        ORBS_REQUEST_TIMEOUT_MS,
+        "Orbs swap status poll"
+      );
 
       // biome-ignore lint/suspicious/noExplicitAny: Orbs API returns untyped JSON
       const status: any = await response.json();
@@ -310,14 +322,18 @@ function formatQuoteError(code: string): string {
 
 export async function getIntentQuote(chainId: number, request: IntentQuoteRequest): Promise<Quote> {
   const sdk = getSdk(chainId);
-  const quote = await sdk.getQuote({
-    fromToken: request.fromToken,
-    toToken: request.toToken,
-    inAmount: request.inAmount,
-    slippage: request.slippage ?? 0.5,
-    dexMinAmountOut: "-1",
-    account: request.account,
-  });
+  const quote = await withTimeout<Quote>(
+    sdk.getQuote({
+      fromToken: request.fromToken,
+      toToken: request.toToken,
+      inAmount: request.inAmount,
+      slippage: request.slippage ?? 0.5,
+      dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
+      account: request.account,
+    }),
+    ORBS_REQUEST_TIMEOUT_MS,
+    "Orbs intent quote"
+  );
 
   if (quote.error) {
     throw new Error(formatQuoteError(quote.error));
@@ -328,13 +344,17 @@ export async function getIntentQuote(chainId: number, request: IntentQuoteReques
 
 export async function getQuote(chainId: number, request: QuoteRequest): Promise<QuoteResult> {
   const sdk = getSdk(chainId);
-  const quote = await sdk.getQuote({
-    fromToken: request.fromToken,
-    toToken: request.toToken,
-    inAmount: request.inAmount,
-    slippage: request.slippage ?? 0.5,
-    account: request.account,
-  });
+  const quote = await withTimeout<Quote>(
+    sdk.getQuote({
+      fromToken: request.fromToken,
+      toToken: request.toToken,
+      inAmount: request.inAmount,
+      slippage: request.slippage ?? 0.5,
+      account: request.account,
+    }),
+    ORBS_REQUEST_TIMEOUT_MS,
+    "Orbs quote"
+  );
 
   if (quote.error) {
     throw new Error(formatQuoteError(quote.error));

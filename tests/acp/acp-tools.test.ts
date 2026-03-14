@@ -2,6 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getErc8183ToolDefinitions } from "../../src/tools/acp/index.js";
 import type { ToolDefinition } from "../../src/tools/register.js";
+
 function textOf(result: CallToolResult, index = 0): string {
   const entry = result.content[index];
   return "text" in entry ? (entry.text as string) : "";

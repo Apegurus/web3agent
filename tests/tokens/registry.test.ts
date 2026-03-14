@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getChainTokens, getRegisteredChainIds, lookupToken } from "../../src/tokens/registry.js";
+import {
+  getChainTokens,
+  getRegisteredChainIds,
+  lookupToken,
+  lookupTokenByAddress,
+} from "../../src/tokens/registry.js";
 
 describe("token registry", () => {
   describe("lookupToken", () => {
@@ -28,6 +33,25 @@ describe("token registry", () => {
 
     it("returns undefined for unknown chain", () => {
       expect(lookupToken("USDT", 999999)).toBeUndefined();
+    });
+  });
+
+  describe("lookupTokenByAddress", () => {
+    it("returns the entry for a known token address in constant time", () => {
+      const entry = lookupTokenByAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", 8453);
+
+      expect(entry).toBeDefined();
+      expect(entry?.symbol).toBe("USDC");
+      expect(entry?.decimals).toBe(6);
+    });
+
+    it("is case insensitive and returns undefined for unknown addresses", () => {
+      expect(lookupTokenByAddress("0x833589fcD6EDB6E08F4c7C32D4F71B54bDa02913", 8453)?.symbol).toBe(
+        "USDC"
+      );
+      expect(
+        lookupTokenByAddress("0x1111111111111111111111111111111111111111", 8453)
+      ).toBeUndefined();
     });
   });
 

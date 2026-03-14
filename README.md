@@ -63,7 +63,17 @@ Protocol-specific helpers like `prepareSwapIntent()` and `submitSignedSwap()` re
 
 Prepared browser-wallet flows are staged. `prepareOperation()` and `resumeOperation()` only return the next required actions, and `resumeOperation()` persists previously completed action results inside the opaque resume state so callers only need to submit newly finished actions on each round.
 
+Transaction actions are only considered complete once the caller returns a confirmed result:
+
+```js
+{ type: "transaction", txHash: "0x...", status: "confirmed" }
+```
+
+`resumeOperation()` independently verifies the receipt before advancing to the next stage.
+
 For LI.FI compatibility helpers, `prepareBridgeIntent()` now returns both `steps` and `actions` as the transaction-only sequence for browser wallets, including any required approval transactions before the bridge call. Use `prepareOperation()` with `integration: "lifi"` when you need the staged external-wallet flow with typed-data signing.
+
+`simulateTransaction()` returns a success payload on successful simulation and throws structured `Web3AgentError` failures for invalid inputs, reverts, or RPC errors. When `debug_traceCall` is unavailable, balance changes come from a best-effort fallback decoder.
 
 Architecture notes live in [docs/architecture/browser-wallet-operations.md](./docs/architecture/browser-wallet-operations.md).
 

@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   getRequiredApprovals as getRequiredApprovalsForIntent,
   prepareLimitIntent,
@@ -15,6 +16,7 @@ import {
 } from "../../orbs/chains.js";
 import { getDsltpToolDefinitions } from "../../orbs/dsltp.js";
 import {
+  DEX_MIN_AMOUNT_OUT_DISABLED,
   getQuote,
   getSdk,
   normalizeEip712ForSigning,
@@ -29,17 +31,14 @@ import {
   submitSignedOrder,
 } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
-import {
-  formatToolError,
-  formatToolErrorFromUnknown,
-  formatToolResponse,
-} from "../../utils/errors.js";
+import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { splitSignature } from "../../utils/signature.js";
 import { resolveChainId } from "../../utils/tool-helpers.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
+import { createToolHandler } from "../shared/handler-factory.js";
 import {
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
@@ -101,7 +100,7 @@ async function executeOrbsSwapNow(params: Record<string, unknown>): Promise<Call
       toToken,
       inAmount,
       slippage,
-      dexMinAmountOut: "-1",
+      dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
       account: account.address,
     });
 
@@ -243,29 +242,17 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
   });
 }
 
-async function orbsPrepareSwapIntentTool(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(orbsPrepareSwapIntentSchema, params);
-  if (!v.success) return v.error;
+const orbsPrepareSwapIntentTool = createToolHandler(
+  orbsPrepareSwapIntentSchema,
+  prepareSwapIntent,
+  "ORBS_QUOTE_ERROR"
+);
 
-  try {
-    return formatToolResponse(await prepareSwapIntent(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("ORBS_QUOTE_ERROR", error);
-  }
-}
-
-async function orbsGetRequiredApprovalsTool(
-  params: Record<string, unknown>
-): Promise<CallToolResult> {
-  const v = validateInput(orbsGetRequiredApprovalsSchema, params);
-  if (!v.success) return v.error;
-
-  try {
-    return formatToolResponse(await getRequiredApprovalsForIntent(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("APPROVAL_CHECK_ERROR", error);
-  }
-}
+const orbsGetRequiredApprovalsTool = createToolHandler(
+  orbsGetRequiredApprovalsSchema,
+  getRequiredApprovalsForIntent,
+  "APPROVAL_CHECK_ERROR"
+);
 
 async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = resolveChainId(params);
@@ -327,16 +314,11 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
   });
 }
 
-async function orbsPrepareTwapIntentTool(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(orbsPrepareTwapIntentSchema, params);
-  if (!v.success) return v.error;
-
-  try {
-    return formatToolResponse(await prepareTwapIntent(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("ORBS_TWAP_ERROR", error);
-  }
-}
+const orbsPrepareTwapIntentTool = createToolHandler(
+  orbsPrepareTwapIntentSchema,
+  prepareTwapIntent,
+  "ORBS_TWAP_ERROR"
+);
 
 async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = resolveChainId(params);
@@ -397,42 +379,23 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
   });
 }
 
-async function orbsPrepareLimitIntentTool(
-  params: Record<string, unknown>
-): Promise<CallToolResult> {
-  const v = validateInput(orbsPrepareLimitIntentSchema, params);
-  if (!v.success) return v.error;
+const orbsPrepareLimitIntentTool = createToolHandler(
+  orbsPrepareLimitIntentSchema,
+  prepareLimitIntent,
+  "ORBS_LIMIT_ERROR"
+);
 
-  try {
-    return formatToolResponse(await prepareLimitIntent(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("ORBS_LIMIT_ERROR", error);
-  }
-}
+const orbsSubmitSignedSwapTool = createToolHandler(
+  orbsSubmitSignedSwapSchema,
+  submitPreparedSwap,
+  "ORBS_SWAP_ERROR"
+);
 
-async function orbsSubmitSignedSwapTool(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(orbsSubmitSignedSwapSchema, params);
-  if (!v.success) return v.error;
-
-  try {
-    return formatToolResponse(await submitPreparedSwap(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("ORBS_SWAP_ERROR", error);
-  }
-}
-
-async function orbsSubmitSignedTwapOrderTool(
-  params: Record<string, unknown>
-): Promise<CallToolResult> {
-  const v = validateInput(orbsSubmitSignedTwapOrderSchema, params);
-  if (!v.success) return v.error;
-
-  try {
-    return formatToolResponse(await submitSignedTwapOrder(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("ORBS_TWAP_ERROR", error);
-  }
-}
+const orbsSubmitSignedTwapOrderTool = createToolHandler(
+  orbsSubmitSignedTwapOrderSchema,
+  submitSignedTwapOrder,
+  "ORBS_TWAP_ERROR"
+);
 
 async function orbsListOrders(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsListOrdersSchema, params);
@@ -480,29 +443,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       description:
         "Get a quote from Orbs Liquidity Hub for same-chain aggregated swap. " +
         "Requires token addresses — use resolve_token first to get addresses.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: {
-            type: "number",
-            description: "Chain ID (supported: 137, 56, 8453, 59144, 81457, 42161)",
-          },
-          fromToken: { type: "string", description: "Source token address" },
-          toToken: {
-            type: "string",
-            description: "Destination token address",
-          },
-          inAmount: {
-            type: "string",
-            description: "Input amount in wei",
-          },
-          slippage: {
-            type: "number",
-            description: "Slippage tolerance (0.5 = 0.5%)",
-          },
-        },
-        required: ["chainId", "fromToken", "toToken", "inAmount"],
-      },
+      inputSchema: zodToJsonSchema(orbsGetQuoteSchema) as Record<string, unknown>,
       handler: orbsGetQuote,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -513,17 +454,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Execute a same-chain swap via Orbs Liquidity Hub (write, confirmation-gated). " +
         "Supported chains: 137 (Polygon), 56 (BSC), 8453 (Base), 59144 (Linea), 81457 (Blast), 42161 (Arbitrum). " +
         "Requires token addresses — use resolve_token first.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          fromToken: { type: "string" },
-          toToken: { type: "string" },
-          inAmount: { type: "string" },
-          slippage: { type: "number" },
-        },
-        required: ["chainId", "fromToken", "toToken", "inAmount"],
-      },
+      inputSchema: zodToJsonSchema(orbsSwapSchema) as Record<string, unknown>,
       handler: orbsSwap,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -532,18 +463,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       category: "swap",
       description:
         "Prepare a same-chain Orbs swap intent for external wallet signing. Returns required approvals, full quote, and EIP-712 typed data.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          fromToken: { type: "string" },
-          toToken: { type: "string" },
-          inAmount: { type: "string" },
-          slippage: { type: "number" },
-          account: { type: "string", description: "External signer address" },
-        },
-        required: ["chainId", "fromToken", "toToken", "inAmount", "account"],
-      },
+      inputSchema: zodToJsonSchema(orbsPrepareSwapIntentSchema) as Record<string, unknown>,
       handler: orbsPrepareSwapIntentTool,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -552,16 +472,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       category: "swap",
       description:
         "Check whether wrapping native assets or approving Permit2 is required before signing an Orbs swap intent.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          fromToken: { type: "string" },
-          inAmount: { type: "string" },
-          account: { type: "string", description: "External signer address" },
-        },
-        required: ["chainId", "fromToken", "inAmount", "account"],
-      },
+      inputSchema: zodToJsonSchema(orbsGetRequiredApprovalsSchema) as Record<string, unknown>,
       handler: orbsGetRequiredApprovalsTool,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -569,27 +480,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       name: "orbs_place_twap",
       category: "orders",
       description: "Place a dTWAP (time-weighted average price) order (write, confirmation-gated)",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          srcToken: { type: "string" },
-          dstToken: { type: "string" },
-          srcAmount: {
-            type: "string",
-            description: "Total amount to swap in wei",
-          },
-          chunks: {
-            type: "number",
-            description: "Number of equal chunks",
-          },
-          fillDelay: {
-            type: "number",
-            description: "Delay between fills in seconds",
-          },
-        },
-        required: ["chainId", "srcToken", "dstToken", "srcAmount", "chunks", "fillDelay"],
-      },
+      inputSchema: zodToJsonSchema(orbsPlaceTwapSchema) as Record<string, unknown>,
       handler: orbsPlaceTwap,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -598,27 +489,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       category: "orders",
       description:
         "Prepare a dTWAP order for external wallet signing. Returns raw order data and EIP-712 typed data.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          srcToken: { type: "string" },
-          dstToken: { type: "string" },
-          srcAmount: { type: "string" },
-          chunks: { type: "number" },
-          fillDelay: { type: "number" },
-          account: { type: "string", description: "External signer address" },
-        },
-        required: [
-          "chainId",
-          "srcToken",
-          "dstToken",
-          "srcAmount",
-          "chunks",
-          "fillDelay",
-          "account",
-        ],
-      },
+      inputSchema: zodToJsonSchema(orbsPrepareTwapIntentSchema) as Record<string, unknown>,
       handler: orbsPrepareTwapIntentTool,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -626,24 +497,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       name: "orbs_place_limit",
       category: "orders",
       description: "Place a dLIMIT order (write, confirmation-gated)",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          srcToken: { type: "string" },
-          dstToken: { type: "string" },
-          srcAmount: { type: "string" },
-          dstMinAmount: {
-            type: "string",
-            description: "Minimum output amount (the limit price)",
-          },
-          expiry: {
-            type: "number",
-            description: "Order expiry in seconds from now",
-          },
-        },
-        required: ["chainId", "srcToken", "dstToken", "srcAmount", "dstMinAmount"],
-      },
+      inputSchema: zodToJsonSchema(orbsPlaceLimitSchema) as Record<string, unknown>,
       handler: orbsPlaceLimit,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -652,19 +506,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       category: "orders",
       description:
         "Prepare a dLIMIT order for external wallet signing. Returns raw order data and EIP-712 typed data.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          srcToken: { type: "string" },
-          dstToken: { type: "string" },
-          srcAmount: { type: "string" },
-          dstMinAmount: { type: "string" },
-          expiry: { type: "number" },
-          account: { type: "string", description: "External signer address" },
-        },
-        required: ["chainId", "srcToken", "dstToken", "srcAmount", "dstMinAmount", "account"],
-      },
+      inputSchema: zodToJsonSchema(orbsPrepareLimitIntentSchema) as Record<string, unknown>,
       handler: orbsPrepareLimitIntentTool,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -673,15 +515,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       category: "swap",
       description:
         "Submit an externally signed Orbs Liquidity Hub swap using the quote returned by orbs_prepare_swap_intent.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-          quote: { type: "object" },
-          signature: { type: "string" },
-        },
-        required: ["chainId", "quote", "signature"],
-      },
+      inputSchema: zodToJsonSchema(orbsSubmitSignedSwapSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedSwapTool,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -690,22 +524,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       category: "orders",
       description:
         "Submit an externally signed dTWAP or dLIMIT order using the order returned by the prepare intent tools.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          order: { type: "object" },
-          signature: {
-            type: "object",
-            properties: {
-              v: { type: "number" },
-              r: { type: "string" },
-              s: { type: "string" },
-            },
-            required: ["v", "r", "s"],
-          },
-        },
-        required: ["order", "signature"],
-      },
+      inputSchema: zodToJsonSchema(orbsSubmitSignedTwapOrderSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedTwapOrderTool,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -713,25 +532,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       name: "orbs_swap_status",
       category: "swap",
       description: "Check the status of a pending Orbs Liquidity Hub swap",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number", description: "Chain ID" },
-          sessionId: {
-            type: "string",
-            description: "Session ID from orbs_swap response",
-          },
-          user: {
-            type: "string",
-            description: "User wallet address",
-          },
-          maxAttempts: {
-            type: "number",
-            description: "Max poll attempts (default 15, 2s each = 30s)",
-          },
-        },
-        required: ["chainId", "sessionId", "user"],
-      },
+      inputSchema: zodToJsonSchema(orbsSwapStatusSchema) as Record<string, unknown>,
       handler: orbsSwapStatus,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -739,13 +540,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       name: "orbs_list_orders",
       category: "orders",
       description: "List open TWAP/dLIMIT orders for active wallet",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          chainId: { type: "number" },
-        },
-        required: ["chainId"],
-      },
+      inputSchema: zodToJsonSchema(orbsListOrdersSchema) as Record<string, unknown>,
       handler: orbsListOrders,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

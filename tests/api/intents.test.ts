@@ -22,6 +22,8 @@ const lifiMocks = vi.hoisted(() => ({
   getChains: vi.fn(),
   convertQuoteToRoute: vi.fn(),
   setAllowance: vi.fn(),
+  createConfig: vi.fn(),
+  EVM: vi.fn((provider: unknown) => ({ provider })),
 }));
 
 vi.mock("viem", async (importOriginal) => {
@@ -57,6 +59,8 @@ vi.mock("@lifi/sdk", () => ({
   getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
   convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
   setAllowance: (...args: unknown[]) => lifiMocks.setAllowance(...args),
+  createConfig: (...args: unknown[]) => lifiMocks.createConfig(...args),
+  EVM: (...args: unknown[]) => lifiMocks.EVM(...args),
 }));
 
 describe("browser wallet intent APIs", () => {
@@ -406,6 +410,56 @@ describe("browser wallet intent APIs", () => {
         type: "transaction",
       }),
     ]);
+  });
+
+  it("prepareBridgeIntent skips approvals for alternate native token aliases", async () => {
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 137,
+        toChainId: 8453,
+        fromToken: {
+          address: "0x0000000000000000000000000000000000001010",
+          symbol: "POL",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000000000000000000",
+      },
+      estimate: {
+        approvalAddress: "0x1111111111111111111111111111111111111111",
+        toAmount: "999000000000000000",
+        toAmountMin: "990000000000000000",
+      },
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xbbbb",
+        chainId: 137,
+        value: "1000000000000000000",
+      },
+    });
+
+    const { prepareBridgeIntent } = await import("../../src/api/intents.js");
+    const result = await prepareBridgeIntent({
+      fromChainId: 137,
+      toChainId: 8453,
+      fromTokenAddress: "0x0000000000000000000000000000000000001010",
+      toTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      fromAmount: "1000000000000000000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect(result.steps).toEqual([
+      expect.objectContaining({
+        type: "bridge",
+      }),
+    ]);
+    expect(result.actions).toHaveLength(1);
+    expect(result.actions[0]).toMatchObject({
+      id: "bridge:execute:0",
+      type: "transaction",
+    });
   });
 
   it("submitSignedSwap forwards the quote and signature to Orbs", async () => {

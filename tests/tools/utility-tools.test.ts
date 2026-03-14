@@ -97,7 +97,7 @@ describe("utility tool handlers", () => {
   });
 
   it("serverStatus returns not_initialized when health is not set", async () => {
-    const { serverStatus, setHealthStatus } = await import("../../src/tools/utility/index.js");
+    const { setHealthStatus } = await import("../../src/tools/utility/index.js");
     setHealthStatus(
       {
         core: "ok",

@@ -1,5 +1,5 @@
-import { http, createWalletClient } from "viem";
 import type { Account, HttpTransport, WalletClient } from "viem";
+import { http, createWalletClient } from "viem";
 import { getChainById } from "../chains/registry.js";
 import type { RuntimeConfig } from "../types/config.js";
 import { getConfig } from "./env.js";

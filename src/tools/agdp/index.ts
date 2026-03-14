@@ -6,16 +6,14 @@ import {
   getOfferingById,
   searchOfferings,
 } from "../../agdp/api.js";
-import { getConfig } from "../../config/env.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
-import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
+import { getWalletState } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
 import {
-  agdpCreateOfferingSchema,
   agdpGetMyJobsSchema,
   agdpGetOfferingSchema,
   agdpGetOfferingsSchema,
@@ -120,8 +118,9 @@ async function agdpHireAgent(params: Record<string, unknown>): Promise<CallToolR
       const price = cachedAgent.jobs?.[0]?.price;
       description = `Hire agent "${cachedAgent.name}" (ID: ${cachedAgent.id})${price !== undefined ? ` for $${price}` : ""}`;
     }
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: proceed without offering details — best-effort enrichment
-  } catch {}
+  } catch (_error: unknown) {
+    // Best-effort enrichment only; the write flow can continue without cached offering details.
+  }
 
   return executeWrite({
     toolName: "agdp_hire_agent",

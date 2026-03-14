@@ -1,32 +1,20 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { prepareOperation, resumeOperation } from "../../api/operations.js";
 import type { ToolDefinition } from "../../tools/register.js";
-import { formatToolErrorFromUnknown, formatToolResponse } from "../../utils/errors.js";
-import { validateInput } from "../../utils/validation.js";
+import { createToolHandler } from "../shared/handler-factory.js";
 import { prepareOperationSchema, resumeOperationSchema } from "./schemas.js";
 
-async function operationPrepareTool(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(prepareOperationSchema, params);
-  if (!v.success) return v.error;
+const operationPrepareTool = createToolHandler(
+  prepareOperationSchema,
+  prepareOperation,
+  "OPERATION_PREPARE_ERROR"
+);
 
-  try {
-    return formatToolResponse(await prepareOperation(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("OPERATION_PREPARE_ERROR", error);
-  }
-}
-
-async function operationResumeTool(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(resumeOperationSchema, params);
-  if (!v.success) return v.error;
-
-  try {
-    return formatToolResponse(await resumeOperation(v.data));
-  } catch (error: unknown) {
-    return formatToolErrorFromUnknown("OPERATION_RESUME_ERROR", error);
-  }
-}
+const operationResumeTool = createToolHandler(
+  resumeOperationSchema,
+  resumeOperation,
+  "OPERATION_RESUME_ERROR"
+);
 
 export function getOperationToolDefinitions(): ToolDefinition[] {
   return [

@@ -1,5 +1,5 @@
-import { createPublicClient } from "viem";
 import type { Account, PublicClient } from "viem";
+import { createPublicClient } from "viem";
 import { getConfig, parseEnv } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
 import type { RuntimeConfig } from "../types/config.js";
@@ -27,34 +27,71 @@ export function resolveRuntimeConfig(chainId: number, config?: RuntimeConfig): R
   }
 }
 
+export function getChainForRuntime(chainId: number) {
+  return assertChainSupported(chainId);
+}
+
+export function getRuntimeConfigForChain(chainId: number, config?: RuntimeConfig): RuntimeConfig {
+  return resolveRuntimeConfig(chainId, config);
+}
+
+export function getTransportForRuntimeChain(chainId: number, config?: RuntimeConfig) {
+  return getTransportForChain(chainId, getRuntimeConfigForChain(chainId, config));
+}
+
+export function getRpcUrlForRuntimeChain(
+  chainId: number,
+  config?: RuntimeConfig
+): string | undefined {
+  const resolvedConfig = getRuntimeConfigForChain(chainId, config);
+  return (
+    resolvedConfig.chainRpcUrls[chainId] ??
+    (resolvedConfig.chainId === chainId ? resolvedConfig.rpcUrl : undefined)
+  );
+}
+
+export function createPublicClientForRuntimeChain(
+  chainId: number,
+  config?: RuntimeConfig
+): PublicClient {
+  return createPublicClient({
+    chain: getChainForRuntime(chainId),
+    transport: getTransportForRuntimeChain(chainId, config),
+  });
+}
+
+export function createWalletClientForRuntimeChain(
+  account: Account,
+  chainId: number,
+  config?: RuntimeConfig
+) {
+  return createWalletClientForChain(account, chainId, getRuntimeConfigForChain(chainId, config));
+}
+
 export class ChainAccess {
   constructor(private readonly config?: RuntimeConfig) {}
 
   getChain(chainId: number) {
-    return assertChainSupported(chainId);
+    return getChainForRuntime(chainId);
   }
 
   getConfig(chainId: number): RuntimeConfig {
-    return resolveRuntimeConfig(chainId, this.config);
+    return getRuntimeConfigForChain(chainId, this.config);
   }
 
   getTransport(chainId: number) {
-    return getTransportForChain(chainId, this.getConfig(chainId));
+    return getTransportForRuntimeChain(chainId, this.config);
   }
 
   getRpcUrl(chainId: number): string | undefined {
-    const config = this.getConfig(chainId);
-    return config.chainRpcUrls[chainId] ?? (config.chainId === chainId ? config.rpcUrl : undefined);
+    return getRpcUrlForRuntimeChain(chainId, this.config);
   }
 
   createPublicClient(chainId: number): PublicClient {
-    return createPublicClient({
-      chain: this.getChain(chainId),
-      transport: this.getTransport(chainId),
-    });
+    return createPublicClientForRuntimeChain(chainId, this.config);
   }
 
   createWalletClient(account: Account, chainId: number) {
-    return createWalletClientForChain(account, chainId, this.getConfig(chainId));
+    return createWalletClientForRuntimeChain(account, chainId, this.config);
   }
 }

@@ -41,19 +41,19 @@ describe("LI.FI browser-wallet MCP tool", () => {
     const result = await tool.handler({
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x1",
-      toTokenAddress: "0x2",
+      fromTokenAddress: "0x1111111111111111111111111111111111111111",
+      toTokenAddress: "0x2222222222222222222222222222222222222222",
       fromAmount: "10",
-      account: "0xabc",
+      account: "0x1234567890123456789012345678901234567890",
     });
 
     expect(intentMocks.prepareBridgeIntent).toHaveBeenCalledWith({
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x1",
-      toTokenAddress: "0x2",
+      fromTokenAddress: "0x1111111111111111111111111111111111111111",
+      toTokenAddress: "0x2222222222222222222222222222222222222222",
       fromAmount: "10",
-      account: "0xabc",
+      account: "0x1234567890123456789012345678901234567890",
     });
     expect(result.isError).toBe(false);
   });

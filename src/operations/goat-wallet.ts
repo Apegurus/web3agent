@@ -1,6 +1,6 @@
 import type { EvmChain, Signature, Token, ToolBase } from "@goat-sdk/core";
-import { encodeFunctionData, parseAbi } from "viem";
 import type { Abi } from "viem";
+import { encodeFunctionData, parseAbi } from "viem";
 import { Web3AgentError } from "../api/errors.js";
 import type {
   OperationActionResult,
@@ -10,7 +10,7 @@ import type {
   PreparedTransactionAction,
 } from "../api/types.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
-import type { ChainAccess } from "./chain-access.js";
+import { createPublicClientForRuntimeChain, getChainForRuntime } from "./chain-access.js";
 import { assertAddress } from "./validation.js";
 
 interface EVMTransaction {
@@ -89,7 +89,6 @@ export class OperationPauseError extends Error {
 interface PreparedActionGoatWalletOptions {
   account: string;
   chainId: number;
-  chainAccess: ChainAccess;
   actionResults: Record<string, OperationActionResult>;
 }
 
@@ -101,8 +100,8 @@ export class PreparedActionGoatWallet {
   private signMessageIndex = 0;
 
   constructor(private readonly options: PreparedActionGoatWalletOptions) {
-    const chain = this.options.chainAccess.getChain(this.options.chainId);
-    this.publicClient = this.options.chainAccess.createPublicClient(this.options.chainId);
+    const chain = getChainForRuntime(this.options.chainId);
+    this.publicClient = createPublicClientForRuntimeChain(this.options.chainId);
     this.chain = {
       type: "evm",
       id: chain.id,
@@ -163,6 +162,28 @@ export class PreparedActionGoatWallet {
     const id = `transaction:${this.transactionIndex++}`;
     const result = this.options.actionResults[id];
     if (result?.type === "transaction") {
+      try {
+        const receipt = await this.publicClient.getTransactionReceipt({
+          hash: result.txHash as `0x${string}`,
+        });
+        if (receipt.status !== "success") {
+          throw new Web3AgentError({
+            code: "INVALID_PARAMS",
+            message: `Action result ${id} must reference a successful confirmed transaction`,
+          });
+        }
+      } catch (error: unknown) {
+        if (error instanceof Web3AgentError) {
+          throw error;
+        }
+
+        throw new Web3AgentError({
+          code: "INVALID_PARAMS",
+          message: `Action result ${id} must reference a confirmed transaction receipt`,
+          cause: error,
+        });
+      }
+
       return { hash: result.txHash };
     }
 

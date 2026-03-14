@@ -112,7 +112,7 @@ async function erc8004RegisterAgent(params: Record<string, unknown>): Promise<Ca
 
   return executeWrite({
     toolName: "erc8004_register_agent",
-    description: `Register agent \"${v.data.name}\" on ERC-8004 Identity Registry (chain ${chainId})`,
+    description: `Register agent "${v.data.name}" on ERC-8004 Identity Registry (chain ${chainId})`,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeRegisterAgent,
   });

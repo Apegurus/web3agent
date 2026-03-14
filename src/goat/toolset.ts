@@ -1,5 +1,5 @@
-import { getTools } from "@goat-sdk/core";
 import type { PluginBase, ToolBase, WalletClientBase } from "@goat-sdk/core";
+import { getTools } from "@goat-sdk/core";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { PluginLoadResult } from "./plugins.js";
 

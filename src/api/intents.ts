@@ -13,6 +13,7 @@ import type {
   LimitIntent,
   PrepareBridgeIntentInput,
   PrepareLimitIntentInput,
+  PrepareOperationInput,
   PrepareSwapIntentInput,
   PrepareTwapIntentInput,
   PreparedOperation,
@@ -34,6 +35,27 @@ function getCompatibilityIntent<T>(operation: PreparedOperation, field: string):
   return intent as T;
 }
 
+async function prepareCompatibilityIntent<T>(params: {
+  input: PrepareSwapIntentInput | PrepareTwapIntentInput | PrepareLimitIntentInput;
+  kind: "swap" | "twap" | "limit";
+  errorCode: "ORBS_QUOTE_ERROR" | "ORBS_TWAP_ERROR" | "ORBS_LIMIT_ERROR";
+}): Promise<T> {
+  const result = await prepareOperation({
+    integration: "orbs",
+    kind: params.kind,
+    ...params.input,
+  } as PrepareOperationInput);
+
+  if ("completed" in result) {
+    throw new Web3AgentError({
+      code: params.errorCode,
+      message: `${params.kind.toUpperCase()} preparation completed unexpectedly without returning an intent`,
+    });
+  }
+
+  return getCompatibilityIntent<T>(result, params.kind);
+}
+
 export async function getRequiredApprovals(
   params: GetRequiredApprovalsInput
 ): Promise<ApprovalStep[]> {
@@ -41,54 +63,27 @@ export async function getRequiredApprovals(
 }
 
 export async function prepareSwapIntent(params: PrepareSwapIntentInput): Promise<SwapIntent> {
-  const result = await prepareOperation({
-    integration: "orbs",
+  return prepareCompatibilityIntent<SwapIntent>({
+    input: params,
     kind: "swap",
-    ...params,
+    errorCode: "ORBS_QUOTE_ERROR",
   });
-
-  if ("completed" in result) {
-    throw new Web3AgentError({
-      code: "ORBS_QUOTE_ERROR",
-      message: "Swap preparation completed unexpectedly without returning an intent",
-    });
-  }
-
-  return getCompatibilityIntent<SwapIntent>(result, "swap");
 }
 
 export async function prepareTwapIntent(params: PrepareTwapIntentInput): Promise<TwapIntent> {
-  const result = await prepareOperation({
-    integration: "orbs",
+  return prepareCompatibilityIntent<TwapIntent>({
+    input: params,
     kind: "twap",
-    ...params,
+    errorCode: "ORBS_TWAP_ERROR",
   });
-
-  if ("completed" in result) {
-    throw new Web3AgentError({
-      code: "ORBS_TWAP_ERROR",
-      message: "TWAP preparation completed unexpectedly without returning an intent",
-    });
-  }
-
-  return getCompatibilityIntent<TwapIntent>(result, "twap");
 }
 
 export async function prepareLimitIntent(params: PrepareLimitIntentInput): Promise<LimitIntent> {
-  const result = await prepareOperation({
-    integration: "orbs",
+  return prepareCompatibilityIntent<LimitIntent>({
+    input: params,
     kind: "limit",
-    ...params,
+    errorCode: "ORBS_LIMIT_ERROR",
   });
-
-  if ("completed" in result) {
-    throw new Web3AgentError({
-      code: "ORBS_LIMIT_ERROR",
-      message: "Limit preparation completed unexpectedly without returning an intent",
-    });
-  }
-
-  return getCompatibilityIntent<LimitIntent>(result, "limit");
 }
 
 export async function prepareBridgeIntent(params: PrepareBridgeIntentInput): Promise<BridgeIntent> {

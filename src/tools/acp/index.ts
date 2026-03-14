@@ -1,6 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createPublicClient, keccak256, toHex, zeroAddress } from "viem";
 import type { Hex } from "viem";
+import { createPublicClient, keccak256, toHex, zeroAddress } from "viem";
 import {
   JobStatus,
   erc20ApproveAbi,

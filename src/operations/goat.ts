@@ -10,7 +10,7 @@ import type {
 import { RESTRICTED_PLUGIN_CHAINS } from "../goat/dispatch.js";
 import { loadPlugins } from "../goat/plugins.js";
 import { buildGoatTools } from "../goat/toolset.js";
-import { ChainAccess } from "./chain-access.js";
+import { getRpcUrlForRuntimeChain, getRuntimeConfigForChain } from "./chain-access.js";
 import { OperationPauseError, PreparedActionGoatWallet } from "./goat-wallet.js";
 import { assertChainSupported, preserveWeb3AgentError } from "./validation.js";
 
@@ -49,13 +49,13 @@ function toCompletedResult(result: unknown): CompletedOperationResult {
   };
 }
 
-function loadGoatPluginsForChain(chainAccess: ChainAccess, chainId: number) {
-  const config = chainAccess.getConfig(chainId);
+function loadGoatPluginsForChain(chainId: number) {
+  const config = getRuntimeConfigForChain(chainId);
   return loadPlugins({
     hasWallet: true,
     zeroxApiKey: config.zeroxApiKey,
     coingeckoApiKey: config.coingeckoApiKey,
-    rpcUrl: chainAccess.getRpcUrl(chainId),
+    rpcUrl: getRpcUrlForRuntimeChain(chainId, config),
   });
 }
 
@@ -96,12 +96,10 @@ export async function prepareOrResumeGoatOperation(params: {
 }): Promise<PreparedOperation | ResumeOperationCompletedResult> {
   const actionResults = params.actionResults ?? {};
   assertGoatToolSupportedOnChain(params.input.toolName, params.input.chainId);
-  const chainAccess = new ChainAccess();
-  const pluginResult = loadGoatPluginsForChain(chainAccess, params.input.chainId);
+  const pluginResult = loadGoatPluginsForChain(params.input.chainId);
   const wallet = new PreparedActionGoatWallet({
     account: params.input.account,
     chainId: params.input.chainId,
-    chainAccess,
     actionResults,
   });
   const tools = await buildGoatTools({

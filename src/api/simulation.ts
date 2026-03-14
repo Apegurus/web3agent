@@ -1,5 +1,5 @@
 import { type Hex, decodeErrorResult, decodeFunctionData, numberToHex, parseAbi } from "viem";
-import { ChainAccess } from "../operations/chain-access.js";
+import { createPublicClientForRuntimeChain } from "../operations/chain-access.js";
 import {
   assertAddress,
   assertChainSupported,
@@ -9,30 +9,20 @@ import {
 import { lookupTokenByAddress } from "../tokens/registry.js";
 import { Web3AgentError } from "./errors.js";
 import { transactionSimulateSchema } from "./schemas.js";
+import {
+  NATIVE_ASSET_ADDRESS,
+  decodeFallbackBalanceChanges,
+} from "./simulation/fallback-decoder.js";
 import type { BalanceChange, SimulateTransactionInput, SimulationResult } from "./types.js";
 import { parseInput } from "./validation.js";
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-const NATIVE_ASSET_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as const;
 const TRACE_SUPPORT_TTL_MS = 5 * 60 * 1000;
 
 const traceSupportCache = new Map<number, { supported: boolean; checkedAt: number }>();
 
-const fallbackSimulationAbi = parseAbi([
-  "function transfer(address to, uint256 amount)",
-  "function transferFrom(address from, address to, uint256 amount)",
-  "function approve(address spender, uint256 amount)",
-  "function deposit() payable",
-  "function withdraw(uint256 amount)",
-  "function permit(address owner, ((address token, uint160 amount, uint48 expiration, uint48 nonce) details, address spender, uint256 sigDeadline) permitSingle, bytes signature)",
-  "function permitTransferFrom(((address token, uint256 amount) permitted, uint256 nonce, uint256 deadline) permit, (address to, uint256 requestedAmount) transferDetails, address owner, bytes signature)",
-  "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params)",
-  "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params)",
-  "function exactInput((bytes path, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum) params)",
-  "function exactInput((bytes path, address recipient, uint256 amountIn, uint256 amountOutMinimum) params)",
-]);
-
 const revertAbi = parseAbi(["error Error(string)", "error Panic(uint256)"]);
+const decodeViemErrorResult = decodeErrorResult;
 
 interface TraceLog {
   address?: string;
@@ -109,7 +99,7 @@ function decodeRevertData(data: Hex | null): string | null {
   if (!data) return null;
 
   try {
-    const decoded = decodeErrorResult({
+    const decoded = decodeViemErrorResult({
       abi: revertAbi,
       data,
     });
@@ -210,168 +200,6 @@ function isUsableTrace(trace: TraceCallNode): boolean {
   );
 }
 
-function readRecordField<T>(value: unknown, field: string): T | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  return (value as Record<string, unknown>)[field] as T | undefined;
-}
-
-function readPathEndpoints(path: Hex): { tokenIn: `0x${string}`; tokenOut: `0x${string}` } | null {
-  const raw = path.slice(2);
-  if (raw.length < 40) return null;
-
-  const tokenIn = `0x${raw.slice(0, 40)}` as `0x${string}`;
-  const tokenOut = `0x${raw.slice(raw.length - 40)}` as `0x${string}`;
-  return { tokenIn, tokenOut };
-}
-
-function decodeFallbackBalanceChanges(
-  input: {
-    from: `0x${string}`;
-    to: `0x${string}`;
-    data: `0x${string}`;
-    value: bigint;
-  },
-  changes: Map<string, bigint>
-): void {
-  let decoded: { functionName: string; args: readonly unknown[] } | null = null;
-
-  try {
-    const result = decodeFunctionData({
-      abi: fallbackSimulationAbi,
-      data: input.data,
-    });
-    decoded = {
-      functionName: result.functionName,
-      args: result.args,
-    };
-  } catch (_error: unknown) {
-    return;
-  }
-
-  if (input.value > 0n) {
-    addAggregatedChange(changes, NATIVE_ASSET_ADDRESS, "out", input.value);
-  }
-
-  switch (decoded.functionName) {
-    case "transfer": {
-      const [recipient, amount] = decoded.args as readonly [`0x${string}`, bigint];
-      addAggregatedChange(changes, input.to, "out", amount);
-      if (normalizeAddress(recipient) === normalizeAddress(input.from)) {
-        addAggregatedChange(changes, input.to, "in", amount);
-      }
-      break;
-    }
-    case "transferFrom": {
-      const [sender, recipient, amount] = decoded.args as readonly [
-        `0x${string}`,
-        `0x${string}`,
-        bigint,
-      ];
-      if (normalizeAddress(sender) === normalizeAddress(input.from)) {
-        addAggregatedChange(changes, input.to, "out", amount);
-      }
-      if (normalizeAddress(recipient) === normalizeAddress(input.from)) {
-        addAggregatedChange(changes, input.to, "in", amount);
-      }
-      break;
-    }
-    case "approve":
-    case "permit":
-      break;
-    case "permitTransferFrom": {
-      const [permitValue, transferDetails, owner] = decoded.args as readonly [
-        unknown,
-        unknown,
-        `0x${string}`,
-        Hex,
-      ];
-      const permitted = readRecordField<Record<string, unknown>>(permitValue, "permitted");
-      const token = readRecordField<string>(permitted, "token");
-      const requestedAmount = readRecordField<bigint>(transferDetails, "requestedAmount");
-      const recipient = readRecordField<string>(transferDetails, "to");
-
-      if (token && requestedAmount !== undefined) {
-        if (normalizeAddress(owner) === normalizeAddress(input.from)) {
-          addAggregatedChange(
-            changes,
-            assertAddress(token, "permit.permitted.token"),
-            "out",
-            requestedAmount
-          );
-        }
-        if (recipient && normalizeAddress(recipient) === normalizeAddress(input.from)) {
-          addAggregatedChange(
-            changes,
-            assertAddress(token, "permit.permitted.token"),
-            "in",
-            requestedAmount
-          );
-        }
-      }
-      break;
-    }
-    case "deposit": {
-      if (input.value > 0n) {
-        addAggregatedChange(changes, input.to, "in", input.value);
-      }
-      break;
-    }
-    case "withdraw": {
-      const [amount] = decoded.args as readonly [bigint];
-      addAggregatedChange(changes, input.to, "out", amount);
-      addAggregatedChange(changes, NATIVE_ASSET_ADDRESS, "in", amount);
-      break;
-    }
-    case "exactInputSingle": {
-      const [params] = decoded.args as readonly [unknown];
-      const tokenIn = readRecordField<string>(params, "tokenIn");
-      const tokenOut = readRecordField<string>(params, "tokenOut");
-      const amountIn = readRecordField<bigint>(params, "amountIn");
-      const amountOutMinimum = readRecordField<bigint>(params, "amountOutMinimum");
-      const recipient = readRecordField<string>(params, "recipient");
-
-      if (tokenIn && amountIn !== undefined) {
-        addAggregatedChange(changes, assertAddress(tokenIn, "params.tokenIn"), "out", amountIn);
-      }
-      if (
-        tokenOut &&
-        amountOutMinimum !== undefined &&
-        recipient &&
-        normalizeAddress(recipient) === normalizeAddress(input.from)
-      ) {
-        addAggregatedChange(
-          changes,
-          assertAddress(tokenOut, "params.tokenOut"),
-          "in",
-          amountOutMinimum
-        );
-      }
-      break;
-    }
-    case "exactInput": {
-      const [params] = decoded.args as readonly [unknown];
-      const path = readRecordField<Hex>(params, "path");
-      const amountIn = readRecordField<bigint>(params, "amountIn");
-      const amountOutMinimum = readRecordField<bigint>(params, "amountOutMinimum");
-      const recipient = readRecordField<string>(params, "recipient");
-      const tokens = path ? readPathEndpoints(path) : null;
-
-      if (tokens && amountIn !== undefined) {
-        addAggregatedChange(changes, tokens.tokenIn, "out", amountIn);
-      }
-      if (
-        tokens &&
-        amountOutMinimum !== undefined &&
-        recipient &&
-        normalizeAddress(recipient) === normalizeAddress(input.from)
-      ) {
-        addAggregatedChange(changes, tokens.tokenOut, "in", amountOutMinimum);
-      }
-      break;
-    }
-  }
-}
-
 async function resolveBalanceChanges(
   chainId: number,
   changes: Map<string, bigint>
@@ -407,8 +235,7 @@ export async function simulateTransaction(
   const input = parseInput(transactionSimulateSchema, params);
   assertChainSupported(input.chainId);
 
-  const chainAccess = new ChainAccess();
-  const publicClient = chainAccess.createPublicClient(input.chainId);
+  const publicClient = createPublicClientForRuntimeChain(input.chainId);
   const tx = {
     account: assertAddress(input.from, "from"),
     to: assertAddress(input.to, "to"),
@@ -490,7 +317,9 @@ export async function simulateTransaction(
   }
 
   try {
-    decodeFallbackBalanceChanges(decodedTx, changes);
+    for (const change of decodeFallbackBalanceChanges(decodedTx)) {
+      addAggregatedChange(changes, change.token, change.direction, change.amount);
+    }
   } catch (error: unknown) {
     throw new Web3AgentError({
       code: "SIMULATION_ERROR",

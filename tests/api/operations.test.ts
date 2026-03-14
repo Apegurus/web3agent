@@ -22,6 +22,8 @@ const lifiMocks = vi.hoisted(() => ({
   getChains: vi.fn(),
   convertQuoteToRoute: vi.fn(),
   setAllowance: vi.fn(),
+  createConfig: vi.fn(),
+  EVM: vi.fn((provider: unknown) => ({ provider })),
 }));
 
 const goatMocks = vi.hoisted(() => ({
@@ -61,6 +63,8 @@ vi.mock("@lifi/sdk", () => ({
   getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
   convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
   setAllowance: (...args: unknown[]) => lifiMocks.setAllowance(...args),
+  createConfig: (...args: unknown[]) => lifiMocks.createConfig(...args),
+  EVM: (...args: unknown[]) => lifiMocks.EVM(...args),
 }));
 
 vi.mock("../../src/operations/goat.js", () => ({
@@ -73,6 +77,7 @@ describe("generic prepared operations API", () => {
     vi.clearAllMocks();
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
     });
     viemMocks.createClient.mockReturnValue({
       extend: vi.fn().mockReturnValue({
@@ -239,6 +244,7 @@ describe("generic prepared operations API", () => {
             "transaction:0": {
               type: "transaction",
               txHash: "0xapprove",
+              status: "confirmed",
             },
           },
         },
@@ -260,6 +266,7 @@ describe("generic prepared operations API", () => {
             "transaction:0": {
               type: "transaction",
               txHash: "0xapprove",
+              status: "confirmed",
             },
           },
         },
@@ -268,6 +275,7 @@ describe("generic prepared operations API", () => {
         "transaction:1": {
           type: "transaction",
           txHash: "0xswap",
+          status: "confirmed",
         },
       },
     });
@@ -285,13 +293,40 @@ describe("generic prepared operations API", () => {
         "transaction:0": {
           type: "transaction",
           txHash: "0xapprove",
+          status: "confirmed",
         },
         "transaction:1": {
           type: "transaction",
           txHash: "0xswap",
+          status: "confirmed",
         },
       },
     });
+  });
+
+  it("resumeOperation rejects malformed GOAT resume state values", async () => {
+    const { resumeOperation } = await import("../../src/api/operations.js");
+
+    await expect(
+      resumeOperation({
+        resumeState: {
+          version: 1,
+          integration: "goat",
+          kind: "tool",
+          state: {
+            toolName: "swap_on_balancer",
+            params: {},
+            chainId: 8453,
+            account: "not-an-address",
+            actionResults: {},
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_PARAMS",
+    });
+
+    expect(goatMocks.prepareOrResumeGoatOperation).not.toHaveBeenCalled();
   });
 
   it("resumeOperation rejects malformed Orbs swap chainId values", async () => {
@@ -396,6 +431,7 @@ describe("generic prepared operations API", () => {
       actions: Array<{ id: string; tx?: { value?: string } }>;
     };
     expect(intent.actions.find((action) => action.id === "bridge:execute:0")?.tx?.value).toBe("0");
+    expect(lifiMocks.createConfig).toHaveBeenCalledTimes(1);
   });
 
   it("prepareOperation falls back to approval transactions for unsafe LI.FI permits", async () => {
@@ -484,6 +520,7 @@ describe("generic prepared operations API", () => {
   it("resumeOperation advances LI.FI permit2 bridges with only new action results", async () => {
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(maxUint256),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
     });
     lifiMocks.getQuote.mockResolvedValue({
       action: {
@@ -582,6 +619,7 @@ describe("generic prepared operations API", () => {
         "bridge:execute:0": {
           type: "transaction",
           txHash: "0xbridge",
+          status: "confirmed",
         },
       },
     });
@@ -601,6 +639,7 @@ describe("generic prepared operations API", () => {
   it("resumeOperation rejects tampered LI.FI witness final actions", async () => {
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(maxUint256),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
     });
     lifiMocks.getQuote.mockResolvedValue({
       action: {
@@ -685,9 +724,180 @@ describe("generic prepared operations API", () => {
     });
   });
 
+  it("resumeOperation rejects expired LI.FI Permit2 resumptions", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
+    });
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 8453,
+        toChainId: 1,
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "USDC",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000",
+      },
+      estimate: {
+        approvalAddress: "0x5555555555555555555555555555555555555555",
+        toAmount: "999",
+        toAmountMin: "990",
+      },
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xabcdef",
+        chainId: 8453,
+      },
+    });
+    lifiMocks.getChains.mockResolvedValue([
+      {
+        id: 8453,
+        permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        permit2Proxy: "0x1111111111111111111111111111111111111111",
+        diamondAddress: "0x2222222222222222222222222222222222222222",
+      },
+      { id: 1 },
+    ]);
+
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 8453,
+      toChainId: 1,
+      fromTokenAddress: "0x3333333333333333333333333333333333333333",
+      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect("completed" in prepared).toBe(false);
+    if ("completed" in prepared) return;
+
+    await expect(
+      resumeOperation({
+        resumeState: {
+          ...prepared.resumeState,
+          state: {
+            ...prepared.resumeState.state,
+            finalization: {
+              ...(prepared.resumeState.state as { finalization: Record<string, unknown> })
+                .finalization,
+              deadline: "1",
+            },
+          },
+        },
+        actionResults: {
+          "bridge:permit2:0": {
+            type: "signature",
+            signature: `0x${"11".repeat(65)}`,
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      name: "Web3AgentError",
+      code: "BRIDGE_INTENT_ERROR",
+      message: "Permit2 authorization expired; prepare the bridge again",
+    });
+  });
+
+  it("resumeOperation rejects reverted confirmed transaction receipts", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "reverted" }),
+    });
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 8453,
+        toChainId: 1,
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "USDC",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000",
+      },
+      estimate: {
+        approvalAddress: "0x5555555555555555555555555555555555555555",
+        toAmount: "999",
+        toAmountMin: "990",
+        executionDuration: 300,
+      },
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xabcdef",
+        chainId: 8453,
+        value: "0",
+      },
+    });
+    lifiMocks.getChains.mockResolvedValue([
+      {
+        id: 8453,
+        permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        permit2Proxy: "0x1111111111111111111111111111111111111111",
+        diamondAddress: "0x2222222222222222222222222222222222222222",
+      },
+      { id: 1 },
+    ]);
+
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 8453,
+      toChainId: 1,
+      fromTokenAddress: "0x3333333333333333333333333333333333333333",
+      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect("completed" in prepared).toBe(false);
+    if ("completed" in prepared) return;
+
+    const afterSignature = await resumeOperation({
+      resumeState: prepared.resumeState,
+      actionResults: {
+        "bridge:permit2:0": {
+          type: "signature",
+          signature: `0x${"11".repeat(65)}`,
+        },
+      },
+    });
+
+    expect(afterSignature.completed).toBe(false);
+    if (afterSignature.completed) return;
+
+    await expect(
+      resumeOperation({
+        resumeState: afterSignature.operation.resumeState,
+        actionResults: {
+          "bridge:execute:0": {
+            type: "transaction",
+            txHash: "0xbridge",
+            status: "confirmed",
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      name: "Web3AgentError",
+      code: "INVALID_PARAMS",
+      message: "Action result bridge:execute:0 must reference a successful confirmed transaction",
+    });
+  });
+
   it("clearLifiChainsCache invalidates cached LI.FI chain metadata", async () => {
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(maxUint256),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
     });
     lifiMocks.getQuote.mockResolvedValue({
       action: {

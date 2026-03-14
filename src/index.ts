@@ -1,5 +1,3 @@
-export { Web3AgentError } from "./api/errors.js";
-export { parseEnv, resetConfig, setConfig } from "./config/env.js";
 export {
   findChainByName,
   getChain,
@@ -7,7 +5,18 @@ export {
   listSupportedChainEntries,
   listSupportedChains,
 } from "./api/chains.js";
+export { Web3AgentError } from "./api/errors.js";
+export {
+  prepareBridgeIntent,
+  prepareLimitIntent,
+  prepareSwapIntent,
+  prepareTwapIntent,
+  submitSignedSwap,
+  submitSignedTwapOrder,
+} from "./api/intents.js";
+export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
 export { listOrders, placeLimitOrder, placeTwapOrder } from "./api/orders.js";
+export { clearTraceSupportCache, simulateTransaction } from "./api/simulation.js";
 export {
   executeBridge,
   executeSameChainSwap,
@@ -23,17 +32,6 @@ export {
   resolveToken,
   resolveTokenSync,
 } from "./api/tokens.js";
-export {
-  prepareBridgeIntent,
-  prepareLimitIntent,
-  prepareSwapIntent,
-  prepareTwapIntent,
-  submitSignedSwap,
-  submitSignedTwapOrder,
-} from "./api/intents.js";
-export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
-export { simulateTransaction, clearTraceSupportCache } from "./api/simulation.js";
-export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
 export type {
   ApprovalStep,
   BalanceChange,
@@ -42,14 +40,14 @@ export type {
   CallToolResult,
   ChainLookupResult,
   CompletedOperationResult,
+  CreateRuntimeOptions,
   CrossChainSwapQuoteResult,
   CrossChainSwapQuoteSummary,
-  CreateRuntimeOptions,
   ExecuteBridgeInput,
   ExecuteSameChainSwapInput,
   GetRequiredApprovalsInput,
-  LimitIntent,
   LifiQuoteInput,
+  LimitIntent,
   ListChainTokensInput,
   ListOrdersInput,
   ListOrdersResult,
@@ -61,17 +59,17 @@ export type {
   PendingConfirmationResult,
   PlaceLimitOrderInput,
   PlaceTwapOrderInput,
-  PrepareOperationInput,
-  PrepareOperationResult,
   PrepareBridgeIntentInput,
-  PrepareLimitIntentInput,
-  PrepareSwapIntentInput,
   PreparedAction,
   PreparedOperation,
   PreparedOperationIntegration,
   PreparedSignMessageAction,
   PreparedSignTypedDataAction,
   PreparedTransactionAction,
+  PrepareLimitIntentInput,
+  PrepareOperationInput,
+  PrepareOperationResult,
+  PrepareSwapIntentInput,
   PrepareTwapIntentInput,
   ResolveTokenInput,
   ResumeOperationCompletedResult,
@@ -90,13 +88,13 @@ export type {
   SubmitSignedTwapOrderInput,
   SupportedChainEntry,
   SupportedChainsResult,
-  SwapIntent,
   SwapHistoryEntry,
   SwapHistoryResult,
-  SwapSubmissionResult,
+  SwapIntent,
   SwapQuoteResult,
   SwapStatusInput,
   SwapStatusResult,
+  SwapSubmissionResult,
   TokenSwappableResult,
   ToolCatalogEntry,
   ToolCategory,
@@ -116,8 +114,8 @@ export type {
   WalletAddressDerivationResult,
   WalletConfirmationResult,
   WalletDeactivationResult,
-  WalletDerivedAddressEntry,
   WalletDeriveAddressesInput,
+  WalletDerivedAddressEntry,
   WalletFromMnemonicInput,
   WalletGenerateMnemonicResult,
   WalletGenerateResult,
@@ -126,14 +124,22 @@ export type {
   Web3AgentRuntime,
   WriteOperationResult,
 } from "./api/types.js";
+export { parseEnv, resetConfig, setConfig } from "./config/env.js";
+export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
 export {
   lifiExecuteBridgeSchema,
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
 } from "./tools/lifi/schemas.js";
 export {
-  orbsGetRequiredApprovalsSchema,
+  operationActionResultSchema,
+  operationResumeStateSchema,
+  prepareOperationSchema,
+  resumeOperationSchema,
+} from "./tools/operations/schemas.js";
+export {
   orbsGetQuoteSchema,
+  orbsGetRequiredApprovalsSchema,
   orbsListOrdersSchema,
   orbsPlaceLimitSchema,
   orbsPlaceTwapSchema,
@@ -145,12 +151,6 @@ export {
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./tools/orbs/schemas.js";
-export {
-  operationActionResultSchema,
-  operationResumeStateSchema,
-  prepareOperationSchema,
-  resumeOperationSchema,
-} from "./tools/operations/schemas.js";
 export { listChainTokensSchema, resolveTokenSchema } from "./tools/tokens/schemas.js";
 export {
   transactionConfirmSchema,

@@ -17,6 +17,8 @@ export interface TokenEntry {
 
 type ChainTokens = Record<string, TokenEntry>;
 
+const TOKENS_BY_ADDRESS = new Map<number, Map<string, TokenEntry>>();
+
 export const WELL_KNOWN_TOKENS: Record<number, ChainTokens> = {
   // ── Ethereum Mainnet (1) ──────────────────────────────────────────
   1: {
@@ -601,6 +603,17 @@ export const WELL_KNOWN_TOKENS: Record<number, ChainTokens> = {
   },
 };
 
+for (const [chainId, tokens] of Object.entries(WELL_KNOWN_TOKENS)) {
+  TOKENS_BY_ADDRESS.set(
+    Number(chainId),
+    new Map(
+      Object.values(tokens).map(
+        (token) => [token.address.toLowerCase(), token] satisfies [string, TokenEntry]
+      )
+    )
+  );
+}
+
 /**
  * Look up a well-known token by symbol and chain.
  * Returns undefined if the token/chain combo is not in the registry.
@@ -614,11 +627,7 @@ export function lookupToken(symbol: string, chainId: number): TokenEntry | undef
  * Returns undefined if the token/chain combo is not in the registry.
  */
 export function lookupTokenByAddress(address: string, chainId: number): TokenEntry | undefined {
-  const tokens = WELL_KNOWN_TOKENS[chainId];
-  if (!tokens) return undefined;
-
-  const normalizedAddress = address.toLowerCase();
-  return Object.values(tokens).find((token) => token.address.toLowerCase() === normalizedAddress);
+  return TOKENS_BY_ADDRESS.get(chainId)?.get(address.toLowerCase());
 }
 
 /**

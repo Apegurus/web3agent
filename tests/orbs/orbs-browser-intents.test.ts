@@ -46,7 +46,7 @@ describe("Orbs browser-wallet MCP tools", () => {
         inAmount: "10",
         outAmount: "20",
         minAmountOut: "19",
-        user: "0xabc",
+        user: "0x1234567890123456789012345678901234567890",
       },
     });
 
@@ -55,18 +55,18 @@ describe("Orbs browser-wallet MCP tools", () => {
     ) as ToolDefinition;
     const result = await tool.handler({
       chainId: 8453,
-      fromToken: "0x1",
-      toToken: "0x2",
+      fromToken: "0x1111111111111111111111111111111111111111",
+      toToken: "0x2222222222222222222222222222222222222222",
       inAmount: "10",
-      account: "0xabc",
+      account: "0x1234567890123456789012345678901234567890",
     });
 
     expect(intentMocks.prepareSwapIntent).toHaveBeenCalledWith({
       chainId: 8453,
-      fromToken: "0x1",
-      toToken: "0x2",
+      fromToken: "0x1111111111111111111111111111111111111111",
+      toToken: "0x2222222222222222222222222222222222222222",
       inAmount: "10",
-      account: "0xabc",
+      account: "0x1234567890123456789012345678901234567890",
     });
     expect(result.isError).toBe(false);
   });
