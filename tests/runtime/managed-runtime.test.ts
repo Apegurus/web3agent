@@ -76,6 +76,7 @@ vi.mock("../../src/wallet/confirmation.js", () => ({
     flushAll: (...args: unknown[]) => mockState.flushAll(...args),
     list: (...args: unknown[]) => mockState.listQueue(...args),
   },
+  registerExecutor: vi.fn(),
 }));
 
 vi.mock("../../src/wallet/events.js", () => ({

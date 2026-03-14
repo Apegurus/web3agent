@@ -4,6 +4,13 @@ import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
+import {
+  getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
+  registerAcpExecutors as registerAcpVirtualsExecutors,
+} from "../tools/acp-virtuals/index.js";
+import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
+import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
+import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
 import {
@@ -14,6 +21,7 @@ import {
 } from "../tools/register.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
+import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
 import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
@@ -26,7 +34,6 @@ import { walletEvents } from "../wallet/events.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
 import { createGoatToolMetadata, normalizeInputSchema } from "./tool-metadata.js";
 import {
-  toHealthStatus,
   type CreateRuntimeOptions,
   type RuntimeHealth,
   type RuntimeToolListener,
@@ -44,6 +51,7 @@ import {
   type WalletGenerateMnemonicResult,
   type WalletGenerateResult,
   type Web3AgentRuntime,
+  toHealthStatus,
 } from "./types.js";
 
 type RuntimeToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult | unknown>;
@@ -88,6 +96,11 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
 
   registerOrbsExecutors();
   registerLifiExecutors();
+  registerX402Executors();
+  registerErc8183Executors();
+  registerAcpVirtualsExecutors();
+  registerAgdpExecutors();
+  registerErc8004Executors();
   initializeLifi(config.lifiApiKey);
   return confirmationQueue.loadQueue();
 }
@@ -100,6 +113,7 @@ function summarizeBackends(health: HealthStatus): RuntimeHealth["backends"] {
     goat: { ...health.goat },
     lifi: { ...health.lifi },
     orbs: { ...health.orbs },
+    agenticEconomy: { ...health.agenticEconomy },
   };
 }
 
@@ -113,6 +127,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
   private readonly tokenTools: ToolDefinition[];
+  private readonly x402Tools: ToolDefinition[];
+  private readonly erc8183Tools: ToolDefinition[];
+  private readonly acpVirtualsTools: ToolDefinition[];
+  private readonly agdpTools: ToolDefinition[];
+  private readonly erc8004Tools: ToolDefinition[];
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -138,6 +157,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
     this.tokenTools = getTokenToolDefinitions();
+    this.x402Tools = getX402ToolDefinitions();
+    this.erc8183Tools = getErc8183ToolDefinitions();
+    this.acpVirtualsTools = getAcpVirtualsToolDefinitions();
+    this.agdpTools = getAgdpToolDefinitions();
+    this.erc8004Tools = getErc8004ToolDefinitions();
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
@@ -305,6 +329,18 @@ export class ManagedRuntime implements Web3AgentRuntime {
       toolCount: this.orbsTools.length,
       message: `Loaded ${this.orbsTools.length} tools`,
     };
+    const agenticEconomyToolCount =
+      this.x402Tools.length +
+      this.erc8183Tools.length +
+      this.acpVirtualsTools.length +
+      this.agdpTools.length +
+      this.erc8004Tools.length;
+    this.health.agenticEconomy = {
+      name: "agentic-economy",
+      status: "ok",
+      toolCount: agenticEconomyToolCount,
+      message: `Loaded ${agenticEconomyToolCount} tools`,
+    };
     this.health.core = toHealthStatus({
       activeChainId: this.config.chainId,
       walletMode: "read-only",
@@ -344,6 +380,22 @@ export class ManagedRuntime implements Web3AgentRuntime {
         ...toCatalogEntry(tool, "orbs"),
         handler: (args) => tool.handler(args),
       });
+    }
+
+    const toolGroups: Array<[ToolSource, ToolDefinition[]]> = [
+      ["x402", this.x402Tools],
+      ["acp", this.erc8183Tools],
+      ["acp", this.acpVirtualsTools],
+      ["agdp", this.agdpTools],
+      ["erc8004", this.erc8004Tools],
+    ];
+    for (const [source, tools] of toolGroups) {
+      for (const tool of tools) {
+        this.toolRecords.set(tool.name, {
+          ...toCatalogEntry(tool, source),
+          handler: (args) => tool.handler(args),
+        });
+      }
     }
 
     for (const tool of this.blockscoutAdapter.getTools()) {

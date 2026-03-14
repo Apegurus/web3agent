@@ -72,6 +72,7 @@ describe("utility tool handlers", () => {
         goat: { name: "goat", status: "ok" },
         lifi: { name: "lifi", status: "unavailable" },
         orbs: { name: "orbs", status: "not_configured" },
+        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
       },
       88
     );
@@ -91,6 +92,7 @@ describe("utility tool handlers", () => {
       goat: "ok",
       lifi: "unavailable",
       orbs: "not_configured",
+      agenticEconomy: "not_configured",
     });
   });
 
@@ -105,6 +107,7 @@ describe("utility tool handlers", () => {
         goat: { name: "goat", status: "ok" },
         lifi: { name: "lifi", status: "ok" },
         orbs: { name: "orbs", status: "ok" },
+        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
       },
       1
     );
@@ -145,6 +148,7 @@ describe("utility tool handlers", () => {
         goat: { name: "goat", status: "ok" },
         lifi: { name: "lifi", status: "ok" },
         orbs: { name: "orbs", status: "ok" },
+        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
       },
       42
     );

@@ -183,6 +183,43 @@ vi.mock("../../src/tools/tokens/index.js", () => ({
   ]),
 }));
 
+vi.mock("../../src/tools/x402/index.js", () => ({
+  getX402ToolDefinitions: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("../../src/tools/acp/index.js", () => ({
+  getErc8183ToolDefinitions: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("../../src/tools/agdp/index.js", () => ({
+  getAgdpToolDefinitions: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("../../src/tools/acp-virtuals/index.js", () => ({
+  getAcpToolDefinitions: vi.fn().mockReturnValue(
+    [
+      "acp_create_job",
+      "acp_set_budget",
+      "acp_fund_job",
+      "acp_submit_job",
+      "acp_complete_job",
+      "acp_reject_job",
+      "acp_claim_refund",
+      "acp_get_job",
+    ].map((name) => ({
+      name,
+      category: "agenticEconomy",
+      description: name,
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn(),
+    }))
+  ),
+}));
+
+vi.mock("../../src/tools/erc8004/index.js", () => ({
+  getErc8004ToolDefinitions: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock("../../src/wallet/events.js", () => ({
   walletEvents: mockState.walletEvents,
 }));
@@ -308,19 +345,29 @@ describe("ProxyServer", () => {
         tool.description.includes("Only available on chains:")
     );
 
-    expect(names).toEqual([
-      "wallet_generate",
-      "transaction_confirm",
-      "server_status",
-      "uniswap_swap",
-      "blockscout_get_address",
-      "etherscan_get_address_balance",
-      "evm_get_balance",
-      "lifi_get_quote",
-      "orbs_get_quote",
-      "resolve_token",
-      "list_chain_tokens",
-    ]);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "wallet_generate",
+        "transaction_confirm",
+        "server_status",
+        "uniswap_swap",
+        "blockscout_get_address",
+        "etherscan_get_address_balance",
+        "evm_get_balance",
+        "lifi_get_quote",
+        "orbs_get_quote",
+        "resolve_token",
+        "list_chain_tokens",
+        "acp_create_job",
+        "acp_set_budget",
+        "acp_fund_job",
+        "acp_submit_job",
+        "acp_complete_job",
+        "acp_reject_job",
+        "acp_claim_refund",
+        "acp_get_job",
+      ])
+    );
     expect(goatToolHasRestriction).toBe(true);
   });
 

@@ -15,6 +15,7 @@ export interface HealthStatus {
   goat: BackendStatus;
   lifi: BackendStatus;
   orbs: BackendStatus;
+  agenticEconomy: BackendStatus;
 }
 
 export interface StartupReport {

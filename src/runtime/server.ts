@@ -4,6 +4,10 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import type { GoatProvider } from "../goat/provider.js";
+import { getAcpToolDefinitions } from "../tools/acp-virtuals/index.js";
+import { getErc8183ToolDefinitions } from "../tools/acp/index.js";
+import { getAgdpToolDefinitions } from "../tools/agdp/index.js";
+import { getErc8004ToolDefinitions } from "../tools/erc8004/index.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
 import {
@@ -13,6 +17,7 @@ import {
   getWalletToolDefinitions,
 } from "../tools/register.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
+import { getX402ToolDefinitions } from "../tools/x402/index.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import type { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import type { EvmAdapter } from "../upstream/evm/adapter.js";
@@ -27,6 +32,15 @@ interface RuntimeBridge {
   invokeTool(name: string, args?: Record<string, unknown>): Promise<CallToolResult>;
   onToolsChanged(listener: () => void): () => void;
   shutdown(): Promise<void>;
+}
+
+function toMcpTool(tool: ToolDefinition): Tool {
+  return {
+    name: tool.name,
+    description: tool.description,
+    inputSchema: normalizeInputSchema(tool.inputSchema),
+    ...(tool.annotations && { annotations: tool.annotations }),
+  };
 }
 
 function getGoatTools(goatProvider: GoatProvider): Tool[] {
@@ -51,6 +65,11 @@ function createLegacyRuntimeBridge(
   const lifiTools = getLifiToolDefinitions();
   const orbsTools = getOrbsToolDefinitions();
   const tokenTools = getTokenToolDefinitions();
+  const x402Tools = getX402ToolDefinitions();
+  const erc8183Tools = getErc8183ToolDefinitions();
+  const acpVirtualsTools = getAcpToolDefinitions();
+  const agdpTools = getAgdpToolDefinitions();
+  const erc8004Tools = getErc8004ToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
   const toolDispatch = new Map<string, ToolHandler>();
 
@@ -94,6 +113,22 @@ function createLegacyRuntimeBridge(
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
 
+    for (const tool of x402Tools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of erc8183Tools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of acpVirtualsTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of agdpTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+    for (const tool of erc8004Tools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
     for (const tool of frameworkTools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
@@ -104,40 +139,22 @@ function createLegacyRuntimeBridge(
   return {
     getMcpTools(): Tool[] {
       return [
-        ...frameworkTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
+        ...frameworkTools.map(toMcpTool),
         ...getGoatTools(goatProvider),
         ...blockscoutAdapter.getTools(),
         ...etherscanAdapter.getTools(),
         ...evmAdapter.getTools(),
-        ...lifiTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...orbsTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
-        ...tokenTools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          inputSchema: normalizeInputSchema(tool.inputSchema),
-          ...(tool.annotations && { annotations: tool.annotations }),
-        })),
+        ...lifiTools.map(toMcpTool),
+        ...orbsTools.map(toMcpTool),
+        ...tokenTools.map(toMcpTool),
+        ...x402Tools.map(toMcpTool),
+        ...erc8183Tools.map(toMcpTool),
+        ...acpVirtualsTools.map(toMcpTool),
+        ...agdpTools.map(toMcpTool),
+        ...erc8004Tools.map(toMcpTool),
       ];
     },
-    async invokeTool(
-      name: string,
-      args: Record<string, unknown> = {}
-    ): Promise<CallToolResult> {
+    async invokeTool(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
       const handler = toolDispatch.get(name);
       if (!handler) {
         return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);

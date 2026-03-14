@@ -68,6 +68,7 @@ vi.mock("../../src/wallet/confirmation.js", () => ({
     flushAll: vi.fn().mockReturnValue(0),
     list: vi.fn().mockReturnValue([]),
   },
+  registerExecutor: vi.fn(),
 }));
 
 vi.mock("../../src/upstream/blockscout/adapter.js", () => ({
