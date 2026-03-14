@@ -16,6 +16,7 @@ describe("health configuration utilities", () => {
       goat: { name: "goat", status: "not_configured" },
       lifi: { name: "lifi", status: "not_configured" },
       orbs: { name: "orbs", status: "not_configured" },
+      agenticEconomy: { name: "agentic-economy", status: "not_configured" },
     });
   });
 
@@ -41,6 +42,7 @@ describe("health configuration utilities", () => {
         goat: { name: "goat", status: "ok" },
         lifi: { name: "lifi", status: "ok" },
         orbs: { name: "orbs", status: "ok" },
+        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
       },
       totalToolCount: 0,
       walletMode: "read-only",
