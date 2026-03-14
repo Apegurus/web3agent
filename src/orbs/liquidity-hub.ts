@@ -259,6 +259,10 @@ export interface QuoteRequest {
   account?: string;
 }
 
+export interface IntentQuoteRequest extends QuoteRequest {
+  account: string;
+}
+
 export interface QuoteResult {
   inToken: string;
   outToken: string;
@@ -277,6 +281,24 @@ const QUOTE_ERRORS: Record<string, string> = {
 
 function formatQuoteError(code: string): string {
   return QUOTE_ERRORS[code] || `Liquidity Hub quote error: ${code}`;
+}
+
+export async function getIntentQuote(chainId: number, request: IntentQuoteRequest): Promise<Quote> {
+  const sdk = getSdk(chainId);
+  const quote = await sdk.getQuote({
+    fromToken: request.fromToken,
+    toToken: request.toToken,
+    inAmount: request.inAmount,
+    slippage: request.slippage ?? 0.5,
+    dexMinAmountOut: "-1",
+    account: request.account,
+  });
+
+  if (quote.error) {
+    throw new Error(formatQuoteError(quote.error));
+  }
+
+  return quote;
 }
 
 export async function getQuote(chainId: number, request: QuoteRequest): Promise<QuoteResult> {
@@ -303,16 +325,18 @@ export async function getQuote(chainId: number, request: QuoteRequest): Promise<
   };
 }
 
-const PERMIT2: Hex = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+export const PERMIT2_ADDRESS: Hex = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 
-const NATIVE_TOKENS = new Set([
+const NATIVE_TOKEN_VALUES = [
   "0x0000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000001010",
   "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
   "0x000000000000000000000000000000000000dead",
-]);
+];
 
-const WRAPPED_NATIVE: Record<number, Hex> = {
+export const NATIVE_TOKEN_ADDRESSES = new Set(NATIVE_TOKEN_VALUES);
+
+export const WRAPPED_NATIVE_BY_CHAIN: Record<number, Hex> = {
   137: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
   56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
   8453: "0x4200000000000000000000000000000000000006",
@@ -321,7 +345,7 @@ const WRAPPED_NATIVE: Record<number, Hex> = {
   42161: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
 };
 
-const erc20Abi = [
+export const SWAP_PREPARATION_ABI = [
   {
     name: "allowance",
     type: "function",
@@ -351,8 +375,24 @@ const erc20Abi = [
   },
 ] as const;
 
-function isNativeToken(address: string): boolean {
-  return NATIVE_TOKENS.has(address.toLowerCase());
+export function isNativeTokenAddress(address: string): boolean {
+  return NATIVE_TOKEN_ADDRESSES.has(address.toLowerCase());
+}
+
+export function getWrappedNativeToken(chainId: number): Hex | null {
+  return WRAPPED_NATIVE_BY_CHAIN[chainId] ?? null;
+}
+
+export function resolveSwapQuoteFromToken(chainId: number, fromToken: string): Hex {
+  if (!isNativeTokenAddress(fromToken)) {
+    return fromToken as Hex;
+  }
+
+  const wrapped = getWrappedNativeToken(chainId);
+  if (!wrapped) {
+    throw new Error(`No wrapped native token for chain ${chainId}`);
+  }
+  return wrapped;
 }
 
 export async function prepareSwap(params: {
@@ -368,14 +408,14 @@ export async function prepareSwap(params: {
   const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
   let fromToken: Hex = params.fromToken as Hex;
 
-  if (isNativeToken(params.fromToken)) {
-    const wrapped = WRAPPED_NATIVE[chainId];
+  if (isNativeTokenAddress(params.fromToken)) {
+    const wrapped = getWrappedNativeToken(chainId);
     if (!wrapped) throw new Error(`No wrapped native token for chain ${chainId}`);
 
     const walletClient = createWalletClientForChain(account, chainId);
     const hash = await walletClient.writeContract({
       address: wrapped,
-      abi: erc20Abi,
+      abi: SWAP_PREPARATION_ABI,
       functionName: "deposit",
       value: BigInt(inAmount),
       chain,
@@ -388,18 +428,18 @@ export async function prepareSwap(params: {
 
   const allowance = await publicClient.readContract({
     address: fromToken,
-    abi: erc20Abi,
+    abi: SWAP_PREPARATION_ABI,
     functionName: "allowance",
-    args: [account.address, PERMIT2],
+    args: [account.address, PERMIT2_ADDRESS],
   });
 
   if ((allowance as bigint) < BigInt(inAmount)) {
     const walletClient = createWalletClientForChain(account, chainId);
     const hash = await walletClient.writeContract({
       address: fromToken,
-      abi: erc20Abi,
+      abi: SWAP_PREPARATION_ABI,
       functionName: "approve",
-      args: [PERMIT2, maxUint256],
+      args: [PERMIT2_ADDRESS, maxUint256],
       chain,
       account,
     });

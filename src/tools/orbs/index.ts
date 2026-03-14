@@ -1,5 +1,13 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
+  getRequiredApprovals as getRequiredApprovalsForIntent,
+  prepareLimitIntent,
+  prepareSwapIntent,
+  prepareTwapIntent,
+  submitSignedSwap as submitPreparedSwap,
+  submitSignedTwapOrder,
+} from "../../api/intents.js";
+import {
   getLiquidityHubError,
   getTwapError,
   isLiquidityHubSupported,
@@ -16,7 +24,11 @@ import {
 } from "../../orbs/liquidity-hub.js";
 import { listOrders, prepareTwapOrder, submitSignedOrder } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
-import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import {
+  formatToolError,
+  formatToolErrorFromUnknown,
+  formatToolResponse,
+} from "../../utils/errors.js";
 import { splitSignature } from "../../utils/signature.js";
 import { resolveChainId } from "../../utils/tool-helpers.js";
 import { validateInput } from "../../utils/validation.js";
@@ -25,9 +37,15 @@ import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
 import {
   orbsGetQuoteSchema,
+  orbsGetRequiredApprovalsSchema,
   orbsListOrdersSchema,
   orbsPlaceLimitSchema,
   orbsPlaceTwapSchema,
+  orbsPrepareLimitIntentSchema,
+  orbsPrepareSwapIntentSchema,
+  orbsPrepareTwapIntentSchema,
+  orbsSubmitSignedSwapSchema,
+  orbsSubmitSignedTwapOrderSchema,
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./schemas.js";
@@ -220,6 +238,30 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
   });
 }
 
+async function orbsPrepareSwapIntentTool(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareSwapIntentSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await prepareSwapIntent(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("ORBS_QUOTE_ERROR", error);
+  }
+}
+
+async function orbsGetRequiredApprovalsTool(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(orbsGetRequiredApprovalsSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await getRequiredApprovalsForIntent(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("APPROVAL_CHECK_ERROR", error);
+  }
+}
+
 async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = resolveChainId(params);
   const chunks = Number(params.chunks ?? 5);
@@ -280,6 +322,17 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
   });
 }
 
+async function orbsPrepareTwapIntentTool(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareTwapIntentSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await prepareTwapIntent(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("ORBS_TWAP_ERROR", error);
+  }
+}
+
 async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = resolveChainId(params);
 
@@ -337,6 +390,43 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
     params: { ...v.data } as Record<string, unknown>,
     executor: executeOrbsLimitNow,
   });
+}
+
+async function orbsPrepareLimitIntentTool(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareLimitIntentSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await prepareLimitIntent(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("ORBS_LIMIT_ERROR", error);
+  }
+}
+
+async function orbsSubmitSignedSwapTool(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsSubmitSignedSwapSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await submitPreparedSwap(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("ORBS_SWAP_ERROR", error);
+  }
+}
+
+async function orbsSubmitSignedTwapOrderTool(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(orbsSubmitSignedTwapOrderSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await submitSignedTwapOrder(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("ORBS_TWAP_ERROR", error);
+  }
 }
 
 async function orbsListOrders(params: Record<string, unknown>): Promise<CallToolResult> {
@@ -433,6 +523,44 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
+      name: "orbs_prepare_swap_intent",
+      category: "swap",
+      description:
+        "Prepare a same-chain Orbs swap intent for external wallet signing. Returns required approvals, full quote, and EIP-712 typed data.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chainId: { type: "number" },
+          fromToken: { type: "string" },
+          toToken: { type: "string" },
+          inAmount: { type: "string" },
+          slippage: { type: "number" },
+          account: { type: "string", description: "External signer address" },
+        },
+        required: ["chainId", "fromToken", "toToken", "inAmount", "account"],
+      },
+      handler: orbsPrepareSwapIntentTool,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_get_required_approvals",
+      category: "swap",
+      description:
+        "Check whether wrapping native assets or approving Permit2 is required before signing an Orbs swap intent.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chainId: { type: "number" },
+          fromToken: { type: "string" },
+          inAmount: { type: "string" },
+          account: { type: "string", description: "External signer address" },
+        },
+        required: ["chainId", "fromToken", "inAmount", "account"],
+      },
+      handler: orbsGetRequiredApprovalsTool,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
       name: "orbs_place_twap",
       category: "orders",
       description: "Place a dTWAP (time-weighted average price) order (write, confirmation-gated)",
@@ -461,6 +589,35 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
+      name: "orbs_prepare_twap_intent",
+      category: "orders",
+      description:
+        "Prepare a dTWAP order for external wallet signing. Returns raw order data and EIP-712 typed data.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chainId: { type: "number" },
+          srcToken: { type: "string" },
+          dstToken: { type: "string" },
+          srcAmount: { type: "string" },
+          chunks: { type: "number" },
+          fillDelay: { type: "number" },
+          account: { type: "string", description: "External signer address" },
+        },
+        required: [
+          "chainId",
+          "srcToken",
+          "dstToken",
+          "srcAmount",
+          "chunks",
+          "fillDelay",
+          "account",
+        ],
+      },
+      handler: orbsPrepareTwapIntentTool,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
       name: "orbs_place_limit",
       category: "orders",
       description: "Place a dLIMIT order (write, confirmation-gated)",
@@ -483,6 +640,68 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         required: ["chainId", "srcToken", "dstToken", "srcAmount", "dstMinAmount"],
       },
       handler: orbsPlaceLimit,
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_limit_intent",
+      category: "orders",
+      description:
+        "Prepare a dLIMIT order for external wallet signing. Returns raw order data and EIP-712 typed data.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chainId: { type: "number" },
+          srcToken: { type: "string" },
+          dstToken: { type: "string" },
+          srcAmount: { type: "string" },
+          dstMinAmount: { type: "string" },
+          expiry: { type: "number" },
+          account: { type: "string", description: "External signer address" },
+        },
+        required: ["chainId", "srcToken", "dstToken", "srcAmount", "dstMinAmount", "account"],
+      },
+      handler: orbsPrepareLimitIntentTool,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_submit_signed_swap",
+      category: "swap",
+      description:
+        "Submit an externally signed Orbs Liquidity Hub swap using the quote returned by orbs_prepare_swap_intent.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chainId: { type: "number" },
+          quote: { type: "object" },
+          signature: { type: "string" },
+        },
+        required: ["chainId", "quote", "signature"],
+      },
+      handler: orbsSubmitSignedSwapTool,
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_submit_signed_twap_order",
+      category: "orders",
+      description:
+        "Submit an externally signed dTWAP or dLIMIT order using the order returned by the prepare intent tools.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          order: { type: "object" },
+          signature: {
+            type: "object",
+            properties: {
+              v: { type: "number" },
+              r: { type: "string" },
+              s: { type: "string" },
+            },
+            required: ["v", "r", "s"],
+          },
+        },
+        required: ["order", "signature"],
+      },
+      handler: orbsSubmitSignedTwapOrderTool,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

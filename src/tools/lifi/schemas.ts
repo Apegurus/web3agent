@@ -9,3 +9,7 @@ export const lifiGetQuoteSchema = z.object({
 });
 
 export const lifiExecuteBridgeSchema = lifiGetQuoteSchema;
+
+export const lifiPrepareBridgeIntentSchema = lifiGetQuoteSchema.extend({
+  account: z.string({ required_error: "account is required" }),
+});

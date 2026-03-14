@@ -5,6 +5,7 @@ import {
   transactionConfirm,
   transactionDeny,
   transactionList,
+  transactionSimulate,
   walletActivate,
   walletDeactivate,
   walletDeriveAddresses,
@@ -204,6 +205,40 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       inputSchema: { type: "object", properties: {} },
       handler: () => transactionList(),
       annotations: { readOnlyHint: true },
+    },
+    {
+      name: "transaction_simulate",
+      category: "transaction",
+      description:
+        "Simulate an unsigned transaction using RPC trace when available, with fallback static decoding for token balance changes.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          chainId: {
+            type: "number",
+            description: "Target chain ID",
+          },
+          to: {
+            type: "string",
+            description: "Destination contract or recipient address",
+          },
+          data: {
+            type: "string",
+            description: "Hex-encoded calldata",
+          },
+          value: {
+            type: "string",
+            description: "Optional native value in wei",
+          },
+          from: {
+            type: "string",
+            description: "Sender address used for simulation",
+          },
+        },
+        required: ["chainId", "to", "data", "from"],
+      },
+      handler: (params) => transactionSimulate(params),
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
   ];
 }

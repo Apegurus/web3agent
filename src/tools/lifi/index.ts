@@ -1,12 +1,17 @@
 import { type LiFiStep, convertQuoteToRoute, executeRoute, getChains, getQuote } from "@lifi/sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { prepareBridgeIntent } from "../../api/intents.js";
 import type { ToolDefinition } from "../../tools/register.js";
-import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import {
+  formatToolError,
+  formatToolErrorFromUnknown,
+  formatToolResponse,
+} from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
-import { lifiGetQuoteSchema } from "./schemas.js";
+import { lifiGetQuoteSchema, lifiPrepareBridgeIntentSchema } from "./schemas.js";
 
 async function lifiGetChains(_params: Record<string, unknown>): Promise<CallToolResult> {
   try {
@@ -73,6 +78,19 @@ async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallT
     params: v.data as unknown as Record<string, unknown>,
     executor: executeBridgeNow,
   });
+}
+
+async function lifiPrepareBridgeIntentTool(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(lifiPrepareBridgeIntentSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await prepareBridgeIntent(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("BRIDGE_INTENT_ERROR", error);
+  }
 }
 
 async function executeBridgeNow(params: Record<string, unknown>): Promise<CallToolResult> {
@@ -180,6 +198,33 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
       },
       handler: lifiExecuteBridge,
       annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "lifi_prepare_bridge_intent",
+      category: "swap",
+      description:
+        "Prepare a cross-chain bridge route for an external wallet. Returns raw transaction steps without executing them.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          fromChainId: { type: "number" },
+          toChainId: { type: "number" },
+          fromTokenAddress: { type: "string" },
+          toTokenAddress: { type: "string" },
+          fromAmount: { type: "string" },
+          account: { type: "string", description: "External signer address" },
+        },
+        required: [
+          "fromChainId",
+          "toChainId",
+          "fromTokenAddress",
+          "toTokenAddress",
+          "fromAmount",
+          "account",
+        ],
+      },
+      handler: lifiPrepareBridgeIntentTool,
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
   ];
 }

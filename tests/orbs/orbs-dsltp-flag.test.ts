@@ -50,9 +50,9 @@ describe("dSLTP feature gate", () => {
     expect(dsltpTools).toHaveLength(0);
   });
 
-  it("total tool count is exactly 6 (no dSLTP)", async () => {
+  it("total tool count includes browser intent helpers but excludes dSLTP", async () => {
     const { getOrbsToolDefinitions } = await import("../../src/tools/orbs/index.js");
     const tools = getOrbsToolDefinitions();
-    expect(tools).toHaveLength(6);
+    expect(tools).toHaveLength(12);
   });
 });

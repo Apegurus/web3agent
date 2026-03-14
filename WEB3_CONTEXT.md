@@ -26,6 +26,7 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `transaction_confirm(id)` — execute a queued write operation
 - `transaction_deny(id)` — discard a queued operation
 - `transaction_list()` — list pending operations
+- `transaction_simulate()` — simulate an unsigned transaction, estimate gas, and preview balance changes
 
 ### DeFi tools
 
@@ -38,14 +39,24 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `lifi_get_chains` — list supported chains
 - `lifi_get_quote` — get bridge/swap quote
 - `lifi_execute_bridge` — execute cross-chain bridge (write, confirmation-gated)
+- `lifi_prepare_bridge_intent` — prepare raw bridge transaction steps for an external wallet (read-only)
 
 **Orbs DeFi** (prefix: `orbs_`):
 - `orbs_get_quote` — Liquidity Hub aggregated swap quote (chains: 137, 56, 8453, 59144, 81457, 42161)
 - `orbs_swap` — execute swap (write, confirmation-gated)
+- `orbs_prepare_swap_intent` — prepare swap quote + EIP-712 payload for an external wallet (read-only)
+- `orbs_get_required_approvals` — check wrap / Permit2 approval steps before signing (read-only)
 - `orbs_swap_status` — check status of a pending Liquidity Hub swap (takes chainId, sessionId, user)
 - `orbs_place_twap` — place dTWAP order (write, confirmation-gated)
+- `orbs_prepare_twap_intent` — prepare dTWAP order data for an external wallet (read-only)
 - `orbs_place_limit` — place dLIMIT order (write, confirmation-gated)
+- `orbs_prepare_limit_intent` — prepare dLIMIT order data for an external wallet (read-only)
+- `orbs_submit_signed_swap` — submit an externally signed Orbs swap (write)
+- `orbs_submit_signed_twap_order` — submit an externally signed dTWAP or dLIMIT order (write)
 - `orbs_list_orders` — list open TWAP/dLIMIT orders
+
+### Browser-wallet limitation
+The new intent and submission tools are MCP-compatible, but generic MCP hosts cannot trigger browser wallet popups themselves. Use MCP to prepare, simulate, and submit signed payloads; perform the actual wallet signing in the surrounding app or host integration.
 
 ### Token resolution (prefix: none)
 - `resolve_token(symbol, chainId)` — resolve token symbol to contract address and decimals. Uses built-in registry with DexScreener fallback. ALWAYS use this before swaps/bridges.

@@ -14,6 +14,7 @@ import {
 } from "@orbs-network/twap-sdk";
 
 export type { Order, RePermitOrder, Signature };
+export { getSrcTokenChunkAmount };
 
 export function getChainConfig(chainId: number): SpotConfig | undefined {
   const match = Object.values(Configs).find((c) => c.chainId === chainId);

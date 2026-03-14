@@ -1,30 +1,16 @@
-import { type ZodType, z } from "zod";
 import { getDefaultRuntime } from "../runtime/default.js";
 import { getToolResultPayload } from "../utils/tool-results.js";
 import { Web3AgentError } from "./errors.js";
 import type { RuntimeBoundOptions, Web3AgentRuntime } from "./types.js";
+import { parseInput } from "./validation.js";
+
+export { parseInput };
 
 export async function getRuntime(options?: RuntimeBoundOptions): Promise<Web3AgentRuntime> {
   if (options?.runtime) {
     return options.runtime;
   }
   return getDefaultRuntime();
-}
-
-export function parseInput<T>(schema: ZodType<T>, input: unknown): T {
-  try {
-    return schema.parse(input);
-  } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      throw new Web3AgentError({
-        code: "INVALID_PARAMS",
-        message: error.errors.map((issue) => issue.message).join("; "),
-        details: error.errors,
-        cause: error,
-      });
-    }
-    throw Web3AgentError.fromUnknown("INVALID_PARAMS", error);
-  }
 }
 
 export async function invokeAndRequireData<T>(

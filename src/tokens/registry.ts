@@ -610,6 +610,18 @@ export function lookupToken(symbol: string, chainId: number): TokenEntry | undef
 }
 
 /**
+ * Look up a well-known token by contract address and chain.
+ * Returns undefined if the token/chain combo is not in the registry.
+ */
+export function lookupTokenByAddress(address: string, chainId: number): TokenEntry | undefined {
+  const tokens = WELL_KNOWN_TOKENS[chainId];
+  if (!tokens) return undefined;
+
+  const normalizedAddress = address.toLowerCase();
+  return Object.values(tokens).find((token) => token.address.toLowerCase() === normalizedAddress);
+}
+
+/**
  * Get all well-known tokens for a chain.
  */
 export function getChainTokens(chainId: number): ChainTokens | undefined {

@@ -16,11 +16,18 @@ import type {
 } from "../runtime/types.js";
 import type { ResolvedToken } from "../tokens/resolver.js";
 import type { lifiExecuteBridgeSchema, lifiGetQuoteSchema } from "../tools/lifi/schemas.js";
+import type { lifiPrepareBridgeIntentSchema } from "../tools/lifi/schemas.js";
 import type {
   orbsGetQuoteSchema,
+  orbsGetRequiredApprovalsSchema,
   orbsListOrdersSchema,
   orbsPlaceLimitSchema,
   orbsPlaceTwapSchema,
+  orbsPrepareLimitIntentSchema,
+  orbsPrepareSwapIntentSchema,
+  orbsPrepareTwapIntentSchema,
+  orbsSubmitSignedSwapSchema,
+  orbsSubmitSignedTwapOrderSchema,
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "../tools/orbs/schemas.js";
@@ -28,6 +35,7 @@ import type { listChainTokensSchema, resolveTokenSchema } from "../tools/tokens/
 import type {
   transactionConfirmSchema,
   transactionDenySchema,
+  transactionSimulateSchema,
   walletActivateSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
@@ -40,10 +48,17 @@ export type ResolveTokenInput = z.infer<typeof resolveTokenSchema>;
 export type ListChainTokensInput = z.infer<typeof listChainTokensSchema>;
 export type LifiQuoteInput = z.infer<typeof lifiGetQuoteSchema>;
 export type ExecuteBridgeInput = z.infer<typeof lifiExecuteBridgeSchema>;
+export type PrepareBridgeIntentInput = z.infer<typeof lifiPrepareBridgeIntentSchema>;
 export type OrbsQuoteInput = z.infer<typeof orbsGetQuoteSchema>;
 export type ExecuteSameChainSwapInput = z.infer<typeof orbsSwapSchema>;
+export type PrepareSwapIntentInput = z.infer<typeof orbsPrepareSwapIntentSchema>;
+export type GetRequiredApprovalsInput = z.infer<typeof orbsGetRequiredApprovalsSchema>;
 export type PlaceTwapOrderInput = z.infer<typeof orbsPlaceTwapSchema>;
 export type PlaceLimitOrderInput = z.infer<typeof orbsPlaceLimitSchema>;
+export type PrepareTwapIntentInput = z.infer<typeof orbsPrepareTwapIntentSchema>;
+export type PrepareLimitIntentInput = z.infer<typeof orbsPrepareLimitIntentSchema>;
+export type SubmitSignedSwapInput = z.infer<typeof orbsSubmitSignedSwapSchema>;
+export type SubmitSignedTwapOrderInput = z.infer<typeof orbsSubmitSignedTwapOrderSchema>;
 export type SwapStatusInput = z.infer<typeof orbsSwapStatusSchema>;
 export type ListOrdersInput = z.infer<typeof orbsListOrdersSchema>;
 export type WalletActivateInput = z.infer<typeof walletActivateSchema>;
@@ -52,6 +67,7 @@ export type WalletFromMnemonicInput = z.infer<typeof walletFromMnemonicSchema>;
 export type WalletDeriveAddressesInput = z.infer<typeof walletDeriveAddressesSchema>;
 export type TransactionConfirmInput = z.infer<typeof transactionConfirmSchema>;
 export type TransactionDenyInput = z.infer<typeof transactionDenySchema>;
+export type SimulateTransactionInput = z.infer<typeof transactionSimulateSchema>;
 
 export interface RuntimeBoundOptions {
   runtime?: Web3AgentRuntime;
@@ -136,6 +152,126 @@ export interface PendingConfirmationResult {
   status: "pending_confirmation";
   id: string;
   summary: string;
+}
+
+export interface ApprovalStep {
+  type: "wrap" | "approve";
+  label: string;
+  tx: {
+    to: `0x${string}`;
+    data?: `0x${string}`;
+    value?: string;
+  };
+}
+
+export interface SwapIntent {
+  eip712: {
+    domain: Record<string, unknown>;
+    types: Record<string, Array<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  };
+  quote: {
+    sessionId: string;
+    inToken: string;
+    outToken: string;
+    inAmount: string;
+    outAmount: string;
+    minAmountOut: string;
+    user: string;
+    [key: string]: unknown;
+  };
+  requiredApprovals: ApprovalStep[];
+  chainId: number;
+}
+
+export interface TwapIntent {
+  eip712: {
+    domain: Record<string, unknown>;
+    types: Record<string, Array<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  };
+  order: Record<string, unknown>;
+  chainId: number;
+  meta: {
+    chunks: number;
+    fillDelaySeconds: number;
+    durationSeconds: number;
+    srcAmountPerChunk: string;
+  };
+}
+
+export interface LimitIntent {
+  eip712: {
+    domain: Record<string, unknown>;
+    types: Record<string, Array<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  };
+  order: Record<string, unknown>;
+  chainId: number;
+  meta: {
+    expirySeconds: number;
+    dstMinAmount: string;
+  };
+}
+
+export interface BridgeTxStep {
+  type: "approval" | "bridge";
+  label: string;
+  tx: {
+    to: `0x${string}`;
+    data: `0x${string}`;
+    value: string;
+    chainId: number;
+    gasLimit?: string;
+  };
+}
+
+export interface BridgeIntent {
+  steps: BridgeTxStep[];
+  estimate: {
+    fromToken: string;
+    toToken: string;
+    fromAmount: string;
+    fromAmountUSD?: string;
+    toAmount: string;
+    toAmountUSD?: string;
+    toAmountMin: string;
+    gasCostUSD?: string;
+    estimatedDurationSeconds?: number;
+  };
+  fromChainId: number;
+  toChainId: number;
+}
+
+export interface BalanceChange {
+  token: `0x${string}`;
+  symbol: string | null;
+  decimals: number | null;
+  amount: string;
+  direction: "in" | "out";
+}
+
+export interface SimulationResult {
+  success: boolean;
+  gasEstimate: string;
+  error?: string;
+  balanceChanges: BalanceChange[];
+}
+
+export interface SwapSubmissionResult {
+  sessionId: string;
+  txHash?: string;
+  status: "submitted" | "completed" | "failed";
+  error?: string;
+}
+
+export interface TwapOrderResult {
+  orderId: string;
+  status: string;
+  txHash?: string;
 }
 
 export interface CompletedOperationResult {

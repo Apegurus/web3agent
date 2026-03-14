@@ -45,6 +45,16 @@ Use `resolveCanonicalToken()` / `resolveCanonicalTokenSync()` when you only want
 
 Root API helpers lazily create a shared default runtime under the hood. Long-lived processes can import `shutdownDefaultRuntime` from `web3agent/runtime` to release those resources when finished.
 
+### Browser Wallet Flows
+
+Use the root package API when your app owns the signer, for example a browser wallet connected through wagmi or AppKit.
+
+```js
+import { prepareSwapIntent, simulateTransaction, submitSignedSwap } from "web3agent";
+```
+
+These helpers prepare intent payloads, approval transactions, and signed-submission calls without requiring a server-side private key.
+
 ### Runtime API
 
 Use `web3agent/runtime` when you need tool discovery, generic invocation, wallet flows, or upstream passthrough tools.
@@ -122,6 +132,7 @@ See [WEB3_CONTEXT.md](./WEB3_CONTEXT.md) for the full environment variable table
 - **Blockscout** tools only work on 8 chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
 - **dSLTP** (stop-loss/take-profit orders) is not yet available
 - **0x** and **CoinGecko** plugins require their respective API keys
+- **Browser wallet signing over MCP** is indirect: MCP can prepare, simulate, and submit signed payloads, but generic MCP hosts cannot open a browser wallet prompt on their own
 
 ## Requirements
 
