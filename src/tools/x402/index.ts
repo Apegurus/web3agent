@@ -1,5 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { getConfig } from "../../config/env.js";
+import { resolvePolicy } from "../../policy/config.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -49,7 +51,19 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     const amount = firstAccept?.amount ?? "unknown";
     const network = firstAccept?.network ?? "unknown network";
     paymentDescription = `Pay ${amount} on ${network} to access ${url}`;
-  } catch (_error: unknown) {
+
+    const quotedUsd =
+      typeof amount === "string" ? Number(amount) : typeof amount === "number" ? amount : 0;
+    if (!Number.isNaN(quotedUsd) && quotedUsd > 0) {
+      const policy = resolvePolicy(getConfig());
+      if (policy.enabled && quotedUsd > policy.maxX402PaymentUsd) {
+        return formatToolError(
+          "POLICY_DENIED",
+          `x402 quoted payment $${quotedUsd.toFixed(2)} exceeds x402 limit of $${policy.maxX402PaymentUsd.toFixed(2)}`
+        );
+      }
+    }
+  } catch (e: unknown) {
     paymentDescription = `Fetch ${url} (may require payment)`;
   }
 
@@ -58,6 +72,7 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     description: paymentDescription,
     params: v.data as unknown as Record<string, unknown>,
     executor: executeFetchNow,
+    riskLevel: "financial",
   });
 }
 

@@ -1,4 +1,4 @@
-import type { PolicyAction, RiskLevel, SpendWindow, TreasuryPolicy } from "./types.js";
+import type { PolicyAction, SpendWindow, TreasuryPolicy } from "./types.js";
 
 export interface RuleResult {
   action: PolicyAction;

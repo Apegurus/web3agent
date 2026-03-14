@@ -4,6 +4,7 @@ import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
+import { getCachedBalanceUsd, refreshBalanceUsd } from "../policy/balance-cache.js";
 import { resolvePolicy } from "../policy/config.js";
 import { evaluatePolicy } from "../policy/engine.js";
 import { extractEstimatedUsd } from "../policy/extract-usd.js";
@@ -114,6 +115,14 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerEvmExecutors();
   initializeLifi(config.lifiApiKey);
   await loadSpendLog();
+
+  const wallet = getWalletState();
+  if (wallet.address) {
+    refreshBalanceUsd(wallet.address, wallet.chainId).catch((e: unknown) => {
+      process.stderr.write(`[web3agent] Initial balance refresh failed: ${e}\n`);
+    });
+  }
+
   return confirmationQueue.loadQueue();
 }
 
@@ -222,6 +231,12 @@ export class ManagedRuntime implements Web3AgentRuntime {
           `[web3agent] Wallet changed — flushed ${flushed} pending operation(s) from confirmation queue\n`
         );
       }
+      const wallet = getWalletState();
+      if (wallet.address) {
+        refreshBalanceUsd(wallet.address, wallet.chainId).catch((e: unknown) => {
+          process.stderr.write(`[web3agent] Failed to refresh wallet balance: ${e}\n`);
+        });
+      }
       this.goatProvider
         .waitForRebuild()
         .then(() => {
@@ -287,10 +302,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
           `[web3agent] Warning: no USD estimate for financial tool "${name}" — spend limits cannot be enforced for this call\n`
         );
       }
-      const decision = evaluatePolicy(this.treasuryPolicy, {
+      const decision = evaluatePolicy(resolvePolicy(this.config), {
         toolName: name,
         riskLevel: tool.riskLevel,
         estimatedUsd,
+        walletBalanceUsd: getCachedBalanceUsd(),
       });
 
       if (decision.action === "deny") {
@@ -311,7 +327,16 @@ export class ManagedRuntime implements Web3AgentRuntime {
       const normalized = normalizeCallToolResult(result);
 
       if (isFinancial && !normalized.isError) {
-        recordSpend(name, estimatedUsd, getWalletState().address);
+        const payload = getToolResultPayload(normalized);
+        const isPendingConfirmation =
+          payload !== null &&
+          typeof payload === "object" &&
+          "status" in payload &&
+          payload.status === "pending_confirmation";
+
+        if (!isPendingConfirmation) {
+          recordSpend(name, estimatedUsd, getWalletState().address);
+        }
       }
 
       return normalized;
@@ -502,6 +527,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
     for (const tool of goatSnapshot.listOfTools) {
       const goatTool = createGoatToolMetadata(tool);
+      const goatRiskLevel: RiskLevel = goatTool.annotations?.destructiveHint ? "financial" : "safe";
 
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(
@@ -510,6 +536,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
             description: goatTool.description,
             inputSchema: goatTool.inputSchema,
             category: "onchain",
+            riskLevel: goatRiskLevel,
             annotations: goatTool.annotations,
           },
           "goat",

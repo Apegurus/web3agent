@@ -8,6 +8,7 @@ import {
 } from "viem/accounts";
 import { simulateTransaction } from "../../api/simulation.js";
 import { getConfig } from "../../config/env.js";
+import { getCachedBalanceUsd } from "../../policy/balance-cache.js";
 import { resolvePolicy } from "../../policy/config.js";
 import { evaluatePolicy } from "../../policy/engine.js";
 import { extractEstimatedUsd } from "../../policy/extract-usd.js";
@@ -247,6 +248,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
         toolName: result.operation.type,
         riskLevel: opRiskLevel,
         estimatedUsd,
+        walletBalanceUsd: getCachedBalanceUsd(),
       });
 
       if (policyDecision.action === "deny") {
