@@ -428,13 +428,18 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
     {
       name: "evm_transfer_erc20",
       category: CATEGORY,
-      description: "Transfer ERC-20 tokens using raw token units.",
+      description:
+        "Transfer ERC-20 tokens. Amount is in the token's smallest unit (e.g. for USDC with 6 decimals, '1000000' = 1 USDC). Use evm_get_token_balance to check decimals first.",
       inputSchema: {
         type: "object" as const,
         properties: {
           tokenAddress: { type: "string", description: "ERC-20 token address" },
           to: { type: "string", description: "Recipient address or ENS name" },
-          amount: { type: "string", description: "Raw token amount in smallest units" },
+          amount: {
+            type: "string",
+            description:
+              "Token amount in smallest units (wei-equivalent). For USDC (6 decimals): '1000000' = 1 USDC. For WETH (18 decimals): '1000000000000000000' = 1 WETH.",
+          },
           chainId: { type: "number", description: "Chain ID (defaults to configured chain)" },
         },
         required: ["tokenAddress", "to", "amount"],
