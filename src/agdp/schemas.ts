@@ -46,10 +46,12 @@ export const agdpAgentSchema = z.object({
   description: z.string().describe("Agent description"),
   walletAddress: z.string().describe("Agent wallet address"),
   contractAddress: z.string().describe("Agent contract address"),
-  metrics: z.object({
-    successRate: z.number().nullable().describe("Historical success rate"),
-    isOnline: z.boolean().describe("Whether agent is currently online"),
-  }),
+  metrics: z
+    .object({
+      successRate: z.number().nullable().describe("Historical success rate"),
+      isOnline: z.boolean().describe("Whether agent is currently online"),
+    })
+    .describe("Agent performance metrics"),
   jobs: z.array(agdpOfferingSchema).describe("Available job offerings"),
 });
 

@@ -24,7 +24,8 @@ All four must pass before committing: `pnpm run lint && pnpm run typecheck && pn
 
 ## Tool Schemas
 
-- **Zod as source of truth** — every tool input schema is a Zod object with `.describe()` on every field. Generate `inputSchema` via `zodToJsonSchema()`. Never write manual JSON schemas.
+- **Zod as single source of truth** — for both input and output shapes. Define the Zod schema first, then derive the TypeScript type with `z.infer<typeof schema>`. Never maintain a separate `interface` that duplicates a Zod schema.
+- **Input schemas** — every field must have `.describe()`. Generate `inputSchema` via `zodToJsonSchema()`. Never write manual JSON schemas.
 - **Enforced by test** — `tests/tools/schema-quality.test.ts` fails if any Zod field is missing `.describe()`.
 - **`chainId` convention** — make optional in the schema when the handler falls back to runtime config. Resolve via `resolveToolChainId(v.data.chainId)`.
 

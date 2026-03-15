@@ -69,6 +69,11 @@ const schemaModules = await Promise.all([
   import("../../src/api/schemas/tokens.js"),
   import("../../src/api/schemas/wallet.js"),
   import("../../src/api/schemas/orbs.js"),
+  import("../../src/api/schemas/outputs.js"),
+  import("../../src/api/schemas/common.js"),
+  import("../../src/tools/evm/schemas.js"),
+  import("../../src/agdp/schemas.js"),
+  import("../../src/x402/schemas.js"),
 ]);
 
 // Internal schemas that are not user-facing tool inputs — skip .describe() checks

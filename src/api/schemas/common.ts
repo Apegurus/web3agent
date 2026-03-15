@@ -10,48 +10,50 @@ export const hexSchema = z.string().refine((value) => isHex(value), {
 }) as z.ZodType<`0x${string}`>;
 
 export const typedDataPayloadSchema = z.object({
-  domain: z.record(z.unknown()),
-  types: z.record(
-    z.array(
-      z.object({
-        name: z.string(),
-        type: z.string(),
-      })
+  domain: z.record(z.unknown()).describe("EIP-712 domain object"),
+  types: z
+    .record(
+      z.array(
+        z.object({
+          name: z.string(),
+          type: z.string(),
+        })
+      )
     )
-  ),
-  primaryType: z.string(),
-  message: z.record(z.unknown()),
+    .describe("EIP-712 type definitions"),
+  primaryType: z.string().describe("Primary type name"),
+  message: z.record(z.unknown()).describe("Typed data message"),
 });
 
 export const preparedTransactionRequestSchema = z.object({
-  to: addressSchema,
-  chainId: z.number().int(),
-  data: hexSchema.optional(),
-  value: z.string().optional(),
-  gasLimit: z.string().optional(),
+  to: addressSchema.describe("Target contract address"),
+  chainId: z.number().int().describe("Chain ID"),
+  data: hexSchema.optional().describe("Transaction calldata"),
+  value: z.string().optional().describe("Native value to send"),
+  gasLimit: z.string().optional().describe("Gas limit"),
 });
 
 export const preparedTransactionActionSchema = z.object({
-  id: z.string(),
-  type: z.literal("transaction"),
-  label: z.string(),
-  tx: preparedTransactionRequestSchema,
+  id: z.string().describe("Unique action identifier"),
+  type: z.literal("transaction").describe("Action type"),
+  label: z.string().describe("Human-readable description"),
+  tx: preparedTransactionRequestSchema.describe("Transaction to execute"),
 });
 
 export const preparedSignTypedDataActionSchema = z.object({
-  id: z.string(),
-  type: z.literal("signTypedData"),
-  label: z.string(),
-  chainId: z.number().int(),
-  eip712: typedDataPayloadSchema,
+  id: z.string().describe("Unique action identifier"),
+  type: z.literal("signTypedData").describe("Action type"),
+  label: z.string().describe("Human-readable description"),
+  chainId: z.number().int().describe("Chain ID for signing"),
+  eip712: typedDataPayloadSchema.describe("EIP-712 typed data payload"),
 });
 
 export const preparedSignMessageActionSchema = z.object({
-  id: z.string(),
-  type: z.literal("signMessage"),
-  label: z.string(),
-  chainId: z.number().int(),
-  message: z.string(),
+  id: z.string().describe("Unique action identifier"),
+  type: z.literal("signMessage").describe("Action type"),
+  label: z.string().describe("Human-readable description"),
+  chainId: z.number().int().describe("Chain ID for signing"),
+  message: z.string().describe("Message to sign"),
 });
 
 export const preparedActionSchema = z.union([
@@ -79,8 +81,8 @@ export const operationActionResultSchema = z.union([
 export const operationActionResultsMapSchema = z.record(operationActionResultSchema);
 
 export const resumeStateBaseSchema = z.object({
-  summary: z.string().optional(),
-  intent: z.record(z.unknown()).optional(),
-  meta: z.record(z.unknown()).optional(),
-  actionResults: operationActionResultsMapSchema.optional(),
+  summary: z.string().optional().describe("Operation summary"),
+  intent: z.record(z.unknown()).optional().describe("Original intent data"),
+  meta: z.record(z.unknown()).optional().describe("Operation metadata"),
+  actionResults: operationActionResultsMapSchema.optional().describe("Completed action results"),
 });

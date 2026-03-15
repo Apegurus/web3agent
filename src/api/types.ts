@@ -50,6 +50,24 @@ import type {
   walletFromMnemonicSchema,
   walletSetConfirmationSchema,
 } from "./schemas.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  approvalStepSchema,
+  balanceChangeSchema,
+  bridgeIntentSchema,
+  bridgeTxStepSchema,
+  crossChainSwapQuoteResultSchema,
+  crossChainSwapQuoteSummarySchema,
+  limitIntentSchema,
+  preparedOperationSchema,
+  sameChainSwapQuoteResultSchema,
+  simulationResultSchema,
+  swapIntentSchema,
+  swapQuoteResultSchema,
+  swapSubmissionResultSchema,
+  tokenSwappableResultSchema,
+  twapIntentSchema,
+} from "./schemas/outputs.js";
 
 export type ResolveTokenInput = z.infer<typeof resolveTokenSchema>;
 export type ListChainTokensInput = z.infer<typeof listChainTokensSchema>;
@@ -163,53 +181,10 @@ export interface PendingConfirmationResult {
 
 export type TypedDataPayload = z.infer<typeof typedDataPayloadSchema>;
 
-export interface ApprovalStep {
-  type: "wrap" | "approve";
-  label: string;
-  tx: {
-    to: `0x${string}`;
-    data?: `0x${string}`;
-    value?: string;
-  };
-}
-
-export interface SwapIntent {
-  eip712: TypedDataPayload;
-  quote: {
-    sessionId: string;
-    inToken: string;
-    outToken: string;
-    inAmount: string;
-    outAmount: string;
-    minAmountOut: string;
-    user: string;
-    [key: string]: unknown;
-  };
-  requiredApprovals: ApprovalStep[];
-  chainId: number;
-}
-
-export interface TwapIntent {
-  eip712: TypedDataPayload;
-  order: Record<string, unknown>;
-  chainId: number;
-  meta: {
-    chunks: number;
-    fillDelaySeconds: number;
-    durationSeconds: number;
-    srcAmountPerChunk: string;
-  };
-}
-
-export interface LimitIntent {
-  eip712: TypedDataPayload;
-  order: Record<string, unknown>;
-  chainId: number;
-  meta: {
-    expirySeconds: number;
-    dstMinAmount: string;
-  };
-}
+export type ApprovalStep = z.infer<typeof approvalStepSchema>;
+export type SwapIntent = z.infer<typeof swapIntentSchema>;
+export type TwapIntent = z.infer<typeof twapIntentSchema>;
+export type LimitIntent = z.infer<typeof limitIntentSchema>;
 
 export type PreparedTransactionRequest = z.infer<typeof preparedTransactionRequestSchema>;
 export type PreparedTransactionAction = z.infer<typeof preparedTransactionActionSchema>;
@@ -226,14 +201,7 @@ export interface OperationResumeState {
   state: Record<string, unknown>;
 }
 
-export interface PreparedOperation {
-  integration: PreparedOperationIntegration;
-  kind: string;
-  summary: string;
-  actions: PreparedAction[];
-  resumeState: OperationResumeState;
-  meta?: Record<string, unknown>;
-}
+export type PreparedOperation = z.infer<typeof preparedOperationSchema>;
 
 export interface OperationTransactionResult {
   type: "transaction";
@@ -294,52 +262,12 @@ export type PrepareOperationResult = PreparedOperation | ResumeOperationComplete
 
 export type ResumeOperationResult = ResumeOperationPendingResult | ResumeOperationCompletedResult;
 
-export interface BridgeTxStep {
-  type: "approval" | "bridge";
-  label: string;
-  tx: PreparedTransactionRequest;
-}
+export type BridgeTxStep = z.infer<typeof bridgeTxStepSchema>;
+export type BridgeIntent = z.infer<typeof bridgeIntentSchema>;
 
-export interface BridgeIntent {
-  steps: BridgeTxStep[];
-  actions: PreparedAction[];
-  estimate: {
-    fromToken: string;
-    toToken: string;
-    fromDecimals?: number;
-    toDecimals?: number;
-    fromAmount: string;
-    fromAmountUSD?: string;
-    toAmount: string;
-    toAmountUSD?: string;
-    toAmountMin: string;
-    gasCostUSD?: string;
-    estimatedDurationSeconds?: number;
-  };
-  fromChainId: number;
-  toChainId: number;
-}
-
-export interface BalanceChange {
-  token: `0x${string}`;
-  symbol: string | null;
-  decimals: number | null;
-  amount: string;
-  direction: "in" | "out";
-}
-
-export interface SimulationResult {
-  success: true;
-  gasEstimate: string;
-  balanceChanges: BalanceChange[];
-}
-
-export interface SwapSubmissionResult {
-  sessionId: string;
-  txHash?: string;
-  status: "submitted" | "completed" | "failed";
-  error?: string;
-}
+export type BalanceChange = z.infer<typeof balanceChangeSchema>;
+export type SimulationResult = z.infer<typeof simulationResultSchema>;
+export type SwapSubmissionResult = z.infer<typeof swapSubmissionResultSchema>;
 
 export interface TwapOrderResult {
   orderId: string;
@@ -356,44 +284,11 @@ export interface CompletedOperationResult {
 
 export type WriteOperationResult = PendingConfirmationResult | CompletedOperationResult;
 
-export interface SameChainSwapQuoteResult {
-  kind: "same-chain";
-  provider: "orbs";
-  chainId: number;
-  quote: Record<string, unknown>;
-}
-
-export interface CrossChainSwapQuoteSummary {
-  fromChainId: number;
-  toChainId: number;
-  fromToken?: string;
-  toToken?: string;
-  fromDecimals?: number;
-  toDecimals?: number;
-  fromAmount: string;
-  fromAmountUSD?: string;
-  toAmount?: string;
-  toAmountUSD?: string;
-  toAmountMin?: string;
-  gasCostUSD?: string;
-  estimatedDurationSeconds?: number;
-  includedSteps?: Array<{ type?: string; tool?: string }>;
-}
-
-export interface CrossChainSwapQuoteResult {
-  kind: "cross-chain";
-  provider: "lifi";
-  quote: CrossChainSwapQuoteSummary;
-}
-
-export type SwapQuoteResult = SameChainSwapQuoteResult | CrossChainSwapQuoteResult;
-
-export interface TokenSwappableResult {
-  swappable: boolean;
-  provider: "orbs" | "lifi";
-  kind: "same-chain" | "cross-chain";
-  reason?: string;
-}
+export type SameChainSwapQuoteResult = z.infer<typeof sameChainSwapQuoteResultSchema>;
+export type CrossChainSwapQuoteSummary = z.infer<typeof crossChainSwapQuoteSummarySchema>;
+export type CrossChainSwapQuoteResult = z.infer<typeof crossChainSwapQuoteResultSchema>;
+export type SwapQuoteResult = z.infer<typeof swapQuoteResultSchema>;
+export type TokenSwappableResult = z.infer<typeof tokenSwappableResultSchema>;
 
 export interface SwapStatusResult {
   provider: "orbs";

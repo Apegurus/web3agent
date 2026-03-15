@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   addressSchema,
+  hexSchema,
   preparedActionSchema,
   preparedTransactionRequestSchema,
   typedDataPayloadSchema,
@@ -56,11 +57,13 @@ export const swapQuoteResultSchema = z.discriminatedUnion("kind", [
 export const approvalStepSchema = z.object({
   type: z.enum(["wrap", "approve"]).describe("Approval type"),
   label: z.string().describe("Human-readable description"),
-  tx: z.object({
-    to: addressSchema.describe("Target contract address"),
-    data: z.string().optional().describe("Transaction calldata"),
-    value: z.string().optional().describe("Native value to send"),
-  }),
+  tx: z
+    .object({
+      to: addressSchema.describe("Target contract address"),
+      data: hexSchema.optional().describe("Transaction calldata"),
+      value: z.string().optional().describe("Native value to send"),
+    })
+    .describe("Transaction to execute"),
 });
 
 export const swapIntentSchema = z.object({
@@ -87,22 +90,26 @@ export const twapIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
   order: z.record(z.unknown()).describe("TWAP order data"),
   chainId: z.number().describe("Chain ID"),
-  meta: z.object({
-    chunks: z.number().describe("Number of TWAP intervals"),
-    fillDelaySeconds: z.number().describe("Delay between fills"),
-    durationSeconds: z.number().describe("Total order duration"),
-    srcAmountPerChunk: z.string().describe("Amount per chunk in smallest units"),
-  }),
+  meta: z
+    .object({
+      chunks: z.number().describe("Number of TWAP intervals"),
+      fillDelaySeconds: z.number().describe("Delay between fills"),
+      durationSeconds: z.number().describe("Total order duration"),
+      srcAmountPerChunk: z.string().describe("Amount per chunk in smallest units"),
+    })
+    .describe("TWAP order metadata"),
 });
 
 export const limitIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
   order: z.record(z.unknown()).describe("Limit order data"),
   chainId: z.number().describe("Chain ID"),
-  meta: z.object({
-    expirySeconds: z.number().describe("Order expiry duration"),
-    dstMinAmount: z.string().describe("Minimum output amount"),
-  }),
+  meta: z
+    .object({
+      expirySeconds: z.number().describe("Order expiry duration"),
+      dstMinAmount: z.string().describe("Minimum output amount"),
+    })
+    .describe("Limit order metadata"),
 });
 
 // --- Bridge ---
