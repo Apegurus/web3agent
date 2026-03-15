@@ -33,6 +33,14 @@
     "./mcp": {
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js"
+    },
+    "./agdp": {
+      "types": "./dist/agdp/api.d.ts",
+      "import": "./dist/agdp/api.js"
+    },
+    "./x402": {
+      "types": "./dist/x402/client.d.ts",
+      "import": "./dist/x402/client.js"
     }
   },
   "bin": {
