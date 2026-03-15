@@ -1,3 +1,5 @@
+import { readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ZodObject, ZodTypeAny } from "zod";
 
@@ -52,31 +54,40 @@ function findFieldsMissingDescribe(schema: ZodTypeAny, path = ""): string[] {
   return missing;
 }
 
-// Collect all exported Zod schemas from schema files
-const schemaModules = await Promise.all([
-  import("../../src/tools/acp/schemas.js"),
-  import("../../src/tools/acp-virtuals/schemas.js"),
-  import("../../src/tools/agdp/schemas.js"),
-  import("../../src/tools/erc8004/schemas.js"),
-  import("../../src/tools/x402/schemas.js"),
-  import("../../src/tools/orbs/schemas.js"),
-  import("../../src/tools/lifi/schemas.js"),
-  import("../../src/tools/operations/schemas.js"),
-  import("../../src/tools/tokens/schemas.js"),
-  import("../../src/tools/wallet/schemas.js"),
-  import("../../src/api/schemas/lifi.js"),
-  import("../../src/api/schemas/operations.js"),
-  import("../../src/api/schemas/tokens.js"),
-  import("../../src/api/schemas/wallet.js"),
-  import("../../src/api/schemas/orbs.js"),
-  import("../../src/api/schemas/outputs.js"),
-  import("../../src/api/schemas/common.js"),
-  import("../../src/tools/evm/schemas.js"),
-  import("../../src/agdp/schemas.js"),
-  import("../../src/x402/schemas.js"),
-]);
+/**
+ * Recursively find all schema files under src/.
+ * Matches: *\/schemas.ts, *\/schemas/*.ts
+ */
+function findSchemaFiles(dir: string, root: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const rel = relative(root, full);
+    if (statSync(full).isDirectory()) {
+      // Skip node_modules, dist, .git, etc.
+      if (entry.startsWith(".") || entry === "node_modules" || entry === "dist") continue;
+      results.push(...findSchemaFiles(full, root));
+    } else if (
+      entry.endsWith(".ts") &&
+      !entry.endsWith(".test.ts") &&
+      !entry.endsWith(".d.ts") &&
+      (entry === "schemas.ts" || rel.includes("/schemas/"))
+    ) {
+      results.push(full);
+    }
+  }
+  return results;
+}
 
-// Internal schemas that are not user-facing tool inputs — skip .describe() checks
+const ROOT = join(import.meta.dirname, "../../src");
+const schemaFiles = findSchemaFiles(ROOT, ROOT);
+
+// Dynamic import all discovered schema files
+const schemaModules = await Promise.all(
+  schemaFiles.map((f) => import(/* @vite-ignore */ f.replace(/\.ts$/, ".js")))
+);
+
+// Internal schemas that are not user-facing — skip .describe() checks
 const INTERNAL_SCHEMAS = new Set([
   "operationResumeStateSchema",
   "orbsSwapResumeStateStateSchema",
@@ -98,7 +109,7 @@ for (const mod of schemaModules) {
       "_def" in (value as object)
     ) {
       const def = (value as { _def: Record<string, unknown> })._def;
-      // Only test ZodObject schemas (tool inputs)
+      // Only test ZodObject schemas (tool inputs and outputs)
       if (def.typeName === "ZodObject") {
         allSchemas.push({ name, schema: value as ZodTypeAny });
         seen.add(name);
@@ -108,6 +119,10 @@ for (const mod of schemaModules) {
 }
 
 describe("schema quality", () => {
+  it("auto-discovered schema files", () => {
+    expect(schemaFiles.length).toBeGreaterThan(0);
+  });
+
   it("found schemas to test", () => {
     expect(allSchemas.length).toBeGreaterThan(0);
   });
