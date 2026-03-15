@@ -38,6 +38,7 @@ import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
+import { resolveToolChainId } from "../shared/chain-context.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
   orbsGetQuoteSchema,
@@ -57,7 +58,8 @@ import {
 async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsGetQuoteSchema, params);
   if (!v.success) return v.error;
-  const { chainId, fromToken, toToken, inAmount, slippage } = v.data;
+  const { fromToken, toToken, inAmount, slippage } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getLiquidityHubError(chainId));
@@ -209,7 +211,8 @@ async function executeOrbsSwapNow(params: Record<string, unknown>): Promise<Call
 async function orbsSwapStatus(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsSwapStatusSchema, params);
   if (!v.success) return v.error;
-  const { chainId, sessionId, user, maxAttempts } = v.data;
+  const { sessionId, user, maxAttempts } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
 
   try {
     const result = await pollSwapStatus({
@@ -228,7 +231,8 @@ async function orbsSwapStatus(params: Record<string, unknown>): Promise<CallTool
 async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsSwapSchema, params);
   if (!v.success) return v.error;
-  const { chainId, fromToken, toToken, inAmount } = v.data;
+  const { fromToken, toToken, inAmount } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getLiquidityHubError(chainId));
@@ -300,7 +304,8 @@ async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<Call
 async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsPlaceTwapSchema, params);
   if (!v.success) return v.error;
-  const { chainId, srcToken, dstToken, srcAmount, chunks, fillDelay } = v.data;
+  const { srcToken, dstToken, srcAmount, chunks, fillDelay } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isTwapSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
@@ -365,7 +370,8 @@ async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<Cal
 async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsPlaceLimitSchema, params);
   if (!v.success) return v.error;
-  const { chainId, srcToken, dstToken, srcAmount, dstMinAmount } = v.data;
+  const { srcToken, dstToken, srcAmount, dstMinAmount } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isTwapSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
@@ -400,7 +406,7 @@ const orbsSubmitSignedTwapOrderTool = createToolHandler(
 async function orbsListOrders(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsListOrdersSchema, params);
   if (!v.success) return v.error;
-  const { chainId } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isTwapSupported(chainId)) {
     return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));

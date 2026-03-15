@@ -2,9 +2,7 @@ import { z } from "zod";
 import { addressSchema, hexSchema } from "./common.js";
 
 export const orbsGetQuoteSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
   fromToken: z.string({ required_error: "fromToken is required" }).describe("Source token address"),
   toToken: z
     .string({ required_error: "toToken is required" })
@@ -12,7 +10,7 @@ export const orbsGetQuoteSchema = z.object({
   inAmount: z
     .string({ required_error: "inAmount is required" })
     .describe("Amount in smallest token units"),
-  slippage: z.number().optional().describe("Slippage tolerance (0-1, default 0.03)"),
+  slippage: z.number().optional().describe("Slippage percentage (0.5 = 0.5%, default 0.5)"),
 });
 
 export const orbsSwapSchema = orbsGetQuoteSchema;
@@ -22,9 +20,7 @@ export const orbsPrepareSwapIntentSchema = orbsGetQuoteSchema.extend({
 });
 
 export const orbsGetRequiredApprovalsSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
   fromToken: z.string({ required_error: "fromToken is required" }).describe("Source token address"),
   inAmount: z
     .string({ required_error: "inAmount is required" })
@@ -33,9 +29,7 @@ export const orbsGetRequiredApprovalsSchema = z.object({
 });
 
 export const orbsPlaceTwapSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
   srcToken: z.string({ required_error: "srcToken is required" }).describe("Source token address"),
   dstToken: z
     .string({ required_error: "dstToken is required" })
@@ -54,9 +48,7 @@ export const orbsPrepareTwapIntentSchema = orbsPlaceTwapSchema.extend({
 });
 
 export const orbsPlaceLimitSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
   srcToken: z.string({ required_error: "srcToken is required" }).describe("Source token address"),
   dstToken: z
     .string({ required_error: "dstToken is required" })
@@ -75,9 +67,7 @@ export const orbsPrepareLimitIntentSchema = orbsPlaceLimitSchema.extend({
 });
 
 export const orbsSubmitSignedSwapSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
   quote: z.record(z.unknown()).describe("Quote object from orbs_get_quote"),
   signature: hexSchema
     .refine((v) => v.length >= 132, {
@@ -98,9 +88,7 @@ export const orbsSubmitSignedTwapOrderSchema = z.object({
 });
 
 export const orbsSwapStatusSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
   sessionId: z
     .string({ required_error: "sessionId is required" })
     .describe("Session ID from swap submission"),
@@ -109,7 +97,5 @@ export const orbsSwapStatusSchema = z.object({
 });
 
 export const orbsListOrdersSchema = z.object({
-  chainId: z
-    .number({ required_error: "chainId is required" })
-    .describe("Optional chain ID override"),
+  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
 });

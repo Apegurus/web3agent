@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const chainIdParam = z.number().optional().describe("Optional chain ID override");
+const chainIdParam = z.number().optional().describe("Chain ID (defaults to runtime config)");
 
 export const acpVCreateJobSchema = z.object({
   provider: z.string().describe("Provider wallet address"),
