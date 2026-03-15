@@ -1,6 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Hex } from "viem";
 import { createPublicClient } from "viem";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   AcpMemoType,
   AcpPhase,
@@ -653,25 +654,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Create a job on the Virtuals ACPRouter (Base). Specify provider, evaluator, description, and expiry.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          provider: { type: "string", description: "Provider wallet address" },
-          evaluator: { type: "string", description: "Evaluator wallet address" },
-          description: { type: "string", description: "Job description / metadata" },
-          expiryDuration: { type: "number", description: "Job expiry in seconds from now" },
-          paymentToken: {
-            type: "string",
-            description: "ERC-20 payment token address (defaults to USDC)",
-          },
-          budget: {
-            type: "string",
-            description: "Initial budget in token smallest units (default 0)",
-          },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["provider", "evaluator", "description", "expiryDuration"],
-      },
+      inputSchema: zodToJsonSchema(acpVCreateJobSchema) as Record<string, unknown>,
       handler: acpCreateJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -680,16 +663,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Set a job budget on the Virtuals ACPRouter using setBudgetWithPaymentToken and optional token override.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          amount: { type: "string", description: "Budget amount in token smallest units" },
-          paymentToken: { type: "string", description: "Payment token address (defaults to USDC)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "amount"],
-      },
+      inputSchema: zodToJsonSchema(acpVSetBudgetSchema) as Record<string, unknown>,
       handler: acpSetBudget,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -698,19 +672,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Fund a Virtuals ACPRouter job. Automatically checks allowance, approves ERC-20 if needed, then creates payable memo escrow.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          amount: { type: "string", description: "Funding amount in token smallest units" },
-          expiredAt: {
-            type: "number",
-            description: "Optional payable memo expiry as Unix timestamp (defaults to job expiry)",
-          },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "amount"],
-      },
+      inputSchema: zodToJsonSchema(acpVFundJobSchema) as Record<string, unknown>,
       handler: acpFundJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -719,15 +681,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Submit a deliverable memo on the Virtuals ACPRouter and advance the job to evaluation phase.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          deliverable: { type: "string", description: "Deliverable content (text, URL, or JSON)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "deliverable"],
-      },
+      inputSchema: zodToJsonSchema(acpVSubmitJobSchema) as Record<string, unknown>,
       handler: acpSubmitJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -736,15 +690,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Complete a job on the Virtuals ACPRouter by auto-resolving the pending memo and signing approval.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          reason: { type: "string", description: "Completion reason" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVCompleteJobSchema) as Record<string, unknown>,
       handler: acpCompleteJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -753,15 +699,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Reject a job on the Virtuals ACPRouter by auto-resolving the pending memo and signing rejection.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          reason: { type: "string", description: "Rejection reason" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVRejectJobSchema) as Record<string, unknown>,
       handler: acpRejectJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -769,14 +707,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       name: "acp_claim_refund",
       category: "agenticEconomy" as ToolCategory,
       description: "Claim remaining budget for a Virtuals ACPRouter job using claimBudget.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVClaimRefundSchema) as Record<string, unknown>,
       handler: acpClaimRefund,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -785,15 +716,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Get job details and full memo history from the Virtuals ACPRouter. Shows phase, participants, budget, and all memos with their status.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          memoLimit: { type: "number", description: "Max memos to return (default 100)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVGetJobSchema) as Record<string, unknown>,
       handler: acpGetJob,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

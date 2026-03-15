@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createPublicClient } from "viem";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { getConfig } from "../../config/env.js";
 import { getTransportForChain } from "../../config/wallet-factory.js";
 import {
@@ -555,36 +556,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "Register an agent on the ERC-8004 Identity Registry (write operation, wallet + confirmation required).",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          name: { type: "string", description: "Agent name" },
-          description: { type: "string", description: "Agent description" },
-          mcpEndpoint: {
-            type: "string",
-            description: "MCP endpoint URL (or use ERC8004_AGENT_URI env var)",
-          },
-          services: {
-            type: "array",
-            description: "Additional services offered",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                endpoint: { type: "string" },
-                version: { type: "string" },
-              },
-              required: ["name", "endpoint"],
-            },
-          },
-          agentURI: {
-            type: "string",
-            description: "Pre-hosted registration JSON URI (bypasses IPFS auto-pin)",
-          },
-          chainId: { type: "number", description: "Target chain ID (default from runtime config)" },
-        },
-        required: ["name", "description"],
-      },
+      inputSchema: zodToJsonSchema(erc8004RegisterSchema) as Record<string, unknown>,
       handler: erc8004RegisterAgent,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -593,18 +565,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "Get ERC-8004 agent identity. Requires either agentId (token ID) or walletAddress — provide at least one.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          agentId: { type: "number", description: "Agent token ID" },
-          walletAddress: {
-            type: "string",
-            description: "Agent wallet address (alternative to agentId)",
-          },
-          chainId: { type: "number", description: "Target chain ID (default from runtime config)" },
-        },
-        required: [],
-      },
+      inputSchema: zodToJsonSchema(erc8004GetAgentSchema) as Record<string, unknown>,
       handler: erc8004GetAgent,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -613,31 +574,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "Update ERC-8004 agent metadata URI (write operation, wallet + confirmation required).",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          agentId: { type: "number", description: "Agent token ID to update" },
-          name: { type: "string", description: "Updated agent name" },
-          description: { type: "string", description: "Updated agent description" },
-          mcpEndpoint: { type: "string", description: "Updated MCP endpoint URL" },
-          services: {
-            type: "array",
-            description: "Updated services array",
-            items: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                endpoint: { type: "string" },
-                version: { type: "string" },
-              },
-              required: ["name", "endpoint"],
-            },
-          },
-          agentURI: { type: "string", description: "Pre-hosted URI (bypasses IPFS auto-pin)" },
-          chainId: { type: "number", description: "Target chain ID (default from runtime config)" },
-        },
-        required: ["agentId"],
-      },
+      inputSchema: zodToJsonSchema(erc8004UpdateAgentSchema) as Record<string, unknown>,
       handler: erc8004UpdateAgent,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -646,18 +583,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "Submit reputation feedback for an ERC-8004 agent (write operation, wallet + confirmation required).",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          agentId: { type: "number", description: "Agent token ID" },
-          value: { type: "number", description: "Feedback value from -100 to +100" },
-          tag1: { type: "string", description: "Feedback tag 1" },
-          tag2: { type: "string", description: "Feedback tag 2" },
-          endpoint: { type: "string", description: "Service endpoint this feedback refers to" },
-          chainId: { type: "number", description: "Target chain ID (default from runtime config)" },
-        },
-        required: ["agentId", "value"],
-      },
+      inputSchema: zodToJsonSchema(erc8004SubmitFeedbackSchema) as Record<string, unknown>,
       handler: erc8004SubmitFeedback,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -666,16 +592,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "Get aggregate ERC-8004 reputation summary for an agent with optional tag filters.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          agentId: { type: "number", description: "Agent token ID" },
-          tag1: { type: "string", description: "Optional tag1 filter" },
-          tag2: { type: "string", description: "Optional tag2 filter" },
-          chainId: { type: "number", description: "Target chain ID (default from runtime config)" },
-        },
-        required: ["agentId"],
-      },
+      inputSchema: zodToJsonSchema(erc8004GetFeedbackSchema) as Record<string, unknown>,
       handler: erc8004GetFeedback,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

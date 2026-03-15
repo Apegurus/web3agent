@@ -68,39 +68,41 @@ export const lifiBridgeResumeStateStateSchema = resumeStateBaseSchema.extend({
 
 export const operationResumeStateSchema = z.object({
   version: z.literal(1),
-  integration: z.enum(["orbs", "lifi", "goat"]),
-  kind: z.string({ required_error: "kind is required" }),
-  state: z.record(z.unknown()),
+  integration: z.enum(["orbs", "lifi", "goat"]).describe("Integration name (e.g. 'orbs', 'lifi')"),
+  kind: z.string({ required_error: "kind is required" }).describe("Action type"),
+  state: z.record(z.unknown()).describe("Opaque resume state from previous call"),
 });
 
 export const prepareOperationSchema = z.union([
   orbsPrepareSwapIntentSchema.extend({
-    integration: z.literal("orbs"),
-    kind: z.literal("swap"),
+    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
+    kind: z.literal("swap").describe("Action type"),
   }),
   orbsPrepareTwapIntentSchema.extend({
-    integration: z.literal("orbs"),
-    kind: z.literal("twap"),
+    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
+    kind: z.literal("twap").describe("Action type"),
   }),
   orbsPrepareLimitIntentSchema.extend({
-    integration: z.literal("orbs"),
-    kind: z.literal("limit"),
+    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
+    kind: z.literal("limit").describe("Action type"),
   }),
   lifiPrepareBridgeIntentSchema.extend({
-    integration: z.literal("lifi"),
-    kind: z.literal("bridge"),
+    integration: z.literal("lifi").describe("Integration name (e.g. 'orbs', 'lifi')"),
+    kind: z.literal("bridge").describe("Action type"),
   }),
   z.object({
-    integration: z.literal("goat"),
-    kind: z.literal("tool"),
+    integration: z.literal("goat").describe("Integration name (e.g. 'orbs', 'lifi')"),
+    kind: z.literal("tool").describe("Action type"),
     toolName: z.string({ required_error: "toolName is required" }),
-    params: z.record(z.unknown()).optional(),
+    params: z.record(z.unknown()).optional().describe("Action parameters"),
     chainId: z.number({ required_error: "chainId is required" }),
     account: addressSchema,
   }),
 ]);
 
 export const resumeOperationSchema = z.object({
-  resumeState: operationResumeStateSchema,
-  actionResults: operationActionResultsMapSchema.optional(),
+  resumeState: operationResumeStateSchema.describe("Opaque resume state from previous call"),
+  actionResults: operationActionResultsMapSchema
+    .optional()
+    .describe("Array of completed action results"),
 });

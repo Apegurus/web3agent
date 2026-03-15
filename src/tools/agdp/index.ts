@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   type AgdpAgent,
   createJobViaApi,
@@ -15,6 +16,7 @@ import { getWalletState } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
+  agdpCreateOfferingSchema,
   agdpGetMyJobsSchema,
   agdpGetOfferingSchema,
   agdpGetOfferingsSchema,
@@ -147,20 +149,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       description:
         "Search the aGDP marketplace for AI agent offerings. " +
         "Returns agent profiles with capabilities, metrics, and available services.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          query: {
-            type: "string",
-            description: "Search query for agent offerings",
-          },
-          topK: {
-            type: "number",
-            description: "Max results (default 10)",
-          },
-        },
-        required: [],
-      },
+      inputSchema: zodToJsonSchema(agdpGetOfferingsSchema) as Record<string, unknown>,
       handler: agdpGetOfferings,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -168,16 +157,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       name: "agdp_get_offering",
       category: CATEGORY,
       description: "Get detailed information about a specific agent offering by ID.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          offeringId: {
-            type: ["number", "string"],
-            description: "Agent ID from agdp_get_offerings",
-          },
-        },
-        required: ["offeringId"],
-      },
+      inputSchema: zodToJsonSchema(agdpGetOfferingSchema) as Record<string, unknown>,
       handler: agdpGetOffering,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -186,17 +166,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "List your active or completed jobs from the aGDP marketplace. Requires an active wallet.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          status: {
-            type: "string",
-            enum: ["active", "completed"],
-            description: "Job status filter (default: active)",
-          },
-        },
-        required: [],
-      },
+      inputSchema: zodToJsonSchema(agdpGetMyJobsSchema) as Record<string, unknown>,
       handler: agdpGetMyJobs,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -206,20 +176,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       description:
         "Hire an AI agent from the aGDP marketplace via API (write operation, requires wallet and confirmation). " +
         "For on-chain job creation, use acp_create_job separately.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          offeringId: {
-            type: ["number", "string"],
-            description: "Agent ID to hire",
-          },
-          serviceRequirements: {
-            type: "object",
-            description: "Service requirements",
-          },
-        },
-        required: ["offeringId"],
-      },
+      inputSchema: zodToJsonSchema(agdpHireAgentSchema) as Record<string, unknown>,
       handler: agdpHireAgent,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -228,22 +185,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
       category: CATEGORY,
       description:
         "Create a new offering on the aGDP marketplace. NOTE: requires a LITE_AGENT_API_KEY from Virtuals — visit agdp.io/join to register.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          name: { type: "string", description: "Offering name" },
-          description: {
-            type: "string",
-            description: "Offering description",
-          },
-          price: { type: "number", description: "Price in USD" },
-          category: {
-            type: "string",
-            description: "Offering category",
-          },
-        },
-        required: ["name", "description", "price"],
-      },
+      inputSchema: zodToJsonSchema(agdpCreateOfferingSchema) as Record<string, unknown>,
       handler: agdpCreateOffering,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
