@@ -2,6 +2,7 @@ import type { EvmChain, Signature, Token, ToolBase } from "@goat-sdk/core";
 import type { Abi } from "viem";
 import { encodeFunctionData, parseAbi } from "viem";
 import { Web3AgentError } from "../api/errors.js";
+import { getConfirmedReceipt } from "../api/operations/shared.js";
 import type {
   OperationActionResult,
   PreparedAction,
@@ -162,28 +163,17 @@ export class PreparedActionGoatWallet {
     const id = `transaction:${this.transactionIndex++}`;
     const result = this.options.actionResults[id];
     if (result?.type === "transaction") {
-      try {
-        const receipt = await this.publicClient.getTransactionReceipt({
-          hash: result.txHash as `0x${string}`,
-        });
-        if (receipt.status !== "success") {
-          throw new Web3AgentError({
-            code: "INVALID_PARAMS",
-            message: `Action result ${id} must reference a successful confirmed transaction`,
-          });
-        }
-      } catch (error: unknown) {
-        if (error instanceof Web3AgentError) {
-          throw error;
-        }
-
-        throw new Web3AgentError({
-          code: "INVALID_PARAMS",
-          message: `Action result ${id} must reference a confirmed transaction receipt`,
-          cause: error,
-        });
-      }
-
+      const to = assertAddress(transaction.to, "transaction.to");
+      const action: PreparedTransactionAction = {
+        id,
+        type: "transaction",
+        label: `Execute transaction to ${to}`,
+        tx: {
+          to,
+          chainId: this.options.chainId,
+        },
+      };
+      await getConfirmedReceipt(action, result);
       return { hash: result.txHash };
     }
 
@@ -232,7 +222,9 @@ export class PreparedActionGoatWallet {
 
   async balanceOf(address: string, tokenAddress?: string) {
     if (!tokenAddress) {
-      const value = await this.getNativeBalance();
+      const value = await this.publicClient.getBalance({
+        address: assertAddress(address, "address"),
+      });
       return {
         value: value.toString(),
         decimals: this.chain.nativeCurrency.decimals,

@@ -12,11 +12,12 @@ import { loadPlugins } from "../goat/plugins.js";
 import { buildGoatTools } from "../goat/toolset.js";
 import { getRpcUrlForRuntimeChain, getRuntimeConfigForChain } from "./chain-access.js";
 import { OperationPauseError, PreparedActionGoatWallet } from "./goat-wallet.js";
-import { assertChainSupported, preserveWeb3AgentError } from "./validation.js";
+import { assertChainSupported } from "./validation.js";
 
 function findRestrictedPlugin(toolName: string): string | undefined {
   const lowerName = toolName.toLowerCase();
-  for (const pluginKey of Object.keys(RESTRICTED_PLUGIN_CHAINS)) {
+  const sortedKeys = Object.keys(RESTRICTED_PLUGIN_CHAINS).sort((a, b) => b.length - a.length);
+  for (const pluginKey of sortedKeys) {
     if (lowerName.startsWith(pluginKey.toLowerCase())) {
       return pluginKey;
     }
@@ -133,6 +134,6 @@ export async function prepareOrResumeGoatOperation(params: {
       });
     }
 
-    throw preserveWeb3AgentError("GOAT_TOOL_ERROR", error);
+    throw Web3AgentError.fromUnknown("GOAT_TOOL_ERROR", error);
   }
 }

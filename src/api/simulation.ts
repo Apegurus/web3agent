@@ -1,4 +1,4 @@
-import { type Hex, decodeErrorResult, decodeFunctionData, numberToHex, parseAbi } from "viem";
+import { type Hex, decodeErrorResult, numberToHex, parseAbi } from "viem";
 import { createPublicClientForRuntimeChain } from "../operations/chain-access.js";
 import {
   assertAddress,
@@ -7,6 +7,7 @@ import {
   parseBigIntString,
 } from "../operations/validation.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
+import { normalizeAddress } from "../utils/address.js";
 import { Web3AgentError } from "./errors.js";
 import { transactionSimulateSchema } from "./schemas.js";
 import {
@@ -38,10 +39,6 @@ interface TraceCallNode {
   calls?: TraceCallNode[];
 }
 
-function normalizeAddress(value: string): string {
-  return value.toLowerCase();
-}
-
 function getCachedTraceSupport(chainId: number): boolean | undefined {
   const cached = traceSupportCache.get(chainId);
   if (!cached) return undefined;
@@ -66,9 +63,13 @@ function getAddressFromTopic(topic: string): `0x${string}` {
   return `0x${topic.slice(-40)}` as `0x${string}`;
 }
 
-function parseNumericValue(value: string | undefined): bigint {
+export function parseNumericValue(value: string | undefined): bigint {
   if (!value || value === "0x" || value === "0") return 0n;
-  return BigInt(value);
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
 }
 
 function isDebugTraceUnsupported(error: unknown): boolean {
@@ -190,14 +191,11 @@ function collectTraceChanges(
   }
 }
 
-function isUsableTrace(trace: TraceCallNode): boolean {
-  return (
-    Array.isArray(trace.logs) ||
-    Array.isArray(trace.calls) ||
-    typeof trace.value === "string" ||
-    typeof trace.from === "string" ||
-    typeof trace.to === "string"
-  );
+export function isUsableTrace(trace: TraceCallNode): boolean {
+  const hasLogs = Array.isArray(trace.logs) && trace.logs.length > 0;
+  const hasCalls = Array.isArray(trace.calls) && trace.calls.length > 0;
+  const hasValue = typeof trace.value === "string" && trace.value !== "0x" && trace.value !== "0x0";
+  return hasLogs || hasCalls || hasValue;
 }
 
 async function resolveBalanceChanges(

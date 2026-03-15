@@ -32,6 +32,21 @@ function getCompatibilityIntent<T>(operation: PreparedOperation, field: string):
     });
   }
 
+  // Verify the intent has the expected shape for the given kind.
+  const record = intent as Record<string, unknown>;
+  if (field === "swap" && !record.quote) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "swap intent must contain a quote",
+    });
+  }
+  if ((field === "twap" || field === "limit") && !record.order) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: `${field} intent must contain an order`,
+    });
+  }
+
   return intent as T;
 }
 
@@ -93,7 +108,7 @@ export async function prepareBridgeIntent(params: PrepareBridgeIntentInput): Pro
 export async function submitSignedSwap(params: {
   chainId: number;
   quote: Record<string, unknown>;
-  signature: string;
+  signature: `0x${string}`;
 }): Promise<SwapSubmissionResult> {
   return submitSignedSwapViaOperation(params);
 }

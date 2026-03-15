@@ -63,6 +63,7 @@ const mockConfig = {
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockImplementation(() => mockConfig),
+  tryGetConfig: vi.fn().mockImplementation(() => mockConfig),
 }));
 
 beforeEach(() => {

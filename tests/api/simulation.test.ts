@@ -256,3 +256,61 @@ describe("simulateTransaction", () => {
     });
   });
 });
+
+import { isUsableTrace, parseNumericValue } from "../../src/api/simulation.js";
+
+describe("parseNumericValue", () => {
+  it("returns 0n for undefined", () => {
+    expect(parseNumericValue(undefined)).toBe(0n);
+  });
+
+  it("returns 0n for bare 0x", () => {
+    expect(parseNumericValue("0x")).toBe(0n);
+  });
+
+  it("returns 0n for string zero", () => {
+    expect(parseNumericValue("0")).toBe(0n);
+  });
+
+  it("parses valid hex", () => {
+    expect(parseNumericValue("0x1a")).toBe(26n);
+  });
+
+  it("parses decimal string", () => {
+    expect(parseNumericValue("100")).toBe(100n);
+  });
+
+  it("returns 0n for malformed hex", () => {
+    expect(parseNumericValue("0xGG")).toBe(0n);
+  });
+});
+
+describe("isUsableTrace", () => {
+  it("returns false for empty trace", () => {
+    expect(isUsableTrace({})).toBe(false);
+  });
+
+  it("returns false for trace with only from/to", () => {
+    expect(isUsableTrace({ from: "0x1", to: "0x2" })).toBe(false);
+  });
+
+  it("returns true for trace with logs", () => {
+    expect(isUsableTrace({ logs: [{ address: "0x1" }] })).toBe(true);
+  });
+
+  it("returns false for trace with empty logs", () => {
+    expect(isUsableTrace({ logs: [] })).toBe(false);
+  });
+
+  it("returns true for trace with calls", () => {
+    expect(isUsableTrace({ calls: [{}] })).toBe(true);
+  });
+
+  it("returns true for trace with value", () => {
+    expect(isUsableTrace({ value: "0x1" })).toBe(true);
+  });
+
+  it("returns false for trace with zero value", () => {
+    expect(isUsableTrace({ value: "0x0" })).toBe(false);
+  });
+});

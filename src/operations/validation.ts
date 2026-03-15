@@ -69,11 +69,3 @@ export function parseBigIntString(value: string, field: string): bigint {
     });
   }
 }
-
-export function preserveWeb3AgentError(
-  code: string,
-  error: unknown,
-  fallbackMessage = "Unknown error"
-): Web3AgentError {
-  return Web3AgentError.fromUnknown(code, error, fallbackMessage);
-}

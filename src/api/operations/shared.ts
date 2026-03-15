@@ -120,7 +120,7 @@ export function assertActionResultType<TType extends OperationActionResult["type
   return result as Extract<OperationActionResult, { type: TType }>;
 }
 
-async function getConfirmedReceipt(
+export async function getConfirmedReceipt(
   action: PreparedTransactionAction,
   result: Extract<OperationActionResult, { type: "transaction" }>
 ): Promise<TransactionReceipt> {
@@ -134,6 +134,13 @@ async function getConfirmedReceipt(
       throw new Web3AgentError({
         code: "INVALID_PARAMS",
         message: `Action result ${action.id} must reference a successful confirmed transaction`,
+      });
+    }
+
+    if (receipt.to && receipt.to.toLowerCase() !== action.tx.to.toLowerCase()) {
+      throw new Web3AgentError({
+        code: "INVALID_PARAMS",
+        message: `Action result ${action.id} transaction target does not match the prepared action`,
       });
     }
 
@@ -271,5 +278,13 @@ export function assertSignedOrder(order: unknown): Record<string, unknown> {
 }
 
 export function asQuote(value: Record<string, unknown>): Quote {
+  // Caller must validate via assertSubmitSwapQuote before calling asQuote.
+  // Cheap guard: verify the SDK's minimum required field exists.
+  if (typeof value.sessionId !== "string") {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "quote.sessionId must be a string",
+    });
+  }
   return value as unknown as Quote;
 }

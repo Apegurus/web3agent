@@ -2,7 +2,7 @@ import type { Quote } from "@orbs-network/liquidity-hub-sdk";
 import type { RePermitOrder } from "@orbs-network/twap-sdk";
 import { encodeFunctionData, maxUint256 } from "viem";
 import { createPublicClientForRuntimeChain } from "../../operations/chain-access.js";
-import { assertAddress, assertHex, preserveWeb3AgentError } from "../../operations/validation.js";
+import { assertAddress, assertHex } from "../../operations/validation.js";
 import {
   getLiquidityHubError,
   getTwapError,
@@ -95,12 +95,20 @@ function toSwapIntentQuote(quote: RawOrbsQuote): SwapIntent["quote"] {
   };
 }
 
-function toPlainRecord(value: object): Record<string, unknown> {
-  return { ...value };
-}
-
 function toRePermitOrder(value: Record<string, unknown>): RePermitOrder {
-  // Orbs SDK submission expects the concrete SDK order type at this boundary.
+  // Validate minimum fields the Orbs SDK expects.
+  if (typeof value.maker !== "string") {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "order.maker must be a string",
+    });
+  }
+  if (typeof value.deadline !== "string" && typeof value.deadline !== "number") {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "order.deadline must be a string or number",
+    });
+  }
   return value as unknown as RePermitOrder;
 }
 
@@ -162,7 +170,7 @@ export async function getRequiredApprovals(
 
     return steps;
   } catch (error: unknown) {
-    throw preserveWeb3AgentError("APPROVAL_CHECK_ERROR", error);
+    throw Web3AgentError.fromUnknown("APPROVAL_CHECK_ERROR", error);
   }
 }
 
@@ -236,7 +244,7 @@ export async function prepareSwapOperation(
       }
     );
   } catch (error: unknown) {
-    throw preserveWeb3AgentError("ORBS_QUOTE_ERROR", error);
+    throw Web3AgentError.fromUnknown("ORBS_QUOTE_ERROR", error);
   }
 }
 
@@ -277,13 +285,13 @@ function prepareTwapOrLimitIntent(
     domain: order.domain as TypedDataPayload["domain"],
     types: order.types as TypedDataPayload["types"],
     primaryType: order.primaryType,
-    message: toPlainRecord(order.order),
+    message: { ...order.order },
   };
 
   if (isLimit) {
     const intent: LimitIntent = {
       eip712,
-      order: toPlainRecord(order.order),
+      order: { ...order.order },
       chainId: params.chainId,
       meta: {
         expirySeconds: expirySeconds ?? 86400,
@@ -298,7 +306,7 @@ function prepareTwapOrLimitIntent(
 
   const intent: TwapIntent = {
     eip712,
-    order: toPlainRecord(order.order),
+    order: { ...order.order },
     chainId: params.chainId,
     meta: {
       chunks,
@@ -336,7 +344,7 @@ async function prepareTwapOrLimitOperation(
       { intent }
     );
   } catch (error: unknown) {
-    throw preserveWeb3AgentError(errorCode, error);
+    throw Web3AgentError.fromUnknown(errorCode, error);
   }
 }
 
@@ -453,7 +461,7 @@ export async function submitSignedTwapOrderDirect(
       v: params.signature.v,
     });
   } catch (error: unknown) {
-    throw preserveWeb3AgentError("INVALID_PARAMS", error, "Invalid TWAP signature");
+    throw Web3AgentError.fromUnknown("INVALID_PARAMS", error, "Invalid TWAP signature");
   }
 
   const result = await submitSignedOrder(

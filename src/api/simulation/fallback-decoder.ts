@@ -1,5 +1,6 @@
 import { type Hex, decodeFunctionData, parseAbi } from "viem";
 import { assertAddress } from "../../operations/validation.js";
+import { normalizeAddress } from "../../utils/address.js";
 import type { BalanceChange } from "../types.js";
 
 export const NATIVE_ASSET_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as const;
@@ -29,10 +30,6 @@ interface FallbackChange {
   token: `0x${string}`;
   direction: BalanceChange["direction"];
   amount: bigint;
-}
-
-function normalizeAddress(value: string): string {
-  return value.toLowerCase();
 }
 
 function readRecordField<T>(value: unknown, field: string): T | undefined {

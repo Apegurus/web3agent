@@ -20,8 +20,9 @@ import type { Quote } from "@orbs-network/liquidity-hub-sdk";
 import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import { type Account, type Hex, createPublicClient, maxUint256 } from "viem";
 import { getChainById } from "../chains/registry.js";
-import { getConfig } from "../config/env.js";
+import { tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
+import { assertAddress } from "../operations/validation.js";
 import { withTimeout } from "../utils/timeout.js";
 
 export type { Quote };
@@ -131,18 +132,7 @@ const ORBS_REQUEST_TIMEOUT_MS = 15_000;
 export const DEX_MIN_AMOUNT_OUT_DISABLED = "-1";
 
 function readConfiguredPartnerOverride(): string | undefined {
-  try {
-    return getConfig().orbsPartner ?? process.env.ORBS_PARTNER ?? undefined;
-  } catch (e: unknown) {
-    if (
-      e instanceof Error &&
-      e.message === "Config not initialized — call setConfig() during startup"
-    ) {
-      return process.env.ORBS_PARTNER ?? undefined;
-    }
-
-    throw e;
-  }
+  return tryGetConfig()?.orbsPartner ?? process.env.ORBS_PARTNER ?? undefined;
 }
 
 // Use ORBS_PARTNER env var or configured override to replace per-chain defaults.
@@ -430,7 +420,7 @@ export function getWrappedNativeToken(chainId: number): Hex | null {
 
 export function resolveSwapQuoteFromToken(chainId: number, fromToken: string): Hex {
   if (!isNativeTokenAddress(fromToken)) {
-    return fromToken as Hex;
+    return assertAddress(fromToken, "fromToken");
   }
 
   const wrapped = getWrappedNativeToken(chainId);

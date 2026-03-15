@@ -1,5 +1,6 @@
 import { maxUint256 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setupDefaultOperationMocks } from "../helpers/operation-mocks.js";
 
 const viemMocks = vi.hoisted(() => ({
   createPublicClient: vi.fn(),
@@ -66,23 +67,7 @@ vi.mock("@lifi/sdk", () => ({
 describe("browser wallet intent APIs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    viemMocks.createPublicClient.mockReturnValue({
-      readContract: vi.fn().mockResolvedValue(0n),
-    });
-    viemMocks.createClient.mockReturnValue({
-      extend: vi.fn().mockReturnValue({
-        readContract: vi.fn().mockResolvedValue(9n),
-      }),
-    });
-    twapMocks.getSrcTokenChunkAmount.mockReturnValue("200");
-    lifiMocks.getChains.mockResolvedValue([{ id: 1 }, { id: 8453 }]);
-    lifiMocks.convertQuoteToRoute.mockImplementation((quote: Record<string, unknown>) => ({
-      steps: [{ transactionRequest: quote.transactionRequest }],
-    }));
-    lifiMocks.setAllowance.mockImplementation(
-      async (_client: unknown, _token: unknown, _spender: unknown, amount: bigint) =>
-        amount === 0n ? "0x00" : "0x095ea7b3"
-    );
+    setupDefaultOperationMocks({ viemMocks, twapMocks, lifiMocks });
   });
 
   it("prepareSwapIntent returns normalized quote data and required approvals", async () => {
@@ -513,7 +498,7 @@ describe("browser wallet intent APIs", () => {
 
     const { submitSignedTwapOrder } = await import("../../src/api/intents.js");
     const result = await submitSignedTwapOrder({
-      order: { maker: "0xabc" },
+      order: { maker: "0xabc", deadline: "9999999999" },
       signature: {
         v: 27,
         r: `0x${"11".repeat(32)}`,
@@ -522,7 +507,7 @@ describe("browser wallet intent APIs", () => {
     });
 
     expect(twapMocks.submitSignedOrder).toHaveBeenCalledWith(
-      { maker: "0xabc" },
+      { maker: "0xabc", deadline: "9999999999" },
       {
         v: "0x1b",
         r: `0x${"11".repeat(32)}`,

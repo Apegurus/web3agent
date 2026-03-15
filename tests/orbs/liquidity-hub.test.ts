@@ -1,6 +1,6 @@
 import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getConfig } from "../../src/config/env.js";
+import { getConfig, tryGetConfig } from "../../src/config/env.js";
 
 type MockSdk = {
   getQuote: ReturnType<typeof vi.fn>;
@@ -15,6 +15,7 @@ function findSdkForChain(chainId: number): MockSdk | undefined {
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockReturnValue({ orbsPartner: undefined }),
+  tryGetConfig: vi.fn().mockReturnValue({ orbsPartner: undefined }),
 }));
 
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
@@ -35,6 +36,8 @@ describe("orbs/liquidity-hub", () => {
     sdkInstances.clear();
     vi.mocked(getConfig).mockReset();
     vi.mocked(getConfig).mockReturnValue({ orbsPartner: undefined });
+    vi.mocked(tryGetConfig).mockReset();
+    vi.mocked(tryGetConfig).mockReturnValue({ orbsPartner: undefined });
     const { clearLiquidityHubSdkCacheForTests } = await import("../../src/orbs/liquidity-hub.js");
     clearLiquidityHubSdkCacheForTests();
   });
@@ -99,11 +102,13 @@ describe("orbs/liquidity-hub", () => {
 
   it("falls back to process env when config is not initialized", async () => {
     const getConfigMock = vi.mocked(getConfig);
+    const tryGetConfigMock = vi.mocked(tryGetConfig);
     const previousPartner = process.env.ORBS_PARTNER;
     process.env.ORBS_PARTNER = "orbzy";
     getConfigMock.mockImplementation(() => {
       throw new Error("Config not initialized — call setConfig() during startup");
     });
+    tryGetConfigMock.mockReturnValue(undefined);
 
     try {
       const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
@@ -121,12 +126,15 @@ describe("orbs/liquidity-hub", () => {
 
   it("creates distinct cached SDK instances when the partner override changes", async () => {
     const getConfigMock = vi.mocked(getConfig);
+    const tryGetConfigMock = vi.mocked(tryGetConfig);
     const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
 
     getConfigMock.mockReturnValue({ orbsPartner: "orbzy" });
+    tryGetConfigMock.mockReturnValue({ orbsPartner: "orbzy" });
     const orbzySdk = getSdk(8453);
 
     getConfigMock.mockReturnValue({ orbsPartner: "widget" });
+    tryGetConfigMock.mockReturnValue({ orbsPartner: "widget" });
     const widgetSdk = getSdk(8453);
 
     expect(orbzySdk).not.toBe(widgetSdk);

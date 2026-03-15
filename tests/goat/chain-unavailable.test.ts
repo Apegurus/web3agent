@@ -20,6 +20,7 @@ vi.mock("../../src/goat/provider.js", () => ({
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
+  tryGetConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
 }));
 
 vi.mock("../../src/chains/registry.js", () => ({

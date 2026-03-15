@@ -1,6 +1,6 @@
 import type { Account, PublicClient } from "viem";
 import { createPublicClient } from "viem";
-import { getConfig, parseEnv } from "../config/env.js";
+import { parseEnv, tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
 import type { RuntimeConfig } from "../types/config.js";
 import { assertChainSupported } from "./validation.js";
@@ -17,14 +17,7 @@ export function resolveRuntimeConfig(chainId: number, config?: RuntimeConfig): R
     return config;
   }
 
-  try {
-    return getConfig();
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      return getFallbackProcessConfig(chainId);
-    }
-    throw error;
-  }
+  return tryGetConfig() ?? getFallbackProcessConfig(chainId);
 }
 
 export function getChainForRuntime(chainId: number) {
@@ -66,32 +59,4 @@ export function createWalletClientForRuntimeChain(
   config?: RuntimeConfig
 ) {
   return createWalletClientForChain(account, chainId, getRuntimeConfigForChain(chainId, config));
-}
-
-export class ChainAccess {
-  constructor(private readonly config?: RuntimeConfig) {}
-
-  getChain(chainId: number) {
-    return getChainForRuntime(chainId);
-  }
-
-  getConfig(chainId: number): RuntimeConfig {
-    return getRuntimeConfigForChain(chainId, this.config);
-  }
-
-  getTransport(chainId: number) {
-    return getTransportForRuntimeChain(chainId, this.config);
-  }
-
-  getRpcUrl(chainId: number): string | undefined {
-    return getRpcUrlForRuntimeChain(chainId, this.config);
-  }
-
-  createPublicClient(chainId: number): PublicClient {
-    return createPublicClientForRuntimeChain(chainId, this.config);
-  }
-
-  createWalletClient(account: Account, chainId: number) {
-    return createWalletClientForRuntimeChain(account, chainId, this.config);
-  }
 }

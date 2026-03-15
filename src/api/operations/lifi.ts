@@ -20,12 +20,7 @@ import {
   getChainForRuntime,
   getTransportForRuntimeChain,
 } from "../../operations/chain-access.js";
-import {
-  assertAddress,
-  assertHex,
-  parseBigIntString,
-  preserveWeb3AgentError,
-} from "../../operations/validation.js";
+import { assertAddress, assertHex, parseBigIntString } from "../../operations/validation.js";
 import { isNativeTokenAddress } from "../../orbs/liquidity-hub.js";
 import { withTimeout } from "../../utils/timeout.js";
 import { Web3AgentError } from "../errors.js";
@@ -125,10 +120,6 @@ interface LifiBridgePreparationContext {
   fromAmount: bigint;
   finalAction: PreparedTransactionAction;
   fromChain?: ExtendedChain;
-}
-
-function initializeLifiForRootApi(): void {
-  ensureLifiInitialized();
 }
 
 function toBridgeStepLabel(type: BridgeTxStep["type"]): string {
@@ -238,7 +229,7 @@ function getLifiBridgeTransactionRequest(quote: LiFiStep): LifiTransactionReques
 }
 
 async function fetchLifiQuote(input: PrepareBridgeIntentInput): Promise<LiFiStep> {
-  initializeLifiForRootApi();
+  ensureLifiInitialized();
   return withTimeout(
     getLifiQuote({
       fromChain: input.fromChainId,
@@ -313,7 +304,7 @@ export function clearLifiChainsCache(): void {
 }
 
 async function getCachedLifiChains(): Promise<ExtendedChain[]> {
-  initializeLifiForRootApi();
+  ensureLifiInitialized();
 
   const now = Date.now();
   if (!lifiChainsCache || now >= lifiChainsCache.expiresAt) {
@@ -356,7 +347,7 @@ function getPermit2Domain(permit2: `0x${string}`, chainId: number): TypedDataPay
   };
 }
 
-async function buildLifiReadClient(account: `0x${string}`, chainId: number) {
+function buildLifiReadClient(account: `0x${string}`, chainId: number) {
   return createClient({
     account: parseAccount(account),
     chain: getChainForRuntime(chainId),
@@ -398,7 +389,7 @@ async function getPermit2TypedData(params: {
     });
   }
 
-  const client = await buildLifiReadClient(params.account, params.chain.id);
+  const client = buildLifiReadClient(params.account, params.chain.id);
   const nonce = await client.readContract({
     address: assertAddress(params.chain.permit2Proxy, "fromChain.permit2Proxy"),
     abi: LIFI_PERMIT2_PROXY_ABI,
@@ -594,7 +585,9 @@ export async function prepareCompatibilityBridgeIntent(
         fromAmount,
         spender: getDefaultLifiApprovalSpender(quote, finalAction),
         approvalReset: quote.estimate?.approvalReset,
-        approvalAmount: maxUint256,
+        approvalAmount: input.approvalAmount
+          ? parseBigIntString(input.approvalAmount, "approvalAmount")
+          : maxUint256,
         approvalLabel: "Approve token for bridge",
       });
       actions.push(...approvalActions);
@@ -605,7 +598,7 @@ export async function prepareCompatibilityBridgeIntent(
     steps.push(createBridgeTxStep("bridge", finalAction));
     return createBridgeIntentPayload(input, quote, steps, actions);
   } catch (error: unknown) {
-    throw preserveWeb3AgentError("BRIDGE_INTENT_ERROR", error);
+    throw Web3AgentError.fromUnknown("BRIDGE_INTENT_ERROR", error);
   }
 }
 
@@ -703,7 +696,7 @@ export async function prepareBridgeOperation(
       { intent }
     );
   } catch (error: unknown) {
-    throw preserveWeb3AgentError("BRIDGE_INTENT_ERROR", error);
+    throw Web3AgentError.fromUnknown("BRIDGE_INTENT_ERROR", error);
   }
 }
 

@@ -1,5 +1,6 @@
 import { maxUint256 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setupDefaultOperationMocks } from "../helpers/operation-mocks.js";
 
 const viemMocks = vi.hoisted(() => ({
   createPublicClient: vi.fn(),
@@ -75,16 +76,16 @@ vi.mock("../../src/operations/goat.js", () => ({
 describe("generic prepared operations API", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    setupDefaultOperationMocks({ viemMocks, twapMocks, lifiMocks });
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
-      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: null }),
     });
     viemMocks.createClient.mockReturnValue({
       extend: vi.fn().mockReturnValue({
         readContract: vi.fn().mockResolvedValue(7n),
       }),
     });
-    twapMocks.getSrcTokenChunkAmount.mockReturnValue("200");
     lifiMocks.getChains.mockResolvedValue([
       { id: 1 },
       {
@@ -94,13 +95,6 @@ describe("generic prepared operations API", () => {
         diamondAddress: "0x2222222222222222222222222222222222222222",
       },
     ]);
-    lifiMocks.convertQuoteToRoute.mockImplementation((quote: Record<string, unknown>) => ({
-      steps: [{ transactionRequest: quote.transactionRequest }],
-    }));
-    lifiMocks.setAllowance.mockImplementation(
-      async (_client: unknown, _token: unknown, _spender: unknown, amount: bigint) =>
-        amount === 0n ? "0x00" : "0x095ea7b3"
-    );
 
     const { clearLifiChainsCache } = await import("../../src/api/operations.js");
     clearLifiChainsCache();

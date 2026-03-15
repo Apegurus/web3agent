@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addressSchema, hexSchema } from "./common.js";
 
 export const walletFromMnemonicSchema = z.object({
   mnemonic: z
@@ -38,8 +39,8 @@ export const transactionDenySchema = transactionConfirmSchema;
 
 export const transactionSimulateSchema = z.object({
   chainId: z.number({ required_error: "chainId is required" }),
-  to: z.string({ required_error: "to is required" }).min(1, "to must not be empty"),
-  data: z.string({ required_error: "data is required" }).min(1, "data must not be empty"),
+  to: addressSchema,
+  data: hexSchema,
   value: z.string().optional(),
-  from: z.string({ required_error: "from is required" }).min(1, "from must not be empty"),
+  from: addressSchema,
 });

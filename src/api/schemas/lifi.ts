@@ -13,4 +13,5 @@ export const lifiExecuteBridgeSchema = lifiGetQuoteSchema;
 
 export const lifiPrepareBridgeIntentSchema = lifiGetQuoteSchema.extend({
   account: addressSchema,
+  approvalAmount: z.string().optional(),
 });

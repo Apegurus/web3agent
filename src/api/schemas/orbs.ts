@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { addressSchema } from "./common.js";
+import { addressSchema, hexSchema } from "./common.js";
 
 export const orbsGetQuoteSchema = z.object({
   chainId: z.number({ required_error: "chainId is required" }),
@@ -51,7 +51,9 @@ export const orbsPrepareLimitIntentSchema = orbsPlaceLimitSchema.extend({
 export const orbsSubmitSignedSwapSchema = z.object({
   chainId: z.number({ required_error: "chainId is required" }),
   quote: z.record(z.unknown()),
-  signature: z.string({ required_error: "signature is required" }),
+  signature: hexSchema.refine((v) => v.length >= 132, {
+    message: "signature must be at least 65 bytes (132 hex characters + 0x prefix)",
+  }),
 });
 
 export const orbsSubmitSignedTwapOrderSchema = z.object({

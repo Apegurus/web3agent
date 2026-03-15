@@ -14,6 +14,7 @@ const chainRegistryMocks = vi.hoisted(() => ({
 
 const configMocks = vi.hoisted(() => ({
   getConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
+  tryGetConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => persistenceMocks);
@@ -39,6 +40,7 @@ vi.mock("../../src/goat/dispatch.js", () => ({
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: (...args: unknown[]) => configMocks.getConfig(...args),
+  tryGetConfig: (...args: unknown[]) => configMocks.tryGetConfig(...args),
 }));
 
 describe("utility tool handlers", () => {

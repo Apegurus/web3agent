@@ -46,6 +46,7 @@ vi.mock("../../src/config/env.js", () => ({
   parseEnv: vi.fn().mockReturnValue(mockState.config),
   setConfig: vi.fn(),
   getConfig: vi.fn().mockReturnValue(mockState.config),
+  tryGetConfig: vi.fn().mockReturnValue(mockState.config),
   BLOCKSCOUT_DEFAULT_URL: "https://mock.blockscout/mcp",
   ETHERSCAN_DEFAULT_URL: "https://mock.etherscan/mcp",
 }));
