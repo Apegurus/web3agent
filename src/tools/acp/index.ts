@@ -1,6 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Hex } from "viem";
 import { createPublicClient, keccak256, toHex, zeroAddress } from "viem";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   JobStatus,
   erc20ApproveAbi,
@@ -8,16 +9,15 @@ import {
   getAcpAddress,
   getPaymentTokenAddress,
 } from "../../acp/contract.js";
-import { getChainById } from "../../chains/registry.js";
-import { getConfig } from "../../config/env.js";
-import { createWalletClientForChain, getTransportForChain } from "../../config/wallet-factory.js";
+import { getTransportForChain } from "../../config/wallet-factory.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
-import { getActiveAccount } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
+import { isChainResolved, resolveToolChain, resolveToolChainId } from "../shared/chain-context.js";
+import { buildWriteContext, isWriteContext } from "../shared/write-context.js";
 import {
   erc8183ClaimRefundSchema,
   erc8183CompleteJobSchema,
@@ -55,9 +55,10 @@ async function acpGetJob(params: Record<string, unknown>): Promise<CallToolResul
       "ACP_CONTRACT_ADDRESS env var required for erc8183_* tools"
     );
   }
-  const chainId = v.data.chainId ?? getConfig().chainId;
-  const chain = getChainById(chainId);
-  if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+  const chainId = resolveToolChainId(v.data.chainId);
+  const resolved = resolveToolChain(chainId);
+  if (!isChainResolved(resolved)) return resolved;
+  const { chain } = resolved;
 
   try {
     const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
@@ -135,13 +136,10 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const addrErr =
       validateAddress(provider, "provider") ??
@@ -197,13 +195,10 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const hash = await walletClient.writeContract({
       address: acpAddress,
@@ -228,7 +223,7 @@ async function acpFundJob(params: Record<string, unknown>): Promise<CallToolResu
   const v = validateInput(erc8183FundJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const paymentToken = getPaymentTokenAddress(chainId);
 
   return executeWrite({
@@ -253,13 +248,10 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
     const paymentToken = getPaymentTokenAddress(chainId);
     const amount = BigInt(expectedBudget);
 
@@ -331,13 +323,10 @@ async function executeSubmitJob(params: Record<string, unknown>): Promise<CallTo
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const deliverableHash = keccak256(toHex(deliverable));
     const hash = await walletClient.writeContract({
@@ -391,13 +380,10 @@ async function executeCompleteJob(params: Record<string, unknown>): Promise<Call
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const reasonHash = reason ? keccak256(toHex(reason)) : ZERO_BYTES32;
     const hash = await walletClient.writeContract({
@@ -445,13 +431,10 @@ async function executeRejectJob(params: Record<string, unknown>): Promise<CallTo
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const reasonHash = reason ? keccak256(toHex(reason)) : ZERO_BYTES32;
     const hash = await walletClient.writeContract({
@@ -494,13 +477,10 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
 
     // biome-ignore lint/style/noNonNullAssertion: handler already validated via checkAcpConfigured
     const acpAddress = getAcpAddress()!;
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const hash = await walletClient.writeContract({
       address: acpAddress,
@@ -524,18 +504,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_create_job",
       category: "agenticEconomy" as ToolCategory,
       description: "Create an ERC-8183 job.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          provider: { type: "string", description: "Provider wallet address" },
-          evaluator: { type: "string", description: "Evaluator wallet address" },
-          description: { type: "string", description: "Job description" },
-          expiryDuration: { type: "number", description: "Job expiry in seconds from now" },
-          hook: { type: "string", description: "Hook address (default zero address)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["provider", "evaluator", "description", "expiryDuration"],
-      },
+      inputSchema: zodToJsonSchema(erc8183CreateJobSchema) as Record<string, unknown>,
       handler: acpCreateJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -543,15 +512,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_set_budget",
       category: "agenticEconomy" as ToolCategory,
       description: "Set ERC-8183 job budget in payment token smallest units.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          amount: { type: "string", description: "Budget amount in token smallest units" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "amount"],
-      },
+      inputSchema: zodToJsonSchema(erc8183SetBudgetSchema) as Record<string, unknown>,
       handler: acpSetBudget,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -560,18 +521,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Fund ERC-8183 job escrow. Performs allowance check + approve if needed, then funds in one confirmation flow.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          expectedBudget: {
-            type: "string",
-            description: "Expected budget amount in token smallest units",
-          },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "expectedBudget"],
-      },
+      inputSchema: zodToJsonSchema(erc8183FundJobSchema) as Record<string, unknown>,
       handler: acpFundJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -579,18 +529,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_submit_job",
       category: "agenticEconomy" as ToolCategory,
       description: "Submit job deliverable hash for an ERC-8183 job.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          deliverable: {
-            type: "string",
-            description: "Deliverable description (will be keccak256 hashed)",
-          },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "deliverable"],
-      },
+      inputSchema: zodToJsonSchema(erc8183SubmitJobSchema) as Record<string, unknown>,
       handler: acpSubmitJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -598,15 +537,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_complete_job",
       category: "agenticEconomy" as ToolCategory,
       description: "Complete an ERC-8183 job and release escrow.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          reason: { type: "string", description: "Completion reason" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(erc8183CompleteJobSchema) as Record<string, unknown>,
       handler: acpCompleteJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -614,15 +545,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_reject_job",
       category: "agenticEconomy" as ToolCategory,
       description: "Reject an ERC-8183 job.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          reason: { type: "string", description: "Rejection reason" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(erc8183RejectJobSchema) as Record<string, unknown>,
       handler: acpRejectJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -630,14 +553,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_claim_refund",
       category: "agenticEconomy" as ToolCategory,
       description: "Claim refund from an expired/rejected ERC-8183 job.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(erc8183ClaimRefundSchema) as Record<string, unknown>,
       handler: acpClaimRefund,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -645,14 +561,7 @@ export function getErc8183ToolDefinitions(): ToolDefinition[] {
       name: "erc8183_get_job",
       category: "agenticEconomy" as ToolCategory,
       description: "Read ERC-8183 job details by ID.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(erc8183GetJobSchema) as Record<string, unknown>,
       handler: acpGetJob,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

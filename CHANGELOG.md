@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-15
+
+### Breaking
+
+- **Node 22+ required** — Node 18 reached EOL April 2025. CI, build target, and engine field all bumped to Node 22.
+- **`chainId` now optional** in all Orbs schemas — previously required by Zod validation but handlers fell back to runtime config. Now the schema matches the behavior: omit `chainId` and the runtime default applies.
+
+### Changed
+
+- **All tool inputSchemas generated from Zod** — manual JSON schema definitions replaced with `zodToJsonSchema()`. Descriptions live in a single place (the Zod `.describe()` annotation) and are included in `listTools()` JSON Schema output.
+- **Shared utilities extracted** — `resolveToolChainId()`, `resolveToolChain()`, `buildWriteContext()` eliminate repeated boilerplate across tool handlers.
+- **Read-only handlers use `createToolHandler`** — `agdpGetOfferings`, `x402CheckRequirements` migrated to the shared handler factory.
+
+### Fixed
+
+- **CI OOM** — DTS generation worker ran out of memory on GitHub Actions. Fixed with `NODE_OPTIONS=--max-old-space-size=4096` at job level.
+- **`@orbs-network/twap-ui` moved to production deps** — the twap-sdk hard-requires it at runtime. Was a devDep, causing `MODULE_NOT_FOUND` for end-user installs.
+- **Slippage description corrected** — was "0-1, default 0.03", actually uses percentage format (0.5 = 0.5%).
+
+### Removed
+
+- **`@goat-sdk/adapter-model-context-protocol`** — zero imports in source. Codebase implements its own MCP dispatch.
+- **`reflect-metadata`** — zero imports in source. Leftover from earlier decorator-based approach.
+
+### Added
+
+- **CLAUDE.md** — agentic coding guidance with architecture overview, conventions, and commands.
+- **Schema quality test** — 52 tests enforce that all Zod schema fields have `.describe()`. Prevents regression.
+- **520 tests** (up from 464) across 67 test files.
+
 ## [0.1.0] - 2025-12-20
 
 Initial public release. A unified MCP proxy server that gives AI agents complete Web3 capabilities through `npx web3agent`.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const chainIdParam = z.number().optional();
+const chainIdParam = z.number().optional().describe("Chain ID (defaults to runtime config)");
 
 export const erc8183CreateJobSchema = z.object({
   provider: z.string().describe("Provider wallet address"),

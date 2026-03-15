@@ -1,6 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Hex } from "viem";
 import { createPublicClient } from "viem";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   AcpMemoType,
   AcpPhase,
@@ -10,16 +11,16 @@ import {
   getPaymentTokenAddress,
   resolvePendingMemo,
 } from "../../acp/virtuals-contract.js";
-import { getChainById } from "../../chains/registry.js";
-import { getConfig } from "../../config/env.js";
-import { createWalletClientForChain, getTransportForChain } from "../../config/wallet-factory.js";
+import { getTransportForChain } from "../../config/wallet-factory.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
-import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
+import { getWalletState } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
+import { isChainResolved, resolveToolChain, resolveToolChainId } from "../shared/chain-context.js";
+import { buildWriteContext, isWriteContext } from "../shared/write-context.js";
 import {
   acpVClaimRefundSchema,
   acpVCompleteJobSchema,
@@ -57,7 +58,7 @@ async function acpGetJob(params: Record<string, unknown>): Promise<CallToolResul
   const v = validateInput(acpVGetJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -68,8 +69,9 @@ async function acpGetJob(params: Record<string, unknown>): Promise<CallToolResul
       `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
     );
   }
-  const chain = getChainById(chainId);
-  if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+  const resolved = resolveToolChain(chainId);
+  if (!isChainResolved(resolved)) return resolved;
+  const { chain } = resolved;
 
   try {
     const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
@@ -164,7 +166,7 @@ async function acpCreateJob(params: Record<string, unknown>): Promise<CallToolRe
   const v = validateInput(acpVCreateJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -199,15 +201,12 @@ async function executeCreateJob(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const addrErr =
       validateAddress(provider, "provider") ??
@@ -239,7 +238,7 @@ async function acpSetBudget(params: Record<string, unknown>): Promise<CallToolRe
   const v = validateInput(acpVSetBudgetSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -268,20 +267,17 @@ async function executeSetBudget(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     if (rawPaymentToken) {
       const addrErr = validateAddress(rawPaymentToken, "paymentToken");
       if (addrErr) return addrErr;
     }
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
     const paymentToken = (rawPaymentToken ?? getPaymentTokenAddress(chainId)) as Hex;
 
     const hash = await walletClient.writeContract({
@@ -304,7 +300,7 @@ async function acpFundJob(params: Record<string, unknown>): Promise<CallToolResu
   const v = validateInput(acpVFundJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -333,15 +329,12 @@ async function executeFundJob(params: Record<string, unknown>): Promise<CallTool
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
     const amount = BigInt(rawAmount);
 
     const jobResult = await publicClient.readContract({
@@ -421,7 +414,7 @@ async function acpSubmitJob(params: Record<string, unknown>): Promise<CallToolRe
   const v = validateInput(acpVSubmitJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -448,15 +441,12 @@ async function executeSubmitJob(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const hash = await walletClient.writeContract({
       address: acpAddress,
@@ -478,7 +468,7 @@ async function acpCompleteJob(params: Record<string, unknown>): Promise<CallTool
   const v = validateInput(acpVCompleteJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -505,15 +495,12 @@ async function executeCompleteJob(params: Record<string, unknown>): Promise<Call
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const pendingMemo = await resolvePendingMemo(publicClient, acpAddress, jobId, account.address);
     if (!pendingMemo) {
@@ -548,7 +535,7 @@ async function acpRejectJob(params: Record<string, unknown>): Promise<CallToolRe
   const v = validateInput(acpVRejectJobSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -575,15 +562,12 @@ async function executeRejectJob(params: Record<string, unknown>): Promise<CallTo
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const pendingMemo = await resolvePendingMemo(publicClient, acpAddress, jobId, account.address);
     if (!pendingMemo) {
@@ -618,7 +602,7 @@ async function acpClaimRefund(params: Record<string, unknown>): Promise<CallTool
   const v = validateInput(acpVClaimRefundSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const chainErr = checkChainSupport(chainId);
   if (chainErr) return chainErr;
 
@@ -640,15 +624,12 @@ async function executeClaimRefund(params: Record<string, unknown>): Promise<Call
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
+    const chainId = resolveToolChainId(rawChainId);
     // biome-ignore lint/style/noNonNullAssertion: handler already validated chain support via checkChainSupport
     const acpAddress = getAcpRouterAddress(chainId)!;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const hash = await walletClient.writeContract({
       address: acpAddress,
@@ -673,25 +654,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Create a job on the Virtuals ACPRouter (Base). Specify provider, evaluator, description, and expiry.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          provider: { type: "string", description: "Provider wallet address" },
-          evaluator: { type: "string", description: "Evaluator wallet address" },
-          description: { type: "string", description: "Job description / metadata" },
-          expiryDuration: { type: "number", description: "Job expiry in seconds from now" },
-          paymentToken: {
-            type: "string",
-            description: "ERC-20 payment token address (defaults to USDC)",
-          },
-          budget: {
-            type: "string",
-            description: "Initial budget in token smallest units (default 0)",
-          },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["provider", "evaluator", "description", "expiryDuration"],
-      },
+      inputSchema: zodToJsonSchema(acpVCreateJobSchema) as Record<string, unknown>,
       handler: acpCreateJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -700,16 +663,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Set a job budget on the Virtuals ACPRouter using setBudgetWithPaymentToken and optional token override.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          amount: { type: "string", description: "Budget amount in token smallest units" },
-          paymentToken: { type: "string", description: "Payment token address (defaults to USDC)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "amount"],
-      },
+      inputSchema: zodToJsonSchema(acpVSetBudgetSchema) as Record<string, unknown>,
       handler: acpSetBudget,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -718,19 +672,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Fund a Virtuals ACPRouter job. Automatically checks allowance, approves ERC-20 if needed, then creates payable memo escrow.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          amount: { type: "string", description: "Funding amount in token smallest units" },
-          expiredAt: {
-            type: "number",
-            description: "Optional payable memo expiry as Unix timestamp (defaults to job expiry)",
-          },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "amount"],
-      },
+      inputSchema: zodToJsonSchema(acpVFundJobSchema) as Record<string, unknown>,
       handler: acpFundJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -739,15 +681,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Submit a deliverable memo on the Virtuals ACPRouter and advance the job to evaluation phase.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          deliverable: { type: "string", description: "Deliverable content (text, URL, or JSON)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId", "deliverable"],
-      },
+      inputSchema: zodToJsonSchema(acpVSubmitJobSchema) as Record<string, unknown>,
       handler: acpSubmitJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -756,15 +690,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Complete a job on the Virtuals ACPRouter by auto-resolving the pending memo and signing approval.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          reason: { type: "string", description: "Completion reason" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVCompleteJobSchema) as Record<string, unknown>,
       handler: acpCompleteJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -773,15 +699,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Reject a job on the Virtuals ACPRouter by auto-resolving the pending memo and signing rejection.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          reason: { type: "string", description: "Rejection reason" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVRejectJobSchema) as Record<string, unknown>,
       handler: acpRejectJob,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -789,14 +707,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       name: "acp_claim_refund",
       category: "agenticEconomy" as ToolCategory,
       description: "Claim remaining budget for a Virtuals ACPRouter job using claimBudget.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVClaimRefundSchema) as Record<string, unknown>,
       handler: acpClaimRefund,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -805,15 +716,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Get job details and full memo history from the Virtuals ACPRouter. Shows phase, participants, budget, and all memos with their status.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          jobId: { type: "number", description: "Job ID" },
-          memoLimit: { type: "number", description: "Max memos to return (default 100)" },
-          chainId: { type: "number", description: "Optional chain ID override" },
-        },
-        required: ["jobId"],
-      },
+      inputSchema: zodToJsonSchema(acpVGetJobSchema) as Record<string, unknown>,
       handler: acpGetJob,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

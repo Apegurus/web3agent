@@ -3,9 +3,15 @@ dist/
 .env
 .env.*
 coverage/
+*.tgz
+
+# Agentic coding tools
 .argus/
 .sisyphus/
 .opencode/
 opencode.json
-*.tgz
-test_orbs_swap.mjs
+
+# Review artifacts
+PR*-REVIEW.md
+ASSESSMENT.md
+*_SPEC.md

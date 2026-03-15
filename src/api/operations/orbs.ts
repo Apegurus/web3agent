@@ -1,6 +1,7 @@
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
 import type { RePermitOrder } from "@orbs-network/twap-sdk";
 import { encodeFunctionData, maxUint256 } from "viem";
+import { getConfig } from "../../config/env.js";
 import { createPublicClientForRuntimeChain } from "../../operations/chain-access.js";
 import { assertAddress, assertHex } from "../../operations/validation.js";
 import {
@@ -118,18 +119,19 @@ export async function getRequiredApprovals(
   params: GetRequiredApprovalsInput
 ): Promise<ApprovalStep[]> {
   const input = parseInput(orbsGetRequiredApprovalsSchema, params);
-  const publicClient = createPublicClientForRuntimeChain(input.chainId);
+  const chainId = input.chainId ?? getConfig().chainId;
+  const publicClient = createPublicClientForRuntimeChain(chainId);
 
   try {
     const steps: ApprovalStep[] = [];
     let effectiveFromToken = assertAddress(input.fromToken, "fromToken");
 
     if (isNativeTokenAddress(input.fromToken)) {
-      const wrapped = getWrappedNativeToken(input.chainId);
+      const wrapped = getWrappedNativeToken(chainId);
       if (!wrapped) {
         throw new Web3AgentError({
           code: "CHAIN_NOT_SUPPORTED",
-          message: `No wrapped native token configured for chain ${input.chainId}`,
+          message: `No wrapped native token configured for chain ${chainId}`,
         });
       }
 
@@ -179,16 +181,18 @@ export async function getRequiredApprovals(
 export async function prepareSwapOperation(
   input: PrepareSwapIntentInput
 ): Promise<PreparedOperation> {
-  if (!isLiquidityHubSupported(input.chainId)) {
+  const chainId = input.chainId ?? getConfig().chainId;
+
+  if (!isLiquidityHubSupported(chainId)) {
     throw new Web3AgentError({
       code: "CHAIN_NOT_SUPPORTED",
-      message: getLiquidityHubError(input.chainId),
+      message: getLiquidityHubError(chainId),
     });
   }
 
   try {
-    const quote = (await getIntentQuote(input.chainId, {
-      fromToken: resolveSwapQuoteFromToken(input.chainId, input.fromToken),
+    const quote = (await getIntentQuote(chainId, {
+      fromToken: resolveSwapQuoteFromToken(chainId, input.fromToken),
       toToken: input.toToken,
       inAmount: input.inAmount,
       slippage: input.slippage,
@@ -211,13 +215,13 @@ export async function prepareSwapOperation(
       rawMessage
     );
     const requiredApprovals = await getRequiredApprovals({
-      chainId: input.chainId,
+      chainId,
       fromToken: input.fromToken,
       inAmount: input.inAmount,
       account: input.account,
     });
-    const approvalActions = createPreparedApprovalActions(input.chainId, requiredApprovals);
-    const signAction = createTypedDataAction(input.chainId, "Sign swap intent", eip712);
+    const approvalActions = createPreparedApprovalActions(chainId, requiredApprovals);
+    const signAction = createTypedDataAction(chainId, "Sign swap intent", eip712);
     const intent: SwapIntent = {
       eip712,
       quote: toSwapIntentQuote({
@@ -225,19 +229,19 @@ export async function prepareSwapOperation(
         user: typeof quote.user === "string" ? quote.user : input.account,
       }),
       requiredApprovals,
-      chainId: input.chainId,
+      chainId,
     };
 
     return buildPreparedOperation(
       "orbs",
       "swap",
-      `Prepare Orbs swap on chain ${input.chainId}`,
+      `Prepare Orbs swap on chain ${chainId}`,
       approvalActions.length > 0 ? approvalActions : [signAction],
       {
-        summary: `Prepare Orbs swap on chain ${input.chainId}`,
+        summary: `Prepare Orbs swap on chain ${chainId}`,
         intent,
         quote: intent.quote,
-        chainId: input.chainId,
+        chainId,
         approvalActions,
         signAction,
       },
@@ -254,10 +258,12 @@ function prepareTwapOrLimitIntent(
   kind: "twap" | "limit",
   params: PrepareTwapIntentInput | PrepareLimitIntentInput
 ): { intent: TwapIntent | LimitIntent; signAction: PreparedSignTypedDataAction } {
-  if (!isTwapSupported(params.chainId)) {
+  const chainId = params.chainId ?? getConfig().chainId;
+
+  if (!isTwapSupported(chainId)) {
     throw new Web3AgentError({
       code: "CHAIN_NOT_SUPPORTED",
-      message: getTwapError(params.chainId),
+      message: getTwapError(chainId),
     });
   }
 
@@ -269,7 +275,7 @@ function prepareTwapOrLimitIntent(
     ? (expirySeconds ?? 86400)
     : getTwapDurationSeconds(chunks, fillDelaySeconds);
   const order = prepareTwapOrder({
-    chainId: params.chainId,
+    chainId,
     srcToken: params.srcToken,
     dstToken: params.dstToken,
     srcAmount: params.srcAmount,
@@ -294,7 +300,7 @@ function prepareTwapOrLimitIntent(
     const intent: LimitIntent = {
       eip712,
       order: { ...order.order },
-      chainId: params.chainId,
+      chainId,
       meta: {
         expirySeconds: expirySeconds ?? 86400,
         dstMinAmount: (params as PrepareLimitIntentInput).dstMinAmount,
@@ -302,14 +308,14 @@ function prepareTwapOrLimitIntent(
     };
     return {
       intent,
-      signAction: createTypedDataAction(params.chainId, "Sign limit order", eip712),
+      signAction: createTypedDataAction(chainId, "Sign limit order", eip712),
     };
   }
 
   const intent: TwapIntent = {
     eip712,
     order: { ...order.order },
-    chainId: params.chainId,
+    chainId,
     meta: {
       chunks,
       fillDelaySeconds,
@@ -319,7 +325,7 @@ function prepareTwapOrLimitIntent(
   };
   return {
     intent,
-    signAction: createTypedDataAction(params.chainId, "Sign TWAP order", eip712),
+    signAction: createTypedDataAction(chainId, "Sign TWAP order", eip712),
   };
 }
 
@@ -328,7 +334,8 @@ async function prepareTwapOrLimitOperation(
   input: PrepareTwapIntentInput | PrepareLimitIntentInput
 ): Promise<PreparedOperation> {
   const errorCode = kind === "twap" ? "ORBS_TWAP_ERROR" : "ORBS_LIMIT_ERROR";
-  const summary = `Prepare Orbs ${kind === "twap" ? "TWAP order" : "limit order"} on chain ${input.chainId}`;
+  const chainId = input.chainId ?? getConfig().chainId;
+  const summary = `Prepare Orbs ${kind === "twap" ? "TWAP order" : "limit order"} on chain ${chainId}`;
 
   try {
     const { intent, signAction } = prepareTwapOrLimitIntent(kind, input);
@@ -445,8 +452,9 @@ export async function resumeOrbsOrderOperation(
 export async function submitSignedSwapDirect(
   params: SubmitSignedSwapInput
 ): Promise<SwapSubmissionResult> {
+  const chainId = params.chainId ?? getConfig().chainId;
   return submitSwap({
-    chainId: params.chainId,
+    chainId,
     quote: asQuote(assertSubmitSwapQuote(params.quote)),
     signature: params.signature,
   });

@@ -58,7 +58,7 @@ describe("packaging tests", () => {
     const result = execSync(`node ${DIST_CLI} --version 2>&1`, {
       encoding: "utf-8",
     });
-    expect(result.trim()).toBe("web3agent 0.1.0");
+    expect(result.trim()).toMatch(/^web3agent \d+\.\d+\.\d+/);
   });
 
   it("public package exports are importable", () => {

@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ToolCategory } from "../../runtime/types.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -7,29 +8,20 @@ import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
 import { createX402Client, probePaymentRequirements } from "../../x402/client.js";
+import { createToolHandler } from "../shared/handler-factory.js";
 import { x402CheckRequirementsSchema, x402FetchSchema } from "./schemas.js";
 
-async function x402CheckRequirements(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(x402CheckRequirementsSchema, params);
-  if (!v.success) return v.error;
-  const { url, method, headers } = v.data;
-
-  try {
-    const { requirements } = await probePaymentRequirements(url, method, headers);
+const x402CheckRequirements = createToolHandler(
+  x402CheckRequirementsSchema,
+  async (input: { url: string; method?: string; headers?: Record<string, string> }) => {
+    const { requirements } = await probePaymentRequirements(input.url, input.method, input.headers);
     if (!requirements) {
-      return formatToolResponse({
-        paymentRequired: false,
-        message: "No payment required for this URL",
-      });
+      return { paymentRequired: false, message: "No payment required for this URL" };
     }
-    return formatToolResponse({
-      paymentRequired: true,
-      requirements,
-    });
-  } catch (e: unknown) {
-    return formatToolError("X402_ERROR", e instanceof Error ? e.message : String(e));
-  }
-}
+    return { paymentRequired: true, requirements };
+  },
+  "X402_ERROR"
+);
 
 async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(x402FetchSchema, params);
@@ -111,26 +103,7 @@ export function getX402ToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Check if a URL requires x402 payment. Returns payment requirements (amount, network, token) or confirms no payment needed. Use before x402_fetch to preview costs.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          url: {
-            type: "string",
-            description: "URL to check for payment requirements",
-          },
-          method: {
-            type: "string",
-            description: "HTTP method (default GET)",
-            enum: ["GET", "POST", "PUT", "DELETE"],
-          },
-          headers: {
-            type: "object",
-            description: "Optional request headers",
-            additionalProperties: { type: "string" },
-          },
-        },
-        required: ["url"],
-      },
+      inputSchema: zodToJsonSchema(x402CheckRequirementsSchema) as Record<string, unknown>,
       handler: x402CheckRequirements,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -139,27 +112,7 @@ export function getX402ToolDefinitions(): ToolDefinition[] {
       category: "agenticEconomy" as ToolCategory,
       description:
         "Fetch a URL, automatically paying via x402 protocol if required. Checks payment cost first, queues confirmation if payment needed, then executes. No-op if no payment required.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          url: { type: "string", description: "URL to fetch" },
-          method: {
-            type: "string",
-            description: "HTTP method (default GET)",
-            enum: ["GET", "POST", "PUT", "DELETE"],
-          },
-          body: {
-            type: "string",
-            description: "Request body (for POST/PUT)",
-          },
-          headers: {
-            type: "object",
-            description: "Optional request headers",
-            additionalProperties: { type: "string" },
-          },
-        },
-        required: ["url"],
-      },
+      inputSchema: zodToJsonSchema(x402FetchSchema) as Record<string, unknown>,
       handler: x402Fetch,
       annotations: { destructiveHint: true, openWorldHint: true },
     },

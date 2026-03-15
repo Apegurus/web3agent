@@ -1,3 +1,4 @@
+import { getConfig } from "../config/env.js";
 import { lifiExecuteBridgeSchema, lifiGetQuoteSchema } from "../tools/lifi/schemas.js";
 import { orbsSwapSchema, orbsSwapStatusSchema } from "../tools/orbs/schemas.js";
 import { readAuditLog } from "../wallet/audit.js";
@@ -51,7 +52,7 @@ export async function getSwapQuote(
   return {
     kind: "same-chain",
     provider: "orbs",
-    chainId: input.chainId,
+    chainId: input.chainId ?? getConfig().chainId,
     quote,
   };
 }

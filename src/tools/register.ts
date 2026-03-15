@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import type { ToolCategory } from "../runtime/types.js";
 import { listSupportedChains, serverStatus } from "./utility/index.js";
 import {
@@ -15,6 +16,15 @@ import {
   walletGetActive,
   walletSetConfirmation,
 } from "./wallet/index.js";
+import {
+  transactionConfirmSchema,
+  transactionDenySchema,
+  transactionSimulateSchema,
+  walletActivateSchema,
+  walletDeriveAddressesSchema,
+  walletFromMnemonicSchema,
+  walletSetConfirmationSchema,
+} from "./wallet/schemas.js";
 
 export interface ToolDefinition {
   name: string;
@@ -55,21 +65,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Derive an address from a BIP-39 mnemonic at optional account/address index. Does NOT return private key.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          mnemonic: { type: "string", description: "BIP-39 mnemonic phrase" },
-          accountIndex: {
-            type: "number",
-            description: "BIP-44 account index (default 0)",
-          },
-          addressIndex: {
-            type: "number",
-            description: "BIP-44 address index (default 0)",
-          },
-        },
-        required: ["mnemonic"],
-      },
+      inputSchema: zodToJsonSchema(walletFromMnemonicSchema) as Record<string, unknown>,
       handler: (params) => walletFromMnemonic(params),
       annotations: { readOnlyHint: true },
     },
@@ -78,17 +74,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Derive multiple addresses from a mnemonic (1-20). Returns index, address, and derivation path.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          mnemonic: { type: "string", description: "BIP-39 mnemonic phrase" },
-          count: {
-            type: "number",
-            description: "Number of addresses to derive (1-20, default 5)",
-          },
-        },
-        required: ["mnemonic"],
-      },
+      inputSchema: zodToJsonSchema(walletDeriveAddressesSchema) as Record<string, unknown>,
       handler: (params) => walletDeriveAddresses(params),
       annotations: { readOnlyHint: true },
     },
@@ -106,27 +92,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Activate a wallet from a private key or mnemonic. Persists to disk (mode 0600) and emits wallet-changed.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          privateKey: {
-            type: "string",
-            description: "Hex-encoded private key (0x-prefixed)",
-          },
-          mnemonic: {
-            type: "string",
-            description: "BIP-39 mnemonic phrase",
-          },
-          accountIndex: {
-            type: "number",
-            description: "BIP-44 account index (default 0, mnemonic only)",
-          },
-          addressIndex: {
-            type: "number",
-            description: "BIP-44 address index (default 0, mnemonic only)",
-          },
-        },
-      },
+      inputSchema: zodToJsonSchema(walletActivateSchema) as Record<string, unknown>,
       handler: (params) => walletActivate(params),
       annotations: { destructiveHint: true },
     },
@@ -144,16 +110,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Toggle write confirmation at runtime. When enabled, write operations are queued and require explicit confirmation.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          enabled: {
-            type: "boolean",
-            description: "true to require confirmation for writes, false to execute immediately",
-          },
-        },
-        required: ["enabled"],
-      },
+      inputSchema: zodToJsonSchema(walletSetConfirmationSchema) as Record<string, unknown>,
       handler: (params) => walletSetConfirmation(params),
       annotations: { idempotentHint: true },
     },
@@ -167,16 +124,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       category: "transaction",
       description:
         "Confirm a pending operation by ID. Returns the operation details so the caller can execute it.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          id: {
-            type: "string",
-            description: "UUID of the pending operation to confirm",
-          },
-        },
-        required: ["id"],
-      },
+      inputSchema: zodToJsonSchema(transactionConfirmSchema) as Record<string, unknown>,
       handler: (params) => transactionConfirm(params),
       annotations: { destructiveHint: true },
     },
@@ -184,16 +132,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       name: "transaction_deny",
       category: "transaction",
       description: "Deny and remove a pending operation by ID without executing it.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          id: {
-            type: "string",
-            description: "UUID of the pending operation to deny",
-          },
-        },
-        required: ["id"],
-      },
+      inputSchema: zodToJsonSchema(transactionDenySchema) as Record<string, unknown>,
       handler: (params) => transactionDeny(params),
       annotations: { idempotentHint: true },
     },
@@ -211,32 +150,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       category: "transaction",
       description:
         "Simulate an unsigned transaction using RPC trace when available, with fallback static decoding for token balance changes.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          chainId: {
-            type: "number",
-            description: "Target chain ID",
-          },
-          to: {
-            type: "string",
-            description: "Destination contract or recipient address",
-          },
-          data: {
-            type: "string",
-            description: "Hex-encoded calldata",
-          },
-          value: {
-            type: "string",
-            description: "Optional native value in wei",
-          },
-          from: {
-            type: "string",
-            description: "Sender address used for simulation",
-          },
-        },
-        required: ["chainId", "to", "data", "from"],
-      },
+      inputSchema: zodToJsonSchema(transactionSimulateSchema) as Record<string, unknown>,
       handler: (params) => transactionSimulate(params),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

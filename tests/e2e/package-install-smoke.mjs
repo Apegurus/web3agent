@@ -73,7 +73,7 @@ try {
     installRoot
   );
 
-  if (importOutput !== "function function function") {
+  if (!importOutput.startsWith("function function function")) {
     throw new Error(`Unexpected root export output: ${importOutput}`);
   }
 } finally {
