@@ -22,6 +22,7 @@ export interface ResilientFetchConfig {
   retry?: RetryConfig;
   circuitBreaker?: CircuitBreakerConfig;
   label?: string;
+  timeoutMs?: number;
 }
 
 interface CircuitBreakerState {
@@ -96,7 +97,10 @@ export async function resilientFetch(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(input, init);
+      const fetchInit = config?.timeoutMs
+        ? { ...init, signal: AbortSignal.timeout(config.timeoutMs) }
+        : init;
+      const response = await fetch(input, fetchInit);
 
       if (isRetryableStatus(response.status) && attempt < maxRetries) {
         const retryAfter = extractRetryAfterMs(response);

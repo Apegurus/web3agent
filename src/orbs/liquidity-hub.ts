@@ -24,6 +24,7 @@ import { tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
 import { assertAddress } from "../operations/validation.js";
 import { resilientFetch } from "../utils/resilient-fetch.js";
+import { withTimeout } from "../utils/timeout.js";
 
 export type { Quote };
 
