@@ -1,8 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createPublicClient } from "viem";
-import { getChainById } from "../../chains/registry.js";
 import { getConfig } from "../../config/env.js";
-import { createWalletClientForChain, getTransportForChain } from "../../config/wallet-factory.js";
+import { getTransportForChain } from "../../config/wallet-factory.js";
 import {
   getIdentityAddress,
   getReputationAddress,
@@ -15,8 +14,10 @@ import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
-import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
+import { getWalletState } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
+import { isChainResolved, resolveToolChain, resolveToolChainId } from "../shared/chain-context.js";
+import { buildWriteContext, isWriteContext } from "../shared/write-context.js";
 import {
   erc8004GetAgentSchema,
   erc8004GetFeedbackSchema,
@@ -96,7 +97,7 @@ async function erc8004RegisterAgent(params: Record<string, unknown>): Promise<Ca
   const v = validateInput(erc8004RegisterSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const addrResult = requireIdentityAddress(chainId);
   if (isCallToolResult(addrResult)) return addrResult;
 
@@ -137,12 +138,10 @@ async function executeRegisterAgent(params: Record<string, unknown>): Promise<Ca
     };
 
     const config = getConfig();
-    const chainId = rawChainId ?? config.chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
-
-    const account = getActiveAccount();
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
     const identityAddress = getIdentityAddress(chainId);
     if (!identityAddress) {
       return formatToolError(
@@ -195,7 +194,6 @@ async function executeRegisterAgent(params: Record<string, unknown>): Promise<Ca
       agentURI = await pinToIpfs(registrationJson, `erc8004-agent-${account.address}`, pinataJwt);
     }
 
-    const walletClient = createWalletClientForChain(account, chainId);
     const txHash = await walletClient.writeContract({
       address: identityAddress,
       abi: identityRegistryAbi,
@@ -229,13 +227,14 @@ async function erc8004GetAgent(params: Record<string, unknown>): Promise<CallToo
   const v = validateInput(erc8004GetAgentSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const addrResult = requireIdentityAddress(chainId);
   if (isCallToolResult(addrResult)) return addrResult;
   const identityAddress = addrResult.address;
 
-  const chain = getChainById(chainId);
-  if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+  const resolved = resolveToolChain(chainId);
+  if (!isChainResolved(resolved)) return resolved;
+  const { chain } = resolved;
 
   try {
     const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
@@ -284,7 +283,7 @@ async function erc8004UpdateAgent(params: Record<string, unknown>): Promise<Call
   const v = validateInput(erc8004UpdateAgentSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const addrResult = requireIdentityAddress(chainId);
   if (isCallToolResult(addrResult)) return addrResult;
 
@@ -327,9 +326,10 @@ async function executeUpdateAgent(params: Record<string, unknown>): Promise<Call
     };
 
     const config = getConfig();
-    const chainId = rawChainId ?? config.chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const identityAddress = getIdentityAddress(chainId);
     if (!identityAddress) {
@@ -338,9 +338,6 @@ async function executeUpdateAgent(params: Record<string, unknown>): Promise<Call
         `ERC-8004 Identity Registry not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
       );
     }
-
-    const account = getActiveAccount();
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
 
     const [owner, currentAgentURI] = (await publicClient.readContract({
       address: identityAddress,
@@ -408,7 +405,6 @@ async function executeUpdateAgent(params: Record<string, unknown>): Promise<Call
       );
     }
 
-    const walletClient = createWalletClientForChain(account, chainId);
     const txHash = await walletClient.writeContract({
       address: identityAddress,
       abi: identityRegistryAbi,
@@ -435,7 +431,7 @@ async function erc8004SubmitFeedback(params: Record<string, unknown>): Promise<C
   const v = validateInput(erc8004SubmitFeedbackSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const addrResult = requireReputationAddress(chainId);
   if (isCallToolResult(addrResult)) return addrResult;
 
@@ -465,9 +461,10 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
       chainId?: number;
     };
 
-    const chainId = rawChainId ?? getConfig().chainId;
-    const chain = getChainById(chainId);
-    if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+    const chainId = resolveToolChainId(rawChainId);
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+    const { chain, account, walletClient, publicClient } = ctx;
 
     const reputationAddress = getReputationAddress(chainId);
     if (!reputationAddress) {
@@ -476,10 +473,6 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
         `ERC-8004 Reputation Registry not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
       );
     }
-
-    const account = getActiveAccount();
-    const walletClient = createWalletClientForChain(account, chainId);
-    const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
     const zeroBytes32 = `0x${"0".repeat(64)}` as `0x${string}`;
 
     const txHash = await walletClient.writeContract({
@@ -519,13 +512,14 @@ async function erc8004GetFeedback(params: Record<string, unknown>): Promise<Call
   const v = validateInput(erc8004GetFeedbackSchema, params);
   if (!v.success) return v.error;
 
-  const chainId = v.data.chainId ?? getConfig().chainId;
+  const chainId = resolveToolChainId(v.data.chainId);
   const addrResult = requireReputationAddress(chainId);
   if (isCallToolResult(addrResult)) return addrResult;
   const reputationAddress = addrResult.address;
 
-  const chain = getChainById(chainId);
-  if (!chain) return formatToolError("UNSUPPORTED_CHAIN", `Chain ${chainId} not supported`);
+  const resolved = resolveToolChain(chainId);
+  if (!isChainResolved(resolved)) return resolved;
+  const { chain } = resolved;
 
   try {
     const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
