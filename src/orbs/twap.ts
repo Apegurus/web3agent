@@ -14,6 +14,12 @@ import {
 } from "@orbs-network/twap-sdk";
 
 export type { Order, RePermitOrder, Signature };
+export { getSrcTokenChunkAmount };
+
+export function getTwapDurationSeconds(chunks: number, fillDelaySeconds: number): number {
+  // The Orbs flow historically doubles the nominal window to leave headroom for fills.
+  return chunks * fillDelaySeconds * 2;
+}
 
 export function getChainConfig(chainId: number): SpotConfig | undefined {
   const match = Object.values(Configs).find((c) => c.chainId === chainId);

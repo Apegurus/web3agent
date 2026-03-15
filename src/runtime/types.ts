@@ -6,6 +6,7 @@ import type { WalletMode } from "../types/wallet.js";
 export type ToolSource =
   | "wallet"
   | "transaction"
+  | "operation"
   | "utility"
   | "tokens"
   | "lifi"
@@ -22,6 +23,7 @@ export type ToolSource =
 export type ToolCategory =
   | "wallet"
   | "transaction"
+  | "operation"
   | "status"
   | "tokens"
   | "swap"

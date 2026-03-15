@@ -8,8 +8,8 @@ import {
 } from "../tokens/resolver.js";
 import { listChainTokensSchema, resolveTokenSchema } from "../tools/tokens/schemas.js";
 import { Web3AgentError } from "./errors.js";
-import { parseInput } from "./shared.js";
 import type { ListChainTokensInput, ResolveTokenInput, RootResolveTokenResult } from "./types.js";
+import { parseInput } from "./validation.js";
 
 export async function resolveToken(params: ResolveTokenInput): Promise<RootResolveTokenResult> {
   const { symbol, chainId } = parseInput(resolveTokenSchema, params);

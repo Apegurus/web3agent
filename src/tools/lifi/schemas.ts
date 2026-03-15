@@ -1,11 +1,5 @@
-import { z } from "zod";
-
-export const lifiGetQuoteSchema = z.object({
-  fromChainId: z.number({ required_error: "fromChainId is required" }),
-  toChainId: z.number({ required_error: "toChainId is required" }),
-  fromTokenAddress: z.string({ required_error: "fromTokenAddress is required" }),
-  toTokenAddress: z.string({ required_error: "toTokenAddress is required" }),
-  fromAmount: z.string({ required_error: "fromAmount is required" }),
-});
-
-export const lifiExecuteBridgeSchema = lifiGetQuoteSchema;
+export {
+  lifiExecuteBridgeSchema,
+  lifiGetQuoteSchema,
+  lifiPrepareBridgeIntentSchema,
+} from "../../api/schemas.js";

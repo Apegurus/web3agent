@@ -10,9 +10,10 @@ export const RESTRICTED_PLUGIN_CHAINS: Record<string, number[]> = {
   balancer: [34443, 8453, 137, 100, 42161, 43114, 10],
 };
 
-function findRestrictedPlugin(toolName: string): string | undefined {
+export function findRestrictedPlugin(toolName: string): string | undefined {
   const lowerName = toolName.toLowerCase();
-  for (const pluginKey of Object.keys(RESTRICTED_PLUGIN_CHAINS)) {
+  const sortedKeys = Object.keys(RESTRICTED_PLUGIN_CHAINS).sort((a, b) => b.length - a.length);
+  for (const pluginKey of sortedKeys) {
     if (lowerName.startsWith(pluginKey.toLowerCase())) {
       return pluginKey;
     }

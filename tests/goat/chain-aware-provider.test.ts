@@ -1,22 +1,30 @@
 import { describe, expect, it, vi } from "vitest";
 import { GoatProvider } from "../../src/goat/provider.js";
 
-vi.mock("@goat-sdk/adapter-model-context-protocol", () => ({
-  getOnChainTools: vi.fn().mockImplementation(({ wallet }) => {
-    const chainId = wallet.__testChainId ?? 0;
-    return {
-      listOfTools: () => [
-        {
-          name: "get_balance",
-          description: "Get balance",
-          inputSchema: { type: "object" },
-        },
-      ],
-      toolHandler: vi.fn().mockImplementation(async (name: string, _params: unknown) => ({
-        content: [{ type: "text", text: `called ${name} on chain ${chainId}` }],
-      })),
-    };
-  }),
+vi.mock("../../src/goat/toolset.js", () => ({
+  buildGoatTools: vi.fn().mockResolvedValue([
+    {
+      name: "get_balance",
+      description: "Get balance",
+      parameters: {
+        parse: (input: unknown) => input ?? {},
+      },
+      execute: vi.fn(),
+    },
+  ]),
+  createGoatToolSnapshot: vi.fn().mockImplementation((chainId: number) => ({
+    listOfTools: [
+      {
+        name: "get_balance",
+        description: "Get balance",
+        inputSchema: { type: "object" },
+      },
+    ],
+    toolHandler: vi.fn().mockImplementation(async (name: string, _params: unknown) => ({
+      content: [{ type: "text", text: `called ${name} on chain ${chainId}` }],
+    })),
+    chainId,
+  })),
 }));
 
 vi.mock("@goat-sdk/wallet-viem", () => ({

@@ -1,6 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WalletState } from "../../src/types/wallet.js";
 
 vi.mock("../../src/wallet/persistence.js", () => ({
   getWalletState: vi.fn(),

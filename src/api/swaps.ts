@@ -3,16 +3,14 @@ import { orbsSwapSchema, orbsSwapStatusSchema } from "../tools/orbs/schemas.js";
 import { readAuditLog } from "../wallet/audit.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { getWalletState } from "../wallet/persistence.js";
-import { getRuntime, invokeAndRequireData, parseInput } from "./shared.js";
+import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
   CrossChainSwapQuoteResult,
   ExecuteBridgeInput,
   ExecuteSameChainSwapInput,
   LifiQuoteInput,
   OrbsQuoteInput,
-  PendingConfirmationResult,
   RuntimeBoundOptions,
-  SameChainSwapQuoteResult,
   SwapHistoryEntry,
   SwapHistoryResult,
   SwapQuoteResult,
@@ -21,6 +19,7 @@ import type {
   TokenSwappableResult,
   WriteOperationResult,
 } from "./types.js";
+import { parseInput } from "./validation.js";
 import { normalizeWriteResult } from "./write-results.js";
 
 export async function getSwapQuote(

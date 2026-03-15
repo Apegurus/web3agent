@@ -20,11 +20,19 @@ const mockPersistence = vi.hoisted(() => ({
   deactivateWallet: vi.fn(),
 }));
 
+const simulationMocks = vi.hoisted(() => ({
+  simulateTransaction: vi.fn(),
+}));
+
 vi.mock("../../src/wallet/persistence.js", () => mockPersistence);
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: mockQueue.queue,
   ConfirmationQueueManager: vi.fn(),
+}));
+
+vi.mock("../../src/api/simulation.js", () => ({
+  simulateTransaction: (...args: unknown[]) => simulationMocks.simulateTransaction(...args),
 }));
 
 describe("transaction_confirm tool handler", () => {
@@ -174,5 +182,47 @@ describe("transaction_list tool handler", () => {
     expect(payload.operations[0].type).toBe("swap");
     expect(payload.operations[1].type).toBe("bridge");
     expect(payload.operations[0].expiresIn).toBeGreaterThan(0);
+  });
+});
+
+describe("transaction_simulate tool handler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects missing required params", async () => {
+    const { transactionSimulate } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionSimulate({ chainId: 8453 });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.error).toBe("INVALID_PARAMS");
+  });
+
+  it("returns simulation data from the shared API", async () => {
+    simulationMocks.simulateTransaction.mockResolvedValueOnce({
+      success: true,
+      gasEstimate: "145000",
+      balanceChanges: [],
+    });
+
+    const { transactionSimulate } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionSimulate({
+      chainId: 8453,
+      from: "0x1234567890123456789012345678901234567890",
+      to: "0x4200000000000000000000000000000000000006",
+      data: "0xdeadbeef",
+    });
+
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.success).toBe(true);
+    expect(payload.gasEstimate).toBe("145000");
+    expect(simulationMocks.simulateTransaction).toHaveBeenCalledWith({
+      chainId: 8453,
+      from: "0x1234567890123456789012345678901234567890",
+      to: "0x4200000000000000000000000000000000000006",
+      data: "0xdeadbeef",
+    });
   });
 });

@@ -76,16 +76,44 @@ describe("LI.FI config initialization", () => {
     );
   });
 
-  it("is idempotent and only configures once", async () => {
+  it("reconfigures when a different API key is provided", async () => {
     const { createConfig, EVM } = await import("@lifi/sdk");
     const { initializeLifi } = await import("../../src/lifi/config.js");
 
     initializeLifi("first-key");
     initializeLifi("second-key");
 
+    expect(EVM).toHaveBeenCalledTimes(2);
+    expect(createConfig).toHaveBeenCalledTimes(2);
+    expect(createConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({ apiKey: "second-key" })
+    );
+  });
+
+  it("is idempotent when the same key is provided", async () => {
+    const { createConfig, EVM } = await import("@lifi/sdk");
+    const { initializeLifi } = await import("../../src/lifi/config.js");
+
+    initializeLifi("same-key");
+    initializeLifi("same-key");
+
     expect(EVM).toHaveBeenCalledTimes(1);
     expect(createConfig).toHaveBeenCalledTimes(1);
-    expect(createConfig).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "first-key" }));
+  });
+
+  it("upgrades an anonymous initialization when an API key becomes available later", async () => {
+    const { createConfig } = await import("@lifi/sdk");
+    const { initializeLifi } = await import("../../src/lifi/config.js");
+
+    initializeLifi();
+    initializeLifi("upgraded-key");
+
+    expect(createConfig).toHaveBeenCalledTimes(2);
+    expect(createConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        apiKey: "upgraded-key",
+      })
+    );
   });
 
   it("propagates errors from wallet client creation in provider callbacks", async () => {

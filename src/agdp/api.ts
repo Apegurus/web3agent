@@ -85,9 +85,10 @@ async function agdpFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function searchOfferings(params: { query?: string; topK?: number }): Promise<
-  AgdpAgent[]
-> {
+export async function searchOfferings(params: {
+  query?: string;
+  topK?: number;
+}): Promise<AgdpAgent[]> {
   const { query = "", topK = 10 } = params;
   const qs = new URLSearchParams({
     query,
