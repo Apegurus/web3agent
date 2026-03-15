@@ -127,12 +127,41 @@ export type {
 export { parseEnv, resetConfig, setConfig } from "./config/env.js";
 export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
 export {
+  addressSchema,
+  hexSchema,
+  operationActionResultSchema,
+  operationActionResultsMapSchema,
+  preparedActionSchema,
+  preparedSignMessageActionSchema,
+  preparedSignTypedDataActionSchema,
+  preparedTransactionActionSchema,
+  preparedTransactionRequestSchema,
+  typedDataPayloadSchema,
+} from "./api/schemas/common.js";
+export {
+  approvalStepSchema,
+  balanceChangeSchema,
+  bridgeIntentEstimateSchema,
+  bridgeIntentSchema,
+  bridgeTxStepSchema,
+  crossChainSwapQuoteResultSchema,
+  crossChainSwapQuoteSummarySchema,
+  limitIntentSchema,
+  preparedOperationSchema,
+  sameChainSwapQuoteResultSchema,
+  simulationResultSchema,
+  swapIntentSchema,
+  swapQuoteResultSchema,
+  swapSubmissionResultSchema,
+  tokenSwappableResultSchema,
+  twapIntentSchema,
+} from "./api/schemas/outputs.js";
+export {
   lifiExecuteBridgeSchema,
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
 } from "./tools/lifi/schemas.js";
 export {
-  operationActionResultSchema,
   operationResumeStateSchema,
   prepareOperationSchema,
   resumeOperationSchema,
