@@ -136,7 +136,7 @@ describe("generic prepared operations API", () => {
       chainId: 8453,
       fromToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       toToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
       account: "0x1234567890123456789012345678901234567890",
     });
 

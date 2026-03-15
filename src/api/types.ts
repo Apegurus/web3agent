@@ -315,9 +315,9 @@ export interface ListOrdersResult {
     id: string;
     type: string;
     status: string;
-    srcToken: string;
-    dstToken: string;
-    srcAmount: string;
+    fromToken: string;
+    toToken: string;
+    fromAmount: string;
     progress?: unknown;
     createdAt?: string;
   }>;

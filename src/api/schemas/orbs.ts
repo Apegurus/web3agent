@@ -1,15 +1,8 @@
 import { z } from "zod";
-import { addressSchema, hexSchema } from "./common.js";
+import { addressSchema, chainIdOptionalSchema, hexSchema, tokenAmountSchema } from "./common.js";
 
-export const orbsGetQuoteSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
-  fromToken: z.string({ required_error: "fromToken is required" }).describe("Source token address"),
-  toToken: z
-    .string({ required_error: "toToken is required" })
-    .describe("Destination token address"),
-  inAmount: z
-    .string({ required_error: "inAmount is required" })
-    .describe("Amount in smallest token units"),
+export const orbsGetQuoteSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
   slippage: z.number().optional().describe("Slippage percentage (0.5 = 0.5%, default 0.5)"),
 });
 
@@ -20,23 +13,16 @@ export const orbsPrepareSwapIntentSchema = orbsGetQuoteSchema.extend({
 });
 
 export const orbsGetRequiredApprovalsSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
+  chainId: chainIdOptionalSchema,
   fromToken: z.string({ required_error: "fromToken is required" }).describe("Source token address"),
-  inAmount: z
-    .string({ required_error: "inAmount is required" })
+  fromAmount: z
+    .string({ required_error: "fromAmount is required" })
     .describe("Amount in smallest token units"),
   account: addressSchema.describe("User wallet address"),
 });
 
-export const orbsPlaceTwapSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
-  srcToken: z.string({ required_error: "srcToken is required" }).describe("Source token address"),
-  dstToken: z
-    .string({ required_error: "dstToken is required" })
-    .describe("Destination token address"),
-  srcAmount: z
-    .string({ required_error: "srcAmount is required" })
-    .describe("Total amount in smallest token units"),
+export const orbsPlaceTwapSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
   chunks: z.number({ required_error: "chunks is required" }).describe("Number of TWAP intervals"),
   fillDelay: z
     .number({ required_error: "fillDelay is required" })
@@ -47,17 +33,10 @@ export const orbsPrepareTwapIntentSchema = orbsPlaceTwapSchema.extend({
   account: addressSchema.describe("User wallet address"),
 });
 
-export const orbsPlaceLimitSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
-  srcToken: z.string({ required_error: "srcToken is required" }).describe("Source token address"),
-  dstToken: z
-    .string({ required_error: "dstToken is required" })
-    .describe("Destination token address"),
-  srcAmount: z
-    .string({ required_error: "srcAmount is required" })
-    .describe("Amount in smallest token units"),
-  dstMinAmount: z
-    .string({ required_error: "dstMinAmount is required" })
+export const orbsPlaceLimitSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
+  toMinAmount: z
+    .string({ required_error: "toMinAmount is required" })
     .describe("Minimum output amount in smallest token units"),
   expiry: z.number().optional().describe("Order expiry as Unix timestamp"),
 });
@@ -67,7 +46,7 @@ export const orbsPrepareLimitIntentSchema = orbsPlaceLimitSchema.extend({
 });
 
 export const orbsSubmitSignedSwapSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
+  chainId: chainIdOptionalSchema,
   quote: z.record(z.unknown()).describe("Quote object from orbs_get_quote"),
   signature: hexSchema
     .refine((v) => v.length >= 132, {
@@ -88,7 +67,7 @@ export const orbsSubmitSignedTwapOrderSchema = z.object({
 });
 
 export const orbsSwapStatusSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
+  chainId: chainIdOptionalSchema,
   sessionId: z
     .string({ required_error: "sessionId is required" })
     .describe("Session ID from swap submission"),
@@ -97,5 +76,5 @@ export const orbsSwapStatusSchema = z.object({
 });
 
 export const orbsListOrdersSchema = z.object({
-  chainId: z.number().optional().describe("Chain ID (defaults to runtime config)"),
+  chainId: chainIdOptionalSchema,
 });

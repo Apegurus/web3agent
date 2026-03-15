@@ -58,7 +58,7 @@ import {
 async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsGetQuoteSchema, params);
   if (!v.success) return v.error;
-  const { fromToken, toToken, inAmount, slippage } = v.data;
+  const { fromToken, toToken, fromAmount, slippage } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
@@ -69,7 +69,7 @@ async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     const result = await getQuote(chainId, {
       fromToken,
       toToken,
-      inAmount,
+      inAmount: fromAmount,
       slippage: slippage ?? 0.5,
     });
 
@@ -88,14 +88,14 @@ async function executeOrbsSwapNow(params: Record<string, unknown>): Promise<Call
     const { fromToken } = await prepareSwap({
       chainId,
       fromToken: params.fromToken as string,
-      inAmount: params.inAmount as string,
+      inAmount: params.fromAmount as string,
       account,
     });
 
     const sdk = getSdk(chainId);
     const slippage = (params.slippage as number) ?? 0.5;
     const toToken = params.toToken as string;
-    const inAmount = params.inAmount as string;
+    const inAmount = params.fromAmount as string;
 
     const quote = await sdk.getQuote({
       fromToken,
@@ -231,7 +231,7 @@ async function orbsSwapStatus(params: Record<string, unknown>): Promise<CallTool
 async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsSwapSchema, params);
   if (!v.success) return v.error;
-  const { fromToken, toToken, inAmount } = v.data;
+  const { fromToken, toToken, fromAmount } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
@@ -240,7 +240,7 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
 
   return executeWrite({
     toolName: "orbs_swap",
-    description: `Orbs Liquidity Hub swap: ${inAmount} of ${fromToken} → ${toToken} on chain ${chainId}`,
+    description: `Orbs Liquidity Hub swap: ${fromAmount} of ${fromToken} → ${toToken} on chain ${chainId}`,
     params: { ...v.data } as Record<string, unknown>,
     executor: executeOrbsSwapNow,
   });
@@ -269,9 +269,9 @@ async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<Call
     const durationSeconds = getTwapDurationSeconds(chunks, fillDelay);
     const prepared = prepareTwapOrder({
       chainId,
-      srcToken: params.srcToken as string,
-      dstToken: params.dstToken as string,
-      srcAmount: params.srcAmount as string,
+      srcToken: params.fromToken as string,
+      dstToken: params.toToken as string,
+      srcAmount: params.fromAmount as string,
       chunks,
       fillDelaySeconds: fillDelay,
       durationSeconds,
@@ -304,7 +304,7 @@ async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<Call
 async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsPlaceTwapSchema, params);
   if (!v.success) return v.error;
-  const { srcToken, dstToken, srcAmount, chunks, fillDelay } = v.data;
+  const { fromToken, toToken, fromAmount, chunks, fillDelay } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isTwapSupported(chainId)) {
@@ -313,7 +313,7 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
 
   return executeWrite({
     toolName: "orbs_place_twap",
-    description: `dTWAP order: ${srcAmount} of ${srcToken} → ${dstToken}, ${chunks} chunks, ${fillDelay}s delay on chain ${chainId}`,
+    description: `dTWAP order: ${fromAmount} of ${fromToken} → ${toToken}, ${chunks} chunks, ${fillDelay}s delay on chain ${chainId}`,
     params: { ...v.data } as Record<string, unknown>,
     executor: executeOrbsTwapNow,
   });
@@ -334,14 +334,14 @@ async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<Cal
     const expirySeconds = Number(params.expiry ?? 86400);
     const prepared = prepareTwapOrder({
       chainId,
-      srcToken: params.srcToken as string,
-      dstToken: params.dstToken as string,
-      srcAmount: params.srcAmount as string,
+      srcToken: params.fromToken as string,
+      dstToken: params.toToken as string,
+      srcAmount: params.fromAmount as string,
       chunks: 1,
       fillDelaySeconds: 0,
       durationSeconds: expirySeconds,
       account: account.address,
-      dstMinAmountPerTrade: params.dstMinAmount as string,
+      dstMinAmountPerTrade: params.toMinAmount as string,
     });
 
     if (!account.signTypedData) {
@@ -370,7 +370,7 @@ async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<Cal
 async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsPlaceLimitSchema, params);
   if (!v.success) return v.error;
-  const { srcToken, dstToken, srcAmount, dstMinAmount } = v.data;
+  const { fromToken, toToken, fromAmount, toMinAmount } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isTwapSupported(chainId)) {
@@ -379,7 +379,7 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
 
   return executeWrite({
     toolName: "orbs_place_limit",
-    description: `dLIMIT order: ${srcAmount} of ${srcToken} → ${dstToken}, min output ${dstMinAmount} on chain ${chainId}`,
+    description: `dLIMIT order: ${fromAmount} of ${fromToken} → ${toToken}, min output ${toMinAmount} on chain ${chainId}`,
     params: { ...v.data } as Record<string, unknown>,
     executor: executeOrbsLimitNow,
   });
@@ -429,9 +429,9 @@ async function orbsListOrders(params: Record<string, unknown>): Promise<CallTool
         id: o.id,
         type: o.type,
         status: o.status,
-        srcToken: o.srcTokenAddress,
-        dstToken: o.dstTokenAddress,
-        srcAmount: o.srcAmount,
+        fromToken: o.srcTokenAddress,
+        toToken: o.dstTokenAddress,
+        fromAmount: o.srcAmount,
         progress: o.progress,
         createdAt: o.createdAt,
       })),

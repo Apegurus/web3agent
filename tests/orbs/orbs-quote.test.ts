@@ -11,7 +11,7 @@ vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
     getQuote: vi.fn().mockResolvedValue({
       inToken: "0xTokenA",
       outToken: "0xTokenB",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
       outAmount: "2000000000",
       minAmountOut: "1990000000",
       exchange: "paraswap",
@@ -76,7 +76,7 @@ describe("Orbs quote tools", () => {
       chainId: 8453,
       fromToken: "0xTokenA",
       toToken: "0xTokenB",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
     });
 
     expect(result.isError).toBe(false);
@@ -95,7 +95,7 @@ describe("Orbs quote tools", () => {
       chainId: 1,
       fromToken: "0xTokenA",
       toToken: "0xTokenB",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
     });
 
     expect(result.isError).toBe(true);
@@ -141,7 +141,7 @@ describe("Orbs quote tools", () => {
         chainId,
         fromToken: "0xA",
         toToken: "0xB",
-        inAmount: "1000",
+        fromAmount: "1000",
       });
       expect(result.isError).toBe(false);
     }

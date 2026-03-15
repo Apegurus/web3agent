@@ -107,7 +107,7 @@ export const limitIntentSchema = z.object({
   meta: z
     .object({
       expirySeconds: z.number().describe("Order expiry duration"),
-      dstMinAmount: z.string().describe("Minimum output amount"),
+      toMinAmount: z.string().describe("Minimum output amount"),
     })
     .describe("Limit order metadata"),
 });

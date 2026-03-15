@@ -33,7 +33,7 @@ describe("root API", () => {
       chainId: 8453,
       fromToken: "0x1111",
       toToken: "0x2222",
-      inAmount: "1000",
+      fromAmount: "1000",
     });
 
     expect(result).toEqual({
@@ -49,7 +49,7 @@ describe("root API", () => {
       chainId: 8453,
       fromToken: "0x1111",
       toToken: "0x2222",
-      inAmount: "1000",
+      fromAmount: "1000",
     });
   });
 
@@ -124,10 +124,10 @@ describe("root API", () => {
     const { placeLimitOrder } = await import("../../src/api/orders.js");
     const result = await placeLimitOrder({
       chainId: 8453,
-      srcToken: "0x1111",
-      dstToken: "0x2222",
-      srcAmount: "1000",
-      dstMinAmount: "900",
+      fromToken: "0x1111",
+      toToken: "0x2222",
+      fromAmount: "1000",
+      toMinAmount: "900",
     });
 
     expect(result).toEqual({

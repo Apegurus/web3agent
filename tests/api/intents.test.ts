@@ -104,7 +104,7 @@ describe("browser wallet intent APIs", () => {
       chainId: 8453,
       fromToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       toToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
       account: "0x1234567890123456789012345678901234567890",
     });
 
@@ -130,7 +130,7 @@ describe("browser wallet intent APIs", () => {
     const result = await getRequiredApprovals({
       chainId: 8453,
       fromToken: "0x4200000000000000000000000000000000000006",
-      inAmount: "10",
+      fromAmount: "10",
       account: "0x1234567890123456789012345678901234567890",
     });
 
@@ -148,9 +148,9 @@ describe("browser wallet intent APIs", () => {
     const { prepareTwapIntent } = await import("../../src/api/intents.js");
     const result = await prepareTwapIntent({
       chainId: 8453,
-      srcToken: "0x1",
-      dstToken: "0x2",
-      srcAmount: "1000",
+      fromToken: "0x1",
+      toToken: "0x2",
+      fromAmount: "1000",
       chunks: 5,
       fillDelay: 60,
       account: "0x1234567890123456789012345678901234567890",
@@ -176,10 +176,10 @@ describe("browser wallet intent APIs", () => {
     const { prepareLimitIntent } = await import("../../src/api/intents.js");
     const result = await prepareLimitIntent({
       chainId: 8453,
-      srcToken: "0x1",
-      dstToken: "0x2",
-      srcAmount: "1000",
-      dstMinAmount: "900",
+      fromToken: "0x1",
+      toToken: "0x2",
+      fromAmount: "1000",
+      toMinAmount: "900",
       account: "0x1234567890123456789012345678901234567890",
     });
 
@@ -191,7 +191,7 @@ describe("browser wallet intent APIs", () => {
     );
     expect(result.meta).toEqual({
       expirySeconds: 86400,
-      dstMinAmount: "900",
+      toMinAmount: "900",
     });
   });
 

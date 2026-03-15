@@ -43,7 +43,7 @@ describe("Orbs browser-wallet MCP tools", () => {
         sessionId: "session-1",
         inToken: "0x1",
         outToken: "0x2",
-        inAmount: "10",
+        fromAmount: "10",
         outAmount: "20",
         minAmountOut: "19",
         user: "0x1234567890123456789012345678901234567890",
@@ -57,7 +57,7 @@ describe("Orbs browser-wallet MCP tools", () => {
       chainId: 8453,
       fromToken: "0x1111111111111111111111111111111111111111",
       toToken: "0x2222222222222222222222222222222222222222",
-      inAmount: "10",
+      fromAmount: "10",
       account: "0x1234567890123456789012345678901234567890",
     });
 
@@ -65,7 +65,7 @@ describe("Orbs browser-wallet MCP tools", () => {
       chainId: 8453,
       fromToken: "0x1111111111111111111111111111111111111111",
       toToken: "0x2222222222222222222222222222222222222222",
-      inAmount: "10",
+      fromAmount: "10",
       account: "0x1234567890123456789012345678901234567890",
     });
     expect(result.isError).toBe(false);

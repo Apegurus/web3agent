@@ -144,7 +144,7 @@ export async function getRequiredApprovals(
             abi: SWAP_PREPARATION_ABI,
             functionName: "deposit",
           }),
-          value: input.inAmount,
+          value: input.fromAmount,
         },
       });
       effectiveFromToken = wrapped;
@@ -157,7 +157,7 @@ export async function getRequiredApprovals(
       args: [assertAddress(input.account, "account"), PERMIT2_ADDRESS],
     });
 
-    if ((allowance as bigint) < BigInt(input.inAmount)) {
+    if ((allowance as bigint) < BigInt(input.fromAmount)) {
       steps.push({
         type: "approve",
         label: "Approve Permit2 (unlimited allowance)",
@@ -194,7 +194,7 @@ export async function prepareSwapOperation(
     const quote = (await getIntentQuote(chainId, {
       fromToken: resolveSwapQuoteFromToken(chainId, input.fromToken),
       toToken: input.toToken,
-      inAmount: input.inAmount,
+      inAmount: input.fromAmount,
       slippage: input.slippage,
       account: input.account,
     })) as RawOrbsQuote;
@@ -217,7 +217,7 @@ export async function prepareSwapOperation(
     const requiredApprovals = await getRequiredApprovals({
       chainId,
       fromToken: input.fromToken,
-      inAmount: input.inAmount,
+      fromAmount: input.fromAmount,
       account: input.account,
     });
     const approvalActions = createPreparedApprovalActions(chainId, requiredApprovals);
@@ -276,16 +276,16 @@ function prepareTwapOrLimitIntent(
     : getTwapDurationSeconds(chunks, fillDelaySeconds);
   const order = prepareTwapOrder({
     chainId,
-    srcToken: params.srcToken,
-    dstToken: params.dstToken,
-    srcAmount: params.srcAmount,
+    srcToken: params.fromToken,
+    dstToken: params.toToken,
+    srcAmount: params.fromAmount,
     chunks,
     fillDelaySeconds,
     durationSeconds,
     account: params.account,
     ...(isLimit
       ? {
-          dstMinAmountPerTrade: (params as PrepareLimitIntentInput).dstMinAmount,
+          dstMinAmountPerTrade: (params as PrepareLimitIntentInput).toMinAmount,
         }
       : {}),
   });
@@ -303,7 +303,7 @@ function prepareTwapOrLimitIntent(
       chainId,
       meta: {
         expirySeconds: expirySeconds ?? 86400,
-        dstMinAmount: (params as PrepareLimitIntentInput).dstMinAmount,
+        toMinAmount: (params as PrepareLimitIntentInput).toMinAmount,
       },
     };
     return {
@@ -320,7 +320,7 @@ function prepareTwapOrLimitIntent(
       chunks,
       fillDelaySeconds,
       durationSeconds,
-      srcAmountPerChunk: getSrcTokenChunkAmount(params.srcAmount, chunks),
+      srcAmountPerChunk: getSrcTokenChunkAmount(params.fromAmount, chunks),
     },
   };
   return {
