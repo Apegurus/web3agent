@@ -53,8 +53,16 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     paymentDescription = `Pay ${amount} on ${network} to access ${url}`;
 
     const quotedUsd =
-      typeof amount === "string" ? Number(amount) : typeof amount === "number" ? amount : 0;
-    if (!Number.isNaN(quotedUsd) && quotedUsd > 0) {
+      typeof amount === "string"
+        ? Number(amount)
+        : typeof amount === "number"
+          ? amount
+          : Number.NaN;
+    if (Number.isNaN(quotedUsd)) {
+      process.stderr.write(
+        `[x402] Warning: unparseable payment amount "${amount}" — x402 cap cannot be enforced\n`
+      );
+    } else if (quotedUsd > 0) {
       const policy = resolvePolicy(getConfig());
       if (policy.enabled && quotedUsd > policy.maxX402PaymentUsd) {
         return formatToolError(

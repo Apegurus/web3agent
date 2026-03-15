@@ -9,7 +9,7 @@ import { resolvePolicy } from "../policy/config.js";
 import { evaluatePolicy } from "../policy/engine.js";
 import { extractEstimatedUsd } from "../policy/extract-usd.js";
 import { loadSpendLog, recordSpend } from "../policy/spend-tracker.js";
-import type { RiskLevel, TreasuryPolicy } from "../policy/types.js";
+import type { RiskLevel } from "../policy/types.js";
 import {
   getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
   registerAcpExecutors as registerAcpVirtualsExecutors,
@@ -143,8 +143,6 @@ export class ManagedRuntime implements Web3AgentRuntime {
   readonly transactions;
   readonly status;
   readonly pendingOpsRestored: number;
-  readonly treasuryPolicy: TreasuryPolicy;
-
   private readonly frameworkTools: ToolDefinition[];
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
@@ -172,7 +170,6 @@ export class ManagedRuntime implements Web3AgentRuntime {
   ) {
     this.goatProvider = goatProvider;
     this.pendingOpsRestored = pendingOpsRestored;
-    this.treasuryPolicy = resolvePolicy(config);
     this.frameworkTools = [
       ...getWalletToolDefinitions(),
       ...getOperationToolDefinitions(),
