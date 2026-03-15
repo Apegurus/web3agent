@@ -13,7 +13,7 @@ export default defineConfig([
       "x402/client": "src/x402/client.ts",
     },
     format: ["esm"],
-    target: "node18",
+    target: "node22",
     clean: true,
     splitting: true,
     sourcemap: false,
@@ -30,7 +30,7 @@ export default defineConfig([
       cli: "src/cli.ts",
     },
     format: ["esm"],
-    target: "node18",
+    target: "node22",
     clean: false,
     banner: {
       js: "#!/usr/bin/env node",

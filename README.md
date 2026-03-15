@@ -160,7 +160,7 @@ See [WEB3_CONTEXT.md](./WEB3_CONTEXT.md) for the full environment variable table
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22+
 - pnpm (for development)
 
 ## License
