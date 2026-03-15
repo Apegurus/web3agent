@@ -16,6 +16,12 @@ export function getChainById(id: number): Chain | undefined {
   return CHAINS_BY_ID.get(id);
 }
 
+export function getRequiredChain(chainId: number): Chain {
+  const chain = getChainById(chainId);
+  if (!chain) throw new Error(`Unsupported chain ID: ${chainId}`);
+  return chain;
+}
+
 export function getChainByName(name: string): Chain | undefined {
   return CHAINS_BY_NAME.get(name.toLowerCase());
 }

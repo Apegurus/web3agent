@@ -25,17 +25,13 @@ const mockState = vi.hoisted(() => {
   };
 
   const blockscoutInitialize = vi.fn().mockRejectedValue(new Error("offline"));
-  const evmInitialize = vi.fn().mockRejectedValue(new Error("offline"));
   const blockscoutGetTools = vi.fn().mockReturnValue([]);
-  const evmGetTools = vi.fn().mockReturnValue([]);
   const proxyStart = vi.fn().mockResolvedValue(undefined);
 
   return {
     config,
     blockscoutInitialize,
-    evmInitialize,
     blockscoutGetTools,
-    evmGetTools,
     proxyStart,
     loadQueue: vi.fn().mockResolvedValue(3),
   };
@@ -100,22 +96,6 @@ vi.mock("../../src/upstream/etherscan/adapter.js", () => ({
 
     getHealth() {
       return { name: "etherscan", status: "not_configured", toolCount: 0 };
-    }
-  },
-}));
-
-vi.mock("../../src/upstream/evm/adapter.js", () => ({
-  EvmAdapter: class {
-    async initialize(): Promise<void> {
-      await mockState.evmInitialize();
-    }
-
-    getTools(): unknown[] {
-      return mockState.evmGetTools();
-    }
-
-    getHealth() {
-      return { name: "evm", status: "degraded", toolCount: 0 };
     }
   },
 }));
@@ -206,12 +186,11 @@ vi.mock("../../src/runtime/server.js", () => ({
 }));
 
 describe("startServer degraded mode", () => {
-  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: { mock: { calls: unknown[][] } };
 
   beforeEach(() => {
     stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true as never);
     mockState.blockscoutInitialize.mockClear();
-    mockState.evmInitialize.mockClear();
     mockState.proxyStart.mockClear();
   });
 
@@ -223,7 +202,6 @@ describe("startServer degraded mode", () => {
   it("completes startup without crashing when upstream adapters fail", async () => {
     await expect(startServer()).resolves.toBeUndefined();
     expect(mockState.blockscoutInitialize).toHaveBeenCalledTimes(1);
-    expect(mockState.evmInitialize).toHaveBeenCalledTimes(1);
     expect(mockState.proxyStart).toHaveBeenCalledTimes(1);
   });
 

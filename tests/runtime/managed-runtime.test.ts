@@ -24,6 +24,7 @@ const mockState = vi.hoisted(() => {
     }),
     registerOrbsExecutors: vi.fn(),
     registerLifiExecutors: vi.fn(),
+    registerEvmExecutors: vi.fn(),
     initializeLifi: vi.fn(),
     setHealthStatus: vi.fn(),
     loadQueue: vi.fn().mockResolvedValue(2),
@@ -31,7 +32,6 @@ const mockState = vi.hoisted(() => {
     listQueue: vi.fn().mockReturnValue([]),
     blockscoutShutdown: vi.fn().mockResolvedValue(undefined),
     etherscanShutdown: vi.fn().mockResolvedValue(undefined),
-    evmShutdown: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -48,6 +48,19 @@ vi.mock("../../src/tools/orbs/index.js", () => ({
 vi.mock("../../src/tools/lifi/index.js", () => ({
   getLifiToolDefinitions: vi.fn().mockReturnValue([]),
   registerLifiExecutors: (...args: unknown[]) => mockState.registerLifiExecutors(...args),
+}));
+
+vi.mock("../../src/tools/evm/index.js", () => ({
+  getEvmToolDefinitions: vi.fn().mockReturnValue([
+    {
+      name: "evm_get_balance",
+      category: "evm",
+      description: "evm",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
+    },
+  ]),
+  registerEvmExecutors: (...args: unknown[]) => mockState.registerEvmExecutors(...args),
 }));
 
 vi.mock("../../src/tools/register.js", () => ({
@@ -190,23 +203,6 @@ vi.mock("../../src/upstream/etherscan/adapter.js", () => ({
   },
 }));
 
-vi.mock("../../src/upstream/evm/adapter.js", () => ({
-  EvmAdapter: class {
-    async initialize(): Promise<void> {
-      return undefined;
-    }
-    getTools(): unknown[] {
-      return [];
-    }
-    getHealth() {
-      return { name: "evm", status: "ok", toolCount: 0 };
-    }
-    async shutdown(): Promise<void> {
-      await mockState.evmShutdown();
-    }
-  },
-}));
-
 describe("managed runtime", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -219,6 +215,7 @@ describe("managed runtime", () => {
     mockState.initializeWallet.mockClear();
     mockState.registerOrbsExecutors.mockClear();
     mockState.registerLifiExecutors.mockClear();
+    mockState.registerEvmExecutors.mockClear();
     mockState.initializeLifi.mockClear();
     mockState.setHealthStatus.mockClear();
     mockState.loadQueue.mockReset().mockResolvedValue(2);
@@ -226,7 +223,6 @@ describe("managed runtime", () => {
     mockState.listQueue.mockReset().mockReturnValue([]);
     mockState.blockscoutShutdown.mockClear();
     mockState.etherscanShutdown.mockClear();
-    mockState.evmShutdown.mockClear();
   });
 
   it("uses a runtime-local goat provider and config for goat dispatch", async () => {

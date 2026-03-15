@@ -21,6 +21,7 @@ const mockState = vi.hoisted(() => {
   const walletHandler = vi.fn();
   const transactionHandler = vi.fn();
   const utilityHandler = vi.fn();
+  const evmHandler = vi.fn();
   const walletListeners: Array<(state: unknown) => void> = [];
   const walletEvents = {
     on: vi.fn((_event: string, listener: (state: unknown) => void) => {
@@ -49,6 +50,7 @@ const mockState = vi.hoisted(() => {
     walletHandler,
     transactionHandler,
     utilityHandler,
+    evmHandler,
     walletListeners,
     walletEvents,
   };
@@ -192,6 +194,18 @@ vi.mock("../../src/tools/orbs/index.js", () => ({
   ]),
 }));
 
+vi.mock("../../src/tools/evm/index.js", () => ({
+  getEvmToolDefinitions: vi.fn().mockReturnValue([
+    {
+      name: "evm_get_balance",
+      category: "evm",
+      description: "evm",
+      inputSchema: { type: "object", properties: {} },
+      handler: mockState.evmHandler,
+    },
+  ]),
+}));
+
 vi.mock("../../src/tools/tokens/index.js", () => ({
   getTokenToolDefinitions: vi.fn().mockReturnValue([
     {
@@ -255,10 +269,8 @@ vi.mock("../../src/wallet/events.js", () => ({
 describe("ProxyServer", () => {
   const blockscoutCallTool = vi.fn();
   const etherscanCallTool = vi.fn();
-  const evmCallTool = vi.fn();
   const blockscoutShutdown = vi.fn().mockResolvedValue(undefined);
   const etherscanShutdown = vi.fn().mockResolvedValue(undefined);
-  const evmShutdown = vi.fn().mockResolvedValue(undefined);
 
   const blockscoutAdapter = {
     getTools: vi.fn().mockReturnValue([
@@ -288,20 +300,6 @@ describe("ProxyServer", () => {
     shutdown: etherscanShutdown,
   };
 
-  const evmAdapter = {
-    getTools: vi.fn().mockReturnValue([
-      {
-        name: "evm_get_balance",
-        description: "evm",
-        inputSchema: { type: "object", properties: {} },
-        upstreamName: "get_balance",
-        prefix: "evm",
-      },
-    ]),
-    callTool: evmCallTool,
-    shutdown: evmShutdown,
-  };
-
   const goatProvider = {
     getAllToolNames: vi.fn().mockReturnValue(["uniswap_swap"]),
     getReferenceSnapshot: vi.fn().mockReturnValue({
@@ -324,13 +322,12 @@ describe("ProxyServer", () => {
     mockState.walletListeners.length = 0;
     blockscoutCallTool.mockReset();
     etherscanCallTool.mockReset();
-    evmCallTool.mockReset();
     blockscoutShutdown.mockClear();
     etherscanShutdown.mockClear();
-    evmShutdown.mockClear();
     mockState.dispatchGoatTool.mockReset();
     mockState.lifiHandler.mockReset();
     mockState.orbsHandler.mockReset();
+    mockState.evmHandler.mockReset();
     mockState.walletHandler.mockReset();
     mockState.transactionHandler.mockReset();
     mockState.utilityHandler.mockReset();
@@ -347,8 +344,6 @@ describe("ProxyServer", () => {
       blockscoutAdapter as any,
       // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
       etherscanAdapter as any,
-      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
-      evmAdapter as any,
       // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
       goatProvider as any
     );
@@ -429,17 +424,15 @@ describe("ProxyServer", () => {
     });
   });
 
-  it("routes evm tools to evm adapter", async () => {
+  it("routes evm tools to native evm handlers", async () => {
     const { callHandler } = setup();
-    evmCallTool.mockResolvedValue({ isError: false, content: [] });
+    mockState.evmHandler.mockResolvedValue({ isError: false, content: [] });
 
     await callHandler({
       params: { name: "evm_get_balance", arguments: { address: "0x2" } },
     });
 
-    expect(evmCallTool).toHaveBeenCalledWith("evm_get_balance", {
-      address: "0x2",
-    });
+    expect(mockState.evmHandler).toHaveBeenCalledWith({ address: "0x2" });
   });
 
   it("routes GOAT tools through dispatchGoatTool", async () => {
@@ -551,8 +544,6 @@ describe("ProxyServer", () => {
       // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
       etherscanAdapter as any,
       // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
-      evmAdapter as any,
-      // biome-ignore lint/suspicious/noExplicitAny: mock adapters don't implement full interface
       goatProvider as any
     );
 
@@ -562,7 +553,6 @@ describe("ProxyServer", () => {
     expect(goatProvider.waitForRebuild).toHaveBeenCalledTimes(1);
     expect(blockscoutShutdown).not.toHaveBeenCalled();
     expect(etherscanShutdown).not.toHaveBeenCalled();
-    expect(evmShutdown).not.toHaveBeenCalled();
 
     if (!resolveRebuild) {
       throw new Error("Missing rebuild resolver");
@@ -572,7 +562,6 @@ describe("ProxyServer", () => {
 
     expect(blockscoutShutdown).toHaveBeenCalledTimes(1);
     expect(etherscanShutdown).toHaveBeenCalledTimes(1);
-    expect(evmShutdown).toHaveBeenCalledTimes(1);
   });
 
   it("rejects incomplete legacy constructor arguments", () => {

@@ -8,6 +8,7 @@ import { getAcpToolDefinitions } from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions } from "../tools/erc8004/index.js";
+import { getEvmToolDefinitions } from "../tools/evm/index.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
 import {
@@ -20,7 +21,6 @@ import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { getX402ToolDefinitions } from "../tools/x402/index.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
 import type { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
-import type { EvmAdapter } from "../upstream/evm/adapter.js";
 import { formatToolError } from "../utils/errors.js";
 import { VERSION } from "../version.js";
 import { walletEvents } from "../wallet/events.js";
@@ -52,7 +52,6 @@ function getGoatTools(goatProvider: GoatProvider): Tool[] {
 function createLegacyRuntimeBridge(
   blockscoutAdapter: BlockscoutAdapter,
   etherscanAdapter: EtherscanAdapter,
-  evmAdapter: EvmAdapter,
   goatProvider: GoatProvider
 ): RuntimeBridge {
   type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
@@ -70,6 +69,7 @@ function createLegacyRuntimeBridge(
   const acpVirtualsTools = getAcpToolDefinitions();
   const agdpTools = getAgdpToolDefinitions();
   const erc8004Tools = getErc8004ToolDefinitions();
+  const evmNativeTools = getEvmToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
   const toolDispatch = new Map<string, ToolHandler>();
 
@@ -90,11 +90,8 @@ function createLegacyRuntimeBridge(
       );
     }
 
-    for (const tool of evmAdapter.getTools()) {
-      toolDispatch.set(
-        tool.name,
-        (args) => evmAdapter.callTool(tool.name, args) as Promise<CallToolResult>
-      );
+    for (const tool of evmNativeTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
 
     for (const tool of tokenTools) {
@@ -143,7 +140,7 @@ function createLegacyRuntimeBridge(
         ...getGoatTools(goatProvider),
         ...blockscoutAdapter.getTools(),
         ...etherscanAdapter.getTools(),
-        ...evmAdapter.getTools(),
+        ...evmNativeTools.map(toMcpTool),
         ...lifiTools.map(toMcpTool),
         ...orbsTools.map(toMcpTool),
         ...tokenTools.map(toMcpTool),
@@ -183,11 +180,7 @@ function createLegacyRuntimeBridge(
       goatProvider.shutdown();
       // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort wait before adapter teardown
       await goatProvider.waitForRebuild().catch(() => {});
-      await Promise.allSettled([
-        blockscoutAdapter.shutdown(),
-        etherscanAdapter.shutdown(),
-        evmAdapter.shutdown(),
-      ]);
+      await Promise.allSettled([blockscoutAdapter.shutdown(), etherscanAdapter.shutdown()]);
     },
   };
 }
@@ -205,7 +198,7 @@ function isRuntimeBridge(value: unknown): value is RuntimeBridge {
 
 function requireLegacyAdapter<T>(
   value: T | undefined,
-  name: "etherscanAdapter" | "evmAdapter" | "goatProvider"
+  name: "etherscanAdapter" | "goatProvider"
 ): T {
   if (value === undefined) {
     throw new Error(
@@ -223,7 +216,6 @@ export class ProxyServer {
   constructor(
     runtimeOrBlockscout: ManagedRuntime | BlockscoutAdapter,
     etherscanAdapter?: EtherscanAdapter,
-    evmAdapter?: EvmAdapter,
     goatProviderInstance?: GoatProvider
   ) {
     this.runtime = isRuntimeBridge(runtimeOrBlockscout)
@@ -231,7 +223,6 @@ export class ProxyServer {
       : createLegacyRuntimeBridge(
           runtimeOrBlockscout,
           requireLegacyAdapter(etherscanAdapter, "etherscanAdapter"),
-          requireLegacyAdapter(evmAdapter, "evmAdapter"),
           requireLegacyAdapter(goatProviderInstance, "goatProvider")
         );
     this.server = new Server(
