@@ -47,8 +47,10 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     const trimmed = {
       fromChainId: quote.action.fromChainId,
       toChainId: quote.action.toChainId,
-      fromToken: quote.action.fromToken?.symbol,
-      toToken: quote.action.toToken?.symbol,
+      fromToken: quote.action.fromToken?.address,
+      toToken: quote.action.toToken?.address,
+      fromDecimals: quote.action.fromToken?.decimals,
+      toDecimals: quote.action.toToken?.decimals,
       fromAmount: quote.action.fromAmount,
       fromAmountUSD: quote.estimate?.fromAmountUSD,
       toAmount: quote.estimate?.toAmount,

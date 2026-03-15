@@ -284,8 +284,10 @@ function createBridgeIntentPayload(
     steps,
     actions,
     estimate: {
-      fromToken: quote.action.fromToken?.symbol ?? input.fromTokenAddress,
-      toToken: quote.action.toToken?.symbol ?? input.toTokenAddress,
+      fromToken: quote.action.fromToken?.address ?? input.fromTokenAddress,
+      toToken: quote.action.toToken?.address ?? input.toTokenAddress,
+      fromDecimals: quote.action.fromToken?.decimals,
+      toDecimals: quote.action.toToken?.decimals,
       fromAmount: quote.action.fromAmount,
       fromAmountUSD: quote.estimate?.fromAmountUSD,
       toAmount: quote.estimate?.toAmount ?? "0",

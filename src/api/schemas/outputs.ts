@@ -20,6 +20,8 @@ export const crossChainSwapQuoteSummarySchema = z.object({
   toChainId: z.number().describe("Destination chain ID"),
   fromToken: z.string().optional().describe("Source token address"),
   toToken: z.string().optional().describe("Destination token address"),
+  fromDecimals: z.number().optional().describe("Source token decimals"),
+  toDecimals: z.number().optional().describe("Destination token decimals"),
   fromAmount: z.string().describe("Input amount in smallest units"),
   fromAmountUSD: z.string().optional().describe("Input value in USD"),
   toAmount: z.string().optional().describe("Output amount in smallest units"),
@@ -114,6 +116,8 @@ export const bridgeTxStepSchema = z.object({
 export const bridgeIntentEstimateSchema = z.object({
   fromToken: z.string().describe("Source token address"),
   toToken: z.string().describe("Destination token address"),
+  fromDecimals: z.number().optional().describe("Source token decimals"),
+  toDecimals: z.number().optional().describe("Destination token decimals"),
   fromAmount: z.string().describe("Input amount"),
   fromAmountUSD: z.string().optional().describe("Input value in USD"),
   toAmount: z.string().describe("Output amount"),

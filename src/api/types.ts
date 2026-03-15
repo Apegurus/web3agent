@@ -306,6 +306,8 @@ export interface BridgeIntent {
   estimate: {
     fromToken: string;
     toToken: string;
+    fromDecimals?: number;
+    toDecimals?: number;
     fromAmount: string;
     fromAmountUSD?: string;
     toAmount: string;
@@ -366,6 +368,8 @@ export interface CrossChainSwapQuoteSummary {
   toChainId: number;
   fromToken?: string;
   toToken?: string;
+  fromDecimals?: number;
+  toDecimals?: number;
   fromAmount: string;
   fromAmountUSD?: string;
   toAmount?: string;
