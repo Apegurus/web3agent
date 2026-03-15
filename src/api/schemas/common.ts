@@ -80,6 +80,31 @@ export const operationActionResultSchema = z.union([
 
 export const operationActionResultsMapSchema = z.record(operationActionResultSchema);
 
+// --- Shared base schemas ---
+
+export const chainIdOptionalSchema = z
+  .number()
+  .optional()
+  .describe("Chain ID (defaults to runtime config)");
+
+export const tokenPairSchema = z.object({
+  fromToken: z.string().describe("Source token address"),
+  toToken: z.string().describe("Destination token address"),
+});
+
+export const tokenAmountSchema = tokenPairSchema.extend({
+  fromAmount: z.string().describe("Amount in smallest token units"),
+});
+
+export const tokenEstimateSchema = tokenPairSchema.extend({
+  fromDecimals: z.number().optional().describe("Source token decimals"),
+  toDecimals: z.number().optional().describe("Destination token decimals"),
+  fromAmount: z.string().describe("Input amount"),
+  fromAmountUSD: z.string().optional().describe("Input value in USD"),
+  toAmount: z.string().describe("Output amount"),
+  toAmountUSD: z.string().optional().describe("Output value in USD"),
+});
+
 export const resumeStateBaseSchema = z.object({
   summary: z.string().optional().describe("Operation summary"),
   intent: z.record(z.unknown()).optional().describe("Original intent data"),
