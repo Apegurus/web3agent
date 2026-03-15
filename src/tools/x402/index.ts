@@ -7,29 +7,20 @@ import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
 import { createX402Client, probePaymentRequirements } from "../../x402/client.js";
+import { createToolHandler } from "../shared/handler-factory.js";
 import { x402CheckRequirementsSchema, x402FetchSchema } from "./schemas.js";
 
-async function x402CheckRequirements(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(x402CheckRequirementsSchema, params);
-  if (!v.success) return v.error;
-  const { url, method, headers } = v.data;
-
-  try {
-    const { requirements } = await probePaymentRequirements(url, method, headers);
+const x402CheckRequirements = createToolHandler(
+  x402CheckRequirementsSchema,
+  async (input: { url: string; method?: string; headers?: Record<string, string> }) => {
+    const { requirements } = await probePaymentRequirements(input.url, input.method, input.headers);
     if (!requirements) {
-      return formatToolResponse({
-        paymentRequired: false,
-        message: "No payment required for this URL",
-      });
+      return { paymentRequired: false, message: "No payment required for this URL" };
     }
-    return formatToolResponse({
-      paymentRequired: true,
-      requirements,
-    });
-  } catch (e: unknown) {
-    return formatToolError("X402_ERROR", e instanceof Error ? e.message : String(e));
-  }
-}
+    return { paymentRequired: true, requirements };
+  },
+  "X402_ERROR"
+);
 
 async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(x402FetchSchema, params);

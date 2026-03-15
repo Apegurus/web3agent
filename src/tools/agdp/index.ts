@@ -13,6 +13,7 @@ import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
+import { createToolHandler } from "../shared/handler-factory.js";
 import {
   agdpGetMyJobsSchema,
   agdpGetOfferingSchema,
@@ -20,15 +21,14 @@ import {
   agdpHireAgentSchema,
 } from "./schemas.js";
 
-async function agdpGetOfferings(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(agdpGetOfferingsSchema, params);
-  if (!v.success) return v.error;
-  try {
+const agdpGetOfferings = createToolHandler(
+  agdpGetOfferingsSchema,
+  async (input: { query?: string; topK?: number }) => {
     const agents = await searchOfferings({
-      query: v.data.query,
-      topK: v.data.topK ?? 10,
+      query: input.query,
+      topK: input.topK ?? 10,
     });
-    return formatToolResponse({
+    return {
       count: agents.length,
       agents: agents.map((a) => ({
         id: a.id,
@@ -38,11 +38,10 @@ async function agdpGetOfferings(params: Record<string, unknown>): Promise<CallTo
         metrics: a.metrics,
         offerings: a.jobs,
       })),
-    });
-  } catch (e: unknown) {
-    return formatToolError("AGDP_ERROR", e instanceof Error ? e.message : String(e));
-  }
-}
+    };
+  },
+  "AGDP_ERROR"
+);
 
 async function agdpGetOffering(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(agdpGetOfferingSchema, params);
