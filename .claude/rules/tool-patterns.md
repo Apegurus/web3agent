@@ -1,6 +1,6 @@
 ---
-description: Patterns for adding and modifying MCP tool handlers
-globs: src/tools/**/*.ts
+description: Patterns for adding and modifying tool handlers and API functions
+globs: src/tools/**/*.ts, src/api/**/*.ts
 ---
 
 # Tool Patterns

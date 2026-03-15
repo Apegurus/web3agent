@@ -17,38 +17,49 @@ All four must pass before committing: `pnpm run lint && pnpm run typecheck && pn
 
 ## Key Conventions
 
-- **ESM only** — all imports use `.js` extension
-- **stdout is reserved** for MCP protocol. All logging → `process.stderr.write()` with `[module-name]` prefix. Never `console.log`.
-- **Type safety** — `catch (e: unknown)` always. No `@ts-ignore` or `@ts-expect-error`. `as any` only with biome-ignore.
-- **Tool schemas** — Zod as source of truth with `.describe()` on every field. Generate `inputSchema` via `zodToJsonSchema()`. Never manual JSON schemas. Enforced by `tests/tools/schema-quality.test.ts`.
-- **Chain ID** — use `resolveToolChainId(chainId)` from `src/tools/shared/chain-context.ts`. Make `chainId` optional in schemas when the handler falls back to runtime config.
-- **Error formatting** — `formatToolError()`, `formatToolErrorFromUnknown()` from `src/utils/errors.ts`. For simple read-only tools, use `createToolHandler` from `src/tools/shared/handler-factory.ts`.
+- **ESM only** — all imports use `.js` extension (`import { foo } from "./bar.js"`)
+- **stdout is reserved** for MCP protocol messages. All logging goes to `process.stderr.write()` with module prefix: `[module-name] message`. Never `console.log`.
+- **Type safety** — `catch (e: unknown)` always. No `@ts-ignore` or `@ts-expect-error`. `as any` only with biome-ignore explaining the SDK constraint.
+- **Import style** — prefer `import type { Foo }` for type-only imports. Group: Node builtins, external packages, internal modules.
+
+## Tool Schemas
+
+- **Zod as source of truth** — every tool input schema is a Zod object with `.describe()` on every field. Generate `inputSchema` via `zodToJsonSchema()`. Never write manual JSON schemas.
+- **Enforced by test** — `tests/tools/schema-quality.test.ts` fails if any Zod field is missing `.describe()`.
+- **`chainId` convention** — make optional in the schema when the handler falls back to runtime config. Resolve via `resolveToolChainId(v.data.chainId)`.
+
+## Error Handling
+
+- **Tool errors** — use `formatToolError(code, message)` and `formatToolErrorFromUnknown(code, error)` from `src/utils/errors.ts`.
+- **Read-only tools** — use `createToolHandler` from `src/tools/shared/handler-factory.ts` (wraps validation + try-catch + response formatting).
 - **Write operations** — `executeWrite()` → confirmation queue → executor using `buildWriteContext()` from `src/tools/shared/write-context.ts`.
+- **Tool handlers** return `CallToolResult` with structured `{ ok, data }` or `{ ok: false, error: { code, message } }` envelopes.
 
-## Architecture
+## Single Source of Truth
 
-```
-src/
-├── cli.ts              # CLI entry (init, --help, --version, start server)
-├── index.ts            # Public API re-exports
-├── mcp/index.ts        # MCP server setup + tool registration
-├── runtime/            # Runtime lifecycle (create, shutdown, tool invocation)
-├── api/                # Business logic (swaps, tokens, operations, simulation)
-│   ├── operations/     # Prepared-operation flow (LI.FI, Orbs)
-│   └── schemas/        # Zod schemas for API inputs
-├── tools/              # MCP tool definitions + handlers
-│   ├── shared/         # handler-factory, chain-context, write-context
-│   ├── wallet/ tokens/ orbs/ lifi/ acp/ acp-virtuals/ erc8004/ agdp/ x402/
-├── goat/               # GOAT SDK integration
-├── chains/             # Chain registry and support tiers
-├── tokens/             # Token registry, resolver, CoinGecko
-├── config/             # Environment config, wallet factory, health checks
-├── wallet/             # Wallet persistence, confirmation queue, audit log
-├── upstream/           # Remote MCP adapters (Blockscout, Etherscan)
-└── utils/              # Shared utilities (errors, validation, write helpers)
-```
+Never duplicate utility functions. Canonical locations:
+
+| Utility | Location |
+|---------|----------|
+| `formatToolError`, `formatToolResponse`, `formatToolErrorFromUnknown` | `src/utils/errors.ts` |
+| `resolveToolChainId`, `resolveToolChain`, `isChainResolved` | `src/tools/shared/chain-context.ts` |
+| `buildWriteContext`, `isWriteContext` | `src/tools/shared/write-context.ts` |
+| `createToolHandler` | `src/tools/shared/handler-factory.ts` |
+| `validateInput`, `validateAddress` | `src/utils/validation.ts` |
+| `executeWrite` | `src/utils/write.ts` |
+| Chain registry | `src/chains/registry.ts` |
+| Wallet state | `src/wallet/persistence.ts` |
 
 ## Testing
 
-- Vitest with `tests/` mirroring `src/` structure. Mock external deps. Test success + error paths.
-- All new modules must have corresponding test files.
+- Vitest with `tests/` mirroring `src/` structure
+- Mock external dependencies (SDK calls, network, filesystem)
+- Test both success and error paths
+- All new modules must have corresponding test files
+- Run `pnpm test` before every commit
+
+## Biome
+
+Key rules beyond `recommended`:
+- `noEmptyBlockStatements: "warn"` — prevents silent error swallowing
+- `noExplicitAny` — enforced, requires `biome-ignore` with justification
