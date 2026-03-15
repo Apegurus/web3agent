@@ -4,6 +4,7 @@ import {
   hexSchema,
   preparedActionSchema,
   preparedTransactionRequestSchema,
+  tokenEstimateSchema,
   typedDataPayloadSchema,
 } from "./common.js";
 
@@ -16,17 +17,11 @@ export const sameChainSwapQuoteResultSchema = z.object({
   quote: z.record(z.unknown()).describe("Raw quote object from Orbs SDK"),
 });
 
-export const crossChainSwapQuoteSummarySchema = z.object({
+export const crossChainSwapQuoteSummarySchema = tokenEstimateSchema.extend({
   fromChainId: z.number().describe("Source chain ID"),
   toChainId: z.number().describe("Destination chain ID"),
   fromToken: z.string().optional().describe("Source token address"),
   toToken: z.string().optional().describe("Destination token address"),
-  fromDecimals: z.number().optional().describe("Source token decimals"),
-  toDecimals: z.number().optional().describe("Destination token decimals"),
-  fromAmount: z.string().describe("Input amount in smallest units"),
-  fromAmountUSD: z.string().optional().describe("Input value in USD"),
-  toAmount: z.string().optional().describe("Output amount in smallest units"),
-  toAmountUSD: z.string().optional().describe("Output value in USD"),
   toAmountMin: z.string().optional().describe("Minimum output after slippage"),
   gasCostUSD: z.string().optional().describe("Estimated gas cost in USD"),
   estimatedDurationSeconds: z.number().optional().describe("Estimated time to complete"),
@@ -120,15 +115,7 @@ export const bridgeTxStepSchema = z.object({
   tx: preparedTransactionRequestSchema.describe("Transaction to execute"),
 });
 
-export const bridgeIntentEstimateSchema = z.object({
-  fromToken: z.string().describe("Source token address"),
-  toToken: z.string().describe("Destination token address"),
-  fromDecimals: z.number().optional().describe("Source token decimals"),
-  toDecimals: z.number().optional().describe("Destination token decimals"),
-  fromAmount: z.string().describe("Input amount"),
-  fromAmountUSD: z.string().optional().describe("Input value in USD"),
-  toAmount: z.string().describe("Output amount"),
-  toAmountUSD: z.string().optional().describe("Output value in USD"),
+export const bridgeIntentEstimateSchema = tokenEstimateSchema.extend({
   toAmountMin: z.string().describe("Minimum output after slippage"),
   gasCostUSD: z.string().optional().describe("Estimated gas cost in USD"),
   estimatedDurationSeconds: z.number().optional().describe("Estimated bridge time"),
