@@ -38,13 +38,7 @@
   "bin": {
     "web3agent": "dist/cli.js"
   },
-  "files": [
-    "dist",
-    "examples",
-    "WEB3_CONTEXT.md",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "examples", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
   "engines": {
     "node": ">=18"
   },
@@ -74,8 +68,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
-    "@orbs-network/twap-ui": "4.0.26-fix.1",
     "@types/node": "^20.0.0",
+    "@orbs-network/twap-ui": "4.0.26-fix.1",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
@@ -98,7 +92,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
-    "pack:check": "pnpm pack --dry-run"
+    "pack:check": "node -e \"const { execFileSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join } = require('node:path'); const dir = mkdtempSync(join(tmpdir(), 'web3agent-pack-')); try { execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', dir], { stdio: 'inherit' }); } finally { rmSync(dir, { recursive: true, force: true }); }\""
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
 }

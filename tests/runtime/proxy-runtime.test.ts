@@ -130,6 +130,13 @@ vi.mock("../../src/tools/register.js", () => ({
       inputSchema: { type: "object", properties: {} },
       handler: mockState.transactionHandler,
     },
+    {
+      name: "transaction_simulate",
+      category: "transaction",
+      description: "transaction_simulate",
+      inputSchema: { type: "object", properties: {} },
+      handler: mockState.transactionHandler,
+    },
   ]),
   getUtilityToolDefinitions: vi.fn().mockReturnValue([
     {
@@ -151,6 +158,13 @@ vi.mock("../../src/tools/lifi/index.js", () => ({
       inputSchema: { type: "object", properties: {} },
       handler: mockState.lifiHandler,
     },
+    {
+      name: "lifi_prepare_bridge_intent",
+      category: "swap",
+      description: "lifi_prepare_bridge_intent",
+      inputSchema: { type: "object", properties: {} },
+      handler: mockState.lifiHandler,
+    },
   ]),
 }));
 
@@ -160,6 +174,20 @@ vi.mock("../../src/tools/orbs/index.js", () => ({
       name: "orbs_get_quote",
       category: "swap",
       description: "orbs",
+      inputSchema: { type: "object", properties: {} },
+      handler: mockState.orbsHandler,
+    },
+    {
+      name: "orbs_prepare_swap_intent",
+      category: "swap",
+      description: "orbs_prepare_swap_intent",
+      inputSchema: { type: "object", properties: {} },
+      handler: mockState.orbsHandler,
+    },
+    {
+      name: "orbs_submit_signed_swap",
+      category: "swap",
+      description: "orbs_submit_signed_swap",
       inputSchema: { type: "object", properties: {} },
       handler: mockState.orbsHandler,
     },
@@ -344,13 +372,17 @@ describe("ProxyServer", () => {
       expect.arrayContaining([
         "wallet_generate",
         "transaction_confirm",
+        "transaction_simulate",
         "server_status",
         "uniswap_swap",
         "blockscout_get_address",
         "etherscan_get_address_balance",
         "evm_get_balance",
         "lifi_get_quote",
+        "lifi_prepare_bridge_intent",
         "orbs_get_quote",
+        "orbs_prepare_swap_intent",
+        "orbs_submit_signed_swap",
         "resolve_token",
         "list_chain_tokens",
         "acp_create_job",
@@ -441,6 +473,30 @@ describe("ProxyServer", () => {
     });
 
     expect(mockState.transactionHandler).toHaveBeenCalledWith({ id: "abc-123" });
+  });
+
+  it("routes transaction_simulate through the framework transaction handler", async () => {
+    const { callHandler } = setup();
+    mockState.transactionHandler.mockResolvedValue({ isError: false, content: [] });
+
+    await callHandler({
+      params: {
+        name: "transaction_simulate",
+        arguments: {
+          chainId: 8453,
+          from: "0x1",
+          to: "0x2",
+          data: "0xdeadbeef",
+        },
+      },
+    });
+
+    expect(mockState.transactionHandler).toHaveBeenCalledWith({
+      chainId: 8453,
+      from: "0x1",
+      to: "0x2",
+      data: "0xdeadbeef",
+    });
   });
 
   it("returns UNKNOWN_TOOL for unknown calls", async () => {

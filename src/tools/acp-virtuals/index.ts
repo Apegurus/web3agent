@@ -1,6 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createPublicClient } from "viem";
 import type { Hex } from "viem";
+import { createPublicClient } from "viem";
 import {
   AcpMemoType,
   AcpPhase,

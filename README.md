@@ -45,6 +45,38 @@ Use `resolveCanonicalToken()` / `resolveCanonicalTokenSync()` when you only want
 
 Root API helpers lazily create a shared default runtime under the hood. Long-lived processes can import `shutdownDefaultRuntime` from `web3agent/runtime` to release those resources when finished.
 
+### Browser Wallet Flows
+
+Use the root package API when your app owns the signer, for example a browser wallet connected through wagmi or AppKit.
+
+```js
+import { prepareOperation, resumeOperation, simulateTransaction } from "web3agent";
+```
+
+The primary flow is generic:
+
+1. `prepareOperation(...)` returns the next wallet actions plus `resumeState`
+2. Your app executes those actions with the browser wallet
+3. `resumeOperation(...)` continues until the operation completes
+
+Protocol-specific helpers like `prepareSwapIntent()` and `submitSignedSwap()` remain available as compatibility wrappers, but new integrations should target the generic prepared-operation API first.
+
+Prepared browser-wallet flows are staged. `prepareOperation()` and `resumeOperation()` only return the next required actions, and `resumeOperation()` persists previously completed action results inside the opaque resume state so callers only need to submit newly finished actions on each round.
+
+Transaction actions are only considered complete once the caller returns a confirmed result:
+
+```js
+{ type: "transaction", txHash: "0x...", status: "confirmed" }
+```
+
+`resumeOperation()` independently verifies the receipt before advancing to the next stage.
+
+For LI.FI compatibility helpers, `prepareBridgeIntent()` now returns both `steps` and `actions` as the transaction-only sequence for browser wallets, including any required approval transactions before the bridge call. Use `prepareOperation()` with `integration: "lifi"` when you need the staged external-wallet flow with typed-data signing.
+
+`simulateTransaction()` returns a success payload on successful simulation and throws structured `Web3AgentError` failures for invalid inputs, reverts, or RPC errors. When `debug_traceCall` is unavailable, balance changes come from a best-effort fallback decoder.
+
+Architecture notes live in [docs/architecture/browser-wallet-operations.md](./docs/architecture/browser-wallet-operations.md).
+
 ### Runtime API
 
 Use `web3agent/runtime` when you need tool discovery, generic invocation, wallet flows, or upstream passthrough tools.
@@ -85,6 +117,8 @@ node examples/runtime-smoke.mjs --run
 
 `root-api-smoke.mjs` is fully local. `runtime-smoke.mjs` without flags verifies the runtime import surface only. `runtime-smoke.mjs --run` starts the real runtime in read-only mode, so upstream services may appear as degraded or fail if network access is unavailable.
 
+The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts`](tests/e2e/browser-wallet-flow.test.ts) runs when these variables are present: `BROWSER_WALLET_E2E`, `BROWSER_WALLET_E2E_CHAIN_ID`, `BROWSER_WALLET_E2E_ACCOUNT`, `BROWSER_WALLET_E2E_FROM_TOKEN`, `BROWSER_WALLET_E2E_TO_TOKEN`, `BROWSER_WALLET_E2E_IN_AMOUNT`, and `BROWSER_WALLET_E2E_SIGNATURE`.
+
 ## What you get
 
 - **Blockscout** — indexed blockchain data (address info, tx history, NFTs, contract ABIs). Supported on 8 chains: Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era.
@@ -122,6 +156,7 @@ See [WEB3_CONTEXT.md](./WEB3_CONTEXT.md) for the full environment variable table
 - **Blockscout** tools only work on 8 chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
 - **dSLTP** (stop-loss/take-profit orders) is not yet available
 - **0x** and **CoinGecko** plugins require their respective API keys
+- **Browser wallet signing over MCP** is indirect: MCP can prepare, simulate, and submit signed payloads, but generic MCP hosts cannot open a browser wallet prompt on their own
 
 ## Requirements
 

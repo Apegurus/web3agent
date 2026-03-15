@@ -99,3 +99,56 @@ describe("formatToolResponse", () => {
     expect(parsed).toEqual([1, 2, 3]);
   });
 });
+
+import { Web3AgentError } from "../../src/api/errors.js";
+import { formatToolErrorFromUnknown } from "../../src/utils/errors.js";
+
+describe("formatToolErrorFromUnknown", () => {
+  it("handles Web3AgentError input", () => {
+    const err = new Web3AgentError({ code: "CUSTOM", message: "custom msg", details: { x: 1 } });
+    const result = formatToolErrorFromUnknown("FALLBACK", err);
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: "CUSTOM",
+          message: "custom msg",
+          details: { x: 1 },
+        }),
+      })
+    );
+  });
+
+  it("handles standard Error input", () => {
+    const err = new Error("standard error");
+    const result = formatToolErrorFromUnknown("FALLBACK", err);
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: "FALLBACK",
+          message: "standard error",
+        }),
+      })
+    );
+  });
+
+  it("handles string input", () => {
+    const result = formatToolErrorFromUnknown("FALLBACK", "string error");
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: "FALLBACK",
+          message: "string error",
+        }),
+      })
+    );
+  });
+});

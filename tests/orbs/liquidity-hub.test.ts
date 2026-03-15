@@ -1,15 +1,21 @@
 import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getConfig, tryGetConfig } from "../../src/config/env.js";
 
 type MockSdk = {
   getQuote: ReturnType<typeof vi.fn>;
   swap: ReturnType<typeof vi.fn>;
 };
 
-const sdkInstances = new Map<number, MockSdk>();
+const sdkInstances = new Map<string, MockSdk>();
+
+function findSdkForChain(chainId: number): MockSdk | undefined {
+  return Array.from(sdkInstances.entries()).find(([key]) => key.startsWith(`${chainId}:`))?.[1];
+}
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockReturnValue({ orbsPartner: undefined }),
+  tryGetConfig: vi.fn().mockReturnValue({ orbsPartner: undefined }),
 }));
 
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
@@ -18,16 +24,22 @@ vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
       getQuote: vi.fn(),
       swap: vi.fn(),
     };
-    sdkInstances.set(options.chainId, instance);
+    sdkInstances.set(`${options.chainId}:${options.partner}`, instance);
     return instance;
   }),
 }));
 
 describe("orbs/liquidity-hub", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
     sdkInstances.clear();
+    vi.mocked(getConfig).mockReset();
+    vi.mocked(getConfig).mockReturnValue({ orbsPartner: undefined });
+    vi.mocked(tryGetConfig).mockReset();
+    vi.mocked(tryGetConfig).mockReturnValue({ orbsPartner: undefined });
+    const { clearLiquidityHubSdkCacheForTests } = await import("../../src/orbs/liquidity-hub.js");
+    clearLiquidityHubSdkCacheForTests();
   });
 
   it("getQuote returns normalized quote for valid params", async () => {
@@ -35,7 +47,7 @@ describe("orbs/liquidity-hub", () => {
 
     getSdk(8453);
 
-    const createdSdk = sdkInstances.get(8453);
+    const createdSdk = findSdkForChain(8453);
     if (!createdSdk) {
       throw new Error("SDK instance not created for chain 8453");
     }
@@ -88,12 +100,54 @@ describe("orbs/liquidity-hub", () => {
     expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "quickswap", chainId: 137 });
   });
 
+  it("falls back to process env when config is not initialized", async () => {
+    const getConfigMock = vi.mocked(getConfig);
+    const tryGetConfigMock = vi.mocked(tryGetConfig);
+    const previousPartner = process.env.ORBS_PARTNER;
+    process.env.ORBS_PARTNER = "orbzy";
+    getConfigMock.mockImplementation(() => {
+      throw new Error("Config not initialized — call setConfig() during startup");
+    });
+    tryGetConfigMock.mockReturnValue(undefined);
+
+    try {
+      const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
+      getSdk(8453);
+
+      expect(constructSDK).toHaveBeenCalledWith({ partner: "orbzy", chainId: 8453 });
+    } finally {
+      if (previousPartner === undefined) {
+        process.env.ORBS_PARTNER = undefined;
+      } else {
+        process.env.ORBS_PARTNER = previousPartner;
+      }
+    }
+  });
+
+  it("creates distinct cached SDK instances when the partner override changes", async () => {
+    const getConfigMock = vi.mocked(getConfig);
+    const tryGetConfigMock = vi.mocked(tryGetConfig);
+    const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
+
+    getConfigMock.mockReturnValue({ orbsPartner: "orbzy" });
+    tryGetConfigMock.mockReturnValue({ orbsPartner: "orbzy" });
+    const orbzySdk = getSdk(8453);
+
+    getConfigMock.mockReturnValue({ orbsPartner: "widget" });
+    tryGetConfigMock.mockReturnValue({ orbsPartner: "widget" });
+    const widgetSdk = getSdk(8453);
+
+    expect(orbzySdk).not.toBe(widgetSdk);
+    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "orbzy", chainId: 8453 });
+    expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "widget", chainId: 8453 });
+  });
+
   it("getQuote surfaces network failures", async () => {
     const { getQuote, getSdk } = await import("../../src/orbs/liquidity-hub.js");
 
     getSdk(8453);
 
-    const createdSdk = sdkInstances.get(8453);
+    const createdSdk = findSdkForChain(8453);
     if (!createdSdk) {
       throw new Error("SDK instance not created for chain 8453");
     }
@@ -113,7 +167,7 @@ describe("orbs/liquidity-hub", () => {
 
     getSdk(8453);
 
-    const createdSdk = sdkInstances.get(8453);
+    const createdSdk = findSdkForChain(8453);
     if (!createdSdk) {
       throw new Error("SDK instance not created for chain 8453");
     }
@@ -150,8 +204,8 @@ describe("orbs/liquidity-hub", () => {
     getSdk(8453);
     getSdk(137);
 
-    const baseSdk = sdkInstances.get(8453);
-    const polygonSdk = sdkInstances.get(137);
+    const baseSdk = findSdkForChain(8453);
+    const polygonSdk = findSdkForChain(137);
     if (!baseSdk || !polygonSdk) {
       throw new Error("SDK instance not created for one of the requested chains");
     }

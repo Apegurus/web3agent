@@ -39,6 +39,7 @@ vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
+  tryGetConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => ({

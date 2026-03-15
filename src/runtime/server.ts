@@ -234,6 +234,7 @@ export class ProxyServer {
           "Token resolution: ALWAYS call resolve_token before swaps/bridges to get the correct contract address.",
           "Write operations: By default, writes (swaps, bridges, transfers) are queued. Call transaction_confirm(id) to execute, transaction_deny(id) to discard.",
           "Wallet activation: Call wallet_activate with a private key or mnemonic to enable write operations. Call wallet_get_active to check current state.",
+          "Browser wallet flows: Use the *_prepare_* intent tools plus transaction_simulate to prepare and inspect externally signed transactions. Generic MCP hosts cannot trigger browser wallet signing prompts themselves.",
           "Chain selection: Most tools accept an optional chainId parameter. Default chain is Base (8453).",
           "Tool routing: Use blockscout_* for historical/indexed data, evm_* for live on-chain state, other tools for DeFi operations.",
         ].join(" "),

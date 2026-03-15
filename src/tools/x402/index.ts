@@ -57,7 +57,7 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     const amount = firstAccept?.amount ?? "unknown";
     const network = firstAccept?.network ?? "unknown network";
     paymentDescription = `Pay ${amount} on ${network} to access ${url}`;
-  } catch (e: unknown) {
+  } catch (_error: unknown) {
     paymentDescription = `Fetch ${url} (may require payment)`;
   }
 

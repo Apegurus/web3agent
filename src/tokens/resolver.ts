@@ -1,5 +1,5 @@
-import { decodeAbiParameters, hexToString } from "viem";
 import type { Hex } from "viem";
+import { decodeAbiParameters, hexToString } from "viem";
 import { getChainById } from "../chains/registry.js";
 import { type CoinGeckoTopTokenSignals, getTopCoinGeckoSignals } from "./coingecko.js";
 import { type TokenEntry, getChainTokens, lookupToken } from "./registry.js";

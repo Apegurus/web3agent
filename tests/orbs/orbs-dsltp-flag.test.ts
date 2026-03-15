@@ -16,6 +16,7 @@ vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
+  tryGetConfig: vi.fn().mockReturnValue({ chainId: 8453 }),
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => ({
@@ -50,9 +51,9 @@ describe("dSLTP feature gate", () => {
     expect(dsltpTools).toHaveLength(0);
   });
 
-  it("total tool count is exactly 6 (no dSLTP)", async () => {
+  it("total tool count includes browser intent helpers but excludes dSLTP", async () => {
     const { getOrbsToolDefinitions } = await import("../../src/tools/orbs/index.js");
     const tools = getOrbsToolDefinitions();
-    expect(tools).toHaveLength(6);
+    expect(tools).toHaveLength(12);
   });
 });

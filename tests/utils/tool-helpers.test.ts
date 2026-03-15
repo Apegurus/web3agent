@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/config/env.js", () => ({
   getConfig: vi.fn(() => ({ chainId: 8453 })),
+  tryGetConfig: vi.fn(() => ({ chainId: 8453 })),
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => ({

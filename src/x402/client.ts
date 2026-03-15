@@ -1,7 +1,7 @@
 import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
-import { wrapFetchWithPayment, x402Client } from "@x402/fetch";
 import type { PaymentRequired } from "@x402/fetch";
+import { wrapFetchWithPayment, x402Client } from "@x402/fetch";
 import { createPublicClient, createWalletClient, publicActions } from "viem";
 import type { LocalAccount } from "viem/accounts";
 import { getChainById } from "../chains/registry.js";

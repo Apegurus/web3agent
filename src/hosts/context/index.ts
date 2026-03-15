@@ -59,7 +59,6 @@ export async function installContext(
   options: WriteOptions
 ): Promise<WriteResult> {
   const filePath = contextFilePath(host, options.projectDir);
-  const newBlock = host === "cursor" ? buildContent("cursor") : MANAGED_BLOCK;
 
   if (existsSync(filePath)) {
     const existing = await readFile(filePath, "utf-8");

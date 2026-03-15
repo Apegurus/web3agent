@@ -1,5 +1,5 @@
 import { getChainById } from "../chains/registry.js";
-import type { BackendStatusCode, HealthStatus, StartupReport } from "../types/health.js";
+import type { HealthStatus, StartupReport } from "../types/health.js";
 import { VERSION } from "../version.js";
 
 function formatAdapterLine(name: string, status: { status: string; toolCount?: number }): string {

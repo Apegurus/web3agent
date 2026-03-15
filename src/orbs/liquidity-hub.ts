@@ -16,12 +16,14 @@ if (!("localStorage" in globalThis)) {
   });
 }
 
-import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
+import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import { type Account, type Hex, createPublicClient, maxUint256 } from "viem";
 import { getChainById } from "../chains/registry.js";
-import { getConfig } from "../config/env.js";
+import { tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
+import { assertAddress } from "../operations/validation.js";
+import { withTimeout } from "../utils/timeout.js";
 
 export type { Quote };
 
@@ -117,7 +119,7 @@ export function normalizeEip712ForSigning(
 
 type LiquidityHubSDK = ReturnType<typeof constructSDK>;
 
-const sdkCache = new Map<number, LiquidityHubSDK>();
+const sdkCache = new Map<string, LiquidityHubSDK>();
 
 const DEFAULT_PARTNERS: Record<number, string> = {
   56: "thena",
@@ -126,18 +128,35 @@ const DEFAULT_PARTNERS: Record<number, string> = {
   59144: "lynex",
 };
 
-// Use ORBS_PARTNER env var to override per-chain defaults.
+const ORBS_REQUEST_TIMEOUT_MS = 15_000;
+export const DEX_MIN_AMOUNT_OUT_DISABLED = "-1";
+
+function readConfiguredPartnerOverride(): string | undefined {
+  return tryGetConfig()?.orbsPartner ?? process.env.ORBS_PARTNER ?? undefined;
+}
+
+// Use ORBS_PARTNER env var or configured override to replace per-chain defaults.
 function getPartner(chainId: number): string {
-  return getConfig().orbsPartner || DEFAULT_PARTNERS[chainId] || "widget";
+  return readConfiguredPartnerOverride() || DEFAULT_PARTNERS[chainId] || "widget";
+}
+
+function getSdkCacheKey(chainId: number, partner: string): string {
+  return `${chainId}:${partner}`;
 }
 
 export function getSdk(chainId: number): LiquidityHubSDK {
-  let sdk = sdkCache.get(chainId);
+  const partner = getPartner(chainId);
+  const cacheKey = getSdkCacheKey(chainId, partner);
+  let sdk = sdkCache.get(cacheKey);
   if (!sdk) {
-    sdk = constructSDK({ partner: getPartner(chainId), chainId });
-    sdkCache.set(chainId, sdk);
+    sdk = constructSDK({ partner, chainId });
+    sdkCache.set(cacheKey, sdk);
   }
   return sdk;
+}
+
+export function clearLiquidityHubSdkCacheForTests(): void {
+  sdkCache.clear();
 }
 
 const API_URLS: Record<number, string> = {
@@ -180,19 +199,23 @@ export async function submitSwap(params: {
       `${quote.inAmount} ${quote.inToken} → ${quote.outToken}\n`
   );
 
-  const response = await fetch(`${apiUrl}/swap-async?chainId=${chainId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...quote,
-      inToken: quote.inToken,
-      outToken: quote.outToken,
-      inAmount: quote.inAmount,
-      user: quote.user,
-      signature,
-      sessionId: quote.sessionId,
+  const response = await withTimeout(
+    fetch(`${apiUrl}/swap-async?chainId=${chainId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...quote,
+        inToken: quote.inToken,
+        outToken: quote.outToken,
+        inAmount: quote.inAmount,
+        user: quote.user,
+        signature,
+        sessionId: quote.sessionId,
+      }),
     }),
-  });
+    ORBS_REQUEST_TIMEOUT_MS,
+    "Orbs swap submission"
+  );
 
   // biome-ignore lint/suspicious/noExplicitAny: Orbs API returns untyped JSON
   const result: any = await response.json();
@@ -222,11 +245,15 @@ export async function pollSwapStatus(params: {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     try {
-      const response = await fetch(`${apiUrl}/swap/status/${sessionId}?chainId=${chainId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user }),
-      });
+      const response = await withTimeout(
+        fetch(`${apiUrl}/swap/status/${sessionId}?chainId=${chainId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user }),
+        }),
+        ORBS_REQUEST_TIMEOUT_MS,
+        "Orbs swap status poll"
+      );
 
       // biome-ignore lint/suspicious/noExplicitAny: Orbs API returns untyped JSON
       const status: any = await response.json();
@@ -259,6 +286,10 @@ export interface QuoteRequest {
   account?: string;
 }
 
+export interface IntentQuoteRequest extends QuoteRequest {
+  account: string;
+}
+
 export interface QuoteResult {
   inToken: string;
   outToken: string;
@@ -279,15 +310,41 @@ function formatQuoteError(code: string): string {
   return QUOTE_ERRORS[code] || `Liquidity Hub quote error: ${code}`;
 }
 
+export async function getIntentQuote(chainId: number, request: IntentQuoteRequest): Promise<Quote> {
+  const sdk = getSdk(chainId);
+  const quote = await withTimeout<Quote>(
+    sdk.getQuote({
+      fromToken: request.fromToken,
+      toToken: request.toToken,
+      inAmount: request.inAmount,
+      slippage: request.slippage ?? 0.5,
+      dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
+      account: request.account,
+    }),
+    ORBS_REQUEST_TIMEOUT_MS,
+    "Orbs intent quote"
+  );
+
+  if (quote.error) {
+    throw new Error(formatQuoteError(quote.error));
+  }
+
+  return quote;
+}
+
 export async function getQuote(chainId: number, request: QuoteRequest): Promise<QuoteResult> {
   const sdk = getSdk(chainId);
-  const quote = await sdk.getQuote({
-    fromToken: request.fromToken,
-    toToken: request.toToken,
-    inAmount: request.inAmount,
-    slippage: request.slippage ?? 0.5,
-    account: request.account,
-  });
+  const quote = await withTimeout<Quote>(
+    sdk.getQuote({
+      fromToken: request.fromToken,
+      toToken: request.toToken,
+      inAmount: request.inAmount,
+      slippage: request.slippage ?? 0.5,
+      account: request.account,
+    }),
+    ORBS_REQUEST_TIMEOUT_MS,
+    "Orbs quote"
+  );
 
   if (quote.error) {
     throw new Error(formatQuoteError(quote.error));
@@ -303,16 +360,18 @@ export async function getQuote(chainId: number, request: QuoteRequest): Promise<
   };
 }
 
-const PERMIT2: Hex = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+export const PERMIT2_ADDRESS: Hex = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 
-const NATIVE_TOKENS = new Set([
+const NATIVE_TOKEN_VALUES = [
   "0x0000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000001010",
   "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
   "0x000000000000000000000000000000000000dead",
-]);
+];
 
-const WRAPPED_NATIVE: Record<number, Hex> = {
+export const NATIVE_TOKEN_ADDRESSES = new Set(NATIVE_TOKEN_VALUES);
+
+export const WRAPPED_NATIVE_BY_CHAIN: Record<number, Hex> = {
   137: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
   56: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
   8453: "0x4200000000000000000000000000000000000006",
@@ -321,7 +380,7 @@ const WRAPPED_NATIVE: Record<number, Hex> = {
   42161: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
 };
 
-const erc20Abi = [
+export const SWAP_PREPARATION_ABI = [
   {
     name: "allowance",
     type: "function",
@@ -351,8 +410,24 @@ const erc20Abi = [
   },
 ] as const;
 
-function isNativeToken(address: string): boolean {
-  return NATIVE_TOKENS.has(address.toLowerCase());
+export function isNativeTokenAddress(address: string): boolean {
+  return NATIVE_TOKEN_ADDRESSES.has(address.toLowerCase());
+}
+
+export function getWrappedNativeToken(chainId: number): Hex | null {
+  return WRAPPED_NATIVE_BY_CHAIN[chainId] ?? null;
+}
+
+export function resolveSwapQuoteFromToken(chainId: number, fromToken: string): Hex {
+  if (!isNativeTokenAddress(fromToken)) {
+    return assertAddress(fromToken, "fromToken");
+  }
+
+  const wrapped = getWrappedNativeToken(chainId);
+  if (!wrapped) {
+    throw new Error(`No wrapped native token for chain ${chainId}`);
+  }
+  return wrapped;
 }
 
 export async function prepareSwap(params: {
@@ -368,14 +443,14 @@ export async function prepareSwap(params: {
   const publicClient = createPublicClient({ chain, transport: getTransportForChain(chainId) });
   let fromToken: Hex = params.fromToken as Hex;
 
-  if (isNativeToken(params.fromToken)) {
-    const wrapped = WRAPPED_NATIVE[chainId];
+  if (isNativeTokenAddress(params.fromToken)) {
+    const wrapped = getWrappedNativeToken(chainId);
     if (!wrapped) throw new Error(`No wrapped native token for chain ${chainId}`);
 
     const walletClient = createWalletClientForChain(account, chainId);
     const hash = await walletClient.writeContract({
       address: wrapped,
-      abi: erc20Abi,
+      abi: SWAP_PREPARATION_ABI,
       functionName: "deposit",
       value: BigInt(inAmount),
       chain,
@@ -388,18 +463,18 @@ export async function prepareSwap(params: {
 
   const allowance = await publicClient.readContract({
     address: fromToken,
-    abi: erc20Abi,
+    abi: SWAP_PREPARATION_ABI,
     functionName: "allowance",
-    args: [account.address, PERMIT2],
+    args: [account.address, PERMIT2_ADDRESS],
   });
 
   if ((allowance as bigint) < BigInt(inAmount)) {
     const walletClient = createWalletClientForChain(account, chainId);
     const hash = await walletClient.writeContract({
       address: fromToken,
-      abi: erc20Abi,
+      abi: SWAP_PREPARATION_ABI,
       functionName: "approve",
-      args: [PERMIT2, maxUint256],
+      args: [PERMIT2_ADDRESS, maxUint256],
       chain,
       account,
     });

@@ -100,6 +100,10 @@ export function getConfig(): RuntimeConfig {
   return cached;
 }
 
+export function tryGetConfig(): RuntimeConfig | undefined {
+  return cached;
+}
+
 export async function withConfig<T>(config: RuntimeConfig, fn: () => Promise<T>): Promise<T> {
   const previous = cached;
   cached = config;

@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { Web3AgentError } from "../api/errors.js";
 
 // `content[].text` uses the legacy shape ({ error, message }) for backwards compatibility
 // with consumers that parse the text field. `structuredContent` uses the normalized envelope
@@ -50,4 +51,18 @@ export function formatToolResponse(data: unknown): CallToolResult {
     structuredContent,
     isError: false,
   };
+}
+
+export function formatToolErrorFromUnknown(
+  fallbackCode: string,
+  error: unknown,
+  fallbackMessage = "Unknown error"
+): CallToolResult {
+  if (error instanceof Web3AgentError) {
+    return formatToolError(error.code, error.message, error.details);
+  }
+  if (error instanceof Error) {
+    return formatToolError(fallbackCode, error.message);
+  }
+  return formatToolError(fallbackCode, typeof error === "string" ? error : fallbackMessage);
 }

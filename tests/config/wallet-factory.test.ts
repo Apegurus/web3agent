@@ -22,6 +22,11 @@ vi.mock("../../src/config/env.js", () => ({
     rpcUrl: "https://rpc.base.local",
     chainRpcUrls: {},
   })),
+  tryGetConfig: vi.fn(() => ({
+    chainId: 8453,
+    rpcUrl: "https://rpc.base.local",
+    chainRpcUrls: {},
+  })),
 }));
 
 const DEFAULT_CONFIG = {

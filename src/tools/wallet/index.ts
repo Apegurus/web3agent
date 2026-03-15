@@ -6,8 +6,13 @@ import {
   mnemonicToAccount,
   privateKeyToAccount,
 } from "viem/accounts";
+import { simulateTransaction } from "../../api/simulation.js";
 import { getConfig } from "../../config/env.js";
-import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import {
+  formatToolError,
+  formatToolErrorFromUnknown,
+  formatToolResponse,
+} from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { confirmationQueue } from "../../wallet/confirmation.js";
 import {
@@ -19,6 +24,7 @@ import {
 import {
   transactionConfirmSchema,
   transactionDenySchema,
+  transactionSimulateSchema,
   walletActivateSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
@@ -272,5 +278,18 @@ export async function transactionList(): Promise<CallToolResult> {
     });
   } catch (err: unknown) {
     return formatToolError("LIST_FAILED", err instanceof Error ? err.message : "Unknown error");
+  }
+}
+
+export async function transactionSimulate(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(transactionSimulateSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    return formatToolResponse(await simulateTransaction(v.data));
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("SIMULATION_ERROR", error, "Failed to simulate transaction");
   }
 }

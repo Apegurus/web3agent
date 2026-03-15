@@ -3,7 +3,7 @@ import {
   orbsPlaceLimitSchema,
   orbsPlaceTwapSchema,
 } from "../tools/orbs/schemas.js";
-import { getRuntime, invokeAndRequireData, parseInput } from "./shared.js";
+import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
   ListOrdersInput,
   ListOrdersResult,
@@ -12,6 +12,7 @@ import type {
   RuntimeBoundOptions,
   WriteOperationResult,
 } from "./types.js";
+import { parseInput } from "./validation.js";
 import { normalizeWriteResult } from "./write-results.js";
 
 export async function placeLimitOrder(

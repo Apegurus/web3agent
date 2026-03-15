@@ -320,8 +320,13 @@ describe("managed runtime", () => {
     expect(runtime.pendingOpsRestored).toBe(2);
 
     const goatTool = runtime.getTool("uniswap_swap");
+    const operationPrepareTool = runtime.getTool("operation_prepare");
+    const operationResumeTool = runtime.getTool("operation_resume");
     expect(goatTool?.description).toContain("Only available on chains:");
     expect(goatTool?.inputSchema.properties).toHaveProperty("chainId");
+    expect(operationPrepareTool?.category).toBe("operation");
+    expect(operationPrepareTool?.source).toBe("operation");
+    expect(operationResumeTool?.category).toBe("operation");
 
     await runtime.shutdown();
   });
