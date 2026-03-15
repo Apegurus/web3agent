@@ -23,6 +23,42 @@ export interface MyResult { status: string; txHash?: string; }  // will drift
 
 Input schemas live in `src/tools/<group>/schemas.ts` or `src/api/schemas/`. Output schemas live in `src/api/schemas/outputs.ts`. Types derived from both live in `src/api/types.ts`.
 
+## Shared Base Schemas
+
+Extend shared schemas from `src/api/schemas/common.ts` instead of redeclaring common fields:
+
+```typescript
+import { chainIdOptionalSchema, tokenAmountSchema } from "./common.js";
+
+// CORRECT — extends shared base
+export const myToolSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
+  slippage: z.number().optional().describe("Slippage percentage"),
+});
+
+// WRONG — redeclares fromToken, toToken, fromAmount
+export const myToolSchema = z.object({
+  fromToken: z.string().describe("Source token address"),
+  toToken: z.string().describe("Destination token address"),
+  fromAmount: z.string().describe("Amount"),
+  chainId: z.number().optional().describe("Chain ID"),
+  slippage: z.number().optional().describe("Slippage"),
+});
+```
+
+Available bases: `chainIdOptionalSchema`, `tokenPairSchema` (fromToken + toToken), `tokenAmountSchema` (+ fromAmount), `tokenEstimateSchema` (+ decimals + USD values).
+
+## Field Naming Convention
+
+Always use `from/to` naming. Map to SDK-specific names at the call boundary:
+
+```typescript
+const { fromToken, toToken, fromAmount } = v.data;
+sdk.call({ srcToken: fromToken, dstToken: toToken, inAmount: fromAmount });
+```
+
+Never use `srcToken`, `dstToken`, `inAmount`, `fromTokenAddress`, `toTokenAddress` in schemas.
+
 ## Adding a New Tool
 
 1. Define Zod input schema in `src/tools/<group>/schemas.ts` with `.describe()` on every field

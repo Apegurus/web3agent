@@ -9,7 +9,7 @@ pnpm run lint          # Biome check
 pnpm run lint:fix      # Biome auto-fix
 pnpm run typecheck     # tsc --noEmit
 pnpm run build         # tsup (ESM + DTS)
-pnpm test              # vitest run (520+ tests)
+pnpm test              # vitest run (580+ tests)
 pnpm test -- --run tests/path/file.test.ts  # single test file
 ```
 
@@ -25,9 +25,10 @@ All four must pass before committing: `pnpm run lint && pnpm run typecheck && pn
 ## Tool Schemas
 
 - **Zod as single source of truth** — for both input and output shapes. Define the Zod schema first, then derive the TypeScript type with `z.infer<typeof schema>`. Never maintain a separate `interface` that duplicates a Zod schema.
-- **Input schemas** — every field must have `.describe()`. Generate `inputSchema` via `zodToJsonSchema()`. Never write manual JSON schemas.
-- **Enforced by test** — `tests/tools/schema-quality.test.ts` fails if any Zod field is missing `.describe()`.
-- **`chainId` convention** — make optional in the schema when the handler falls back to runtime config. Resolve via `resolveToolChainId(v.data.chainId)`.
+- **All fields must have `.describe()`** — input AND output. Enforced by `tests/tools/schema-quality.test.ts` (auto-discovers all schema files).
+- **Generate `inputSchema`** via `zodToJsonSchema()`. Never write manual JSON schemas.
+- **Use shared base schemas** from `src/api/schemas/common.ts`: `chainIdOptionalSchema`, `tokenPairSchema`, `tokenAmountSchema`, `tokenEstimateSchema`. Extend them instead of redeclaring `fromToken`/`toToken`/`fromAmount` fields.
+- **Consistent naming** — always `fromToken`/`toToken`/`fromAmount` (never `srcToken`/`dstToken`/`inAmount`/`fromTokenAddress`). Map to SDK-specific names at the call boundary.
 
 ## Error Handling
 

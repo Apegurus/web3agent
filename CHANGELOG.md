@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking
+
+- **Field names normalized to `from/to` convention** across all schemas:
+  - Orbs: `inAmount` → `fromAmount`, `srcToken` → `fromToken`, `dstToken` → `toToken`, `srcAmount` → `fromAmount`, `dstMinAmount` → `toMinAmount`
+  - LiFi: `fromTokenAddress` → `fromToken`, `toTokenAddress` → `toToken`
+- **EVM tool inputSchemas now generated from Zod** — all 24 EVM tools migrated from manual JSON
+
+### Added
+
+- **Shared base schemas** — `chainIdOptionalSchema`, `tokenPairSchema`, `tokenAmountSchema`, `tokenEstimateSchema` in `common.ts`. All tool schemas extend these instead of redeclaring fields.
+- **Output Zod schemas exported** — `swapIntentSchema`, `bridgeIntentSchema`, `simulationResultSchema`, `preparedOperationSchema`, and 12 more. Consumers get runtime-validatable schemas for API outputs.
+- **`agdp` and `x402` public entry points** — `import from "web3agent/agdp"` and `"web3agent/x402"` now work.
+- **109 schema quality tests** (auto-discovered) enforce `.describe()` on all schema fields.
+
+### Fixed
+
+- **Bridge/quote estimates returned token symbols instead of addresses** — `prepareBridgeIntent` and `lifi_get_quote` now return `.address` with `fromDecimals`/`toDecimals`.
+
+### Changed
+
+- **Types derived from Zod** — 15 manual interfaces in `types.ts` replaced with `z.infer<typeof schema>`. Zod is the single source of truth.
+- **CLAUDE.md and .claude/rules** updated with shared schema conventions and field naming rules.
+
 ## [0.2.0] - 2026-03-15
 
 ### Breaking
