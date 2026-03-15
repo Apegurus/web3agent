@@ -229,8 +229,8 @@ describe("browser wallet intent APIs", () => {
     const result = await prepareBridgeIntent({
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -313,8 +313,8 @@ describe("browser wallet intent APIs", () => {
     const result = await prepareBridgeIntent({
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -371,8 +371,8 @@ describe("browser wallet intent APIs", () => {
     const result = await prepareBridgeIntent({
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x0000000000000000000000000000000000000000",
-      toTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      fromToken: "0x0000000000000000000000000000000000000000",
+      toToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       fromAmount: "1000000000000000000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -429,8 +429,8 @@ describe("browser wallet intent APIs", () => {
     const result = await prepareBridgeIntent({
       fromChainId: 137,
       toChainId: 8453,
-      fromTokenAddress: "0x0000000000000000000000000000000000001010",
-      toTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      fromToken: "0x0000000000000000000000000000000000001010",
+      toToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       fromAmount: "1000000000000000000",
       account: "0x1234567890123456789012345678901234567890",
     });

@@ -234,8 +234,8 @@ async function fetchLifiQuote(input: PrepareBridgeIntentInput): Promise<LiFiStep
     getLifiQuote({
       fromChain: input.fromChainId,
       toChain: input.toChainId,
-      fromToken: input.fromTokenAddress,
-      toToken: input.toTokenAddress,
+      fromToken: input.fromToken,
+      toToken: input.toToken,
       fromAmount: input.fromAmount,
       fromAddress: input.account,
     }),
@@ -284,8 +284,8 @@ function createBridgeIntentPayload(
     steps,
     actions,
     estimate: {
-      fromToken: quote.action.fromToken?.address ?? input.fromTokenAddress,
-      toToken: quote.action.toToken?.address ?? input.toTokenAddress,
+      fromToken: quote.action.fromToken?.address ?? input.fromToken,
+      toToken: quote.action.toToken?.address ?? input.toToken,
       fromDecimals: quote.action.fromToken?.decimals,
       toDecimals: quote.action.toToken?.decimals,
       fromAmount: quote.action.fromAmount,

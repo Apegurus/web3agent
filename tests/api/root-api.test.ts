@@ -77,8 +77,8 @@ describe("root API", () => {
       executeBridge({
         fromChainId: 1,
         toChainId: 8453,
-        fromTokenAddress: "0x1111",
-        toTokenAddress: "0x2222",
+        fromToken: "0x1111",
+        toToken: "0x2222",
         fromAmount: "1000",
       })
     ).rejects.toMatchObject({
