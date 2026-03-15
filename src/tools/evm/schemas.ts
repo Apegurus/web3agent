@@ -4,10 +4,6 @@ export const evmChainIdParam = z
   .number()
   .optional()
   .describe("Chain ID (defaults to configured chain)");
-export const evmNetworkParam = z
-  .string()
-  .optional()
-  .describe("Network name (e.g. 'ethereum'). Prefer chainId.");
 
 export const evmGetBalanceSchema = z.object({
   address: z.string({ required_error: "address is required" }),

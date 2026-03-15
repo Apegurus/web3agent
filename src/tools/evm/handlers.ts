@@ -110,6 +110,21 @@ function parseJsonString(value: string, fieldName: string): unknown {
   }
 }
 
+function coerceTupleValues(value: unknown): unknown {
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  if (typeof value === "number" && Number.isInteger(value) && !Number.isSafeInteger(value))
+    return BigInt(value);
+  if (Array.isArray(value)) return value.map(coerceTupleValues);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = coerceTupleValues(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 async function coerceAbiArg(type: string, value: string, chainId: number): Promise<unknown> {
   if (type === "address") {
     return resolveAddressOrEns(value, chainId);
@@ -144,7 +159,8 @@ async function coerceAbiArg(type: string, value: string, chainId: number): Promi
     return value;
   }
   if (type === "tuple" || type.startsWith("tuple")) {
-    return parseJsonString(value, `argument of type ${type}`);
+    const parsed = parseJsonString(value, `argument of type ${type}`);
+    return coerceTupleValues(parsed);
   }
   return value;
 }
@@ -270,10 +286,11 @@ export async function evmLookupEnsAddress(
   return withToolErrorHandler("EVM_LOOKUP_ENS_ERROR", async () => {
     const ctx = validatedRead(evmLookupEnsSchema, params);
     if (!isValidated(ctx)) return ctx;
-    const { data, chainId, publicClient } = ctx;
+    const { data, chainId } = ctx;
 
     const address = await resolveAddressOrEns(data.address, chainId);
-    const ensName = await publicClient.getEnsName({ address });
+    const mainnetClient = getPublicClientCached(1);
+    const ensName = await mainnetClient.getEnsName({ address });
 
     return formatToolResponse({
       chainId,

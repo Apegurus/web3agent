@@ -7,10 +7,10 @@ import {
   formatEther,
   formatUnits,
   isAddress,
-  parseEther,
 } from "viem";
+export { parseEther } from "viem";
 import { normalize } from "viem/ens";
-import { getChainById, isSupported } from "../chains/registry.js";
+import { getChainById, getRequiredChain, isSupported } from "../chains/registry.js";
 import { getConfig } from "../config/env.js";
 import { getTransportForChain } from "../config/wallet-factory.js";
 
@@ -23,6 +23,7 @@ export function registerAbi(label: string, abi: Abi): void {
     const oldest = abiRegistry.keys().next().value;
     if (oldest) abiRegistry.delete(oldest);
   }
+  abiRegistry.delete(label);
   abiRegistry.set(label, abi);
 }
 
@@ -57,9 +58,7 @@ export function getPublicClientCached(chainId: number): PublicClient {
   const existing = clientCache.get(chainId);
   if (existing) return existing;
 
-  const chain = getChainById(chainId);
-  if (!chain) throw new Error(`Unsupported chain ID: ${chainId}`);
-
+  const chain = getRequiredChain(chainId);
   const client = createPublicClient({
     chain,
     transport: getTransportForChain(chainId),
@@ -109,7 +108,9 @@ export async function fetchContractAbi(contractAddress: Address, chainId: number
     throw new Error(`Etherscan ABI fetch failed: ${body.message ?? body.result}`);
   }
 
-  return JSON.parse(body.result) as Abi;
+  const abi = JSON.parse(body.result) as Abi;
+  registerAbi(`etherscan:${chainId}:${contractAddress.toLowerCase()}`, abi);
+  return abi;
 }
 
 export function parseAbiJson(abiString: string): Abi {
@@ -339,4 +340,4 @@ export const ERC1155_ABI = [
   },
 ] as const;
 
-export { formatEther, formatUnits, isAddress, isSupported, parseEther };
+export { formatEther, formatUnits, isAddress, isSupported };
