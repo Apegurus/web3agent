@@ -125,6 +125,17 @@ export type {
   WriteOperationResult,
 } from "./api/types.js";
 export { parseEnv, resetConfig, setConfig } from "./config/env.js";
+export {
+  agdpAgentSchema,
+  agdpCreateJobInputSchema,
+  agdpGetJobsInputSchema,
+  agdpGetOfferingByIdInputSchema,
+  agdpJobResponseSchema,
+  agdpJobSchema,
+  agdpOfferingSchema,
+  agdpSearchOfferingsInputSchema,
+} from "./agdp/schemas.js";
+export { x402ProbeResultSchema } from "./x402/schemas.js";
 export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
 export {
   addressSchema,
