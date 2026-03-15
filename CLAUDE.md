@@ -9,7 +9,7 @@ pnpm run lint          # Biome check
 pnpm run lint:fix      # Biome auto-fix
 pnpm run typecheck     # tsc --noEmit
 pnpm run build         # tsup (ESM + DTS)
-pnpm test              # vitest run (464 tests)
+pnpm test              # vitest run (520+ tests)
 pnpm test -- --run tests/path/file.test.ts  # single test file
 ```
 
