@@ -634,7 +634,11 @@ export async function prepareBridgeOperation(
           ? assertAddress(fromChain?.permit2 ?? "", "fromChain.permit2")
           : getDefaultLifiApprovalSpender(quote, finalAction),
         approvalReset: quote.estimate?.approvalReset,
-        approvalAmount: permit2Eligible ? maxUint256 : fromAmount,
+        approvalAmount: permit2Eligible
+          ? maxUint256
+          : input.approvalAmount
+            ? parseBigIntString(input.approvalAmount, "approvalAmount")
+            : fromAmount,
         approvalLabel: permit2Eligible
           ? "Approve Permit2 (unlimited allowance)"
           : toBridgeStepLabel("approval"),

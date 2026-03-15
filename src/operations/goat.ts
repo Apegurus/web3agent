@@ -7,23 +7,12 @@ import type {
   PreparedOperation,
   ResumeOperationCompletedResult,
 } from "../api/types.js";
-import { RESTRICTED_PLUGIN_CHAINS } from "../goat/dispatch.js";
+import { RESTRICTED_PLUGIN_CHAINS, findRestrictedPlugin } from "../goat/dispatch.js";
 import { loadPlugins } from "../goat/plugins.js";
 import { buildGoatTools } from "../goat/toolset.js";
 import { getRpcUrlForRuntimeChain, getRuntimeConfigForChain } from "./chain-access.js";
 import { OperationPauseError, PreparedActionGoatWallet } from "./goat-wallet.js";
 import { assertChainSupported } from "./validation.js";
-
-function findRestrictedPlugin(toolName: string): string | undefined {
-  const lowerName = toolName.toLowerCase();
-  const sortedKeys = Object.keys(RESTRICTED_PLUGIN_CHAINS).sort((a, b) => b.length - a.length);
-  for (const pluginKey of sortedKeys) {
-    if (lowerName.startsWith(pluginKey.toLowerCase())) {
-      return pluginKey;
-    }
-  }
-  return undefined;
-}
 
 function assertGoatToolSupportedOnChain(toolName: string, chainId: number): void {
   assertChainSupported(chainId);
@@ -102,6 +91,7 @@ export async function prepareOrResumeGoatOperation(params: {
     account: params.input.account,
     chainId: params.input.chainId,
     actionResults,
+    toolName: params.input.toolName,
   });
   const tools = await buildGoatTools({
     wallet: wallet as unknown as WalletClientBase,

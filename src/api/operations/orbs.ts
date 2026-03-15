@@ -96,7 +96,9 @@ function toSwapIntentQuote(quote: RawOrbsQuote): SwapIntent["quote"] {
 }
 
 function toRePermitOrder(value: Record<string, unknown>): RePermitOrder {
-  // Validate minimum fields the Orbs SDK expects.
+  // Validate minimum fields the Orbs SDK reads at submission time (maker, deadline).
+  // The full RePermitOrder shape is owned by @orbs-network/twap-sdk — if the SDK adds
+  // required fields, submitSignedOrder will fail at the API level with a clear error.
   if (typeof value.maker !== "string") {
     throw new Web3AgentError({
       code: "INVALID_PARAMS",

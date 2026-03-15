@@ -69,8 +69,8 @@ export function decodeFallbackBalanceChanges(input: FallbackDecodeInput): Fallba
       functionName: result.functionName,
       args: result.args,
     };
-  } catch (error: unknown) {
-    void error;
+  } catch {
+    // Unrecognized selector — no balance changes can be inferred.
     return [];
   }
 

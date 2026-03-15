@@ -91,6 +91,7 @@ interface PreparedActionGoatWalletOptions {
   account: string;
   chainId: number;
   actionResults: Record<string, OperationActionResult>;
+  toolName?: string;
 }
 
 export class PreparedActionGoatWallet {
@@ -253,9 +254,10 @@ export class PreparedActionGoatWallet {
   }
 
   async getTokenInfoByTicker(ticker: string): Promise<Token> {
+    const toolHint = this.options.toolName ? ` (triggered by ${this.options.toolName})` : "";
     throw new Web3AgentError({
       code: "GOAT_TOOL_ERROR",
-      message: `Token lookup by ticker is not supported in prepared GOAT mode (${ticker}); resolve token addresses before running prepared GOAT tools`,
+      message: `Token lookup by ticker is not supported in prepared GOAT mode (${ticker})${toolHint}; resolve token addresses before running prepared GOAT tools`,
     });
   }
 }
