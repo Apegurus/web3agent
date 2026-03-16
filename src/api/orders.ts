@@ -1,42 +1,10 @@
-import {
-  orbsListOrdersSchema,
-  orbsPlaceLimitSchema,
-  orbsPlaceTwapSchema,
-} from "../tools/orbs/schemas.js";
+import { orbsListOrdersSchema } from "./schemas.js";
 import { getRuntime, invokeAndRequireData } from "./shared.js";
-import type {
-  ListOrdersInput,
-  ListOrdersResult,
-  PlaceLimitOrderInput,
-  PlaceTwapOrderInput,
-  RuntimeBoundOptions,
-  WriteOperationResult,
-} from "./types.js";
+import type { ListOrdersResult, RuntimeBoundOptions } from "./types.js";
 import { parseInput } from "./validation.js";
-import { normalizeWriteResult } from "./write-results.js";
-
-export async function placeLimitOrder(
-  params: PlaceLimitOrderInput,
-  options?: RuntimeBoundOptions
-): Promise<WriteOperationResult> {
-  const runtime = await getRuntime(options);
-  const input = parseInput(orbsPlaceLimitSchema, params);
-  const data = await invokeAndRequireData(runtime, "orbs_place_limit", input);
-  return normalizeWriteResult(data);
-}
-
-export async function placeTwapOrder(
-  params: PlaceTwapOrderInput,
-  options?: RuntimeBoundOptions
-): Promise<WriteOperationResult> {
-  const runtime = await getRuntime(options);
-  const input = parseInput(orbsPlaceTwapSchema, params);
-  const data = await invokeAndRequireData(runtime, "orbs_place_twap", input);
-  return normalizeWriteResult(data);
-}
 
 export async function listOrders(
-  params: ListOrdersInput,
+  params: { chainId?: number },
   options?: RuntimeBoundOptions
 ): Promise<ListOrdersResult> {
   const runtime = await getRuntime(options);

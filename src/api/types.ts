@@ -26,18 +26,12 @@ import type {
   orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
-  orbsListOrdersSchema,
-  orbsPlaceLimitSchema,
   orbsPlaceOrderSchema,
-  orbsPlaceTwapSchema,
-  orbsPrepareLimitIntentSchema,
   orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
-  orbsPrepareTwapIntentSchema,
   orbsQueryOrdersSchema,
   orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
-  orbsSubmitSignedTwapOrderSchema,
   orbsSwapStatusSchema,
   prepareOperationSchema,
   preparedActionSchema,
@@ -84,14 +78,8 @@ export type OrbsQuoteInput = z.infer<typeof orbsGetQuoteSchema>;
 export type ExecuteSameChainSwapInput = OrbsQuoteInput;
 export type PrepareSwapIntentInput = z.infer<typeof orbsPrepareSwapIntentSchema>;
 export type GetRequiredApprovalsInput = z.input<typeof orbsGetRequiredApprovalsSchema>;
-export type PlaceTwapOrderInput = z.infer<typeof orbsPlaceTwapSchema>;
-export type PrepareTwapIntentInput = z.infer<typeof orbsPrepareTwapIntentSchema>;
-export type PlaceLimitOrderInput = z.infer<typeof orbsPlaceLimitSchema>;
-export type PrepareLimitIntentInput = z.infer<typeof orbsPrepareLimitIntentSchema>;
 export type SubmitSignedSwapInput = z.infer<typeof orbsSubmitSignedSwapSchema>;
-export type SubmitSignedTwapOrderInput = z.infer<typeof orbsSubmitSignedTwapOrderSchema>;
 export type SwapStatusInput = z.infer<typeof orbsSwapStatusSchema>;
-export type ListOrdersInput = z.infer<typeof orbsListOrdersSchema>;
 export type PlaceOrderInput = z.infer<typeof orbsPlaceOrderSchema>;
 export type PrepareOrderIntentInput = z.infer<typeof orbsPrepareOrderIntentSchema>;
 export type SubmitSignedOrderInput = z.infer<typeof orbsSubmitSignedOrderSchema>;
@@ -236,14 +224,6 @@ export type OrbsSwapOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "orbs"; kind: "swap" }
 >;
-export type OrbsTwapOperationInput = Extract<
-  z.infer<typeof prepareOperationSchema>,
-  { integration: "orbs"; kind: "twap" }
->;
-export type OrbsLimitOperationInput = Extract<
-  z.infer<typeof prepareOperationSchema>,
-  { integration: "orbs"; kind: "limit" }
->;
 export type OrbsOrderOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "orbs"; kind: "order" }
@@ -284,12 +264,6 @@ export type BridgeIntent = z.infer<typeof bridgeIntentSchema>;
 export type BalanceChange = z.infer<typeof balanceChangeSchema>;
 export type SimulationResult = z.infer<typeof simulationResultSchema>;
 export type SwapSubmissionResult = z.infer<typeof swapSubmissionResultSchema>;
-
-export interface TwapOrderResult {
-  orderId: string;
-  status: string;
-  txHash?: string;
-}
 
 export interface CompletedOperationResult {
   status?: string;

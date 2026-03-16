@@ -9,12 +9,7 @@ import {
   resumeStateBaseSchema,
 } from "./common.js";
 import { lifiPrepareBridgeIntentSchema } from "./lifi.js";
-import {
-  orbsPrepareLimitIntentSchema,
-  orbsPrepareOrderIntentSchema,
-  orbsPrepareSwapIntentSchema,
-  orbsPrepareTwapIntentSchema,
-} from "./orbs.js";
+import { orbsPrepareOrderIntentSchema, orbsPrepareSwapIntentSchema } from "./orbs.js";
 
 const integerChainIdSchema = z.custom<number>(
   (value) => typeof value === "number" && Number.isInteger(value),
@@ -46,11 +41,6 @@ export const orbsSwapResumeStateStateSchema = resumeStateBaseSchema.extend({
   chainId: integerChainIdSchema,
   quote: z.record(z.unknown()),
   approvalActions: z.array(preparedTransactionActionSchema),
-  signAction: preparedSignTypedDataActionSchema,
-});
-
-export const orbsOrderResumeStateStateSchema = resumeStateBaseSchema.extend({
-  order: z.record(z.unknown()),
   signAction: preparedSignTypedDataActionSchema,
 });
 
@@ -88,14 +78,6 @@ export const prepareOperationSchema = z.union([
   orbsPrepareSwapIntentSchema.extend({
     integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
     kind: z.literal("swap").describe("Action type"),
-  }),
-  orbsPrepareTwapIntentSchema.extend({
-    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
-    kind: z.literal("twap").describe("Action type"),
-  }),
-  orbsPrepareLimitIntentSchema.extend({
-    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
-    kind: z.literal("limit").describe("Action type"),
   }),
   orbsPrepareOrderIntentSchema.extend({
     integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),

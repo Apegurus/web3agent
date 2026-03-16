@@ -12,12 +12,6 @@ const liquidityHubMocks = vi.hoisted(() => ({
   submitSwap: vi.fn(),
 }));
 
-const twapMocks = vi.hoisted(() => ({
-  getSrcTokenChunkAmount: vi.fn(),
-  prepareTwapOrder: vi.fn(),
-  submitSignedOrder: vi.fn(),
-}));
-
 const lifiMocks = vi.hoisted(() => ({
   getQuote: vi.fn(),
   getChains: vi.fn(),
@@ -45,16 +39,6 @@ vi.mock("../../src/orbs/liquidity-hub.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../src/orbs/twap.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/orbs/twap.js")>();
-  return {
-    ...actual,
-    getSrcTokenChunkAmount: (...args: unknown[]) => twapMocks.getSrcTokenChunkAmount(...args),
-    prepareTwapOrder: (...args: unknown[]) => twapMocks.prepareTwapOrder(...args),
-    submitSignedOrder: (...args: unknown[]) => twapMocks.submitSignedOrder(...args),
-  };
-});
-
 vi.mock("@lifi/sdk", () => ({
   getQuote: (...args: unknown[]) => lifiMocks.getQuote(...args),
   getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
@@ -67,7 +51,7 @@ vi.mock("@lifi/sdk", () => ({
 describe("browser wallet intent APIs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setupDefaultOperationMocks({ viemMocks, twapMocks, lifiMocks });
+    setupDefaultOperationMocks({ viemMocks, lifiMocks });
   });
 
   it("prepareSwapIntent returns normalized quote data and required approvals", async () => {
@@ -162,64 +146,6 @@ describe("browser wallet intent APIs", () => {
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe("approve");
     expect(result[0].label).toContain("RePermit");
-  });
-
-  it("prepareTwapIntent returns signable typed data and metadata", async () => {
-    twapMocks.prepareTwapOrder.mockReturnValue({
-      domain: { name: "Orbs" },
-      types: { RePermitWitnessTransferFrom: [] },
-      primaryType: "RePermitWitnessTransferFrom",
-      order: { maker: "0xabc" },
-    });
-
-    const { prepareTwapIntent } = await import("../../src/api/intents.js");
-    const result = await prepareTwapIntent({
-      chainId: 8453,
-      fromToken: "0x1",
-      toToken: "0x2",
-      fromAmount: "1000",
-      chunks: 5,
-      fillDelay: 60,
-      account: "0x1234567890123456789012345678901234567890",
-    });
-
-    expect(result.meta).toEqual({
-      chunks: 5,
-      fillDelaySeconds: 60,
-      durationSeconds: 600,
-      srcAmountPerChunk: "200",
-    });
-    expect(result.eip712.message).toEqual({ maker: "0xabc" });
-  });
-
-  it("prepareLimitIntent applies the default expiry", async () => {
-    twapMocks.prepareTwapOrder.mockReturnValue({
-      domain: { name: "Orbs" },
-      types: { RePermitWitnessTransferFrom: [] },
-      primaryType: "RePermitWitnessTransferFrom",
-      order: { maker: "0xabc" },
-    });
-
-    const { prepareLimitIntent } = await import("../../src/api/intents.js");
-    const result = await prepareLimitIntent({
-      chainId: 8453,
-      fromToken: "0x1",
-      toToken: "0x2",
-      fromAmount: "1000",
-      toMinAmount: "900",
-      account: "0x1234567890123456789012345678901234567890",
-    });
-
-    expect(twapMocks.prepareTwapOrder).toHaveBeenCalledWith(
-      expect.objectContaining({
-        durationSeconds: 86400,
-        dstMinAmountPerTrade: "900",
-      })
-    );
-    expect(result.meta).toEqual({
-      expirySeconds: 86400,
-      toMinAmount: "900",
-    });
   });
 
   it("prepareBridgeIntent prepends bridge approvals for ERC-20 inputs", async () => {
@@ -513,38 +439,6 @@ describe("browser wallet intent APIs", () => {
       sessionId: "session-1",
       txHash: "0xabc",
       status: "completed",
-    });
-  });
-
-  it("submitSignedTwapOrder converts numeric v to the SDK signature shape", async () => {
-    twapMocks.submitSignedOrder.mockResolvedValue({
-      id: "order-1",
-      status: "OPEN",
-      txHash: "0xdef",
-    });
-
-    const { submitSignedTwapOrder } = await import("../../src/api/intents.js");
-    const result = await submitSignedTwapOrder({
-      order: { maker: "0xabc", deadline: "9999999999" },
-      signature: {
-        v: 27,
-        r: `0x${"11".repeat(32)}`,
-        s: `0x${"22".repeat(32)}`,
-      },
-    });
-
-    expect(twapMocks.submitSignedOrder).toHaveBeenCalledWith(
-      { maker: "0xabc", deadline: "9999999999" },
-      {
-        v: "0x1b",
-        r: `0x${"11".repeat(32)}`,
-        s: `0x${"22".repeat(32)}`,
-      }
-    );
-    expect(result).toEqual({
-      orderId: "order-1",
-      status: "OPEN",
-      txHash: "0xdef",
     });
   });
 });

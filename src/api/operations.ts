@@ -8,15 +8,11 @@ import {
 } from "./operations/lifi.js";
 import {
   getRequiredApprovals,
-  prepareLimitOperation,
   prepareOrderOperation,
   prepareSwapOperation,
-  prepareTwapOperation,
-  resumeOrbsOrderOperation,
   resumeOrbsSwapOperation,
   resumeSpotOrderOperation,
   submitSignedSwapDirect,
-  submitSignedTwapOrderDirect,
 } from "./operations/orbs.js";
 import { mergeActionResults } from "./operations/shared.js";
 import {
@@ -32,9 +28,7 @@ import type {
   ResumeOperationInput,
   ResumeOperationResult,
   SubmitSignedSwapInput,
-  SubmitSignedTwapOrderInput,
   SwapSubmissionResult,
-  TwapOrderResult,
 } from "./types.js";
 import { parseInput } from "./validation.js";
 
@@ -51,13 +45,7 @@ export async function prepareOperation(
       if (input.kind === "swap") {
         return prepareSwapOperation(input);
       }
-      if (input.kind === "twap") {
-        return prepareTwapOperation(input);
-      }
-      if (input.kind === "order") {
-        return prepareOrderOperation(input);
-      }
-      return prepareLimitOperation(input);
+      return prepareOrderOperation(input);
     case "lifi":
       return prepareBridgeOperation(input);
     case "goat": {
@@ -107,13 +95,6 @@ export async function resumeOperation(
     return resumeOrbsSwapOperation(resumeState, actionResults);
   }
 
-  if (
-    resumeState.integration === "orbs" &&
-    (resumeState.kind === "twap" || resumeState.kind === "limit")
-  ) {
-    return resumeOrbsOrderOperation(resumeState, actionResults);
-  }
-
   if (resumeState.integration === "orbs" && resumeState.kind === "order") {
     return resumeSpotOrderOperation(resumeState, actionResults);
   }
@@ -138,10 +119,4 @@ export async function submitSignedSwap(
   params: SubmitSignedSwapInput
 ): Promise<SwapSubmissionResult> {
   return submitSignedSwapDirect(params);
-}
-
-export async function submitSignedTwapOrder(
-  params: SubmitSignedTwapOrderInput
-): Promise<TwapOrderResult> {
-  return submitSignedTwapOrderDirect(params);
 }

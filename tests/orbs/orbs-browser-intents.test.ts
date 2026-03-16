@@ -5,10 +5,7 @@ import type { ToolDefinition } from "../../src/tools/register.js";
 const intentMocks = vi.hoisted(() => ({
   prepareSwapIntent: vi.fn(),
   getRequiredApprovals: vi.fn(),
-  prepareTwapIntent: vi.fn(),
-  prepareLimitIntent: vi.fn(),
   submitSignedSwap: vi.fn(),
-  submitSignedTwapOrder: vi.fn(),
 }));
 
 const spotClientMocks = vi.hoisted(() => ({
@@ -19,10 +16,7 @@ const spotClientMocks = vi.hoisted(() => ({
 vi.mock("../../src/api/intents.js", () => ({
   prepareSwapIntent: (...args: unknown[]) => intentMocks.prepareSwapIntent(...args),
   getRequiredApprovals: (...args: unknown[]) => intentMocks.getRequiredApprovals(...args),
-  prepareTwapIntent: (...args: unknown[]) => intentMocks.prepareTwapIntent(...args),
-  prepareLimitIntent: (...args: unknown[]) => intentMocks.prepareLimitIntent(...args),
   submitSignedSwap: (...args: unknown[]) => intentMocks.submitSignedSwap(...args),
-  submitSignedTwapOrder: (...args: unknown[]) => intentMocks.submitSignedTwapOrder(...args),
 }));
 
 vi.mock("../../src/orbs/spot-client.js", () => ({

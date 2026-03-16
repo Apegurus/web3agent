@@ -102,49 +102,12 @@ describe("root API", () => {
     });
   });
 
-  it("placeLimitOrder preserves pending confirmation results", async () => {
-    runtimeMocks.invokeTool.mockResolvedValueOnce({
-      isError: false,
-      structuredContent: {
-        ok: true,
-        data: {
-          status: "pending_confirmation",
-          id: "order-123",
-          summary: "Queued order",
-        },
-      },
-      content: [
-        {
-          type: "text",
-          text: '{"status":"pending_confirmation","id":"order-123","summary":"Queued order"}',
-        },
-      ],
-    });
-
-    const { placeLimitOrder } = await import("../../src/api/orders.js");
-    const result = await placeLimitOrder({
-      chainId: 8453,
-      fromToken: "0x1111",
-      toToken: "0x2222",
-      fromAmount: "1000",
-      toMinAmount: "900",
-    });
-
-    expect(result).toEqual({
-      status: "pending_confirmation",
-      id: "order-123",
-      summary: "Queued order",
-    });
-  });
-
   it("root index re-exports browser wallet helpers", async () => {
     const root = await import("../../src/index.js");
 
     expect(typeof root.prepareSwapIntent).toBe("function");
     expect(typeof root.prepareOperation).toBe("function");
     expect(typeof root.getRequiredApprovals).toBe("function");
-    expect(typeof root.prepareTwapIntent).toBe("function");
-    expect(typeof root.prepareLimitIntent).toBe("function");
     expect(typeof root.prepareBridgeIntent).toBe("function");
     expect(typeof root.resumeOperation).toBe("function");
     expect(typeof root.parseEnv).toBe("function");
@@ -152,7 +115,6 @@ describe("root API", () => {
     expect(typeof root.setConfig).toBe("function");
     expect(typeof root.pollSwapStatus).toBe("function");
     expect(typeof root.submitSignedSwap).toBe("function");
-    expect(typeof root.submitSignedTwapOrder).toBe("function");
     expect(typeof root.simulateTransaction).toBe("function");
     expect(root.orbsPrepareSwapIntentSchema).toBeDefined();
     expect(root.lifiPrepareBridgeIntentSchema).toBeDefined();
