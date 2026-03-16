@@ -8,13 +8,15 @@ import {
   submitSignedSwap as submitPreparedSwap,
   submitSignedTwapOrder,
 } from "../../api/intents.js";
+import { getRequiredApprovals } from "../../api/operations/orbs.js";
 import {
   getLiquidityHubError,
+  getSpotError,
   getTwapError,
   isLiquidityHubSupported,
+  isSpotSupported,
   isTwapSupported,
 } from "../../orbs/chains.js";
-import { getDsltpToolDefinitions } from "../../orbs/dsltp.js";
 import {
   DEX_MIN_AMOUNT_OUT_DISABLED,
   getQuote,
@@ -24,6 +26,9 @@ import {
   prepareSwap,
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
+import { querySpotOrders, submitSpotOrder } from "../../orbs/spot-client.js";
+import { getSpotContracts } from "../../orbs/spot-config.js";
+import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
 import {
   getTwapDurationSeconds,
   listOrders,
@@ -40,20 +45,40 @@ import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
 import { resolveToolChainId } from "../shared/chain-context.js";
 import { createToolHandler } from "../shared/handler-factory.js";
+import { buildWriteContext, isWriteContext } from "../shared/write-context.js";
 import {
+  orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
   orbsListOrdersSchema,
   orbsPlaceLimitSchema,
+  orbsPlaceOrderSchema,
   orbsPlaceTwapSchema,
   orbsPrepareLimitIntentSchema,
+  orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
   orbsPrepareTwapIntentSchema,
+  orbsQueryOrdersSchema,
+  orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
   orbsSubmitSignedTwapOrderSchema,
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./schemas.js";
+
+/* ---------- RePermit cancel ABI ---------- */
+
+const REPERMIT_CANCEL_ABI = [
+  {
+    type: "function" as const,
+    name: "cancel" as const,
+    inputs: [{ name: "digests", type: "bytes32[]" } as const],
+    outputs: [] as const,
+    stateMutability: "nonpayable" as const,
+  },
+] as const;
+
+/* ---------- Existing swap handlers ---------- */
 
 async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsGetQuoteSchema, params);
@@ -258,6 +283,8 @@ const orbsGetRequiredApprovalsTool = createToolHandler(
   "APPROVAL_CHECK_ERROR"
 );
 
+/* ---------- Old TWAP/Limit handlers (kept for Task 11 cleanup) ---------- */
+
 async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = resolveChainId(params);
   const chunks = Number(params.chunks ?? 5);
@@ -441,6 +468,279 @@ async function orbsListOrders(params: Record<string, unknown>): Promise<CallTool
   }
 }
 
+/* ---------- New Spot order handlers ---------- */
+
+async function executeSpotOrderNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = resolveChainId(params);
+
+  try {
+    const account = getActiveAccount();
+
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: account.address,
+      fromToken: params.fromToken as string,
+      fromAmount: params.fromAmount as string,
+      toToken: params.toToken as string,
+      fromMaxAmount: params.fromMaxAmount as string | undefined,
+      epoch: params.epoch as number | undefined,
+      slippage: params.slippage as number | undefined,
+      outputLimit: params.outputLimit as string | undefined,
+      outputTriggerLower: params.outputTriggerLower as string | undefined,
+      outputTriggerUpper: params.outputTriggerUpper as string | undefined,
+      start: params.start as number | undefined,
+      deadline: params.deadline as number | undefined,
+    });
+
+    // Check & execute approvals to RePermit
+    const approvalSteps = await getRequiredApprovals({
+      chainId,
+      fromToken: params.fromToken as string,
+      fromAmount: prepared.approval.amount,
+      account: account.address,
+      mode: "order",
+    });
+
+    for (const step of approvalSteps) {
+      if (step.tx?.data) {
+        const ctx = buildWriteContext(chainId);
+        if (!isWriteContext(ctx)) return ctx;
+
+        const txHash = await ctx.walletClient.sendTransaction({
+          to: step.tx.to,
+          data: step.tx.data,
+          value: step.tx.value ? BigInt(step.tx.value) : 0n,
+          chain: ctx.chain,
+          account: ctx.account,
+        });
+
+        process.stderr.write(`[orbs-spot] Approval tx sent: ${txHash}\n`);
+        await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+        process.stderr.write(`[orbs-spot] Approval tx confirmed: ${txHash}\n`);
+      }
+    }
+
+    // Sign EIP-712 typed data
+    if (!account.signTypedData) {
+      return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
+    }
+
+    const signature = await account.signTypedData({
+      domain: {
+        ...prepared.typedData.domain,
+        verifyingContract: prepared.typedData.domain.verifyingContract as `0x${string}`,
+      },
+      types: prepared.typedData.types,
+      primaryType: prepared.typedData.primaryType,
+      message: prepared.typedData.message as unknown as Record<string, unknown>,
+    });
+
+    const { v, r, s } = splitSignature(signature);
+
+    // Submit via Spot API
+    const result = await submitSpotOrder({
+      url: prepared.submit.url,
+      order: prepared.typedData as unknown as Record<string, unknown>,
+      signature: { v, r, s },
+    });
+
+    return formatToolResponse({
+      ok: result.ok,
+      status: result.status,
+      response: result.response,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_ORDER_ERROR", String(e));
+  }
+}
+
+async function orbsPlaceOrder(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPlaceOrderSchema, params);
+  if (!v.success) return v.error;
+  const { fromToken, toToken, fromAmount } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  return executeWrite({
+    toolName: "orbs_place_order",
+    description: `Spot order: ${fromAmount} of ${fromToken} → ${toToken} on chain ${chainId}`,
+    params: { ...v.data } as Record<string, unknown>,
+    executor: executeSpotOrderNow,
+  });
+}
+
+async function orbsPrepareOrderIntent(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareOrderIntentSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  try {
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: v.data.account,
+      fromToken: v.data.fromToken,
+      fromAmount: v.data.fromAmount,
+      toToken: v.data.toToken,
+      fromMaxAmount: v.data.fromMaxAmount,
+      epoch: v.data.epoch,
+      slippage: v.data.slippage,
+      outputLimit: v.data.outputLimit,
+      outputTriggerLower: v.data.outputTriggerLower,
+      outputTriggerUpper: v.data.outputTriggerUpper,
+      start: v.data.start,
+      deadline: v.data.deadline,
+    });
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: v.data.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: v.data.account,
+      mode: "order",
+    });
+
+    return formatToolResponse({
+      typedData: prepared.typedData,
+      approval: prepared.approval,
+      submit: prepared.submit,
+      query: prepared.query,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+      requiredApprovals,
+      chainId,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_ORDER_ERROR", String(e));
+  }
+}
+
+async function orbsSubmitSignedOrderHandler(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(orbsSubmitSignedOrderSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    const { v: sigV, r, s } = splitSignature(v.data.signature);
+
+    const result = await submitSpotOrder({
+      url: v.data.submitUrl,
+      order: v.data.order,
+      signature: { v: sigV, r, s },
+    });
+
+    return formatToolResponse(result);
+  } catch (e: unknown) {
+    return formatToolError("ORBS_ORDER_ERROR", String(e));
+  }
+}
+
+async function orbsQueryOrders(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsQueryOrdersSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    // Try Spot API first
+    const spotResult = await querySpotOrders({
+      swapper: v.data.swapper,
+      hash: v.data.hash,
+    });
+
+    if (spotResult.ok) {
+      return formatToolResponse({
+        source: "spot",
+        orders: spotResult.orders,
+      });
+    }
+
+    // If Spot API fails AND swapper is provided, fall back to SDK listOrders
+    if (v.data.swapper) {
+      const chainId = resolveToolChainId(v.data.chainId);
+      try {
+        const sdkOrders = await listOrders(chainId, v.data.swapper);
+        return formatToolResponse({
+          source: "sdk-fallback",
+          orders: sdkOrders.map((o) => ({
+            id: o.id,
+            type: o.type,
+            status: o.status,
+            fromToken: o.srcTokenAddress,
+            toToken: o.dstTokenAddress,
+            fromAmount: o.srcAmount,
+            progress: o.progress,
+            createdAt: o.createdAt,
+          })),
+        });
+      } catch (fallbackErr: unknown) {
+        process.stderr.write(`[orbs-spot] SDK fallback also failed: ${fallbackErr}\n`);
+      }
+    }
+
+    return formatToolError(
+      "ORBS_QUERY_ERROR",
+      `Spot API returned status ${spotResult.status}: ${spotResult.error}`
+    );
+  } catch (e: unknown) {
+    return formatToolError("ORBS_QUERY_ERROR", String(e));
+  }
+}
+
+async function executeSpotCancelNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = resolveChainId(params);
+  const digest = params.digest as `0x${string}`;
+
+  try {
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+
+    const contracts = getSpotContracts();
+
+    const txHash = await ctx.walletClient.writeContract({
+      address: contracts.repermit,
+      abi: REPERMIT_CANCEL_ABI,
+      functionName: "cancel",
+      args: [[digest]],
+      chain: ctx.chain,
+      account: ctx.account,
+    });
+
+    process.stderr.write(`[orbs-spot] Cancel tx sent: ${txHash}\n`);
+    const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+
+    return formatToolResponse({
+      status: receipt.status === "success" ? "cancelled" : "failed",
+      txHash,
+      digest,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_CANCEL_ERROR", String(e));
+  }
+}
+
+async function orbsCancelOrder(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsCancelOrderSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  return executeWrite({
+    toolName: "orbs_cancel_order",
+    description: `Cancel Spot order ${v.data.digest} on chain ${chainId}`,
+    params: { ...v.data } as Record<string, unknown>,
+    executor: executeSpotCancelNow,
+  });
+}
+
+/* ---------- Tool definitions ---------- */
+
 export function getOrbsToolDefinitions(): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     {
@@ -483,55 +783,12 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
-      name: "orbs_place_twap",
-      category: "orders",
-      description: "Place a dTWAP (time-weighted average price) order (write, confirmation-gated)",
-      inputSchema: zodToJsonSchema(orbsPlaceTwapSchema) as Record<string, unknown>,
-      handler: orbsPlaceTwap,
-      annotations: { destructiveHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_prepare_twap_intent",
-      category: "orders",
-      description:
-        "Prepare a dTWAP order for external wallet signing. Returns raw order data and EIP-712 typed data.",
-      inputSchema: zodToJsonSchema(orbsPrepareTwapIntentSchema) as Record<string, unknown>,
-      handler: orbsPrepareTwapIntentTool,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_place_limit",
-      category: "orders",
-      description: "Place a dLIMIT order (write, confirmation-gated)",
-      inputSchema: zodToJsonSchema(orbsPlaceLimitSchema) as Record<string, unknown>,
-      handler: orbsPlaceLimit,
-      annotations: { destructiveHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_prepare_limit_intent",
-      category: "orders",
-      description:
-        "Prepare a dLIMIT order for external wallet signing. Returns raw order data and EIP-712 typed data.",
-      inputSchema: zodToJsonSchema(orbsPrepareLimitIntentSchema) as Record<string, unknown>,
-      handler: orbsPrepareLimitIntentTool,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    {
       name: "orbs_submit_signed_swap",
       category: "swap",
       description:
         "Submit an externally signed Orbs Liquidity Hub swap using the quote returned by orbs_prepare_swap_intent.",
       inputSchema: zodToJsonSchema(orbsSubmitSignedSwapSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedSwapTool,
-      annotations: { destructiveHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_submit_signed_twap_order",
-      category: "orders",
-      description:
-        "Submit an externally signed dTWAP or dLIMIT order using the order returned by the prepare intent tools.",
-      inputSchema: zodToJsonSchema(orbsSubmitSignedTwapOrderSchema) as Record<string, unknown>,
-      handler: orbsSubmitSignedTwapOrderTool,
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -543,14 +800,54 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
-      name: "orbs_list_orders",
+      name: "orbs_place_order",
       category: "orders",
-      description: "List open TWAP/dLIMIT orders for active wallet",
-      inputSchema: zodToJsonSchema(orbsListOrdersSchema) as Record<string, unknown>,
-      handler: orbsListOrders,
+      description:
+        "Place a gasless order via Spot protocol. Supports market, limit, TWAP, stop-loss, take-profit, " +
+        "and delayed orders. Order type determined by parameters: limit (outputLimit > 0), " +
+        "chunked/TWAP (fromMaxAmount > fromAmount + epoch), stop-loss (outputTriggerLower), " +
+        "take-profit (outputTriggerUpper), delayed (future start). Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsPlaceOrderSchema) as Record<string, unknown>,
+      handler: orbsPlaceOrder,
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_order_intent",
+      category: "orders",
+      description:
+        "Prepare a Spot order for external wallet signing. Returns EIP-712 typed data, " +
+        "approval calldata, submit URL, and order metadata. Supports all order types.",
+      inputSchema: zodToJsonSchema(orbsPrepareOrderIntentSchema) as Record<string, unknown>,
+      handler: orbsPrepareOrderIntent,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ...getDsltpToolDefinitions(),
+    {
+      name: "orbs_submit_signed_order",
+      category: "orders",
+      description:
+        "Submit an externally signed Spot order using the submit URL and order from orbs_prepare_order_intent.",
+      inputSchema: zodToJsonSchema(orbsSubmitSignedOrderSchema) as Record<string, unknown>,
+      handler: orbsSubmitSignedOrderHandler,
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_query_orders",
+      category: "orders",
+      description:
+        "Query Spot orders by swapper address or order hash. Falls back to SDK query if Spot API unavailable.",
+      inputSchema: zodToJsonSchema(orbsQueryOrdersSchema) as Record<string, unknown>,
+      handler: orbsQueryOrders,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_cancel_order",
+      category: "orders",
+      description:
+        "Cancel a Spot order onchain by calling RePermit.cancel with the order digest. Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsCancelOrderSchema) as Record<string, unknown>,
+      handler: orbsCancelOrder,
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
   ];
 
   return tools;
@@ -558,6 +855,6 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
 
 export function registerOrbsExecutors(): void {
   registerExecutor("orbs_swap", executeOrbsSwapNow);
-  registerExecutor("orbs_place_twap", executeOrbsTwapNow);
-  registerExecutor("orbs_place_limit", executeOrbsLimitNow);
+  registerExecutor("orbs_place_order", executeSpotOrderNow);
+  registerExecutor("orbs_cancel_order", executeSpotCancelNow);
 }
