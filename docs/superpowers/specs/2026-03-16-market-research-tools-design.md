@@ -113,6 +113,8 @@ A new `fetchJson<T>(url, options?)` utility handles:
 
 All handlers call `fetchJson` rather than raw `fetch`. This avoids duplicating error handling across 30 handlers. After implementation, add to the "Single Source of Truth" table in CLAUDE.md.
 
+**Relationship with `resilientFetch`:** The codebase has an existing `src/utils/resilient-fetch.ts` with retry/circuit-breaker logic. `fetchJson` should compose with `resilientFetch` under the hood to get retry + jittered backoff for free, adding JSON parsing, TTL cache, and User-Agent on top.
+
 ### Tool Pattern
 
 Every tool is read-only and uses `createToolHandler`:
