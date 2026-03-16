@@ -1,5 +1,6 @@
 import { Configs } from "@orbs-network/twap-sdk";
 import { getChainById } from "../chains/registry.js";
+import { getSupportedSpotChainIds, isSpotChainSupported } from "./spot-config.js";
 
 // Liquidity Hub SDK does not expose supported chains — hardcoded list required.
 // Source: @orbs-network/liquidity-hub-sdk internal getApiUrl() switch statement.
@@ -31,4 +32,15 @@ export function getLiquidityHubError(chainId: number): string {
 
 export function getTwapError(chainId: number): string {
   return `Orbs dTWAP/dLIMIT is not available on chain ${chainId}. Use isTwapSupported() to check availability.`;
+}
+
+export function isSpotSupported(chainId: number): boolean {
+  return isSpotChainSupported(chainId);
+}
+
+export function getSpotError(chainId: number): string {
+  const supported = getSupportedSpotChainIds()
+    .map((id) => `${getChainById(id)?.name ?? String(id)} (${id})`)
+    .join(", ");
+  return `Spot orders are not available on chain ${chainId}. Supported: ${supported}`;
 }
