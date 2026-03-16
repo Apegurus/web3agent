@@ -21,4 +21,12 @@ export interface RuntimeConfig {
   pinataJwt?: string; // Pinata JWT for IPFS pinning (from PINATA_JWT)
   erc8004AgentUri?: string; // Advertised MCP endpoint URI for ERC-8004 registration (from ERC8004_AGENT_URI)
   agdpApiUrl?: string; // aGDP API base URL (from AGDP_API_URL, default https://acpx.virtuals.io/api)
+
+  // Treasury policy — set by user via env vars or CLI, read-only for the agent
+  policyEnabled?: boolean;
+  policyMaxSingleTransactionUsd?: number;
+  policyMaxHourlyUsd?: number;
+  policyMaxDailyUsd?: number;
+  policyMinReserveUsd?: number;
+  policyMaxX402PaymentUsd?: number;
 }

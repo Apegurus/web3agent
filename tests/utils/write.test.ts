@@ -138,7 +138,8 @@ describe("executeWrite", () => {
       "Swap tokens",
       { amount: "100" },
       dummyExecutor,
-      walletAddress
+      walletAddress,
+      undefined
     );
   });
 });

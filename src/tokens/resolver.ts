@@ -1,6 +1,7 @@
 import type { Hex } from "viem";
 import { decodeAbiParameters, hexToString } from "viem";
 import { getChainById } from "../chains/registry.js";
+import { resilientFetch } from "../utils/resilient-fetch.js";
 import { type CoinGeckoTopTokenSignals, getTopCoinGeckoSignals } from "./coingecko.js";
 import { type TokenEntry, getChainTokens, lookupToken } from "./registry.js";
 
@@ -240,8 +241,10 @@ async function resolveViaDexScreener(
   if (!chainSlug) return null;
 
   try {
-    const response = await fetch(
-      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`
+    const response = await resilientFetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`,
+      undefined,
+      { label: "dexscreener" }
     );
 
     if (!response.ok) return null;
@@ -346,16 +349,20 @@ async function callContract(
   data: Hex
 ): Promise<string | null> {
   try {
-    const response = await fetch(rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_call",
-        params: [{ to: tokenAddress, data }, "latest"],
-      }),
-    });
+    const response = await resilientFetch(
+      rpcUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [{ to: tokenAddress, data }, "latest"],
+        }),
+      },
+      { label: "rpc" }
+    );
 
     if (!response.ok) {
       return null;

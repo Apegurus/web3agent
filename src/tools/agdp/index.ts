@@ -178,6 +178,7 @@ export function getAgdpToolDefinitions(): ToolDefinition[] {
         "For on-chain job creation, use acp_create_job separately.",
       inputSchema: zodToJsonSchema(agdpHireAgentSchema) as Record<string, unknown>,
       handler: agdpHireAgent,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

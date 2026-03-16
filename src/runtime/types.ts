@@ -1,4 +1,5 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { RiskLevel } from "../policy/types.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { BackendStatus, HealthStatus } from "../types/health.js";
 import type { WalletMode } from "../types/wallet.js";
@@ -39,6 +40,7 @@ export interface ToolCatalogEntry {
   source: ToolSource;
   category: ToolCategory;
   dynamic: boolean;
+  riskLevel: RiskLevel;
   annotations?: Tool["annotations"];
 }
 

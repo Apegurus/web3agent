@@ -32,6 +32,24 @@ function parseIntStrict(field: string, value: string | undefined, fallback: numb
   return parsed;
 }
 
+function parsePolicyBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined || value === "") return undefined;
+  return !FALSE_VALUES.has(value.toLowerCase());
+}
+
+function parsePositiveFloat(field: string, value: string | undefined): number | undefined {
+  if (value === undefined || value === "") return undefined;
+  const parsed = Number(value);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    throw new ValidationError(
+      field,
+      value,
+      `${field} must be a non-negative number, got "${value}"`
+    );
+  }
+  return parsed;
+}
+
 const RPC_URL_PREFIX = "RPC_URL_";
 
 function parseChainRpcUrls(env: Partial<Record<string, string>>): Record<number, string> {
@@ -80,6 +98,15 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     pinataJwt: env.PINATA_JWT || undefined,
     erc8004AgentUri: env.ERC8004_AGENT_URI || undefined,
     agdpApiUrl: env.AGDP_API_URL || "https://acpx.virtuals.io/api",
+    policyEnabled: parsePolicyBoolean(env.POLICY_ENABLED),
+    policyMaxSingleTransactionUsd: parsePositiveFloat(
+      "POLICY_MAX_SINGLE_TX_USD",
+      env.POLICY_MAX_SINGLE_TX_USD
+    ),
+    policyMaxHourlyUsd: parsePositiveFloat("POLICY_MAX_HOURLY_USD", env.POLICY_MAX_HOURLY_USD),
+    policyMaxDailyUsd: parsePositiveFloat("POLICY_MAX_DAILY_USD", env.POLICY_MAX_DAILY_USD),
+    policyMinReserveUsd: parsePositiveFloat("POLICY_MIN_RESERVE_USD", env.POLICY_MIN_RESERVE_USD),
+    policyMaxX402PaymentUsd: parsePositiveFloat("POLICY_MAX_X402_USD", env.POLICY_MAX_X402_USD),
   };
 }
 
