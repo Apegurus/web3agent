@@ -20,6 +20,7 @@ import {
   resolveSwapQuoteFromToken,
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
+import { getSpotContracts } from "../../orbs/spot-config.js";
 import {
   getSrcTokenChunkAmount,
   getTwapDurationSeconds,
@@ -125,6 +126,9 @@ export async function getRequiredApprovals(
   try {
     const steps: ApprovalStep[] = [];
     let effectiveFromToken = assertAddress(input.fromToken, "fromToken");
+    const mode = input.mode ?? "swap";
+    const spender: `0x${string}` =
+      mode === "order" ? (getSpotContracts().repermit as `0x${string}`) : PERMIT2_ADDRESS;
 
     if (isNativeTokenAddress(input.fromToken)) {
       const wrapped = getWrappedNativeToken(chainId);
@@ -154,19 +158,22 @@ export async function getRequiredApprovals(
       address: effectiveFromToken,
       abi: SWAP_PREPARATION_ABI,
       functionName: "allowance",
-      args: [assertAddress(input.account, "account"), PERMIT2_ADDRESS],
+      args: [assertAddress(input.account, "account"), spender],
     });
 
     if ((allowance as bigint) < BigInt(input.fromAmount)) {
       steps.push({
         type: "approve",
-        label: "Approve Permit2 (unlimited allowance)",
+        label:
+          mode === "order"
+            ? "Approve RePermit (unlimited allowance)"
+            : "Approve Permit2 (unlimited allowance)",
         tx: {
           to: effectiveFromToken,
           data: encodeFunctionData({
             abi: SWAP_PREPARATION_ABI,
             functionName: "approve",
-            args: [PERMIT2_ADDRESS, maxUint256],
+            args: [spender, maxUint256],
           }),
         },
       });

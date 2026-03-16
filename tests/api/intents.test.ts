@@ -137,6 +137,33 @@ describe("browser wallet intent APIs", () => {
     expect(result).toEqual([]);
   });
 
+  it("getRequiredApprovals checks RePermit allowance when mode is 'order'", async () => {
+    const readContractMock = vi.fn().mockResolvedValue(0n);
+    viemMocks.createPublicClient.mockReturnValue({
+      readContract: readContractMock,
+    });
+
+    const { getRequiredApprovals } = await import("../../src/api/intents.js");
+    const result = await getRequiredApprovals({
+      chainId: 42161,
+      fromToken: "0x4200000000000000000000000000000000000006",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+      mode: "order",
+    });
+
+    const REPERMIT_ADDRESS = "0x00002a9C4D9497df5Bd31768eC5d30eEf5405000";
+    expect(readContractMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: "allowance",
+        args: ["0x1234567890123456789012345678901234567890", REPERMIT_ADDRESS],
+      })
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("approve");
+    expect(result[0].label).toContain("RePermit");
+  });
+
   it("prepareTwapIntent returns signable typed data and metadata", async () => {
     twapMocks.prepareTwapOrder.mockReturnValue({
       domain: { name: "Orbs" },

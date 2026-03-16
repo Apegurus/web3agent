@@ -19,6 +19,11 @@ export const orbsGetRequiredApprovalsSchema = z.object({
     .string({ required_error: "fromAmount is required" })
     .describe("Amount in smallest token units"),
   account: addressSchema.describe("User wallet address"),
+  mode: z
+    .enum(["swap", "order"])
+    .optional()
+    .default("swap")
+    .describe("Approval mode: 'swap' checks Permit2, 'order' checks RePermit"),
 });
 
 export const orbsPlaceTwapSchema = tokenAmountSchema.extend({
