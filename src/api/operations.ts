@@ -9,10 +9,12 @@ import {
 import {
   getRequiredApprovals,
   prepareLimitOperation,
+  prepareOrderOperation,
   prepareSwapOperation,
   prepareTwapOperation,
   resumeOrbsOrderOperation,
   resumeOrbsSwapOperation,
+  resumeSpotOrderOperation,
   submitSignedSwapDirect,
   submitSignedTwapOrderDirect,
 } from "./operations/orbs.js";
@@ -51,6 +53,9 @@ export async function prepareOperation(
       }
       if (input.kind === "twap") {
         return prepareTwapOperation(input);
+      }
+      if (input.kind === "order") {
+        return prepareOrderOperation(input);
       }
       return prepareLimitOperation(input);
     case "lifi":
@@ -107,6 +112,10 @@ export async function resumeOperation(
     (resumeState.kind === "twap" || resumeState.kind === "limit")
   ) {
     return resumeOrbsOrderOperation(resumeState, actionResults);
+  }
+
+  if (resumeState.integration === "orbs" && resumeState.kind === "order") {
+    return resumeSpotOrderOperation(resumeState, actionResults);
   }
 
   if (resumeState.integration === "lifi" && resumeState.kind === "bridge") {

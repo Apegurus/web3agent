@@ -11,6 +11,7 @@ import {
 import { lifiPrepareBridgeIntentSchema } from "./lifi.js";
 import {
   orbsPrepareLimitIntentSchema,
+  orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
   orbsPrepareTwapIntentSchema,
 } from "./orbs.js";
@@ -53,6 +54,16 @@ export const orbsOrderResumeStateStateSchema = resumeStateBaseSchema.extend({
   signAction: preparedSignTypedDataActionSchema,
 });
 
+export const orbsSpotOrderResumeStateStateSchema = resumeStateBaseSchema.extend({
+  order: z.record(z.unknown()).describe("Spot order typed data object"),
+  submitUrl: z.string().describe("API URL for submitting the signed order"),
+  approvalActions: z
+    .array(preparedTransactionActionSchema)
+    .optional()
+    .describe("Pending ERC-20 approval actions"),
+  signAction: preparedSignTypedDataActionSchema.describe("EIP-712 sign action for the order"),
+});
+
 export const goatResumeStateStateSchema = resumeStateBaseSchema.extend({
   toolName: z.string(),
   params: z.record(z.unknown()).optional(),
@@ -85,6 +96,10 @@ export const prepareOperationSchema = z.union([
   orbsPrepareLimitIntentSchema.extend({
     integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
     kind: z.literal("limit").describe("Action type"),
+  }),
+  orbsPrepareOrderIntentSchema.extend({
+    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
+    kind: z.literal("order").describe("Action type"),
   }),
   lifiPrepareBridgeIntentSchema.extend({
     integration: z.literal("lifi").describe("Integration name (e.g. 'orbs', 'lifi')"),

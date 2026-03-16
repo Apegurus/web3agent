@@ -244,6 +244,10 @@ export type OrbsLimitOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "orbs"; kind: "limit" }
 >;
+export type OrbsOrderOperationInput = Extract<
+  z.infer<typeof prepareOperationSchema>,
+  { integration: "orbs"; kind: "order" }
+>;
 export type LifiBridgeOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "lifi"; kind: "bridge" }
