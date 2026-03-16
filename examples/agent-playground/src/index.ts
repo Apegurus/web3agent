@@ -80,9 +80,29 @@ while (running) {
       messages,
       tools,
       maxSteps: MAX_TOOL_STEPS,
-      onStepFinish: ({ toolCalls }) => {
-        for (const call of toolCalls) {
+      onStepFinish: (event) => {
+        for (const call of event.toolCalls) {
           process.stderr.write(`  -> ${call.toolName}(${JSON.stringify(call.args)})\n`);
+        }
+        const toolResults = (event as Record<string, unknown>).toolResults as
+          | Array<{ result: unknown }>
+          | undefined;
+        for (const result of toolResults ?? []) {
+          const data = typeof result.result === "object" ? result.result : null;
+          if (!data) continue;
+          const payload = data as Record<string, unknown>;
+          if (payload.ok === false) {
+            process.stderr.write(`  <- ERROR: ${JSON.stringify(payload.error)}\n`);
+          } else if (payload.ok === true && payload.data) {
+            const inner = payload.data as Record<string, unknown>;
+            if (inner.queued) {
+              process.stderr.write(`  <- QUEUED: id=${inner.id} — ${inner.summary}\n`);
+            } else if (inner.txHash || inner.transactionHash) {
+              process.stderr.write(
+                `  <- TX: ${(inner.txHash ?? inner.transactionHash) as string}\n`
+              );
+            }
+          }
         }
       },
     });
