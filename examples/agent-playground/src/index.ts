@@ -31,7 +31,9 @@ CRITICAL RULES:
 - When a tool returns an error, explain what went wrong clearly and do not retry
   the same call more than once without changing parameters.
 - If a policy limit blocks a transaction, explain the limit once and ask the user
-  how they want to proceed. Do not keep retrying with the same amount.`;
+  how they want to proceed. Do not keep retrying with the same amount.
+- NEVER echo or repeat the user's message back in your response. Start directly
+  with your answer.`;
 
 process.stderr.write(`[playground] Ready — provider: ${config.provider} | type "exit" to quit\n\n`);
 
