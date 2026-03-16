@@ -88,6 +88,24 @@ describe("wallet persistence", () => {
     expect(state.address).toMatch(/^0x/);
   });
 
+  it("concurrent activateWallet calls produce valid wallet.json", async () => {
+    const { activateWallet } = await import("../../src/wallet/persistence.js");
+    const keys = [
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+      "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+    ];
+
+    await Promise.all(keys.map((privateKey) => activateWallet({ privateKey })));
+
+    const walletPath = join(TEST_HOME, ".web3agent", "wallet.json");
+    const raw = await readFile(walletPath, "utf-8");
+    const data = JSON.parse(raw);
+    expect(data.type).toBe("private-key");
+    expect(data.privateKey).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    expect(keys).toContain(data.privateKey);
+  });
+
   it("startup falls through to read-only when nothing configured", async () => {
     const { initializeWallet, getWalletState } = await import("../../src/wallet/persistence.js");
     await initializeWallet({

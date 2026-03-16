@@ -4,6 +4,8 @@ import type { CoreMessage } from "ai";
 import { loadConfig } from "./config.js";
 import { loadWeb3Tools } from "./tools.js";
 
+const MAX_TOOL_STEPS = 10;
+
 const config = loadConfig();
 const { tools, runtime } = await loadWeb3Tools();
 
@@ -13,6 +15,7 @@ const rl = readline.createInterface({
 });
 
 const messages: CoreMessage[] = [];
+let running = true;
 
 const systemPrompt = `You are a web3 assistant with access to blockchain tools.
 Use the available tools to help the user with chain lookups, token resolution,
@@ -22,9 +25,9 @@ When a tool returns an error, explain what went wrong clearly.`;
 process.stderr.write(`[playground] Ready — provider: ${config.provider} | type "exit" to quit\n\n`);
 
 async function shutdown() {
+  running = false;
   rl.close();
   await runtime.shutdown();
-  process.exit(0);
 }
 
 process.on("SIGINT", () => {
@@ -44,10 +47,10 @@ function setInputEnabled(enabled: boolean) {
   }
 }
 
-while (true) {
-  const userInput = await rl.question("> ");
+while (running) {
+  const userInput = await rl.question("> ").catch(() => "exit");
 
-  if (userInput.trim() === "exit") {
+  if (!running || userInput.trim() === "exit") {
     await shutdown();
     break;
   }
@@ -65,7 +68,7 @@ while (true) {
       system: systemPrompt,
       messages,
       tools,
-      maxSteps: 10,
+      maxSteps: MAX_TOOL_STEPS,
       onStepFinish: ({ toolCalls }) => {
         for (const call of toolCalls) {
           process.stderr.write(`  -> ${call.toolName}(${JSON.stringify(call.args)})\n`);

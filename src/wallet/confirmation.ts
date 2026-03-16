@@ -36,6 +36,7 @@ function getPendingOpsPath(): string {
 export class ConfirmationQueueManager {
   private queue: Map<string, PendingOperation> = new Map();
   private persistChain: Promise<void> = Promise.resolve();
+  private persistDirty = false;
   public enabled: boolean;
   public ttlMs: number;
 
@@ -45,11 +46,13 @@ export class ConfirmationQueueManager {
   }
 
   private schedulePersist(): void {
+    if (this.persistDirty) return;
+    this.persistDirty = true;
     this.persistChain = this.persistChain
-      .catch((e: unknown) => {
-        process.stderr.write(`[confirmation] Prior persist failed: ${e}\n`);
+      .then(() => {
+        this.persistDirty = false;
+        return this.persistQueue();
       })
-      .then(() => this.persistQueue())
       .catch((e: unknown) => {
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
