@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { RuntimeConfig } from "../types/config.js";
+import { atomicWriteJson } from "../utils/atomic-write.js";
 import { DEFAULT_TREASURY_POLICY, type TreasuryPolicy } from "./types.js";
 
 function getPolicyFilePath(): string {
@@ -70,13 +70,9 @@ export function resolvePolicy(config: RuntimeConfig): TreasuryPolicy {
 
 export async function savePolicyFile(policy: Partial<TreasuryPolicy>): Promise<string> {
   const filePath = getPolicyFilePath();
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
-  }
 
   const existing = loadPolicyFile();
   const merged = { ...existing, ...policy };
-  await writeFile(filePath, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
+  await atomicWriteJson(filePath, merged);
   return filePath;
 }

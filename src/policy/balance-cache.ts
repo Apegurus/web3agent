@@ -18,7 +18,8 @@ export async function refreshBalanceUsd(address: string, chainId: number): Promi
     const transport = getTransportForChain(chainId);
     const client = createPublicClient({ chain, transport });
     const balanceWei = await client.getBalance({ address: address as Address });
-    const balanceNative = Number(balanceWei) / 1e18;
+    const decimals = chain.nativeCurrency?.decimals ?? 18;
+    const balanceNative = Number(balanceWei) / 10 ** decimals;
 
     if (balanceNative === 0) {
       cachedBalanceUsd = 0;
@@ -63,7 +64,7 @@ async function fetchNativeTokenPrice(symbol: string): Promise<number | null> {
     if (!response.ok) return null;
     const data = (await response.json()) as Record<string, { usd?: number }>;
     return data[coinId]?.usd ?? null;
-  } catch {
+  } catch (e: unknown) {
     return null;
   }
 }

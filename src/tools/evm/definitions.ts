@@ -247,6 +247,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
         "Execute a state-changing contract function. Provide abiLabel (from evm_register_abi), abiJson, or let the tool auto-resolve. Confirmation-gated.",
       inputSchema: zodToJsonSchema(evmWriteContractSchema) as Record<string, unknown>,
       handler: evmWriteContract,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -255,6 +256,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
       description: "Send native tokens (ETH, MATIC, etc.) to an address or ENS name.",
       inputSchema: zodToJsonSchema(evmTransferNativeSchema) as Record<string, unknown>,
       handler: evmTransferNative,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -264,6 +266,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
         "Transfer ERC-20 tokens. Amount is in the token's smallest unit (e.g. for USDC with 6 decimals, '1000000' = 1 USDC). Use evm_get_token_balance to check decimals first.",
       inputSchema: zodToJsonSchema(evmTransferErc20Schema) as Record<string, unknown>,
       handler: evmTransferErc20,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -272,6 +275,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
       description: "Approve ERC-20 spender allowance using raw token units.",
       inputSchema: zodToJsonSchema(evmApproveTokenSchema) as Record<string, unknown>,
       handler: evmApproveTokenSpending,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -280,6 +284,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
       description: "Sign an arbitrary UTF-8 message with the active wallet.",
       inputSchema: zodToJsonSchema(evmSignMessageSchema) as Record<string, unknown>,
       handler: evmSignMessage,
+      riskLevel: "destructive",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -288,6 +293,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
       description: "Sign EIP-712 typed data payload with the active wallet.",
       inputSchema: zodToJsonSchema(evmSignTypedDataSchema) as Record<string, unknown>,
       handler: evmSignTypedData,
+      riskLevel: "destructive",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
   ];

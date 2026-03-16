@@ -44,7 +44,7 @@ export function getAgdpBaseUrl(): string {
   try {
     const config = getConfig();
     return config.agdpApiUrl ?? AGDP_DEFAULT_URL;
-  } catch {
+  } catch (e: unknown) {
     return AGDP_DEFAULT_URL;
   }
 }

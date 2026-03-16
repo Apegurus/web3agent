@@ -526,6 +526,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Submit an externally signed Orbs Liquidity Hub swap using the quote returned by orbs_prepare_swap_intent.",
       inputSchema: zodToJsonSchema(orbsSubmitSignedSwapSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedSwapTool,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -535,6 +536,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Submit an externally signed dTWAP or dLIMIT order using the order returned by the prepare intent tools.",
       inputSchema: zodToJsonSchema(orbsSubmitSignedTwapOrderSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedTwapOrderTool,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
