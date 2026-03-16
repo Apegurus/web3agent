@@ -19,7 +19,7 @@ Use the available tools to help the user with chain lookups, token resolution,
 swaps, bridging, order placement, and other on-chain operations.
 When a tool returns an error, explain what went wrong clearly.`;
 
-process.stderr.write(`[playground] Ready — provider: ${config.provider} | type "exit" to quit\n`);
+process.stderr.write(`[playground] Ready — provider: ${config.provider} | type "exit" to quit\n\n`);
 
 async function shutdown() {
   rl.close();
@@ -34,6 +34,16 @@ process.on("SIGINT", () => {
   });
 });
 
+function setInputEnabled(enabled: boolean) {
+  if (enabled) {
+    process.stdin.resume();
+    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+  } else {
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
+    process.stdin.pause();
+  }
+}
+
 while (true) {
   const userInput = await rl.question("> ");
 
@@ -45,8 +55,11 @@ while (true) {
   if (!userInput.trim()) continue;
 
   messages.push({ role: "user", content: userInput });
+  setInputEnabled(false);
 
   try {
+    process.stdout.write("\n");
+
     const result = streamText({
       model: config.model,
       system: systemPrompt,
@@ -60,15 +73,19 @@ while (true) {
       },
     });
 
-    process.stdout.write("\n");
+    let hasOutput = false;
     for await (const chunk of result.textStream) {
+      hasOutput = true;
       process.stdout.write(chunk);
     }
-    process.stdout.write("\n\n");
+    if (hasOutput) process.stdout.write("\n");
+    process.stdout.write("\n");
 
     messages.push({ role: "assistant", content: await result.text });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    process.stderr.write(`[playground] Error: ${msg}\n`);
+    process.stderr.write(`[playground] Error: ${msg}\n\n`);
+  } finally {
+    setInputEnabled(true);
   }
 }
