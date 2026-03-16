@@ -9,8 +9,8 @@ const kimi = createAnthropic({
 
 const providers: Record<string, { defaultModel: string; create: (id: string) => LanguageModelV1 }> =
   {
-    anthropic: { defaultModel: "claude-sonnet-4-20250514", create: (id) => anthropic(id) },
-    openai: { defaultModel: "gpt-4o", create: (id) => openai(id) },
+    anthropic: { defaultModel: "claude-sonnet-4-6", create: (id) => anthropic(id) },
+    openai: { defaultModel: "gpt-5-mini", create: (id) => openai(id) },
     kimi: { defaultModel: "kimi-for-coding", create: (id) => kimi(id) },
   };
 
