@@ -30,8 +30,10 @@ All primary sources are free, no API key required:
 | CoinGecko (free) | Market | `https://api.coingecko.com/api/v3` |
 | Binance public API | Market | `https://api.binance.com/api/v3`, `https://fapi.binance.com/fapi/v1` |
 | GoPlus Security | Research | `https://api.gopluslabs.io/api/v1` |
-| DexScreener | Research | Already integrated via GOAT plugin |
+| DexScreener | Research | `https://api.dexscreener.com` (direct HTTP for due diligence, separate from GOAT plugin) |
 | Blockscout/Etherscan | Research | Already integrated as upstream adapters |
+
+**Stability note:** Two market tools (`market_get_global_stats`, `market_get_exchange_rankings`) use DefiLlama's `fe-cache.llama.fi` frontend cache rather than their documented public API. These endpoints may change without notice. If they break, the tools should be updated to use alternative sources or removed.
 
 **Progressive enhancement (optional API keys):**
 
@@ -40,33 +42,52 @@ All primary sources are free, no API key required:
 | `COINGECKO_API_KEY` | Higher rate limits on trending/gainers, sparkline data |
 | `GOPLUS_API_KEY` | Higher rate limits on security checks (free tier is 30 req/min) |
 
+## Type Changes
+
+### `ToolSource` and `ToolCategory` (in `src/runtime/types.ts`)
+
+Both types must be extended:
+
+```typescript
+// Add to ToolSource union:
+| "market"
+| "research"
+
+// Add to ToolCategory union:
+| "market"
+| "research"
+```
+
 ## Architecture
 
 ### File Structure
+
+Following the existing flat-file pattern used by all current tool groups (orbs, lifi, evm, tokens):
 
 ```
 src/tools/market/
 ├── index.ts              # getMarketToolDefinitions() → ToolDefinition[]
 ├── schemas.ts            # Re-exports from src/api/schemas/market.ts
-└── handlers/
-    ├── defillama.ts      # DefiLlama-backed handlers
-    ├── sentiment.ts      # Fear & Greed handler
-    ├── coingecko.ts      # Trending handler
-    └── binance.ts        # CEX data handlers
+├── defillama.ts          # DefiLlama-backed handlers
+├── sentiment.ts          # Fear & Greed handler
+├── coingecko.ts          # Trending handler
+└── binance.ts            # CEX data handlers
 
 src/tools/research/
 ├── index.ts              # getResearchToolDefinitions() → ToolDefinition[]
 ├── schemas.ts            # Re-exports from src/api/schemas/research.ts
-└── handlers/
-    ├── defillama.ts      # DefiLlama feed-backed handlers
-    ├── security.ts       # GoPlus + aggregated due diligence
-    ├── holders.ts        # Blockscout/Etherscan holder data
-    └── yields.ts         # DefiLlama yields handlers
+├── defillama.ts          # DefiLlama feed-backed handlers
+├── security.ts           # GoPlus + aggregated due diligence
+├── holders.ts            # Blockscout/Etherscan holder data
+└── yields.ts             # DefiLlama yields handlers
 
 src/api/schemas/
 ├── market.ts             # Input schemas for market tools
 ├── research.ts           # Input schemas for research tools
 └── outputs.ts            # (extend) Output schemas for both groups
+
+src/utils/
+└── http.ts               # NEW — shared fetchJson utility
 
 tests/tools/market/
 ├── handlers.test.ts
@@ -79,17 +100,18 @@ tests/tools/research/
 
 ### Registration
 
-Both groups follow the existing pattern. `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by `src/runtime/server.ts` and added to the tool dispatch map alongside existing groups.
+Both groups follow the existing pattern. `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by `src/runtime/server.ts` and added to the tool dispatch map alongside existing groups. Both `server.ts` and `default.ts` registration points must be updated.
 
-### Shared HTTP Client
+### Shared HTTP Client (NEW: `src/utils/http.ts`)
 
-A thin `fetchJson<T>(url, options?)` utility in `src/utils/http.ts` handles:
+A new `fetchJson<T>(url, options?)` utility handles:
 - JSON parsing with error handling
 - Timeout (configurable, default 10s)
 - User-Agent header
 - Logging failures to stderr with `[http]` prefix
+- Simple in-memory TTL cache (configurable per call, default off) to reduce rate limit pressure on slowly-changing data (e.g., 60s for prices, 300s for TVL/protocol metadata)
 
-All handlers call `fetchJson` rather than raw `fetch`. This avoids duplicating error handling across 30 handlers.
+All handlers call `fetchJson` rather than raw `fetch`. This avoids duplicating error handling across 30 handlers. After implementation, add to the "Single Source of Truth" table in CLAUDE.md.
 
 ### Tool Pattern
 
@@ -150,7 +172,8 @@ annotations: {
 
 #### `market_get_token_history`
 - **Input:** `token` (`chain:address`), `period?` (1d/7d/30d/90d/1y, default 30d)
-- **Source:** `GET https://coins.llama.fi/chart/{token}?period={period}`
+- **Source:** `GET https://coins.llama.fi/chart/{token}?start={start}&span={span}&period={resolution}`
+- **Note:** DefiLlama's chart endpoint uses `start`/`span`/`period` (resolution) params, not a single period shorthand. The handler computes `start` timestamp from the user-facing `period` input (e.g., "30d" → now minus 30 days), and selects an appropriate resolution (hourly for ≤7d, daily for >7d).
 - **Returns:** Array of `{ timestamp, price }` data points
 
 #### `market_get_gainers_losers`
@@ -221,6 +244,10 @@ annotations: {
 - **Source:** `GET https://fapi.binance.com/fapi/v1/fundingRate?symbol={symbol}&limit={limit}`
 - **Returns:** Array of `{ fundingTime, fundingRate, markPrice }`
 
+### Binance Geo-Restrictions
+
+Binance public API endpoints return 451/403 in some jurisdictions (notably the US for futures endpoints). When `fetchJson` receives a 451 or 403 from a Binance endpoint, the handler returns a clear error: `"Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."` The non-Binance market tools (DefiLlama, CoinGecko, Fear & Greed) are unaffected.
+
 ## Research Tool Group
 
 **Prefix:** `research_`
@@ -235,13 +262,15 @@ annotations: {
 
 #### `research_token_due_diligence`
 - **Input:** `token` (address or symbol), `chainId?`
-- **Source:** GoPlus token security + DexScreener (existing) + on-chain reads
+- **Source:** GoPlus token security + DexScreener API (direct HTTP, not via GOAT plugin) + on-chain reads
 - **Flow:**
-  1. Resolve symbol to address via `resolveToken()` if needed
+  1. Resolve symbol to address via `resolveToken()` function (from `src/tokens/resolver.ts`, direct import, not the MCP tool)
   2. GoPlus: honeypot, buy/sell tax, owner analysis
-  3. DexScreener: liquidity depth, pair age
-  4. On-chain: total supply, top holder concentration (if Blockscout available)
-- **Returns:** `{ isHoneypot, buyTax, sellTax, liquidityUsd, lpLocked, holderCount, topHolderPercent, createdAt, riskLevel, warnings: [...] }`
+  3. DexScreener: `GET https://api.dexscreener.com/latest/dex/tokens/{address}` — liquidity depth, pair age
+  4. On-chain: total supply via `publicClient.readContract()` (ERC-20 `totalSupply`)
+- **Partial failure handling:** Each source is called independently. If one source fails, the handler still returns data from the other sources with a `warnings` array noting which source was unavailable. Only if ALL sources fail does the handler return an error.
+- **Returns:** `{ isHoneypot, buyTax, sellTax, liquidityUsd, lpLocked, holderCount, topHolderPercent, createdAt, riskLevel, warnings: [...], sources: [...] }`
+- **Note:** `sources` lists which data sources were successfully queried (e.g., `["goplus", "dexscreener"]`), so the caller knows the confidence level of the result.
 
 #### `research_token_holders`
 - **Input:** `token`, `chainId?`, `limit?` (default 10)
@@ -314,8 +343,10 @@ Reuse existing `chainIdOptionalSchema` from `src/api/schemas/common.ts` where ap
 ```typescript
 // src/api/schemas/market.ts
 export const limitSchema = z.number()
-  .int().positive().max(100).optional()
+  .int().positive().optional()
   .describe("Maximum number of results to return");
+// Note: no global max — individual tools override with tool-specific maxes
+// (e.g., market_get_klines uses .max(1000) matching Binance API limit)
 
 export const protocolSlugSchema = z.string()
   .describe("Protocol slug as used by DefiLlama (e.g., 'aave', 'uniswap')");
@@ -328,9 +359,13 @@ export const tradingPairSchema = z.string()
 
 Response fields use camelCase, matching existing codebase convention. DefiLlama snake_case fields (e.g., `to_unlock_usd`) are mapped to camelCase (`toUnlockUsd`) in the handler.
 
+### Output Schemas
+
+Output Zod schemas will be defined in `src/api/schemas/outputs.ts` during implementation, following the existing pattern (e.g., `swapQuoteResultSchema`). Each output schema will have `.describe()` on every field, enforced by the existing schema-quality test. Output schemas are designed during implementation because the exact response shapes depend on runtime testing against the live APIs.
+
 ### All Schema Fields Have `.describe()`
 
-Enforced by the existing `tests/tools/schema-quality.test.ts` which auto-discovers all schema files.
+Enforced by the existing `tests/tools/schema-quality.test.ts` which auto-discovers all schema files. The new `src/api/schemas/market.ts`, `src/api/schemas/research.ts`, and `src/tools/*/schemas.ts` files will all be auto-discovered by the existing glob patterns.
 
 ## Error Handling
 
