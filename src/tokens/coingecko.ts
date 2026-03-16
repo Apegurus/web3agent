@@ -26,7 +26,7 @@ export interface CoinGeckoTopTokenSignals {
   addressesByChain: ReadonlyMap<number, ReadonlySet<string>>;
 }
 
-const FALLBACK_PLATFORM_CHAIN_IDS: Readonly<Record<string, number>> = {
+export const FALLBACK_PLATFORM_CHAIN_IDS: Readonly<Record<string, number>> = {
   ethereum: 1,
   "binance-smart-chain": 56,
   "polygon-pos": 137,
@@ -51,7 +51,7 @@ let cachedTopTokenSignals:
     }
   | undefined;
 
-function getCoinGeckoApiKey(): string | undefined {
+export function getCoinGeckoApiKey(): string | undefined {
   try {
     return getConfig().coingeckoApiKey ?? process.env.COINGECKO_API_KEY;
   } catch (_error: unknown) {
@@ -69,6 +69,14 @@ function getCoinGeckoHeaders(apiKey: string | undefined): Record<string, string>
     accept: "application/json",
     ...(apiKey ? { "x-cg-pro-api-key": apiKey } : {}),
   };
+}
+
+export function getTokenPriceUrl(): string {
+  return getCoinGeckoBaseUrl(getCoinGeckoApiKey());
+}
+
+export function getTokenPriceHeaders(): Record<string, string> {
+  return getCoinGeckoHeaders(getCoinGeckoApiKey());
 }
 
 function isPlatformMap(value: unknown): value is Record<string, unknown> {
