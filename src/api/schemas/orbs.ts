@@ -78,3 +78,62 @@ export const orbsSwapStatusSchema = z.object({
 export const orbsListOrdersSchema = z.object({
   chainId: chainIdOptionalSchema,
 });
+
+export const orbsPlaceOrderSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
+  fromMaxAmount: z
+    .string()
+    .optional()
+    .describe("Total input amount for chunked orders (defaults to fromAmount for single orders)"),
+  epoch: z
+    .number()
+    .optional()
+    .describe("Seconds between chunk fills (0 for single, 60 default for chunked)"),
+  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  outputLimit: z
+    .string()
+    .optional()
+    .describe("Minimum output per chunk in output token units (0 = market order)"),
+  outputTriggerLower: z
+    .string()
+    .optional()
+    .describe("Lower trigger price per chunk for stop-loss orders"),
+  outputTriggerUpper: z
+    .string()
+    .optional()
+    .describe("Upper trigger price per chunk for take-profit orders"),
+  start: z.number().optional().describe("Order start time as Unix timestamp (default: now)"),
+  deadline: z
+    .number()
+    .optional()
+    .describe("Order deadline as Unix timestamp (default: auto-calculated)"),
+});
+
+export const orbsPrepareOrderIntentSchema = orbsPlaceOrderSchema.extend({
+  account: addressSchema.describe("Swapper wallet address"),
+});
+
+export const orbsSubmitSignedOrderSchema = z.object({
+  submitUrl: z.string().describe("Submit URL from prepare step"),
+  order: z.record(z.unknown()).describe("Order witness object from prepare step"),
+  signature: hexSchema
+    .refine((v) => v.length >= 132, {
+      message: "signature must be at least 65 bytes (132 hex characters + 0x prefix)",
+    })
+    .describe("Hex-encoded EIP-712 signature"),
+});
+
+export const orbsQueryOrdersSchema = z
+  .object({
+    swapper: addressSchema.optional().describe("Filter orders by swapper address"),
+    hash: z.string().optional().describe("Filter orders by order hash (0x-prefixed 32 bytes)"),
+    chainId: chainIdOptionalSchema,
+  })
+  .refine((data) => data.swapper || data.hash, {
+    message: "At least one of swapper or hash is required",
+  });
+
+export const orbsCancelOrderSchema = z.object({
+  chainId: chainIdOptionalSchema,
+  digest: hexSchema.describe("RePermit digest to cancel (from prepare step or query)"),
+});

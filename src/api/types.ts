@@ -23,14 +23,19 @@ import type {
   lifiPrepareBridgeIntentSchema,
   listChainTokensSchema,
   operationActionResultSchema,
+  orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
   orbsListOrdersSchema,
   orbsPlaceLimitSchema,
+  orbsPlaceOrderSchema,
   orbsPlaceTwapSchema,
   orbsPrepareLimitIntentSchema,
+  orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
   orbsPrepareTwapIntentSchema,
+  orbsQueryOrdersSchema,
+  orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
   orbsSubmitSignedTwapOrderSchema,
   orbsSwapStatusSchema,
@@ -62,6 +67,7 @@ import {
   preparedOperationSchema,
   sameChainSwapQuoteResultSchema,
   simulationResultSchema,
+  spotOrderIntentSchema,
   swapIntentSchema,
   swapQuoteResultSchema,
   swapSubmissionResultSchema,
@@ -86,6 +92,12 @@ export type SubmitSignedSwapInput = z.infer<typeof orbsSubmitSignedSwapSchema>;
 export type SubmitSignedTwapOrderInput = z.infer<typeof orbsSubmitSignedTwapOrderSchema>;
 export type SwapStatusInput = z.infer<typeof orbsSwapStatusSchema>;
 export type ListOrdersInput = z.infer<typeof orbsListOrdersSchema>;
+export type PlaceOrderInput = z.infer<typeof orbsPlaceOrderSchema>;
+export type PrepareOrderIntentInput = z.infer<typeof orbsPrepareOrderIntentSchema>;
+export type SubmitSignedOrderInput = z.infer<typeof orbsSubmitSignedOrderSchema>;
+export type QueryOrdersInput = z.infer<typeof orbsQueryOrdersSchema>;
+export type CancelOrderInput = z.infer<typeof orbsCancelOrderSchema>;
+export type SpotOrderIntent = z.infer<typeof spotOrderIntentSchema>;
 export type WalletActivateInput = z.infer<typeof walletActivateSchema>;
 export type WalletSetConfirmationInput = z.infer<typeof walletSetConfirmationSchema>;
 export type WalletFromMnemonicInput = z.infer<typeof walletFromMnemonicSchema>;
