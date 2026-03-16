@@ -200,6 +200,8 @@ export async function submitSwap(params: {
       `${quote.inAmount} ${quote.inToken} → ${quote.outToken}\n`
   );
 
+  // resilientFetch may retry on timeout/5xx. This is safe because the Orbs API
+  // deduplicates by sessionId — a retried submission for the same session is a no-op.
   const response = await resilientFetch(
     `${apiUrl}/swap-async?chainId=${chainId}`,
     {

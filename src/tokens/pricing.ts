@@ -119,6 +119,9 @@ export async function estimateTokenUsd(
   const price = await getTokenPriceUsd(address, chainId);
   if (price === null) return null;
 
+  // Note: Number() loses precision for amounts exceeding Number.MAX_SAFE_INTEGER (~9e15).
+  // For 18-decimal tokens this means amounts above ~9,000 tokens may be slightly off.
+  // Acceptable for policy estimation — not used for exact accounting.
   const amount = Number(amountRaw) / 10 ** decimals;
   return amount * price;
 }

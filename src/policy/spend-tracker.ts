@@ -14,6 +14,9 @@ function getSpendLogPath(): string {
 
 let records: SpendRecord[] = [];
 
+// recordSpend is synchronous for fast dispatch; persistence is async fire-and-forget.
+// If the process crashes between push() and persist completing, recent spend is lost.
+// Accepted tradeoff: policy may under-enforce briefly after a crash, but won't over-enforce.
 export function recordSpend(toolName: string, estimatedUsd: number, walletAddress?: string): void {
   records.push({
     timestamp: new Date().toISOString(),

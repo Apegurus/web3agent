@@ -3,6 +3,8 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { getConfig } from "../../config/env.js";
 import { resolvePolicy } from "../../policy/config.js";
 import type { ToolCategory } from "../../runtime/types.js";
+import { estimateTokenUsd } from "../../tokens/pricing.js";
+import { lookupTokenByAddress } from "../../tokens/registry.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
@@ -52,23 +54,26 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     const network = firstAccept?.network ?? "unknown network";
     paymentDescription = `Pay ${amount} on ${network} to access ${url}`;
 
-    const quotedUsd =
-      typeof amount === "string"
-        ? Number(amount)
-        : typeof amount === "number"
-          ? amount
-          : Number.NaN;
-    if (Number.isNaN(quotedUsd)) {
-      process.stderr.write(
-        `[x402] Warning: unparseable payment amount "${amount}" — x402 cap cannot be enforced\n`
-      );
-    } else if (quotedUsd > 0) {
-      const policy = resolvePolicy(getConfig());
-      if (policy.enabled && quotedUsd > policy.maxX402PaymentUsd) {
-        return formatToolError(
-          "POLICY_DENIED",
-          `x402 quoted payment $${quotedUsd.toFixed(2)} exceeds x402 limit of $${policy.maxX402PaymentUsd.toFixed(2)}`
-        );
+    // Estimate USD value from x402 payment requirements.
+    // amount is in the payment token's smallest units (e.g., 1000000 = 1 USDC).
+    // asset is the token contract address, network is CAIP-2 format "eip155:{chainId}".
+    const asset = firstAccept?.asset;
+    const networkStr = firstAccept?.network;
+    const paymentChainId = typeof networkStr === "string" ? Number(networkStr.split(":")[1]) : null;
+
+    if (typeof amount === "string" && typeof asset === "string" && paymentChainId) {
+      const entry = lookupTokenByAddress(asset, paymentChainId);
+      const decimals = entry?.decimals ?? 18;
+      const quotedUsd = await estimateTokenUsd(asset, paymentChainId, amount, decimals);
+
+      if (quotedUsd !== null && quotedUsd > 0) {
+        const policy = resolvePolicy(getConfig());
+        if (policy.enabled && quotedUsd > policy.maxX402PaymentUsd) {
+          return formatToolError(
+            "POLICY_DENIED",
+            `x402 quoted payment $${quotedUsd.toFixed(2)} exceeds x402 limit of $${policy.maxX402PaymentUsd.toFixed(2)}`
+          );
+        }
       }
     }
   } catch (e: unknown) {

@@ -65,6 +65,7 @@ async function fetchNativeTokenPrice(symbol: string): Promise<number | null> {
     const data = (await response.json()) as Record<string, { usd?: number }>;
     return data[coinId]?.usd ?? null;
   } catch (e: unknown) {
+    process.stderr.write(`[policy] Native token price fetch failed for ${symbol}: ${e}\n`);
     return null;
   }
 }
