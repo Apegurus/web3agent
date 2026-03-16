@@ -55,7 +55,7 @@ vi.mock("../../src/policy/engine.js", () => ({
 }));
 
 vi.mock("../../src/policy/extract-usd.js", () => ({
-  extractEstimatedUsd: vi.fn().mockReturnValue(0),
+  extractEstimatedUsd: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("../../src/policy/spend-tracker.js", () => ({

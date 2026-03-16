@@ -1,28 +1,36 @@
-// Heuristic USD extraction from tool arguments.
-// Tools pass amounts in various field names and formats. We check common
-// field names. For tools where the amount is in token units, we use it as-is
-// as an approximation. A price oracle integration can refine this later.
+import { estimateTokenUsd } from "../tokens/pricing.js";
+import { lookupTokenByAddress } from "../tokens/registry.js";
 
 const USD_FIELD_NAMES = ["amountUsd", "amount_usd", "estimatedUsd"];
-const AMOUNT_FIELD_NAMES = ["amount", "budget", "fromAmount", "value"];
 
-function parseNumericField(value: unknown): number | null {
-  if (typeof value === "number" && value > 0) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
-  }
-  return null;
-}
+export async function extractEstimatedUsd(args: Record<string, unknown>): Promise<number> {
+	// 1. Check explicit USD fields
+	for (const key of USD_FIELD_NAMES) {
+		const val = args[key];
+		if (typeof val === "number" && val > 0) return val;
+		if (typeof val === "string") {
+			const parsed = Number(val);
+			if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+		}
+	}
 
-export function extractEstimatedUsd(args: Record<string, unknown>): number {
-  for (const key of USD_FIELD_NAMES) {
-    const result = parseNumericField(args[key]);
-    if (result !== null) return result;
-  }
-  for (const key of AMOUNT_FIELD_NAMES) {
-    const result = parseNumericField(args[key]);
-    if (result !== null) return result;
-  }
-  return 0;
+	// 2. Try fromToken + fromAmount + chainId price lookup
+	const fromToken = args.fromToken;
+	const fromAmount = args.fromAmount;
+	const chainId = args.chainId;
+	if (
+		typeof fromToken === "string" &&
+		typeof fromAmount === "string" &&
+		typeof chainId === "number"
+	) {
+		const entry = lookupTokenByAddress(fromToken, chainId);
+		const decimals =
+			entry?.decimals ?? (typeof args.fromDecimals === "number" ? args.fromDecimals : null);
+		if (decimals !== null) {
+			const usd = await estimateTokenUsd(fromToken, chainId, fromAmount, decimals);
+			return usd ?? 0;
+		}
+	}
+
+	return 0;
 }

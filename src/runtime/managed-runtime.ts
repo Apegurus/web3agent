@@ -291,7 +291,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     }
 
     const isFinancial = tool.riskLevel === "financial";
-    const estimatedUsd = isFinancial ? extractEstimatedUsd(args) : 0;
+    const estimatedUsd = isFinancial ? await extractEstimatedUsd(args) : 0;
 
     if (isFinancial) {
       if (estimatedUsd === 0) {
