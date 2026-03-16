@@ -35,12 +35,24 @@ function getPendingOpsPath(): string {
 
 export class ConfirmationQueueManager {
   private queue: Map<string, PendingOperation> = new Map();
+  private persistChain: Promise<void> = Promise.resolve();
   public enabled: boolean;
   public ttlMs: number;
 
   constructor(enabled: boolean, ttlMs: number = DEFAULT_TTL_MS) {
     this.enabled = enabled;
     this.ttlMs = ttlMs;
+  }
+
+  private schedulePersist(): void {
+    this.persistChain = this.persistChain
+      .catch((e: unknown) => {
+        process.stderr.write(`[confirmation] Prior persist failed: ${e}\n`);
+      })
+      .then(() => this.persistQueue())
+      .catch((e: unknown) => {
+        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
+      });
   }
 
   enqueue(
@@ -73,9 +85,7 @@ export class ConfirmationQueueManager {
     };
 
     this.queue.set(id, operation);
-    this.persistQueue().catch((e: unknown) => {
-      process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-    });
+    this.schedulePersist();
 
     return {
       queued: true,
@@ -99,9 +109,7 @@ export class ConfirmationQueueManager {
   complete(id: string): void {
     const op = this.queue.get(id);
     this.queue.delete(id);
-    this.persistQueue().catch((e: unknown) => {
-      process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-    });
+    this.schedulePersist();
     if (op) this.audit("CONFIRMED", op);
   }
 
@@ -109,9 +117,7 @@ export class ConfirmationQueueManager {
     const op = this.queue.get(id);
     const removed = this.queue.delete(id);
     if (removed) {
-      this.persistQueue().catch((e: unknown) => {
-        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-      });
+      this.schedulePersist();
       if (op) this.audit("DENIED", op);
     }
     return removed;
@@ -131,9 +137,7 @@ export class ConfirmationQueueManager {
       }
     }
     if (expired.length > 0) {
-      this.persistQueue().catch((e: unknown) => {
-        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-      });
+      this.schedulePersist();
       for (const op of expired) {
         this.audit("EXPIRED", op);
       }
@@ -143,9 +147,7 @@ export class ConfirmationQueueManager {
   flushAll(): number {
     const count = this.queue.size;
     this.queue.clear();
-    this.persistQueue().catch((e: unknown) => {
-      process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-    });
+    this.schedulePersist();
     return count;
   }
 

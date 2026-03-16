@@ -206,18 +206,28 @@ async function ensureWalletDir(): Promise<void> {
   }
 }
 
+let walletPersistChain: Promise<void> = Promise.resolve();
+
 async function persistWallet(data: PersistedWallet): Promise<void> {
-  await ensureWalletDir();
-  const walletPath = getWalletPath();
-  const tmpPath = `${walletPath}.tmp`;
-  const fd = await open(tmpPath, "w", 0o600);
-  try {
-    await fd.writeFile(JSON.stringify(data, null, 2));
-    await fd.sync();
-  } finally {
-    await fd.close();
-  }
-  await rename(tmpPath, walletPath);
+  const work = walletPersistChain
+    .catch((e: unknown) => {
+      process.stderr.write(`[wallet] Prior persist failed: ${e}\n`);
+    })
+    .then(async () => {
+      await ensureWalletDir();
+      const walletPath = getWalletPath();
+      const tmpPath = `${walletPath}.tmp`;
+      const fd = await open(tmpPath, "w", 0o600);
+      try {
+        await fd.writeFile(JSON.stringify(data, null, 2));
+        await fd.sync();
+      } finally {
+        await fd.close();
+      }
+      await rename(tmpPath, walletPath);
+    });
+  walletPersistChain = work;
+  await work;
 }
 
 export async function activateWallet(params: {
