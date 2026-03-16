@@ -1,5 +1,5 @@
 import * as readline from "node:readline/promises";
-import { generateText } from "ai";
+import { streamText } from "ai";
 import type { CoreMessage } from "ai";
 import { loadConfig } from "./config.js";
 import { loadWeb3Tools } from "./tools.js";
@@ -47,16 +47,26 @@ while (true) {
   messages.push({ role: "user", content: userInput });
 
   try {
-    const result = await generateText({
+    const result = streamText({
       model: config.model,
       system: systemPrompt,
       messages,
       tools,
       maxSteps: 10,
+      onStepFinish: ({ toolCalls }) => {
+        for (const call of toolCalls) {
+          process.stderr.write(`  -> ${call.toolName}(${JSON.stringify(call.args)})\n`);
+        }
+      },
     });
 
-    messages.push({ role: "assistant", content: result.text });
-    console.log(`\n${result.text}\n`);
+    process.stdout.write("\n");
+    for await (const chunk of result.textStream) {
+      process.stdout.write(chunk);
+    }
+    process.stdout.write("\n\n");
+
+    messages.push({ role: "assistant", content: await result.text });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     process.stderr.write(`[playground] Error: ${msg}\n`);
