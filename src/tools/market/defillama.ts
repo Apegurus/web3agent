@@ -1,0 +1,401 @@
+import { resilientFetch } from "../../utils/resilient-fetch.js";
+import { ttlCache } from "./cache.js";
+
+const TTL_PROTOCOL = 300_000;
+const TTL_PRICE = 60_000;
+const TTL_FEED = 60_000;
+
+// ── Types ────────────────────────────────────────────────────────
+
+export interface ProtocolTvlResult {
+  name: string;
+  tvl: number;
+  tvlChange1d?: number;
+  tvlChange7d?: number;
+  tvlChange30d?: number;
+  chainTvls: Record<string, number>;
+  category: string;
+  url: string;
+}
+
+export interface TopProtocolEntry {
+  name: string;
+  tvl: number;
+  tvlChange1d: number;
+  chain: string;
+  category: string;
+  slug: string;
+}
+
+export interface ChainTvlEntry {
+  date: string;
+  tvl: number;
+}
+
+export interface TokenPriceEntry {
+  price: number;
+  symbol: string;
+  decimals: number;
+  confidence: number;
+  timestamp: number;
+}
+
+export interface TokenPriceResult {
+  coins: Record<string, TokenPriceEntry>;
+}
+
+export interface GainerLoserEntry {
+  symbol: string;
+  priceChange: number;
+}
+
+export interface GainersLosersResult {
+  gainers: GainerLoserEntry[];
+  losers: GainerLoserEntry[];
+}
+
+export interface DexProtocolEntry {
+  name: string;
+  volume24h: number;
+  change1d: number;
+}
+
+export interface DexVolumeResult {
+  totalVolume24h: number;
+  protocols: DexProtocolEntry[];
+}
+
+export interface StablecoinEntry {
+  name: string;
+  symbol: string;
+  totalCirculating: number;
+  pegDeviation: number;
+  dominance: number;
+}
+
+export interface GlobalStatsResult {
+  totalMarketCap: number;
+  totalVolume24h: number;
+  btcDominance: number;
+  ethDominance: number;
+  defiMarketCap: number;
+  defiDominance: number;
+  marketCapChange24h: number;
+}
+
+export interface CexFundFlowEntry {
+  symbol: string;
+  depositCount: number;
+  withdrawCount: number;
+  depositSumUsd: number;
+  withdrawSumUsd: number;
+  netFlow: number;
+  totalUsers: number;
+}
+
+export interface ExchangeRankingEntry {
+  name: string;
+  trustScore: number;
+  trustScoreRank: number;
+  volume24hBtc: number;
+  country: string;
+  yearEstablished: number;
+}
+
+// ── Handlers ─────────────────────────────────────────────────────
+
+export async function getProtocolTvl(input: {
+  protocol: string;
+}): Promise<ProtocolTvlResult> {
+  const { protocol } = input;
+  return ttlCache(`defillama:protocol:${protocol}`, TTL_PROTOCOL, async () => {
+    const response = await resilientFetch(`https://api.llama.fi/protocol/${protocol}`, undefined, {
+      label: "defillama-protocol",
+    });
+    const data = (await response.json()) as {
+      name: string;
+      tvl: number;
+      change_1d?: number;
+      change_7d?: number;
+      change_1m?: number;
+      chainTvls: Record<string, number>;
+      category: string;
+      url: string;
+    };
+
+    return {
+      name: data.name,
+      tvl: data.tvl,
+      tvlChange1d: data.change_1d,
+      tvlChange7d: data.change_7d,
+      tvlChange30d: data.change_1m,
+      chainTvls: data.chainTvls,
+      category: data.category,
+      url: data.url,
+    };
+  });
+}
+
+export async function getTopProtocols(input: {
+  chain?: string;
+  category?: string;
+  limit?: number;
+}): Promise<TopProtocolEntry[]> {
+  const { chain, category, limit = 20 } = input;
+  const cacheKey = `defillama:protocols:${chain ?? ""}:${category ?? ""}`;
+  const rawData = await ttlCache(cacheKey, TTL_PROTOCOL, async () => {
+    const response = await resilientFetch("https://api.llama.fi/protocols", undefined, {
+      label: "defillama-protocols",
+    });
+    return response.json() as Promise<
+      Array<{
+        name: string;
+        tvl: number;
+        change_1d: number;
+        chains: string[];
+        category: string;
+        slug: string;
+      }>
+    >;
+  });
+
+  let filtered = rawData;
+
+  if (chain) {
+    filtered = filtered.filter((p) => p.chains.includes(chain));
+  }
+
+  if (category) {
+    filtered = filtered.filter((p) => p.category === category);
+  }
+
+  filtered.sort((a, b) => (b.tvl ?? 0) - (a.tvl ?? 0));
+
+  return filtered.slice(0, limit).map((p) => ({
+    name: p.name,
+    tvl: p.tvl,
+    tvlChange1d: p.change_1d,
+    chain: p.chains[0] ?? "",
+    category: p.category,
+    slug: p.slug,
+  }));
+}
+
+export async function getChainTvl(input: { chain: string }): Promise<ChainTvlEntry[]> {
+  const { chain } = input;
+  return ttlCache(`defillama:chain-tvl:${chain}`, TTL_PROTOCOL, async () => {
+    const response = await resilientFetch(
+      `https://api.llama.fi/v2/historicalChainTvl/${chain}`,
+      undefined,
+      { label: "defillama-chain-tvl" }
+    );
+    const data = (await response.json()) as Array<{ date: number; tvl: number }>;
+
+    return data.map((entry) => ({
+      date: new Date(entry.date * 1000).toISOString(),
+      tvl: entry.tvl,
+    }));
+  });
+}
+
+export async function getTokenPrice(input: {
+  tokens: string[];
+  searchWidth?: string;
+}): Promise<TokenPriceResult> {
+  const { tokens, searchWidth } = input;
+  const joined = tokens.join(",");
+  const url = searchWidth
+    ? `https://coins.llama.fi/prices/current/${joined}?searchWidth=${searchWidth}`
+    : `https://coins.llama.fi/prices/current/${joined}`;
+
+  return ttlCache(`defillama:prices:${joined}:${searchWidth ?? ""}`, TTL_PRICE, async () => {
+    const response = await resilientFetch(url, undefined, { label: "defillama-prices" });
+    return response.json() as Promise<TokenPriceResult>;
+  });
+}
+
+export async function getGainersLosers(input: {
+  period?: string;
+  limit?: number;
+}): Promise<GainersLosersResult> {
+  const { period = "24h", limit = 10 } = input;
+  return ttlCache(`defillama:gainers-losers:${period}:${limit}`, TTL_PRICE, async () => {
+    const response = await resilientFetch(
+      `https://coins.llama.fi/percentage/${period}`,
+      undefined,
+      { label: "defillama-percentage" }
+    );
+    const data = (await response.json()) as { coins: Record<string, number> };
+
+    const entries = Object.entries(data.coins).map(([symbol, priceChange]) => ({
+      symbol,
+      priceChange,
+    }));
+
+    entries.sort((a, b) => b.priceChange - a.priceChange);
+
+    const gainers = entries.slice(0, limit);
+    const losers = entries.slice(-limit).reverse();
+
+    return { gainers, losers };
+  });
+}
+
+export async function getDexVolume(input: {
+  chain?: string;
+  protocol?: string;
+}): Promise<DexVolumeResult> {
+  const { chain } = input;
+  const url = chain
+    ? `https://api.llama.fi/overview/dexs/${chain}`
+    : "https://api.llama.fi/overview/dexs";
+
+  return ttlCache(`defillama:dex-volume:${chain ?? "all"}`, TTL_PROTOCOL, async () => {
+    const response = await resilientFetch(url, undefined, { label: "defillama-dexs" });
+    const data = (await response.json()) as {
+      total24h: number;
+      protocols: Array<{ name: string; total24h: number; change_1d: number }>;
+    };
+
+    return {
+      totalVolume24h: data.total24h,
+      protocols: (data.protocols ?? []).map((p) => ({
+        name: p.name,
+        volume24h: p.total24h,
+        change1d: p.change_1d,
+      })),
+    };
+  });
+}
+
+export async function getStablecoinStats(input: {
+  chain?: string;
+}): Promise<StablecoinEntry[]> {
+  const { chain } = input;
+  return ttlCache(`defillama:stablecoins:${chain ?? "all"}`, TTL_PROTOCOL, async () => {
+    const response = await resilientFetch(
+      "https://stablecoins.llama.fi/stablecoins?includePrices=true",
+      undefined,
+      { label: "defillama-stablecoins" }
+    );
+    const data = (await response.json()) as {
+      peggedAssets: Array<{
+        name: string;
+        symbol: string;
+        circulating: { peggedUSD: number };
+        pegDeviation?: number;
+        chainCirculating?: Record<string, { current: { peggedUSD: number } }>;
+      }>;
+    };
+
+    let assets = data.peggedAssets;
+
+    if (chain) {
+      assets = assets.filter((a) => a.chainCirculating && chain in a.chainCirculating);
+    }
+
+    const totalCirculating = assets.reduce((sum, a) => sum + (a.circulating?.peggedUSD ?? 0), 0);
+
+    return assets.map((a) => {
+      const circ = a.circulating?.peggedUSD ?? 0;
+      return {
+        name: a.name,
+        symbol: a.symbol,
+        totalCirculating: circ,
+        pegDeviation: a.pegDeviation ?? 0,
+        dominance: totalCirculating > 0 ? (circ / totalCirculating) * 100 : 0,
+      };
+    });
+  });
+}
+
+export async function getGlobalStats(_input: Record<string, never>): Promise<GlobalStatsResult> {
+  return ttlCache("defillama:global-stats", TTL_PRICE, async () => {
+    const response = await resilientFetch("https://fe-cache.llama.fi/cg_market_data", undefined, {
+      label: "defillama-global",
+    });
+    const raw = (await response.json()) as {
+      data: {
+        total_market_cap: { usd: number };
+        total_volume: { usd: number };
+        market_cap_percentage: { btc: number; eth: number };
+        market_cap_change_percentage_24h_usd: number;
+        defi_market_cap?: string | number;
+        defi_volume_24h?: string | number;
+      };
+    };
+
+    const d = raw.data;
+    const defiMarketCap = Number(d.defi_market_cap ?? 0);
+    const totalMarketCap = d.total_market_cap?.usd ?? 0;
+
+    return {
+      totalMarketCap,
+      totalVolume24h: d.total_volume?.usd ?? 0,
+      btcDominance: d.market_cap_percentage?.btc ?? 0,
+      ethDominance: d.market_cap_percentage?.eth ?? 0,
+      defiMarketCap,
+      defiDominance: totalMarketCap > 0 ? (defiMarketCap / totalMarketCap) * 100 : 0,
+      marketCapChange24h: d.market_cap_change_percentage_24h_usd ?? 0,
+    };
+  });
+}
+
+export async function getCexFundFlows(input: {
+  limit?: number;
+}): Promise<CexFundFlowEntry[]> {
+  const { limit = 20 } = input;
+  return ttlCache(`defillama:cex-flows:${limit}`, TTL_FEED, async () => {
+    const response = await resilientFetch("https://feed-api.llama.fi/flows", undefined, {
+      label: "defillama-flows",
+    });
+    const data = (await response.json()) as Array<{
+      symbol: string;
+      deposit_count: number;
+      withdraw_count: number;
+      deposit_sum_usd: number;
+      withdraw_sum_usd: number;
+      total_users: number;
+    }>;
+
+    return data.slice(0, limit).map((item) => ({
+      symbol: item.symbol,
+      depositCount: item.deposit_count,
+      withdrawCount: item.withdraw_count,
+      depositSumUsd: item.deposit_sum_usd,
+      withdrawSumUsd: item.withdraw_sum_usd,
+      netFlow: item.deposit_sum_usd - item.withdraw_sum_usd,
+      totalUsers: item.total_users,
+    }));
+  });
+}
+
+export async function getExchangeRankings(input: {
+  limit?: number;
+}): Promise<ExchangeRankingEntry[]> {
+  const { limit = 20 } = input;
+  return ttlCache(`defillama:exchanges:${limit}`, TTL_FEED, async () => {
+    const response = await resilientFetch("https://fe-cache.llama.fi/exchanges", undefined, {
+      label: "defillama-exchanges",
+    });
+    const raw = (await response.json()) as {
+      data: Array<{
+        name: string;
+        trust_score: number;
+        trust_score_rank: number;
+        trade_volume_24h_btc: number;
+        country: string;
+        year_established: number;
+      }>;
+    };
+
+    return raw.data.slice(0, limit).map((item) => ({
+      name: item.name,
+      trustScore: item.trust_score,
+      trustScoreRank: item.trust_score_rank,
+      volume24hBtc: item.trade_volume_24h_btc,
+      country: item.country,
+      yearEstablished: item.year_established,
+    }));
+  });
+}
