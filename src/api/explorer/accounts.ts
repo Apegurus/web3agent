@@ -8,9 +8,9 @@ export function normalizeBlockscoutAddress(raw: BlockscoutAddress): ExplorerAddr
     isContract: raw.is_contract,
   };
 
-  if (raw.exchange_rate != null) {
-    result.balanceUsd = raw.exchange_rate;
-  }
+  // Note: raw.exchange_rate is per-unit price (e.g. "3500.00" for ETH), not total balance in USD.
+  // We don't have native token decimals here to compute balanceUsd = balance * rate / 10^decimals,
+  // so we omit balanceUsd rather than report misleading data.
 
   if (raw.is_verified) {
     result.isVerified = raw.is_verified;
@@ -28,9 +28,7 @@ export function normalizeBlockscoutAddress(raw: BlockscoutAddress): ExplorerAddr
     result.tags = raw.public_tags.map((t) => t.display_name);
   }
 
-  if (raw.has_tokens) {
-    // tokenHoldings count not available from address endpoint alone
-  }
+  // tokenHoldings count not available from address endpoint alone; omitted
 
   return result;
 }
@@ -51,7 +49,7 @@ export function normalizeBlockscoutTokens(
         name: raw.name ?? undefined,
         decimals: Number.isNaN(decimals) ? undefined : decimals,
         balance: raw.balance,
-        balanceUsd: raw.exchange_rate ?? undefined,
+        // exchange_rate is per-unit price; omit balanceUsd since we can't reliably compute total USD here
         type,
       };
     }),

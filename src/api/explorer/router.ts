@@ -62,6 +62,8 @@ export class ExplorerRouter {
       throw new Error(`Capability "${capability}" not supported on chain ${chainId}`);
     }
 
+    // Prefer Blockscout: richer data (decoded params, token transfers), no API key required.
+    // Etherscan is fallback for shared chains, primary only for chains Blockscout doesn't cover.
     if (hasBlockscout) return "blockscout";
     return "etherscan";
   }

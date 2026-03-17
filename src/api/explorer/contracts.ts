@@ -99,10 +99,7 @@ export function normalizeEtherscanContractSource(
 
   result.optimizationEnabled = raw.OptimizationUsed === "1";
 
-  if (raw.Proxy === "1") {
-    // isProxy is not in the source schema, but it's in the ABI schema
-    // For source, we just note the proxy implementation if available
-  }
+  // isProxy not in source schema (only ABI schema); proxy status omitted here
 
   if (raw.ConstructorArguments) {
     result.constructorArgs = raw.ConstructorArguments;

@@ -98,7 +98,7 @@ export class BlockscoutClient {
 
   async getBlock(chainId: number, blockNumber: number): Promise<BlockscoutBlock> {
     const base = this.getBaseUrl(chainId);
-    return this.fetch<BlockscoutBlock>(`${base}/api/v2/blocks/${blockNumber}`);
+    return this.fetch<BlockscoutBlock>(`${base}/api/v2/blocks/${encodeURIComponent(blockNumber)}`);
   }
 
   getSupportedChainIds(): number[] {

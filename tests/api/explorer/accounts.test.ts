@@ -71,14 +71,8 @@ describe("normalizeBlockscoutAddress", () => {
     expect(result.tags).toBeUndefined();
   });
 
-  it("maps exchange_rate to balanceUsd", () => {
+  it("omits balanceUsd (exchange_rate is per-unit price, not total USD)", () => {
     const result = normalizeBlockscoutAddress(fullAddress);
-    expect(result.balanceUsd).toBe("1800.50");
-  });
-
-  it("omits balanceUsd when exchange_rate is null", () => {
-    const raw: BlockscoutAddress = { ...fullAddress, exchange_rate: null };
-    const result = normalizeBlockscoutAddress(raw);
     expect(result.balanceUsd).toBeUndefined();
   });
 
@@ -132,7 +126,6 @@ describe("normalizeBlockscoutTokens", () => {
       name: "USD Coin",
       decimals: 6,
       balance: "1000000",
-      balanceUsd: "1.00",
       type: "ERC-20",
     });
   });

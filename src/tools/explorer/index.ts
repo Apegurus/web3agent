@@ -3,6 +3,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   normalizeBlockscoutAddress,
   normalizeBlockscoutTokens,
+  normalizeEtherscanAddress,
 } from "../../api/explorer/accounts.js";
 import { normalizeBlockscoutBlock } from "../../api/explorer/blocks.js";
 import type { BlockscoutClient } from "../../api/explorer/blockscout/client.js";
@@ -110,7 +111,7 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
               address: input.address,
               tag: "latest",
             });
-            return { address: input.address, balance, isContract: false };
+            return normalizeEtherscanAddress(input.address, balance);
           });
         },
         "EXPLORER_ADDRESS_INFO_ERROR"
@@ -174,7 +175,7 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
             );
             return {
               transactions: raw.map(normalizeEtherscanTransaction),
-              hasMore: raw.length === (input.pageSize ?? 10),
+              hasMore: raw.length === (input.pageSize ?? 10000),
             };
           });
         },
@@ -196,7 +197,7 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
               const raw = await blockscout.getTransaction(input.chainId, input.txHash);
               return normalizeBlockscoutTxDetails(raw);
             }
-            // Etherscan: fetch tx + receipt in parallel for complete data
+            // Etherscan: fetch tx + receipt + block in parallel for complete data
             const eth = requireEtherscan();
             const [txRaw, receiptRaw] = await Promise.all([
               eth.call<Record<string, string>>(input.chainId, "proxy", "eth_getTransactionByHash", {
@@ -206,15 +207,31 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
                 input.chainId,
                 "proxy",
                 "eth_getTransactionReceipt",
-                {
-                  txhash: input.txHash,
-                }
+                { txhash: input.txHash }
               ),
             ]);
+            // Get block timestamp from the block the tx is in
+            let timestamp = "";
+            if (txRaw.blockNumber) {
+              try {
+                const block = await eth.call<Record<string, string>>(
+                  input.chainId,
+                  "proxy",
+                  "eth_getBlockByNumber",
+                  { tag: txRaw.blockNumber, boolean: "false" }
+                );
+                if (block.timestamp) {
+                  timestamp = new Date(Number.parseInt(block.timestamp, 16) * 1000).toISOString();
+                }
+              } catch (e: unknown) {
+                // Non-fatal — timestamp stays empty
+                process.stderr.write(`[explorer] Failed to fetch block timestamp: ${e}\n`);
+              }
+            }
             return {
               hash: input.txHash,
               blockNumber: Number.parseInt(txRaw.blockNumber, 16),
-              timestamp: "", // Not available from proxy — use explorer_get_tx_history for timestamped data
+              timestamp,
               from: txRaw.from ?? "",
               to: txRaw.to,
               value: BigInt(txRaw.value ?? "0x0").toString(),

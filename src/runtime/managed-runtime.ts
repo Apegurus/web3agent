@@ -164,6 +164,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly evmTools: ToolDefinition[];
   private readonly policyTools: ToolDefinition[];
   private readonly explorerDeps: ExplorerDeps;
+  private explorerToolCount = 0;
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -429,20 +430,23 @@ export class ManagedRuntime implements Web3AgentRuntime {
   }
 
   private refreshHealthStatus(): void {
-    // Unified explorer health
-    const explorerToolCount = getExplorerToolDefinitions(this.explorerDeps).length;
+    // Unified explorer health (tool count cached from registration)
+    const explorerToolCount = this.explorerToolCount;
     const bsChainCount = this.explorerDeps.blockscout.getSupportedChainIds().length;
     const esChainCount = this.explorerDeps.etherscan?.getSupportedChainIds().length ?? 0;
     const esConfigured = this.explorerDeps.etherscan != null;
+    const bsStatus = bsChainCount > 0 ? "ok" : "degraded";
+    const esStatus = esConfigured ? (esChainCount > 0 ? "ok" : "degraded") : "not_configured";
+    const overallStatus = bsChainCount > 0 || esChainCount > 0 ? "ok" : "unavailable";
     this.health.explorer = {
       name: "block-explorer",
-      status: bsChainCount > 0 || esChainCount > 0 ? "ok" : "unavailable",
+      status: overallStatus,
       toolCount: explorerToolCount,
       message: `${explorerToolCount} tools, ${bsChainCount + esChainCount} chains`,
       backends: {
-        blockscout: { status: "ok", chainCount: bsChainCount },
+        blockscout: { status: bsStatus, chainCount: bsChainCount },
         etherscan: {
-          status: esConfigured ? "ok" : "not_configured",
+          status: esStatus,
           chainCount: esChainCount,
           message: esConfigured ? undefined : "No API key provided",
         },
@@ -567,7 +571,9 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
 
-    for (const tool of getExplorerToolDefinitions(this.explorerDeps)) {
+    const explorerTools = getExplorerToolDefinitions(this.explorerDeps);
+    this.explorerToolCount = explorerTools.length;
+    for (const tool of explorerTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "explorer"),
         handler: (args) => tool.handler(args),
