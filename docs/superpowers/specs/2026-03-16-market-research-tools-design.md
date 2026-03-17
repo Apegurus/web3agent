@@ -263,7 +263,7 @@ CoinGecko's free API is rate-limited (10-30 req/min). Rate limit strategy:
 - **TTL cache:** All CoinGecko responses cached by URL (120s default) via a simple in-memory Map per handler file.
 - **Circuit breaker:** All CoinGecko calls share a single `resilientFetch` circuit breaker label (`"coingecko"`), so rate limit pressure across all CoinGecko tools is tracked as one domain. If CoinGecko returns 429, the circuit opens for all CoinGecko tools, not just the one that triggered it.
 - **Backoff tuning:** CoinGecko calls use a higher `baseDelayMs` (5000ms) for retries, since the free tier can block for 60+ seconds. If a `Retry-After` header is present, respect it.
-- **Binance cache policy:** Binance endpoints are real-time data — use `fetchJson` with no TTL cache (ticker, order book) or very short TTL (5s for klines).
+- **Binance cache policy:** Binance endpoints are real-time data — use `resilientFetch` with no TTL cache (ticker, order book) or very short TTL (5s for klines).
 - With `COINGECKO_API_KEY`, rate limits are significantly higher and pro endpoints are used automatically.
 
 #### `market_get_trending`
@@ -315,7 +315,7 @@ CoinGecko's free API is rate-limited (10-30 req/min). Rate limit strategy:
 
 ### Binance Geo-Restrictions
 
-Binance public API endpoints return 451/403 in some jurisdictions (notably the US for futures endpoints). When `fetchJson` receives a 451 or 403 from a Binance endpoint, the handler returns a clear error: `"Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."` The non-Binance market tools (DefiLlama, CoinGecko, Fear & Greed) are unaffected.
+Binance public API endpoints return 451/403 in some jurisdictions (notably the US for futures endpoints). When `resilientFetch` receives a 451 or 403 from a Binance endpoint, the handler returns a clear error: `"Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."` The non-Binance market tools (DefiLlama, CoinGecko, Fear & Greed) are unaffected.
 
 ## Research Tool Group
 
