@@ -116,9 +116,9 @@ export function getResearchToolDefinitions(): ToolDefinition[] {
       name: "research_protocol_info",
       category: "research",
       description:
-        "Fetch detailed information about a DeFi protocol from DefiLlama's yields database. " +
-        "Returns the protocol's available pools with their current APY, TVL, chain, and reward token details, " +
-        "providing a comprehensive view of the protocol's yield offerings.",
+        "Get detailed information about a DeFi protocol including TVL, chain breakdown, category, audit history, " +
+        "and funding rounds from DefiLlama. If the protocol has a CoinGecko-listed token, also returns developer " +
+        "activity, community stats, and sentiment data.",
       inputSchema: zodToJsonSchema(researchProtocolInfoSchema) as Record<string, unknown>,
       handler: createToolHandler(
         researchProtocolInfoSchema,

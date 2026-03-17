@@ -278,6 +278,7 @@ describe("getProtocolInfo", () => {
     raises: [{ date: "2021-01-01", amount: 1_000_000 }],
     twitter: "AaveAave",
     gecko_id: "aave",
+    governance: ["https://governance.aave.com"],
   };
 
   const coingeckoResponse = {
@@ -312,6 +313,7 @@ describe("getProtocolInfo", () => {
     expect(result.sentimentDown).toBe(15);
     expect(result.sources).toContain("defillama");
     expect(result.sources).toContain("coingecko");
+    expect(result.governanceLinks).toEqual(["https://governance.aave.com"]);
   });
 
   it("returns DefiLlama-only data when no gecko_id", async () => {
@@ -324,8 +326,18 @@ describe("getProtocolInfo", () => {
     expect(result.sources).toEqual(["defillama"]);
     expect(result.devActivity).toBeUndefined();
     expect(result.communityScore).toBeUndefined();
+    expect(result.governanceLinks).toEqual(["https://governance.aave.com"]);
     // Should only call DefiLlama, not CoinGecko
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets governanceLinks to null when not present in response", async () => {
+    const noGovResponse = { ...defiLlamaResponse, gecko_id: null, governance: undefined };
+    mockFetch.mockResolvedValueOnce(mockResponse(noGovResponse));
+
+    const result = await getProtocolInfo({ protocol: "aave" });
+
+    expect(result.governanceLinks).toBeNull();
   });
 
   it("falls back to DefiLlama data with warning when CoinGecko fails", async () => {

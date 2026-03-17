@@ -1,17 +1,9 @@
 import { getChainById } from "../../chains/registry.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "../market/cache.js";
+import { coingeckoHeaders, coingeckoUrl } from "../market/coingecko.js";
 
 const TTL = 300_000;
-
-// ── coingeckoUrl helper ───────────────────────────────────────────
-
-function coingeckoUrl(path: string): string {
-  const base = process.env.COINGECKO_API_KEY
-    ? "https://pro-api.coingecko.com/api/v3"
-    : "https://api.coingecko.com/api/v3";
-  return `${base}${path}`;
-}
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -60,6 +52,7 @@ export interface ProtocolInfoResult {
   url?: string;
   raises?: unknown[];
   twitter?: string;
+  governanceLinks: string[] | null;
   devActivity?: number;
   communityScore?: number;
   categories?: string[];
@@ -183,8 +176,12 @@ export async function getProtocolInfo(input: {
       raises?: unknown[];
       twitter?: string;
       gecko_id?: string | null;
+      governance?: string[];
+      governanceID?: string[];
     };
   });
+
+  const governanceLinks: string[] | null = rawData.governance ?? rawData.governanceID ?? null;
 
   const base: ProtocolInfoResult = {
     name: rawData.name,
@@ -196,6 +193,7 @@ export async function getProtocolInfo(input: {
     url: rawData.url,
     raises: rawData.raises,
     twitter: rawData.twitter,
+    governanceLinks,
     sources: ["defillama"],
   };
 
@@ -206,7 +204,11 @@ export async function getProtocolInfo(input: {
   // Enrich with CoinGecko
   try {
     const cgUrl = coingeckoUrl(`/coins/${rawData.gecko_id}`);
-    const cgResponse = await resilientFetch(cgUrl, undefined, { label: "coingecko-coin" });
+    const cgResponse = await resilientFetch(
+      cgUrl,
+      { headers: coingeckoHeaders() },
+      { label: "coingecko" }
+    );
 
     if (!cgResponse.ok) {
       throw new Error(`CoinGecko returned ${cgResponse.status}`);
