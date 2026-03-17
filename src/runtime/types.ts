@@ -19,7 +19,8 @@ export type ToolSource =
   | "x402"
   | "acp"
   | "agdp"
-  | "erc8004";
+  | "erc8004"
+  | "explorer";
 
 export type ToolCategory =
   | "wallet"
