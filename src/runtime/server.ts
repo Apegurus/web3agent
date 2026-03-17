@@ -19,6 +19,7 @@ import {
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
+import { getResearchToolDefinitions } from "../tools/research/index.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { getX402ToolDefinitions } from "../tools/x402/index.js";
 import type { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
@@ -74,6 +75,7 @@ function createLegacyRuntimeBridge(
   const evmNativeTools = getEvmToolDefinitions();
   const policyTools = getPolicyToolDefinitions();
   const marketTools = getMarketToolDefinitions();
+  const researchTools = getResearchToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
   const toolDispatch = new Map<string, ToolHandler>();
 
@@ -137,6 +139,10 @@ function createLegacyRuntimeBridge(
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
 
+    for (const tool of researchTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
     for (const tool of frameworkTools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
@@ -162,6 +168,7 @@ function createLegacyRuntimeBridge(
         ...erc8004Tools.map(toMcpTool),
         ...policyTools.map(toMcpTool),
         ...marketTools.map(toMcpTool),
+        ...researchTools.map(toMcpTool),
       ];
     },
     async invokeTool(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
