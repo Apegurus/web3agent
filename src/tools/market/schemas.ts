@@ -12,6 +12,7 @@ export {
   marketGetOrderBookSchema,
   marketGetProtocolTvlSchema,
   marketGetSentimentSchema,
+  marketGetStablecoinStatsSchema,
   marketGetTickerSchema,
   marketGetTokenHistorySchema,
   marketGetTokenPriceSchema,

@@ -73,6 +73,10 @@ vi.mock("../../src/tools/tokens/index.js", () => ({
   getTokenToolDefinitions: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock("../../src/tools/market/index.js", () => ({
+  getMarketToolDefinitions: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock("../../src/tools/utility/index.js", () => ({
   setHealthStatus: (...args: unknown[]) => mockState.setHealthStatus(...args),
 }));

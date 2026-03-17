@@ -10,6 +10,7 @@ import { getAgdpToolDefinitions } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions } from "../tools/evm/index.js";
 import { getLifiToolDefinitions } from "../tools/lifi/index.js";
+import { getMarketToolDefinitions } from "../tools/market/index.js";
 import { getOrbsToolDefinitions } from "../tools/orbs/index.js";
 import { getPolicyToolDefinitions } from "../tools/policy/index.js";
 import {
@@ -72,6 +73,7 @@ function createLegacyRuntimeBridge(
   const erc8004Tools = getErc8004ToolDefinitions();
   const evmNativeTools = getEvmToolDefinitions();
   const policyTools = getPolicyToolDefinitions();
+  const marketTools = getMarketToolDefinitions();
   let goatToolNames = new Set(goatProvider.getAllToolNames());
   const toolDispatch = new Map<string, ToolHandler>();
 
@@ -131,6 +133,10 @@ function createLegacyRuntimeBridge(
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
 
+    for (const tool of marketTools) {
+      toolDispatch.set(tool.name, (args) => tool.handler(args));
+    }
+
     for (const tool of frameworkTools) {
       toolDispatch.set(tool.name, (args) => tool.handler(args));
     }
@@ -155,6 +161,7 @@ function createLegacyRuntimeBridge(
         ...agdpTools.map(toMcpTool),
         ...erc8004Tools.map(toMcpTool),
         ...policyTools.map(toMcpTool),
+        ...marketTools.map(toMcpTool),
       ];
     },
     async invokeTool(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
