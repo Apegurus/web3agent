@@ -93,6 +93,10 @@ export const chainIdOptionalSchema = z
   .optional()
   .describe("Chain ID (defaults to runtime config)");
 
+export const chainIdRequiredSchema = z
+  .number()
+  .describe("Chain ID for the target network (required — no default for indexed data)");
+
 export const tokenPairSchema = z.object({
   fromToken: z.string().describe("Source token address"),
   toToken: z.string().describe("Destination token address"),
