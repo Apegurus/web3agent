@@ -12,24 +12,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Field names normalized to `from/to` convention** across all schemas:
   - Orbs: `inAmount` → `fromAmount`, `srcToken` → `fromToken`, `dstToken` → `toToken`, `srcAmount` → `fromAmount`, `dstMinAmount` → `toMinAmount`
   - LiFi: `fromTokenAddress` → `fromToken`, `toTokenAddress` → `toToken`
+- **Spot Protocol replaces old TWAP/Limit SDK** — `prepareTwapIntent` and `prepareLimitIntent` now return `SpotOrderIntent` instead of `TwapIntent`/`LimitIntent`. Old types are deprecated and will be removed in v0.4.0. See migration notes below.
+- **`submitSignedTwapOrder` signature changed** — now an adapter wrapper accepting the old `{ order, signature: { v, r, s } }` shape but submitting via the new Spot API. Deprecated in favor of `submitSignedOrder`.
 - **EVM tool inputSchemas now generated from Zod** — all 24 EVM tools migrated from manual JSON
 
 ### Added
 
-- **Shared base schemas** — `chainIdOptionalSchema`, `tokenPairSchema`, `tokenAmountSchema`, `tokenEstimateSchema` in `common.ts`. All tool schemas extend these instead of redeclaring fields.
-- **Output Zod schemas exported** — `swapIntentSchema`, `bridgeIntentSchema`, `simulationResultSchema`, `preparedOperationSchema`, and 12 more. Consumers get runtime-validatable schemas for API outputs.
+- **Spot Protocol integration** — unified order system replacing old TWAP/Limit SDK. Pure-TypeScript implementation with EIP-712 typed data signing, no external SDK dependency for order preparation.
+  - `orbs_place_order` — unified order tool (market, chunked, limit)
+  - `orbs_prepare_order_intent` — browser-wallet intent preparation
+  - `orbs_submit_signed_order` — submit externally signed orders
+  - `orbs_query_orders` — query orders by swapper or hash
+  - `orbs_cancel_order` — on-chain order cancellation via RePermit
+  - Legacy `orbs_place_twap` and `orbs_place_limit` wrappers preserved for backwards compatibility
+- **Treasury Policy Engine** — per-transaction, hourly, and daily USD spend limits with minimum reserve enforcement. Configurable via `POLICY_*` env vars or `web3agent policy` CLI subcommand.
+  - Deny-by-default for financial tools when USD estimation fails
+  - Gas-only tools (cancels, approvals) allowed with warning
+  - Balance cache with automatic refresh on wallet change
+  - Rolling-window spend tracker with disk persistence
+- **Input sanitization** — blocks prompt injection and financial manipulation in MCP tool inputs
+- **Resilient HTTP** — `resilientFetch` with configurable retry, exponential backoff with jitter, and circuit breaker. Integrated across all HTTP call sites including Spot API.
+- **Shared base schemas** — `chainIdOptionalSchema`, `tokenPairSchema`, `tokenAmountSchema`, `tokenEstimateSchema`. All tool schemas extend these.
+- **Output Zod schemas exported** — `swapIntentSchema`, `bridgeIntentSchema`, `simulationResultSchema`, `preparedOperationSchema`, and 12 more.
 - **`agdp` and `x402` public entry points** — `import from "web3agent/agdp"` and `"web3agent/x402"` now work.
-- **109 schema quality tests** (auto-discovered) enforce `.describe()` on all schema fields.
 - **Spot API URL configurable** — set `SPOT_API_URL` env var to override the default endpoint. Required for production deployments.
+- **Agent playground example** — Vercel AI SDK example app demonstrating programmatic usage.
+- **794 tests** (up from 520) across 81 test files.
 
 ### Fixed
 
 - **Bridge/quote estimates returned token symbols instead of addresses** — `prepareBridgeIntent` and `lifi_get_quote` now return `.address` with `fromDecimals`/`toDecimals`.
+- **Limit order expiry** defaults to 24h when not specified (was falling through to 5min TTL).
+- **Balance cache precision** — uses viem `formatUnits` instead of lossy `Number(balanceWei)`.
+- **Wallet change clears balance cache** — prevents stale balance from previous wallet affecting policy decisions.
+- **Legacy queued orders** — pre-v0.3.0 TWAP/limit entries in the confirmation queue are fully converted (chunks→fromMaxAmount, fillDelay→epoch, toMinAmount→outputLimit) before replay.
+- **`submitSignedOrder` URL validation** — SDK and MCP layers both validate submit URL against configured Spot API base.
+- **`schedulePersist` race condition** — spend tracker and confirmation queue re-persist if mutations arrive during in-flight write.
+- **`riskLevel` serialized in confirmation queue** — preserved across process restarts.
 
 ### Changed
 
 - **Types derived from Zod** — 15 manual interfaces in `types.ts` replaced with `z.infer<typeof schema>`. Zod is the single source of truth.
+- **All `0x${string}` type annotations replaced with viem's `Hex` type** across 15 files.
 - **CLAUDE.md and .claude/rules** updated with shared schema conventions and field naming rules.
+
+### Migration Guide (Orbzy / downstream consumers)
+
+- `submitSignedTwapOrder({ order, signature: { v, r, s } })` still works but is deprecated. Migrate to `submitSignedOrder({ submitUrl, order, signature: hex })`.
+- `prepareTwapIntent` / `prepareLimitIntent` return `SpotOrderIntent` — signing data is at `.typedData` (not `.eip712`), order payload at `.submit.body.order`, approval at `.approval.tx`.
+- Input schemas use `fromToken`/`toToken`/`fromAmount` everywhere. Update any hardcoded old field names.
+- `TwapIntent` / `LimitIntent` types are deprecated. Use `SpotOrderIntent`.
 
 ## [0.2.0] - 2026-03-15
 
