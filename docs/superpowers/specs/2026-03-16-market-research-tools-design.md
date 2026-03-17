@@ -86,6 +86,14 @@ src/api/schemas/
 ├── research.ts           # Input schemas for research tools
 └── outputs.ts            # (extend) Output schemas for both groups
 
+src/api/
+├── market.ts             # NEW — SDK functions for market tools
+├── research.ts           # NEW — SDK functions for research tools
+├── types.ts              # (extend) Input/output types for both groups
+└── schemas/
+    ├── market.ts         # Input schemas
+    └── research.ts       # Input schemas
+
 tests/tools/market/
 ├── handlers.test.ts
 └── schemas.test.ts
@@ -93,11 +101,39 @@ tests/tools/market/
 tests/tools/research/
 ├── handlers.test.ts
 └── schemas.test.ts
+
+tests/api/
+├── market.test.ts        # SDK function tests
+└── research.test.ts      # SDK function tests
 ```
 
-### Registration
+### Two-Layer Registration
 
-Both groups follow the existing pattern. `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by `src/runtime/server.ts` and added to the tool dispatch map alongside existing groups. Both `server.ts` and `default.ts` registration points must be updated.
+Per the project's two-layer architecture, every tool must be available both via MCP and the programmatic SDK.
+
+**MCP layer:** `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by `src/runtime/server.ts` and added to the tool dispatch map alongside existing groups. Both `server.ts` and `default.ts` registration points must be updated.
+
+**SDK layer:** Each MCP tool gets a corresponding SDK function in `src/api/market.ts` or `src/api/research.ts`. SDK functions use `getRuntime()` + `invokeAndRequireData(runtime, toolName, params)` from `src/api/shared.ts` to invoke the underlying MCP tool. All SDK functions, schemas, and types are exported from `src/index.ts`.
+
+Example SDK function pattern:
+
+```typescript
+// src/api/market.ts
+import { getRuntime, invokeAndRequireData } from "./shared.js";
+import type { GetProtocolTvlInput, ProtocolTvlResult, RuntimeBoundOptions } from "./types.js";
+
+export async function getProtocolTvl(
+  params: GetProtocolTvlInput,
+  options?: RuntimeBoundOptions
+): Promise<ProtocolTvlResult> {
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ProtocolTvlResult>(runtime, "market_get_protocol_tvl", params);
+}
+```
+
+**SDK naming convention:** Tool name `market_get_protocol_tvl` → SDK function `getProtocolTvl()`. Tool name `research_contract_security` → SDK function `getContractSecurity()`. Drop the group prefix and use camelCase.
+
+**Exports:** All SDK functions, input types, and output types must be added to `src/index.ts`. Run `pnpm run build` and verify they appear in `dist/index.d.ts`.
 
 ### HTTP Calls
 
@@ -423,12 +459,21 @@ Rate limit errors from upstream APIs return a clear message suggesting the user 
 
 ## Testing Strategy
 
+**MCP tool tests** (`tests/tools/market/`, `tests/tools/research/`):
 - Mock all HTTP calls (no real API hits in tests)
 - Test both success and error paths for every handler
 - Test input validation (invalid slugs, missing required fields, out-of-range limits)
 - Test response transformation (snake_case → camelCase, timestamp → ISO, computed fields)
 - Schema quality auto-enforced by existing test
 - Integration test file that verifies both tool groups register correctly in the MCP server
+
+**SDK tests** (`tests/api/market.test.ts`, `tests/api/research.test.ts`):
+- Mock the runtime's `invokeTool` to verify SDK functions pass correct tool names and params
+- Test that SDK functions throw `Web3AgentError` on tool failures
+- Test that SDK functions accept `RuntimeBoundOptions` for custom runtime injection
+
+**Build verification:**
+- `pnpm run build` must succeed with all new exports in `dist/index.d.ts`
 
 ## Progressive Enhancement
 
