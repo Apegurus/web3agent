@@ -210,6 +210,9 @@ export const spotOrderIntentSchema = z.object({
       limit: z.string().describe("Output limit per chunk"),
     })
     .describe("Order metadata"),
+  requiredApprovals: z
+    .array(approvalStepSchema)
+    .describe("Approval transactions needed before signing"),
   warnings: z.array(z.string()).describe("Validation warnings"),
   chainId: z.number().describe("Chain ID"),
 });

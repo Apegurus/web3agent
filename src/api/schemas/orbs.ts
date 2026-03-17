@@ -24,6 +24,11 @@ export const orbsGetRequiredApprovalsSchema = z.object({
     .optional()
     .default("swap")
     .describe("Approval mode: 'swap' checks Permit2, 'order' checks RePermit"),
+  exactApproval: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("If true, approve exact amount instead of unlimited"),
 });
 
 export const orbsSubmitSignedSwapSchema = z.object({

@@ -309,6 +309,7 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
       fromAmount: prepared.approval.amount,
       account: account.address,
       mode: "order",
+      exactApproval: params.exactApproval as boolean | undefined,
     });
 
     for (const step of approvalSteps) {
@@ -354,9 +355,15 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
       signature: { v, r, s },
     });
 
+    if (!result.ok) {
+      return formatToolError(
+        "ORBS_ORDER_ERROR",
+        `Spot API returned ${result.status}: ${typeof result.response === "string" ? result.response : JSON.stringify(result.response)}`
+      );
+    }
+
     return formatToolResponse({
-      ok: result.ok,
-      status: result.status,
+      status: "submitted",
       response: result.response,
       meta: prepared.meta,
       warnings: prepared.warnings,
@@ -417,6 +424,7 @@ async function orbsPrepareOrderIntent(params: Record<string, unknown>): Promise<
       fromAmount: prepared.approval.amount,
       account: v.data.account,
       mode: "order",
+      exactApproval: v.data.exactApproval,
     });
 
     return formatToolResponse({
@@ -449,7 +457,17 @@ async function orbsSubmitSignedOrderHandler(
       signature: { v: sigV, r, s },
     });
 
-    return formatToolResponse(result);
+    if (!result.ok) {
+      return formatToolError(
+        "ORBS_ORDER_ERROR",
+        `Spot API returned ${result.status}: ${typeof result.response === "string" ? result.response : JSON.stringify(result.response)}`
+      );
+    }
+
+    return formatToolResponse({
+      status: "submitted",
+      response: result.response,
+    });
   } catch (e: unknown) {
     return formatToolError("ORBS_ORDER_ERROR", String(e));
   }
@@ -655,6 +673,7 @@ async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<C
       fromAmount: prepared.approval.amount,
       account: v.data.account,
       mode: "order",
+      exactApproval: v.data.exactApproval,
     });
 
     return formatToolResponse({
@@ -724,6 +743,7 @@ async function orbsPrepareLimitIntent(params: Record<string, unknown>): Promise<
       fromAmount: prepared.approval.amount,
       account: v.data.account,
       mode: "order",
+      exactApproval: v.data.exactApproval,
     });
 
     return formatToolResponse({

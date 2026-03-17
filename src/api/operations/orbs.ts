@@ -134,16 +134,15 @@ export async function getRequiredApprovals(
     if ((allowance as bigint) < BigInt(input.fromAmount)) {
       steps.push({
         type: "approve",
-        label:
-          mode === "order"
-            ? "Approve RePermit (unlimited allowance)"
-            : "Approve Permit2 (unlimited allowance)",
+        label: input.exactApproval
+          ? `Approve ${mode === "order" ? "RePermit" : "Permit2"} (exact amount)`
+          : `Approve ${mode === "order" ? "RePermit" : "Permit2"} (unlimited allowance)`,
         tx: {
           to: effectiveFromToken,
           data: encodeFunctionData({
             abi: SWAP_PREPARATION_ABI,
             functionName: "approve",
-            args: [spender, maxUint256],
+            args: [spender, input.exactApproval ? BigInt(input.fromAmount) : maxUint256],
           }),
         },
       });
@@ -318,6 +317,7 @@ export async function prepareOrderOperation(
       fromAmount: prepared.approval.amount,
       account: input.account,
       mode: "order",
+      exactApproval: input.exactApproval,
     });
 
     const approvalActions = createPreparedApprovalActions(chainId, requiredApprovals);

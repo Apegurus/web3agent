@@ -280,8 +280,8 @@ describe("orbs_submit_signed_order", () => {
 
     expect(result.isError).toBe(false);
     const parsed = parseResult(result);
-    expect(parsed.ok).toBe(true);
-    expect(parsed.status).toBe(200);
+    expect(parsed.status).toBe("submitted");
+    expect(parsed.response).toEqual({ hash: "0xabc" });
     expect(mockSubmitSpotOrder).toHaveBeenCalledOnce();
   });
 
@@ -302,11 +302,10 @@ describe("orbs_submit_signed_order", () => {
       signature: VALID_SIGNATURE,
     });
 
-    // The handler returns formatToolResponse wrapping the spotResult (ok: false is the data, not an error)
-    expect(result.isError).toBe(false);
+    // The handler now returns formatToolError for failed submissions
+    expect(result.isError).toBe(true);
     const parsed = parseResult(result);
-    expect(parsed.ok).toBe(false);
-    expect(parsed.status).toBe(400);
+    expect(parsed.error).toBe("ORBS_ORDER_ERROR");
   });
 
   it("returns validation error on invalid signature", async () => {
