@@ -290,6 +290,42 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
     params.dstMinAmount = undefined;
   }
 
+  // Convert legacy TWAP semantics (chunks/fillDelay → fromMaxAmount/epoch)
+  if (
+    typeof params.chunks === "number" &&
+    params.chunks >= 1 &&
+    typeof params.fillDelay === "number" &&
+    typeof params.fromAmount === "string"
+  ) {
+    const spotParams = twapParamsToSpotParams({
+      fromAmount: params.fromAmount,
+      chunks: params.chunks,
+      fillDelay: params.fillDelay,
+      slippage: typeof params.slippage === "number" ? params.slippage : undefined,
+      exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
+    });
+    params.fromAmount = spotParams.fromAmount;
+    params.fromMaxAmount = spotParams.fromMaxAmount;
+    params.epoch = spotParams.epoch;
+    params.chunks = undefined;
+    params.fillDelay = undefined;
+  }
+
+  // Convert legacy limit semantics (toMinAmount/expiry → outputLimit/deadline)
+  if (typeof params.toMinAmount === "string" && !("outputLimit" in params)) {
+    const spotParams = limitParamsToSpotParams({
+      fromAmount: params.fromAmount as string,
+      toMinAmount: params.toMinAmount,
+      expiry: typeof params.expiry === "number" ? params.expiry : undefined,
+      slippage: typeof params.slippage === "number" ? params.slippage : undefined,
+      exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
+    });
+    params.outputLimit = spotParams.outputLimit;
+    if (spotParams.deadline !== undefined) params.deadline = spotParams.deadline;
+    params.toMinAmount = undefined;
+    params.expiry = undefined;
+  }
+
   const chainId = resolveChainId(params);
 
   try {

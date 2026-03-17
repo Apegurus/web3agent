@@ -151,6 +151,3 @@ export async function submitSignedOrder(params: {
 
   return { status: "submitted", response: result.response };
 }
-
-/** @deprecated Use submitSignedOrder instead. Will be removed in v0.4.0. */
-export const submitSignedTwapOrder = submitSignedOrder;

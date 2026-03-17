@@ -14,7 +14,6 @@ export {
   prepareTwapIntent,
   submitSignedOrder,
   submitSignedSwap,
-  submitSignedTwapOrder,
 } from "./api/intents.js";
 export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
 export { cancelOrder, listOrders, placeOrder } from "./api/orders.js";
