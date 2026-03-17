@@ -73,6 +73,23 @@ import {
   tokenSwappableResultSchema,
   twapIntentSchema,
 } from "./schemas/outputs.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  explorerAddressInfoSchema,
+  explorerBlockInfoSchema,
+  explorerContractAbiSchema,
+  explorerContractSourceSchema,
+  explorerNftInventorySchema,
+  explorerNftItemSchema,
+  explorerTokenHoldingSchema,
+  explorerTokenTransferSchema,
+  explorerTokenTransfersSchema,
+  explorerTokensByAddressSchema,
+  explorerTransactionSchema,
+  explorerTxDetailsSchema,
+  explorerTxHistorySchema,
+  explorerTxReceiptSchema,
+} from "./schemas/explorer-outputs.js";
 
 export type ResolveTokenInput = z.infer<typeof resolveTokenSchema>;
 export type ListChainTokensInput = z.infer<typeof listChainTokensSchema>;
@@ -310,6 +327,21 @@ export interface ListOrdersResult {
 }
 
 export type RootResolveTokenResult = ResolvedToken;
+
+export type ExplorerAddressInfo = z.infer<typeof explorerAddressInfoSchema>;
+export type ExplorerTokenHolding = z.infer<typeof explorerTokenHoldingSchema>;
+export type ExplorerTokensByAddress = z.infer<typeof explorerTokensByAddressSchema>;
+export type ExplorerTransaction = z.infer<typeof explorerTransactionSchema>;
+export type ExplorerTxHistory = z.infer<typeof explorerTxHistorySchema>;
+export type ExplorerTxDetails = z.infer<typeof explorerTxDetailsSchema>;
+export type ExplorerTxReceipt = z.infer<typeof explorerTxReceiptSchema>;
+export type ExplorerTokenTransfer = z.infer<typeof explorerTokenTransferSchema>;
+export type ExplorerTokenTransfers = z.infer<typeof explorerTokenTransfersSchema>;
+export type ExplorerNftItem = z.infer<typeof explorerNftItemSchema>;
+export type ExplorerNftInventory = z.infer<typeof explorerNftInventorySchema>;
+export type ExplorerContractAbi = z.infer<typeof explorerContractAbiSchema>;
+export type ExplorerContractSource = z.infer<typeof explorerContractSourceSchema>;
+export type ExplorerBlockInfo = z.infer<typeof explorerBlockInfoSchema>;
 
 export type {
   CallToolResult,
