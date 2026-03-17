@@ -18,6 +18,11 @@ function resolveChainId(chainId?: number): number {
   return chainId ?? (process.env.CHAIN_ID ? Number(process.env.CHAIN_ID) : 1);
 }
 
+function goplusHeaders(): Record<string, string> {
+  const key = process.env.GOPLUS_API_KEY;
+  return key ? { Authorization: key } : {};
+}
+
 // ── getContractSecurity ───────────────────────────────────────────
 
 interface GoPlusContractData {
@@ -54,7 +59,7 @@ export async function getContractSecurity(input: {
   const url = `https://api.gopluslabs.io/api/v1/contract_security/${chainId}?contract_addresses=${input.address}`;
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
-    const res = await resilientFetch(url, undefined, GOPLUS_FETCH_CONFIG);
+    const res = await resilientFetch(url, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG);
     return (await res.json()) as { result: Record<string, GoPlusContractData> };
   });
 
@@ -96,6 +101,13 @@ export async function getContractSecurity(input: {
 
 // ── getTokenDueDiligence ──────────────────────────────────────────
 
+interface GoPlusLpHolder {
+  address: string;
+  balance: string;
+  percent: string;
+  is_locked?: number;
+}
+
 interface GoPlusTokenData {
   is_honeypot?: string;
   buy_tax?: string;
@@ -104,6 +116,8 @@ interface GoPlusTokenData {
   lp_holder_count?: string;
   is_open_source?: string;
   creator_address?: string;
+  lp_holders?: GoPlusLpHolder[];
+  holders?: Array<{ address: string; balance: string; percent: string }>;
 }
 
 interface DexScreenerPair {
@@ -121,6 +135,9 @@ export interface TokenDueDiligenceResult {
   sellTax: number | null;
   liquidityUsd: number | null;
   holderCount: number | null;
+  lpLocked: boolean | null;
+  topHolderPercent: number | null;
+  totalSupply: string | null;
   createdAt: string | null;
   riskLevel: "low" | "medium" | "high";
   warnings: string[];
@@ -150,7 +167,7 @@ export async function getTokenDueDiligence(input: {
   const dexscreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
 
   const [goplusSettled, dexscreenerSettled] = await Promise.allSettled([
-    resilientFetch(goplusUrl, undefined, GOPLUS_FETCH_CONFIG).then(
+    resilientFetch(goplusUrl, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG).then(
       (res) => res.json() as Promise<{ result: Record<string, GoPlusTokenData> }>
     ),
     resilientFetch(dexscreenerUrl, undefined, {
@@ -167,6 +184,8 @@ export async function getTokenDueDiligence(input: {
   let buyTax: number | null = null;
   let sellTax: number | null = null;
   let holderCount: number | null = null;
+  let lpLocked: boolean | null = null;
+  let topHolderPercent: number | null = null;
 
   if (goplusSettled.status === "fulfilled") {
     sources.push("goplus");
@@ -177,6 +196,14 @@ export async function getTokenDueDiligence(input: {
       buyTax = tokenData.buy_tax != null ? Number(tokenData.buy_tax) : null;
       sellTax = tokenData.sell_tax != null ? Number(tokenData.sell_tax) : null;
       holderCount = tokenData.holder_count != null ? Number(tokenData.holder_count) : null;
+
+      if (tokenData.lp_holders != null) {
+        lpLocked = tokenData.lp_holders.some((lp) => lp.is_locked === 1);
+      }
+
+      if (tokenData.holders != null && tokenData.holders.length > 0) {
+        topHolderPercent = Math.max(...tokenData.holders.map((h) => Number(h.percent)));
+      }
     }
   } else {
     warnings.push("goplus");
@@ -225,6 +252,10 @@ export async function getTokenDueDiligence(input: {
     sellTax,
     liquidityUsd,
     holderCount,
+    lpLocked,
+    topHolderPercent,
+    // On-chain totalSupply read deferred — requires chain-specific publicClient setup
+    totalSupply: null as string | null,
     createdAt,
     riskLevel,
     warnings,
@@ -259,7 +290,7 @@ export async function getTokenHolders(input: {
   const url = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${input.token}`;
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
-    const res = await resilientFetch(url, undefined, GOPLUS_FETCH_CONFIG);
+    const res = await resilientFetch(url, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG);
     return (await res.json()) as {
       result: Record<string, { holders?: GoPlusHolder[] }>;
     };

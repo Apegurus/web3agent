@@ -74,9 +74,58 @@ describe("getContractSecurity", () => {
 
     expect(mockResilientFetch).toHaveBeenCalledWith(
       `https://api.gopluslabs.io/api/v1/contract_security/1?contract_addresses=${MOCK_CONTRACT_ADDRESS}`,
-      undefined,
+      expect.objectContaining({ headers: expect.any(Object) }),
       expect.objectContaining({ label: "goplus" })
     );
+  });
+
+  it("passes Authorization header when GOPLUS_API_KEY is set", async () => {
+    const originalKey = process.env.GOPLUS_API_KEY;
+    process.env.GOPLUS_API_KEY = "test-api-key";
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockGoPlusContractResponse), { status: 200 })
+    );
+
+    try {
+      await getContractSecurity({ address: MOCK_CONTRACT_ADDRESS, chainId: 1 });
+
+      expect(mockResilientFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        { headers: { Authorization: "test-api-key" } },
+        expect.anything()
+      );
+    } finally {
+      if (originalKey === undefined) {
+        // biome-ignore lint/performance/noDelete: restoring env to unset state
+        delete process.env.GOPLUS_API_KEY;
+      } else {
+        process.env.GOPLUS_API_KEY = originalKey;
+      }
+    }
+  });
+
+  it("passes empty headers when GOPLUS_API_KEY is not set", async () => {
+    const originalKey = process.env.GOPLUS_API_KEY;
+    // biome-ignore lint/performance/noDelete: need to fully unset env var for test
+    delete process.env.GOPLUS_API_KEY;
+
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify(mockGoPlusContractResponse), { status: 200 })
+    );
+
+    try {
+      await getContractSecurity({ address: MOCK_CONTRACT_ADDRESS, chainId: 1 });
+
+      expect(mockResilientFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        { headers: {} },
+        expect.anything()
+      );
+    } finally {
+      if (originalKey !== undefined) {
+        process.env.GOPLUS_API_KEY = originalKey;
+      }
+    }
   });
 
   it("returns maliciousFlags when issues are detected", async () => {
@@ -113,7 +162,7 @@ describe("getContractSecurity", () => {
 
     expect(mockResilientFetch).toHaveBeenCalledWith(
       expect.stringContaining("/contract_security/1?"),
-      undefined,
+      expect.objectContaining({ headers: expect.any(Object) }),
       expect.anything()
     );
   });
@@ -180,6 +229,9 @@ describe("getTokenDueDiligence", () => {
     expect(result.warnings).toEqual([]);
     expect(result.sources).toContain("goplus");
     expect(result.sources).toContain("dexscreener");
+    expect(result.lpLocked).toBeNull();
+    expect(result.topHolderPercent).toBeNull();
+    expect(result.totalSupply).toBeNull();
   });
 
   it("returns partial result with warning when one source fails", async () => {
@@ -299,6 +351,97 @@ describe("getTokenDueDiligence", () => {
 
     await expect(getTokenDueDiligence({ token: MOCK_TOKEN_ADDRESS, chainId: 1 })).rejects.toThrow();
   });
+
+  it("sets lpLocked to true when any LP holder has is_locked === 1", async () => {
+    const responseWithLockedLp = {
+      result: {
+        [MOCK_TOKEN_ADDRESS.toLowerCase()]: {
+          is_honeypot: "0",
+          buy_tax: "0.01",
+          sell_tax: "0.01",
+          holder_count: "5000",
+          lp_holders: [
+            { address: "0xlp1", balance: "1000", percent: "0.5", is_locked: 1 },
+            { address: "0xlp2", balance: "500", percent: "0.25", is_locked: 0 },
+          ],
+        },
+      },
+    };
+
+    mockResilientFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify(responseWithLockedLp), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mockDexScreenerResponse), { status: 200 })
+      );
+
+    const result = await getTokenDueDiligence({ token: MOCK_TOKEN_ADDRESS, chainId: 1 });
+
+    expect(result.lpLocked).toBe(true);
+  });
+
+  it("sets lpLocked to false when no LP holder has is_locked === 1", async () => {
+    const responseWithUnlockedLp = {
+      result: {
+        [MOCK_TOKEN_ADDRESS.toLowerCase()]: {
+          is_honeypot: "0",
+          buy_tax: "0.01",
+          sell_tax: "0.01",
+          holder_count: "5000",
+          lp_holders: [{ address: "0xlp1", balance: "1000", percent: "0.5", is_locked: 0 }],
+        },
+      },
+    };
+
+    mockResilientFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify(responseWithUnlockedLp), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mockDexScreenerResponse), { status: 200 })
+      );
+
+    const result = await getTokenDueDiligence({ token: MOCK_TOKEN_ADDRESS, chainId: 1 });
+
+    expect(result.lpLocked).toBe(false);
+  });
+
+  it("sets topHolderPercent to the largest holder percent when holders are present", async () => {
+    const responseWithHolders = {
+      result: {
+        [MOCK_TOKEN_ADDRESS.toLowerCase()]: {
+          is_honeypot: "0",
+          buy_tax: "0.01",
+          sell_tax: "0.01",
+          holder_count: "5000",
+          holders: [
+            { address: "0xh1", balance: "1000", percent: "0.15" },
+            { address: "0xh2", balance: "500", percent: "0.08" },
+            { address: "0xh3", balance: "200", percent: "0.03" },
+          ],
+        },
+      },
+    };
+
+    mockResilientFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify(responseWithHolders), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mockDexScreenerResponse), { status: 200 })
+      );
+
+    const result = await getTokenDueDiligence({ token: MOCK_TOKEN_ADDRESS, chainId: 1 });
+
+    expect(result.topHolderPercent).toBe(0.15);
+  });
+
+  it("always returns totalSupply as null (on-chain read deferred)", async () => {
+    mockResilientFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify(mockGoPlusTokenResponse), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mockDexScreenerResponse), { status: 200 })
+      );
+
+    const result = await getTokenDueDiligence({ token: MOCK_TOKEN_ADDRESS, chainId: 1 });
+
+    expect(result.totalSupply).toBeNull();
+  });
 });
 
 // ── getTokenHolders ───────────────────────────────────────────────
@@ -394,7 +537,7 @@ describe("getTokenHolders", () => {
 
     expect(mockResilientFetch).toHaveBeenCalledWith(
       `https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=${MOCK_TOKEN_ADDRESS}`,
-      undefined,
+      expect.objectContaining({ headers: expect.any(Object) }),
       expect.objectContaining({ label: "goplus" })
     );
   });
