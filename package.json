@@ -46,7 +46,13 @@
   "bin": {
     "web3agent": "dist/cli.js"
   },
-  "files": ["dist", "examples", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "examples",
+    "WEB3_CONTEXT.md",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -74,6 +80,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
+    "@orbs-network/twap-ui": "4.0.26-fix.1",
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
