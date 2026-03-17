@@ -40,9 +40,13 @@ import {
   orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
+  orbsPlaceLimitSchema,
   orbsPlaceOrderSchema,
+  orbsPlaceTwapSchema,
+  orbsPrepareLimitIntentSchema,
   orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
+  orbsPrepareTwapIntentSchema,
   orbsQueryOrdersSchema,
   orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
@@ -550,6 +554,193 @@ async function orbsCancelOrder(params: Record<string, unknown>): Promise<CallToo
   });
 }
 
+/* ---------- TWAP / Limit param mapping ---------- */
+
+function twapParamsToSpotParams(params: {
+  fromAmount: string;
+  chunks: number;
+  fillDelay: number;
+  slippage?: number;
+  exactApproval?: boolean;
+}): {
+  fromAmount: string;
+  fromMaxAmount: string;
+  epoch: number;
+  slippage?: number;
+  exactApproval?: boolean;
+} {
+  const totalAmount = BigInt(params.fromAmount);
+  const perChunkAmount = totalAmount / BigInt(params.chunks);
+  return {
+    fromAmount: perChunkAmount.toString(),
+    fromMaxAmount: params.fromAmount,
+    epoch: params.fillDelay,
+    slippage: params.slippage,
+    exactApproval: params.exactApproval,
+  };
+}
+
+function limitParamsToSpotParams(params: {
+  fromAmount: string;
+  toMinAmount: string;
+  expiry?: number;
+  slippage?: number;
+  exactApproval?: boolean;
+}): {
+  fromAmount: string;
+  outputLimit: string;
+  deadline?: number;
+  slippage?: number;
+  exactApproval?: boolean;
+} {
+  return {
+    fromAmount: params.fromAmount,
+    outputLimit: params.toMinAmount,
+    deadline:
+      params.expiry !== undefined ? Math.floor(Date.now() / 1000) + params.expiry : undefined,
+    slippage: params.slippage,
+    exactApproval: params.exactApproval,
+  };
+}
+
+/* ---------- TWAP wrapper handlers ---------- */
+
+async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPlaceTwapSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  const spotParams = twapParamsToSpotParams(v.data);
+
+  return executeWrite({
+    toolName: "orbs_place_order",
+    description: `TWAP order: ${v.data.fromAmount} of ${v.data.fromToken} → ${v.data.toToken}, ${v.data.chunks} chunks, ${v.data.fillDelay}s delay on chain ${chainId}`,
+    params: {
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      chainId,
+      ...spotParams,
+    } as Record<string, unknown>,
+    executor: executeSpotOrderNow,
+  });
+}
+
+async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareTwapIntentSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  try {
+    const spotParams = twapParamsToSpotParams(v.data);
+
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: v.data.account,
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      ...spotParams,
+    });
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: v.data.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: v.data.account,
+      mode: "order",
+    });
+
+    return formatToolResponse({
+      typedData: prepared.typedData,
+      approval: prepared.approval,
+      submit: prepared.submit,
+      query: prepared.query,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+      requiredApprovals,
+      chainId,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_TWAP_ERROR", String(e));
+  }
+}
+
+/* ---------- Limit wrapper handlers ---------- */
+
+async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPlaceLimitSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  const spotParams = limitParamsToSpotParams(v.data);
+
+  return executeWrite({
+    toolName: "orbs_place_order",
+    description: `Limit order: ${v.data.fromAmount} of ${v.data.fromToken} → ${v.data.toToken}, min output ${v.data.toMinAmount} on chain ${chainId}`,
+    params: {
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      chainId,
+      ...spotParams,
+    } as Record<string, unknown>,
+    executor: executeSpotOrderNow,
+  });
+}
+
+async function orbsPrepareLimitIntent(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareLimitIntentSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  try {
+    const spotParams = limitParamsToSpotParams(v.data);
+
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: v.data.account,
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      ...spotParams,
+    });
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: v.data.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: v.data.account,
+      mode: "order",
+    });
+
+    return formatToolResponse({
+      typedData: prepared.typedData,
+      approval: prepared.approval,
+      submit: prepared.submit,
+      query: prepared.query,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+      requiredApprovals,
+      chainId,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_LIMIT_ERROR", String(e));
+  }
+}
+
 /* ---------- Tool definitions ---------- */
 
 export function getOrbsToolDefinitions(): ToolDefinition[] {
@@ -610,6 +801,45 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       description: "Check the status of a pending Orbs Liquidity Hub swap",
       inputSchema: zodToJsonSchema(orbsSwapStatusSchema) as Record<string, unknown>,
       handler: orbsSwapStatus,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_place_twap",
+      category: "orders",
+      description:
+        "Place a TWAP (time-weighted average price) order via Spot protocol. " +
+        "Splits fromAmount into equal chunks executed at regular intervals. Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsPlaceTwapSchema) as Record<string, unknown>,
+      handler: orbsPlaceTwap,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_twap_intent",
+      category: "orders",
+      description:
+        "Prepare a TWAP order for external wallet signing. Returns EIP-712 typed data, approval calldata, and metadata.",
+      inputSchema: zodToJsonSchema(orbsPrepareTwapIntentSchema) as Record<string, unknown>,
+      handler: orbsPrepareTwapIntent,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_place_limit",
+      category: "orders",
+      description:
+        "Place a limit order via Spot protocol. Executes only when output meets minimum amount. Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsPlaceLimitSchema) as Record<string, unknown>,
+      handler: orbsPlaceLimit,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_limit_intent",
+      category: "orders",
+      description:
+        "Prepare a limit order for external wallet signing. Returns EIP-712 typed data, approval calldata, and metadata.",
+      inputSchema: zodToJsonSchema(orbsPrepareLimitIntentSchema) as Record<string, unknown>,
+      handler: orbsPrepareLimitIntent,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {

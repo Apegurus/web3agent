@@ -389,6 +389,268 @@ describe("orbs_query_orders", () => {
   });
 });
 
+describe("orbs_place_twap", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("maps chunks and fillDelay to fromMaxAmount and epoch", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_twap") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    // With confirmation queue enabled, should queue
+    expect(result.isError).toBe(false);
+    const parsed = parseResult(result);
+    expect(parsed.status).toBe("pending_confirmation");
+  });
+
+  it("rejects unsupported chain", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_twap") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 1,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("CHAIN_NOT_SUPPORTED");
+  });
+
+  it("validates required fields (missing chunks)", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_twap") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("INVALID_PARAMS");
+  });
+});
+
+describe("orbs_prepare_twap_intent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrepareSpotOrder.mockReturnValue(MOCK_PREPARED_ORDER);
+    mockGetRequiredApprovals.mockResolvedValue([]);
+  });
+
+  it("maps chunks/fillDelay and passes correct params to prepareSpotOrder", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_twap_intent") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(false);
+    const parsed = parseResult(result);
+    expect(parsed).toHaveProperty("typedData");
+    expect(parsed).toHaveProperty("approval");
+    expect(parsed.chainId).toBe(137);
+
+    // Verify prepareSpotOrder was called with mapped params
+    expect(mockPrepareSpotOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromAmount: "200000", // 1000000 / 5
+        fromMaxAmount: "1000000",
+        epoch: 300,
+      })
+    );
+  });
+
+  it("rejects unsupported chain", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_twap_intent") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 1,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("CHAIN_NOT_SUPPORTED");
+  });
+});
+
+describe("orbs_place_limit", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("maps toMinAmount to outputLimit and queues write", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_limit") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      toMinAmount: "500000",
+    });
+
+    expect(result.isError).toBe(false);
+    const parsed = parseResult(result);
+    expect(parsed.status).toBe("pending_confirmation");
+  });
+
+  it("rejects unsupported chain", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_limit") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 1,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      toMinAmount: "500000",
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("CHAIN_NOT_SUPPORTED");
+  });
+
+  it("validates required fields (missing toMinAmount)", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_limit") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("INVALID_PARAMS");
+  });
+});
+
+describe("orbs_prepare_limit_intent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrepareSpotOrder.mockReturnValue(MOCK_PREPARED_ORDER);
+    mockGetRequiredApprovals.mockResolvedValue([]);
+  });
+
+  it("maps toMinAmount to outputLimit and passes to prepareSpotOrder", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_limit_intent") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      toMinAmount: "500000",
+    });
+
+    expect(result.isError).toBe(false);
+    const parsed = parseResult(result);
+    expect(parsed).toHaveProperty("typedData");
+    expect(parsed).toHaveProperty("approval");
+    expect(parsed.chainId).toBe(137);
+
+    // Verify prepareSpotOrder was called with outputLimit
+    expect(mockPrepareSpotOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromAmount: "1000000",
+        outputLimit: "500000",
+      })
+    );
+  });
+
+  it("calculates deadline from expiry", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_limit_intent") as ToolDefinition;
+
+    const beforeTs = Math.floor(Date.now() / 1000);
+
+    const result = await tool.handler({
+      chainId: 137,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      toMinAmount: "500000",
+      expiry: 86400,
+    });
+
+    expect(result.isError).toBe(false);
+
+    const callArgs = mockPrepareSpotOrder.mock.calls[0][0] as Record<string, unknown>;
+    const deadline = callArgs.deadline as number;
+    expect(deadline).toBeGreaterThanOrEqual(beforeTs + 86400);
+    expect(deadline).toBeLessThanOrEqual(beforeTs + 86400 + 5); // allow 5s tolerance
+  });
+
+  it("rejects unsupported chain", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_limit_intent") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 1,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      toMinAmount: "500000",
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("CHAIN_NOT_SUPPORTED");
+  });
+});
+
 describe("orbs_cancel_order", () => {
   beforeEach(() => {
     vi.clearAllMocks();

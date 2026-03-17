@@ -10,9 +10,11 @@ import type {
   BridgeIntent,
   GetRequiredApprovalsInput,
   PrepareBridgeIntentInput,
+  PrepareLimitIntentInput,
   PrepareOperationInput,
   PrepareOrderIntentInput,
   PrepareSwapIntentInput,
+  PrepareTwapIntentInput,
   PreparedOperation,
   SpotOrderIntent,
   SwapIntent,
@@ -92,6 +94,31 @@ export async function prepareOrderIntent(
   }
 
   return getCompatibilityIntent<SpotOrderIntent>(result, "order");
+}
+
+export async function prepareTwapIntent(params: PrepareTwapIntentInput): Promise<SpotOrderIntent> {
+  const totalAmount = BigInt(params.fromAmount);
+  const perChunkAmount = totalAmount / BigInt(params.chunks);
+
+  return prepareOrderIntent({
+    ...params,
+    fromAmount: perChunkAmount.toString(),
+    fromMaxAmount: params.fromAmount,
+    epoch: params.fillDelay,
+  });
+}
+
+export async function prepareLimitIntent(
+  params: PrepareLimitIntentInput
+): Promise<SpotOrderIntent> {
+  const orderParams: PrepareOrderIntentInput = {
+    ...params,
+    outputLimit: params.toMinAmount,
+  };
+  if (params.expiry !== undefined) {
+    orderParams.deadline = Math.floor(Date.now() / 1000) + params.expiry;
+  }
+  return prepareOrderIntent(orderParams);
 }
 
 export async function submitSignedOrder(params: {

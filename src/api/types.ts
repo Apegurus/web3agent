@@ -26,9 +26,13 @@ import type {
   orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
+  orbsPlaceLimitSchema,
   orbsPlaceOrderSchema,
+  orbsPlaceTwapSchema,
+  orbsPrepareLimitIntentSchema,
   orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
+  orbsPrepareTwapIntentSchema,
   orbsQueryOrdersSchema,
   orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
@@ -82,6 +86,10 @@ export type SubmitSignedSwapInput = z.infer<typeof orbsSubmitSignedSwapSchema>;
 export type SwapStatusInput = z.infer<typeof orbsSwapStatusSchema>;
 export type PlaceOrderInput = z.infer<typeof orbsPlaceOrderSchema>;
 export type PrepareOrderIntentInput = z.infer<typeof orbsPrepareOrderIntentSchema>;
+export type PlaceTwapOrderInput = z.infer<typeof orbsPlaceTwapSchema>;
+export type PrepareTwapIntentInput = z.infer<typeof orbsPrepareTwapIntentSchema>;
+export type PlaceLimitOrderInput = z.infer<typeof orbsPlaceLimitSchema>;
+export type PrepareLimitIntentInput = z.infer<typeof orbsPrepareLimitIntentSchema>;
 export type SubmitSignedOrderInput = z.infer<typeof orbsSubmitSignedOrderSchema>;
 export type QueryOrdersInput = z.infer<typeof orbsQueryOrdersSchema>;
 export type CancelOrderInput = z.infer<typeof orbsCancelOrderSchema>;

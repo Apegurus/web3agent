@@ -87,6 +87,42 @@ export const orbsPrepareOrderIntentSchema = orbsPlaceOrderSchema.extend({
   account: addressSchema.describe("Swapper wallet address"),
 });
 
+export const orbsPlaceTwapSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
+  chunks: z
+    .number({ required_error: "chunks is required" })
+    .describe("Number of chunks to split the order into"),
+  fillDelay: z
+    .number({ required_error: "fillDelay is required" })
+    .describe("Delay between chunk fills in seconds"),
+  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  exactApproval: z
+    .boolean()
+    .optional()
+    .describe("If true, approve only the exact amount needed instead of unlimited"),
+});
+
+export const orbsPrepareTwapIntentSchema = orbsPlaceTwapSchema.extend({
+  account: addressSchema.describe("Swapper wallet address"),
+});
+
+export const orbsPlaceLimitSchema = tokenAmountSchema.extend({
+  chainId: chainIdOptionalSchema,
+  toMinAmount: z
+    .string({ required_error: "toMinAmount is required" })
+    .describe("Minimum output amount in smallest token units"),
+  expiry: z.number().optional().describe("Order expiry in seconds from now (default 86400 = 24h)"),
+  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  exactApproval: z
+    .boolean()
+    .optional()
+    .describe("If true, approve only the exact amount needed instead of unlimited"),
+});
+
+export const orbsPrepareLimitIntentSchema = orbsPlaceLimitSchema.extend({
+  account: addressSchema.describe("Swapper wallet address"),
+});
+
 export const orbsSubmitSignedOrderSchema = z.object({
   submitUrl: z.string().describe("Submit URL from prepare step"),
   order: z.record(z.unknown()).describe("Order witness object from prepare step"),
