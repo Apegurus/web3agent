@@ -4,25 +4,41 @@
 
 **Goal:** Add 25 remaining explorer tools (15 Phase 2 + 10 Phase 3) to the unified block explorer module. All infrastructure (clients, router, normalization pattern, SDK pattern, runtime registration) is already in place from Phase 1.
 
-**Architecture:** Extend existing files only. Each tool follows the same 6-step pattern: output schema → input schema → tool handler → SDK function → exports → test.
+**Architecture:** Extend existing files. Each tool follows a 7-step pattern. Phase 3 creates 2 new normalization files (`events.ts`, `network.ts`) plus their test files.
 
 **Spec:** `docs/superpowers/specs/2026-03-16-unified-block-explorer-design.md`
 
+**Etherscan API note:** All endpoints verified against Etherscan docs. Some (network stats, token supply history) may be Pro-only on certain chains. Handlers must catch Etherscan errors and return `EXPLORER_API_ERROR` with a clear message if the endpoint is unavailable.
+
 ---
 
-## Per-Tool Pattern (copy for each tool)
+## Per-Tool Pattern (7 steps)
 
 Every new tool requires changes in exactly these files:
 
-1. `src/api/schemas/explorer-outputs.ts` — add output Zod schema
-2. `src/api/types.ts` — add `z.infer<>` type alias
-3. `src/tools/explorer/schemas.ts` — add input schema (extend base)
-4. `src/tools/explorer/index.ts` — add tool definition + handler
-5. `src/api/explorer.ts` — add SDK function
-6. `src/index.ts` — add to exports (schema + type + function)
-7. `tests/` — add normalization + handler tests
+1. `src/api/explorer/etherscan/types.ts` — add raw Etherscan response type (if not already defined)
+2. `src/api/schemas/explorer-outputs.ts` — add output Zod schema (all fields `.describe()`)
+3. `src/api/types.ts` — add `z.infer<>` type alias
+4. `src/tools/explorer/schemas.ts` — add input schema (extend base)
+5. `src/tools/explorer/index.ts` — add tool definition + handler
+6. `src/api/explorer.ts` — add SDK function
+7. `src/index.ts` — add to exports (output schema + input schema + type + function)
 
-No new files needed except normalization functions in existing `src/api/explorer/*.ts` files.
+**For Etherscan-only tools** (no Blockscout equivalent): use `requireEtherscan()` directly without `withFallback`. Example from Phase 1:
+```typescript
+async (input: SomeInput) => {
+  const eth = requireEtherscan();
+  const raw = await eth.call<SomeEtherscanType>(input.chainId, "module", "action", { ... });
+  return normalizeSomething(raw);
+}
+```
+
+**New files needed:**
+- `src/api/explorer/events.ts` + `tests/api/explorer/events.test.ts` (Task 7)
+- `src/api/explorer/network.ts` + `tests/api/explorer/network.test.ts` (Tasks 8-9)
+- `src/api/schemas/explorer.ts` gets `explorerDateRangeSchema` added (Task 8)
+
+**Test locations:** Normalization tests in `tests/api/explorer/<domain>.test.ts`. Handler tests appended to `tests/tools/explorer/explorer-tools.test.ts`.
 
 ---
 
@@ -53,7 +69,8 @@ eth.call<EtherscanTransaction[]>(chainId, "account", "txlist", { address, sort: 
 
 - [ ] Add output schemas + types
 - [ ] Add input schemas
-- [ ] Add 3 tool handlers (Etherscan-only, no withFallback needed — capability `historical_balance`)
+- [ ] Add Etherscan response types for historical balance if needed
+- [ ] Add 3 tool handlers (Etherscan-only — use `requireEtherscan()` directly, no `withFallback`)
 - [ ] Add 3 SDK functions
 - [ ] Add exports
 - [ ] Add tests
@@ -74,6 +91,7 @@ eth.call<EtherscanTransaction[]>(chainId, "account", "txlist", { address, sort: 
 explorerInternalTxSchema = z.object({
   hash, blockNumber, timestamp, from, to, value, gasUsed,
   type: z.string().describe("Call type (call, delegatecall, create, etc.)"),
+  traceId: z.string().optional().describe("Trace ID for distinguishing internal calls"),
   errCode: z.string().optional().describe("Error code if failed"),
   isError: z.boolean().describe("Whether the internal tx failed"),
 })
@@ -117,32 +135,36 @@ const [erc721, erc1155] = await Promise.all([
 
 - [ ] Add type (EtherscanNftTransfer) to etherscan/types.ts
 - [ ] Add input schema
-- [ ] Add normalization + tool handler
-- [ ] Add SDK function + exports + tests
+- [ ] Add normalization function to `src/api/explorer/tokens.ts`
+- [ ] Add tool handler
+- [ ] Add SDK function
+- [ ] Add exports
+- [ ] Add tests to `tests/api/explorer/tokens.test.ts`
 - [ ] Commit: `feat(explorer): add NFT transfer history tool`
 
 ### Task 4: Tokens — 4 tools
 
 **Tools:**
 - `explorer_get_token_info` — `token/tokeninfo`
-- `explorer_get_token_supply` — `stats/tokensupply` (+ historical via `stats/tokensupplyhistory`)
+- `explorer_get_token_supply` — `token/tokensupply` (current) + `token/tokensupplyhistory` (at block)
 - `explorer_get_token_holders` — `token/tokenholderlist`
-- `explorer_get_top_token_holders` — `token/tokenholderlist` with `page=1&offset=N`
+- `explorer_get_top_token_holders` — `token/toptokenholders`
 
-**Input schemas:** All extend `explorerContractSchema` (has `contractAddress` + `chainId`). Top holders adds `count: z.number().optional()`.
+**Input schemas:** All extend `explorerContractSchema` (has `contractAddress` + `chainId`). Supply adds optional `blockNumber`. Top holders adds `count: z.number().optional()`.
 
 **Output schemas:**
 ```typescript
 explorerTokenInfoSchema = z.object({
-  contractAddress, name, symbol, decimals, totalSupply,
+  contractAddress, name, symbol, decimals: z.number().optional(), totalSupply: z.string().optional(),
   website: z.string().optional(), description: z.string().optional(),
   socialProfiles: z.record(z.string()).optional()
 })
-explorerTokenSupplySchema = z.object({ contractAddress, totalSupply, decimals })
-explorerTokenHolderSchema = z.object({ address, balance, share: z.string().optional() })
+explorerTokenSupplySchema = z.object({ contractAddress, totalSupply: z.string(), decimals: z.number().optional() })
+explorerTokenHolderSchema = z.object({ address, balance: z.string(), share: z.string().optional() })
 explorerTokenHoldersSchema = z.object({ holders: z.array(explorerTokenHolderSchema), hasMore })
 ```
 
+- [ ] Add Etherscan response types (EtherscanTokenInfo, EtherscanTokenHolder) to etherscan/types.ts
 - [ ] Add output schemas + types
 - [ ] Add input schemas
 - [ ] Add 4 tool handlers + normalization
@@ -163,8 +185,14 @@ explorerTokenHoldersSchema = z.object({ holders: z.array(explorerTokenHolderSche
 
 **Output schemas:**
 ```typescript
-explorerBlockByTimestampSchema = z.object({ blockNumber: z.number() })
-explorerBlockRewardsSchema = z.object({ blockNumber, miner, blockReward, uncleReward, uncles: z.array(...) })
+explorerBlockByTimestampSchema = z.object({ blockNumber: z.number().describe("Block number") })
+explorerBlockRewardsSchema = z.object({
+  blockNumber: z.number(), miner: z.string(), blockReward: z.string(),
+  uncleInclusionReward: z.string().describe("Reward paid to miner for including uncles"),
+  uncles: z.array(z.object({
+    miner: z.string(), unclePosition: z.string(), blockreward: z.string()
+  })).describe("Individual uncle block rewards"),
+})
 // By validator reuses explorerBlockInfoSchema in an array wrapper
 ```
 
@@ -217,23 +245,27 @@ explorerGetEventLogsSchema = explorerAddressSchema.merge(explorerTimeRangeSchema
 **Output schemas:**
 ```typescript
 explorerEventLogSchema = z.object({
-  address, topics: z.array(z.string()), data: z.string(),
-  blockNumber, timestamp, txHash, logIndex,
+  address: z.string(), topics: z.array(z.string()), data: z.string(),
+  blockNumber: z.number(), timestamp: z.string(), txHash: z.string(), logIndex: z.number(),
 })
 explorerEventLogsSchema = z.object({ logs: z.array(explorerEventLogSchema), hasMore })
 ```
 
+- [ ] Add Etherscan response type (EtherscanEventLog) to etherscan/types.ts
+- [ ] Create `src/api/explorer/events.ts` with normalization functions
 - [ ] Add output schemas + types
 - [ ] Add input schemas
-- [ ] Add 2 tool handlers + normalization
-- [ ] Add 2 SDK functions + exports + tests
+- [ ] Add 2 tool handlers
+- [ ] Add 2 SDK functions
+- [ ] Add exports
+- [ ] Create `tests/api/explorer/events.test.ts` with normalization tests
 - [ ] Commit: `feat(explorer): add event log query tools`
 
 ### Task 8: Network Statistics — 5 tools
 
 **Tools:**
 - `explorer_get_daily_tx_count` — `stats/dailytx`
-- `explorer_get_daily_gas_used` — `stats/dailyavggasused` (note: actual endpoint may be `stats/dailygasused`)
+- `explorer_get_daily_gas_used` — `stats/dailyavggasused`
 - `explorer_get_daily_new_addresses` — `stats/dailynewaddress`
 - `explorer_get_daily_block_rewards` — `stats/dailyblockrewards`
 - `explorer_get_network_utilization` — `stats/dailynetutilization`
@@ -261,10 +293,14 @@ explorerDailyStatsSchema = z.object({
 
 All 5 tools share the same input/output shape — only the Etherscan action differs.
 
-- [ ] Add shared date range input schema
+- [ ] Add Etherscan response type (EtherscanDailyStat) to etherscan/types.ts
+- [ ] Add `explorerDateRangeSchema` to `src/api/schemas/explorer.ts`
+- [ ] Create `src/api/explorer/network.ts` with normalization functions
 - [ ] Add shared daily stats output schema + type
-- [ ] Add 5 tool handlers (thin wrappers around same pattern)
-- [ ] Add 5 SDK functions + exports + tests
+- [ ] Add 5 tool handlers (thin wrappers — each just changes the Etherscan `action` string)
+- [ ] Add 5 SDK functions
+- [ ] Add exports
+- [ ] Create `tests/api/explorer/network.test.ts` with normalization tests
 - [ ] Commit: `feat(explorer): add network statistics tools`
 
 ### Task 9: Price & Supply — 3 tools
@@ -293,20 +329,25 @@ explorerNativeSupplySchema = z.object({
 })
 ```
 
+- [ ] Add Etherscan response types (EtherscanPrice, EtherscanSupply) to etherscan/types.ts
 - [ ] Add output schemas + types
 - [ ] Add input schemas
-- [ ] Add 3 tool handlers + normalization
-- [ ] Add 3 SDK functions + exports + tests
+- [ ] Add normalization functions to `src/api/explorer/network.ts`
+- [ ] Add 3 tool handlers
+- [ ] Add 3 SDK functions
+- [ ] Add exports
+- [ ] Add tests to `tests/api/explorer/network.test.ts`
 - [ ] Commit: `feat(explorer): add price and supply tools`
 
 ---
 
 ## Task 10: Final Integration
 
-- [ ] Update `getExplorerToolDefinitions` count in tests (should be 35)
+- [ ] Update `getExplorerToolDefinitions` count in `tests/tools/explorer/explorer-tools.test.ts` (should be 35)
 - [ ] Run: `pnpm run lint && pnpm run typecheck && pnpm run build && pnpm test`
+- [ ] Verify schema-quality tests pass (all new schemas have `.describe()`)
 - [ ] Verify all 35 tools appear in tool definitions
-- [ ] Verify all exports present in `dist/index.d.ts`
+- [ ] Verify all exports present in `dist/index.d.ts` (grep for `Explorer`)
 - [ ] Commit: `fix(explorer): update tool count assertions and final validation`
 
 ---
