@@ -322,7 +322,7 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
     submit: {
       url: `${apiUrl}/orders/new`,
       body: {
-        order: typedData,
+        order: typedData.message,
         signature: null,
         status: "pending",
       },

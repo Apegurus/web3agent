@@ -1,3 +1,5 @@
+import { submitSpotOrder } from "../orbs/spot-client.js";
+import { splitSignature } from "../utils/signature.js";
 import { Web3AgentError } from "./errors.js";
 import {
   getRequiredApprovals as getRequiredApprovalsForOperation,
@@ -36,6 +38,13 @@ function getCompatibilityIntent<T>(operation: PreparedOperation, field: string):
     throw new Web3AgentError({
       code: "INVALID_PARAMS",
       message: "swap intent must contain a quote",
+    });
+  }
+
+  if (field === "order" && !record.typedData) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "order intent must contain typedData",
     });
   }
 
@@ -126,9 +135,6 @@ export async function submitSignedOrder(params: {
   order: Record<string, unknown>;
   signature: `0x${string}`;
 }): Promise<{ status: string; response: unknown }> {
-  const { submitSpotOrder } = await import("../orbs/spot-client.js");
-  const { splitSignature } = await import("../utils/signature.js");
-
   const { r, s, v } = splitSignature(params.signature);
   const result = await submitSpotOrder({
     url: params.submitUrl,

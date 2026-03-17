@@ -67,7 +67,8 @@ export async function querySpotOrders(params: SpotQueryParams): Promise<SpotQuer
   const res = await fetch(url);
 
   if (res.ok) {
-    const orders = (await res.json()) as unknown[];
+    const json = (await res.json()) as unknown;
+    const orders = Array.isArray(json) ? json : [];
     return { ok: true, status: res.status, orders };
   }
 

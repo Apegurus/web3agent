@@ -1,5 +1,10 @@
 import { getRuntime, invokeAndRequireData } from "./shared.js";
-import type { ListOrdersResult, RuntimeBoundOptions } from "./types.js";
+import type {
+  CancelOrderInput,
+  ListOrdersResult,
+  PlaceOrderInput,
+  RuntimeBoundOptions,
+} from "./types.js";
 
 export async function listOrders(
   params: { chainId?: number; swapper?: string; hash?: string },
@@ -10,17 +15,17 @@ export async function listOrders(
 }
 
 export async function placeOrder(
-  params: Record<string, unknown>,
+  params: PlaceOrderInput,
   options?: RuntimeBoundOptions
-): Promise<unknown> {
+): Promise<{ status: string; response: unknown }> {
   const runtime = await getRuntime(options);
   return invokeAndRequireData(runtime, "orbs_place_order", params);
 }
 
 export async function cancelOrder(
-  params: { chainId?: number; digest: string },
+  params: CancelOrderInput,
   options?: RuntimeBoundOptions
-): Promise<unknown> {
+): Promise<{ status: string; txHash: string }> {
   const runtime = await getRuntime(options);
   return invokeAndRequireData(runtime, "orbs_cancel_order", params);
 }

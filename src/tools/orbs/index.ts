@@ -22,7 +22,7 @@ import {
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
 import { querySpotOrders, submitSpotOrder } from "../../orbs/spot-client.js";
-import { getSpotContracts } from "../../orbs/spot-config.js";
+import { REPERMIT_CANCEL_ABI, getSpotApiUrl, getSpotContracts } from "../../orbs/spot-config.js";
 import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
 import { listOrders } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
@@ -53,18 +53,6 @@ import {
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./schemas.js";
-
-/* ---------- RePermit cancel ABI ---------- */
-
-const REPERMIT_CANCEL_ABI = [
-  {
-    type: "function" as const,
-    name: "cancel" as const,
-    inputs: [{ name: "digests", type: "bytes32[]" } as const],
-    outputs: [] as const,
-    stateMutability: "nonpayable" as const,
-  },
-] as const;
 
 /* ---------- Existing swap handlers ---------- */
 
@@ -312,22 +300,24 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
       exactApproval: params.exactApproval as boolean | undefined,
     });
 
-    for (const step of approvalSteps) {
-      if (step.tx?.data) {
-        const ctx = buildWriteContext(chainId);
-        if (!isWriteContext(ctx)) return ctx;
+    if (approvalSteps.some((s) => s.tx?.data)) {
+      const ctx = buildWriteContext(chainId);
+      if (!isWriteContext(ctx)) return ctx;
 
-        const txHash = await ctx.walletClient.sendTransaction({
-          to: step.tx.to,
-          data: step.tx.data,
-          value: step.tx.value ? BigInt(step.tx.value) : 0n,
-          chain: ctx.chain,
-          account: ctx.account,
-        });
+      for (const step of approvalSteps) {
+        if (step.tx?.data) {
+          const txHash = await ctx.walletClient.sendTransaction({
+            to: step.tx.to,
+            data: step.tx.data,
+            value: step.tx.value ? BigInt(step.tx.value) : 0n,
+            chain: ctx.chain,
+            account: ctx.account,
+          });
 
-        process.stderr.write(`[orbs-spot] Approval tx sent: ${txHash}\n`);
-        await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
-        process.stderr.write(`[orbs-spot] Approval tx confirmed: ${txHash}\n`);
+          process.stderr.write(`[orbs-spot] Approval tx sent: ${txHash}\n`);
+          await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+          process.stderr.write(`[orbs-spot] Approval tx confirmed: ${txHash}\n`);
+        }
       }
     }
 
@@ -351,7 +341,7 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
     // Submit via Spot API
     const result = await submitSpotOrder({
       url: prepared.submit.url,
-      order: prepared.typedData as unknown as Record<string, unknown>,
+      order: prepared.submit.body.order as Record<string, unknown>,
       signature: { v, r, s },
     });
 
@@ -447,6 +437,14 @@ async function orbsSubmitSignedOrderHandler(
 ): Promise<CallToolResult> {
   const v = validateInput(orbsSubmitSignedOrderSchema, params);
   if (!v.success) return v.error;
+
+  const expectedBase = getSpotApiUrl();
+  if (!v.data.submitUrl.startsWith(expectedBase)) {
+    return formatToolError(
+      "ORBS_ORDER_ERROR",
+      `Submit URL must start with ${expectedBase}. Refusing to send signed order to untrusted endpoint.`
+    );
+  }
 
   try {
     const { v: sigV, r, s } = splitSignature(v.data.signature);
@@ -635,7 +633,7 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
   const spotParams = twapParamsToSpotParams(v.data);
 
   return executeWrite({
-    toolName: "orbs_place_order",
+    toolName: "orbs_place_twap",
     description: `TWAP order: ${v.data.fromAmount} of ${v.data.fromToken} → ${v.data.toToken}, ${v.data.chunks} chunks, ${v.data.fillDelay}s delay on chain ${chainId}`,
     params: {
       fromToken: v.data.fromToken,
@@ -705,7 +703,7 @@ async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallTool
   const spotParams = limitParamsToSpotParams(v.data);
 
   return executeWrite({
-    toolName: "orbs_place_order",
+    toolName: "orbs_place_limit",
     description: `Limit order: ${v.data.fromAmount} of ${v.data.fromToken} → ${v.data.toToken}, min output ${v.data.toMinAmount} on chain ${chainId}`,
     params: {
       fromToken: v.data.fromToken,
@@ -922,5 +920,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
 export function registerOrbsExecutors(): void {
   registerExecutor("orbs_swap", executeOrbsSwapNow);
   registerExecutor("orbs_place_order", executeSpotOrderNow);
+  registerExecutor("orbs_place_twap", executeSpotOrderNow);
+  registerExecutor("orbs_place_limit", executeSpotOrderNow);
   registerExecutor("orbs_cancel_order", executeSpotCancelNow);
 }

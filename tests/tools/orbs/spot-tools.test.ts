@@ -273,7 +273,7 @@ describe("orbs_submit_signed_order", () => {
     const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
 
     const result = await tool.handler({
-      submitUrl: "https://spot.api/spot/order",
+      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
       order: { key: "value" },
       signature: VALID_SIGNATURE,
     });
@@ -297,7 +297,7 @@ describe("orbs_submit_signed_order", () => {
     const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
 
     const result = await tool.handler({
-      submitUrl: "https://spot.api/spot/order",
+      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
       order: { key: "value" },
       signature: VALID_SIGNATURE,
     });
@@ -314,7 +314,7 @@ describe("orbs_submit_signed_order", () => {
     const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
 
     const result = await tool.handler({
-      submitUrl: "https://spot.api/spot/order",
+      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
       order: { key: "value" },
       signature: "0xshort", // too short
     });

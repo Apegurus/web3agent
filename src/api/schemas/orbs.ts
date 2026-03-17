@@ -50,10 +50,6 @@ export const orbsSwapStatusSchema = z.object({
   maxAttempts: z.number().optional().describe("Max polling attempts (default 20)"),
 });
 
-export const orbsListOrdersSchema = z.object({
-  chainId: chainIdOptionalSchema,
-});
-
 export const orbsPlaceOrderSchema = tokenAmountSchema.extend({
   chainId: chainIdOptionalSchema,
   fromMaxAmount: z

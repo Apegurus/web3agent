@@ -50,6 +50,18 @@ export function getSpotApiUrl(): string {
   return SPOT_API_URL;
 }
 
+/* ---------- RePermit cancel ABI ---------- */
+
+export const REPERMIT_CANCEL_ABI = [
+  {
+    type: "function" as const,
+    name: "cancel" as const,
+    inputs: [{ name: "digests", type: "bytes32[]" } as const],
+    outputs: [] as const,
+    stateMutability: "nonpayable" as const,
+  },
+] as const;
+
 type EIP712Field = { name: string; type: string };
 
 export const SPOT_SKELETON = {
