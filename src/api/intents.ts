@@ -1,5 +1,6 @@
 import { submitSpotOrder } from "../orbs/spot-client.js";
-import { splitSignature } from "../utils/signature.js";
+import { getSpotApiUrl } from "../orbs/spot-config.js";
+import { joinSignature, splitSignature } from "../utils/signature.js";
 import { Web3AgentError } from "./errors.js";
 import {
   getRequiredApprovals as getRequiredApprovalsForOperation,
@@ -150,4 +151,21 @@ export async function submitSignedOrder(params: {
   }
 
   return { status: "submitted", response: result.response };
+}
+
+/** @deprecated Use submitSignedOrder instead. Will be removed in v0.4.0. */
+export async function submitSignedTwapOrder(params: {
+  order: Record<string, unknown>;
+  signature: { v: number; r: string; s: string };
+}): Promise<{ status: string; response: unknown }> {
+  const signatureHex = joinSignature({
+    v: params.signature.v,
+    r: params.signature.r as `0x${string}`,
+    s: params.signature.s as `0x${string}`,
+  });
+  return submitSignedOrder({
+    submitUrl: `${getSpotApiUrl()}/orders`,
+    order: params.order,
+    signature: signatureHex,
+  });
 }
