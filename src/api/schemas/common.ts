@@ -116,6 +116,12 @@ export const tokenEstimateSchema = tokenPairSchema.extend({
   toAmountUSD: z.string().optional().describe("Output value in USD"),
 });
 
+export const coingeckoIdSchema = z
+  .string()
+  .describe(
+    "CoinGecko coin ID (e.g., 'bitcoin', 'ethereum', 'uniswap'). Use market_search_token to find IDs."
+  );
+
 export const resumeStateBaseSchema = z.object({
   summary: z.string().optional().describe("Operation summary"),
   intent: z.record(z.unknown()).optional().describe("Original intent data"),
