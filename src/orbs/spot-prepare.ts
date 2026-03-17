@@ -82,6 +82,9 @@ export const spotOrderParamsSchema = z.object({
 
 export type SpotOrderParams = z.infer<typeof spotOrderParamsSchema>;
 
+// Internal computation result — complex nested shape with deeply nested EIP-712
+// typed data (witness, exchange, input, output sub-objects) and skeleton type
+// references. Not used at API boundary; kept as a manual interface.
 export interface SpotPreparedOrder {
   meta: {
     kind: "single" | "chunked";
@@ -252,6 +255,8 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
 
   /* ---- Approval calldata ---- */
 
+  // Unlimited approval (maxUint256) is the standard ERC-20 UX pattern for better
+  // gas efficiency on repeated orders. Use `exactApproval: true` for principle-of-least-privilege.
   const approvalAmount = params.exactApproval ? effectiveMaxAmountBig : maxUint256;
   const approvalData = encodeFunctionData({
     abi: APPROVE_ABI,

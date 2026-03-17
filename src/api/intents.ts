@@ -1,6 +1,7 @@
 import type { Hex } from "viem";
 import { submitSpotOrder } from "../orbs/spot-client.js";
 import { getSpotApiUrl } from "../orbs/spot-config.js";
+import { formatSpotSubmitError } from "../utils/errors.js";
 import { joinSignature, splitSignature } from "../utils/signature.js";
 import { Web3AgentError } from "./errors.js";
 import {
@@ -153,7 +154,7 @@ export async function submitSignedOrder(params: {
   if (!result.ok) {
     throw new Web3AgentError({
       code: "ORBS_ORDER_ERROR",
-      message: `Submit failed (${result.status}): ${JSON.stringify(result.response)}`,
+      message: formatSpotSubmitError(result.status, result.response),
     });
   }
 

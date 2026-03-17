@@ -77,4 +77,5 @@ export const agdpJobResponseSchema = z
     phase: z.string().describe("Current job phase"),
     providerName: z.string().describe("Provider agent name"),
   })
+  // AGDP job responses may include additional provider-specific fields not in our schema
   .passthrough();

@@ -192,7 +192,9 @@ export type TypedDataPayload = z.infer<typeof typedDataPayloadSchema>;
 
 export type ApprovalStep = z.infer<typeof approvalStepSchema>;
 export type SwapIntent = z.infer<typeof swapIntentSchema>;
+/** @deprecated Kept for migration reference. Will be removed in v0.4.0. prepareTwapIntent now returns SpotOrderIntent. */
 export type TwapIntent = z.infer<typeof twapIntentSchema>;
+/** @deprecated Kept for migration reference. Will be removed in v0.4.0. prepareLimitIntent now returns SpotOrderIntent. */
 export type LimitIntent = z.infer<typeof limitIntentSchema>;
 
 export type PreparedTransactionRequest = z.infer<typeof preparedTransactionRequestSchema>;

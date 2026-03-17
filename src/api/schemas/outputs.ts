@@ -17,6 +17,9 @@ export const sameChainSwapQuoteResultSchema = z.object({
   quote: z.record(z.unknown()).describe("Raw quote object from Orbs SDK"),
 });
 
+// fromToken/toToken are overridden to optional because cross-chain quotes may
+// not resolve both tokens (e.g. the destination token on an unsupported chain).
+// The parent tokenEstimateSchema requires them, but this summary cannot guarantee them.
 export const crossChainSwapQuoteSummarySchema = tokenEstimateSchema.extend({
   fromChainId: z.number().describe("Source chain ID"),
   toChainId: z.number().describe("Destination chain ID"),
@@ -63,6 +66,8 @@ export const approvalStepSchema = z.object({
 
 export const swapIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
+  // inToken/outToken/inAmount mirror the Orbs SDK response shape. These are not
+  // user-facing input fields, so they are exempt from the from/to naming convention.
   quote: z
     .object({
       sessionId: z.string().describe("Orbs session ID"),
@@ -81,6 +86,7 @@ export const swapIntentSchema = z.object({
   chainId: z.number().describe("Chain ID"),
 });
 
+/** @deprecated Kept for migration reference. Will be removed in v0.4.0. Use spotOrderIntentSchema instead. */
 export const twapIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
   order: z.record(z.unknown()).describe("TWAP order data"),
@@ -95,6 +101,7 @@ export const twapIntentSchema = z.object({
     .describe("TWAP order metadata"),
 });
 
+/** @deprecated Kept for migration reference. Will be removed in v0.4.0. Use spotOrderIntentSchema instead. */
 export const limitIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
   order: z.record(z.unknown()).describe("Limit order data"),

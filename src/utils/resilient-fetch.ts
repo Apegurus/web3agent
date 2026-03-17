@@ -31,13 +31,25 @@ interface CircuitBreakerState {
   state: "closed" | "open" | "half-open";
 }
 
+const MAX_CIRCUIT_BREAKERS = 100;
 const circuitBreakers = new Map<string, CircuitBreakerState>();
+
+function evictOldestCircuitBreakers(): void {
+  if (circuitBreakers.size <= MAX_CIRCUIT_BREAKERS) return;
+  const entries = [...circuitBreakers.entries()];
+  entries.sort((a, b) => a[1].openUntil - b[1].openUntil);
+  const toRemove = entries.length - MAX_CIRCUIT_BREAKERS;
+  for (let i = 0; i < toRemove; i++) {
+    circuitBreakers.delete(entries[i][0]);
+  }
+}
 
 function getCircuitBreaker(key: string): CircuitBreakerState {
   let cb = circuitBreakers.get(key);
   if (!cb) {
     cb = { consecutiveFailures: 0, openUntil: 0, state: "closed" };
     circuitBreakers.set(key, cb);
+    evictOldestCircuitBreakers();
   }
   return cb;
 }

@@ -50,6 +50,9 @@ export const orbsSwapStatusSchema = z.object({
   maxAttempts: z.number().optional().describe("Max polling attempts (default 20)"),
 });
 
+// outputRecipient is intentionally excluded from the MCP schema as a security measure:
+// it prevents AI agents from redirecting funds to arbitrary addresses. The internal
+// spotOrderParamsSchema in src/orbs/spot-prepare.ts supports it for programmatic SDK use.
 export const orbsPlaceOrderSchema = tokenAmountSchema.extend({
   chainId: chainIdOptionalSchema,
   fromMaxAmount: z

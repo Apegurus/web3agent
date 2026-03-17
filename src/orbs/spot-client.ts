@@ -57,6 +57,9 @@ export async function submitSpotOrder(params: SpotSubmitParams): Promise<SpotSub
  * GET orders from the Spot API, filtered by swapper address or order hash.
  * On 2xx: returns { ok: true, status, orders: array }
  * On non-2xx: returns { ok: false, status, error: text }
+ *
+ * Callers are responsible for address validation. The MCP tool layer validates
+ * via `addressSchema` before calling this function. SDK consumers are trusted callers.
  */
 export async function querySpotOrders(params: SpotQueryParams): Promise<SpotQueryResult> {
   const searchParams = new URLSearchParams();

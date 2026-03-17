@@ -58,8 +58,11 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `orbs_place_limit` — place dLIMIT order (write, confirmation-gated)
 - `orbs_prepare_limit_intent` — prepare dLIMIT order data for an external wallet (read-only)
 - `orbs_submit_signed_swap` — submit an externally signed Orbs swap (write)
-- `orbs_submit_signed_twap_order` — submit an externally signed dTWAP or dLIMIT order (write)
-- `orbs_list_orders` — list open TWAP/dLIMIT orders
+- `orbs_place_order` — place a gasless Spot order (market, limit, TWAP, stop-loss, take-profit). Write, confirmation-gated.
+- `orbs_prepare_order_intent` — prepare a Spot order for external wallet signing (read-only)
+- `orbs_submit_signed_order` — submit an externally signed Spot order (write)
+- `orbs_query_orders` — query Spot orders by swapper address or order hash (read-only)
+- `orbs_cancel_order` — cancel a Spot order on-chain (write, confirmation-gated)
   Compatibility note: these remain supported, but `operation_prepare` / `operation_resume` are the generic-first browser-wallet flow
 
 ### Browser-wallet limitation
