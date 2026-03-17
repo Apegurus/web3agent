@@ -1,3 +1,4 @@
+import type { Hex } from "viem";
 import { submitSpotOrder } from "../orbs/spot-client.js";
 import { getSpotApiUrl } from "../orbs/spot-config.js";
 import { joinSignature, splitSignature } from "../utils/signature.js";
@@ -82,7 +83,7 @@ export async function prepareBridgeIntent(params: PrepareBridgeIntentInput): Pro
 export async function submitSignedSwap(params: {
   chainId: number;
   quote: Record<string, unknown>;
-  signature: `0x${string}`;
+  signature: Hex;
 }): Promise<SwapSubmissionResult> {
   return submitSignedSwapViaOperation(params);
 }
@@ -133,7 +134,7 @@ export async function prepareLimitIntent(
 export async function submitSignedOrder(params: {
   submitUrl: string;
   order: Record<string, unknown>;
-  signature: `0x${string}`;
+  signature: Hex;
 }): Promise<{ status: string; response: unknown }> {
   const expectedBase = getSpotApiUrl();
   if (!params.submitUrl.startsWith(expectedBase)) {
@@ -164,12 +165,12 @@ export async function submitSignedTwapOrder(params: {
   order: Record<string, unknown>;
   signature: { v: number; r: string; s: string };
 }): Promise<{ status: string; response: unknown }> {
-  let signatureHex: `0x${string}`;
+  let signatureHex: Hex;
   try {
     signatureHex = joinSignature({
       v: params.signature.v,
-      r: params.signature.r as `0x${string}`,
-      s: params.signature.s as `0x${string}`,
+      r: params.signature.r as Hex,
+      s: params.signature.s as Hex,
     });
   } catch (e: unknown) {
     throw new Web3AgentError({

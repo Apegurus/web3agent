@@ -1,13 +1,13 @@
-import { isAddress, isHex } from "viem";
+import { type Hex, isAddress, isHex } from "viem";
 import { z } from "zod";
 
 export const addressSchema = z.string().refine((value) => isAddress(value), {
   message: "must be a valid EVM address",
-}) as z.ZodType<`0x${string}`>;
+}) as z.ZodType<Hex>;
 
 export const hexSchema = z.string().refine((value) => isHex(value), {
   message: "must be a valid 0x-prefixed hex string",
-}) as z.ZodType<`0x${string}`>;
+}) as z.ZodType<Hex>;
 
 export const typedDataPayloadSchema = z.object({
   domain: z.record(z.unknown()).describe("EIP-712 domain object"),

@@ -3,6 +3,8 @@
  * Source: Spot repo skill.config.json + repermit.skeleton.json
  */
 
+import type { Hex } from "viem";
+
 const SPOT_CONTRACTS = {
   zero: "0x0000000000000000000000000000000000000000" as const,
   repermit: "0x00002a9C4D9497df5Bd31768eC5d30eEf5405000" as const,
@@ -10,7 +12,7 @@ const SPOT_CONTRACTS = {
   executor: "0x000642A0966d9bd49870D9519f76b5cf823f3000" as const,
 } as const;
 
-const SPOT_CHAIN_ADAPTERS: Record<number, { name: string; adapter: `0x${string}` }> = {
+const SPOT_CHAIN_ADAPTERS: Record<number, { name: string; adapter: Hex }> = {
   1: { name: "Ethereum", adapter: "0xC1bB4d5071Fe7109ae2D67AE05826A3fe9116cfc" },
   56: { name: "BNB Chain", adapter: "0x67Feba015c968c76cCB2EEabf197b4578640BE2C" },
   137: { name: "Polygon", adapter: "0x75A3d70Fa6d054d31C896b9Cf8AB06b1c1B829B8" },
@@ -31,7 +33,7 @@ export function isSpotChainSupported(chainId: number): boolean {
   return chainId in SPOT_CHAIN_ADAPTERS;
 }
 
-export function getSpotAdapter(chainId: number): `0x${string}` {
+export function getSpotAdapter(chainId: number): Hex {
   const entry = SPOT_CHAIN_ADAPTERS[chainId];
   if (!entry) {
     const supported = getSupportedSpotChainIds().join(", ");

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Account } from "viem";
+import type { Account, Hex } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import { getConfig } from "../config/env.js";
 import type { WalletMode, WalletState } from "../types/wallet.js";
@@ -69,7 +69,7 @@ function resolveFromPrivateKey(
   privateKey: string,
   chainId: number
 ): { account: Account; state: WalletState } {
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const account = privateKeyToAccount(privateKey as Hex);
   return {
     account,
     state: {

@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createPublicClient } from "viem";
+import { type Hex, createPublicClient } from "viem";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { getConfig } from "../../config/env.js";
 import { getTransportForChain } from "../../config/wallet-factory.js";
@@ -28,7 +28,7 @@ import {
   erc8004UpdateAgentSchema,
 } from "./schemas.js";
 
-function requireIdentityAddress(chainId: number): { address: `0x${string}` } | CallToolResult {
+function requireIdentityAddress(chainId: number): { address: Hex } | CallToolResult {
   const address = getIdentityAddress(chainId);
   if (!address) {
     return formatToolError(
@@ -39,7 +39,7 @@ function requireIdentityAddress(chainId: number): { address: `0x${string}` } | C
   return { address };
 }
 
-function requireReputationAddress(chainId: number): { address: `0x${string}` } | CallToolResult {
+function requireReputationAddress(chainId: number): { address: Hex } | CallToolResult {
   const address = getReputationAddress(chainId);
   if (!address) {
     return formatToolError(
@@ -257,7 +257,7 @@ async function erc8004GetAgent(params: Record<string, unknown>): Promise<CallToo
         address: identityAddress,
         abi: identityRegistryAbi,
         functionName: "addressToTokenId",
-        args: [v.data.walletAddress as `0x${string}`],
+        args: [v.data.walletAddress as Hex],
       })) as bigint;
 
       if (agentId === 0n) {
@@ -479,7 +479,7 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
         `ERC-8004 Reputation Registry not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
       );
     }
-    const zeroBytes32 = `0x${"0".repeat(64)}` as `0x${string}`;
+    const zeroBytes32 = `0x${"0".repeat(64)}` as Hex;
 
     const txHash = await walletClient.writeContract({
       address: reputationAddress,

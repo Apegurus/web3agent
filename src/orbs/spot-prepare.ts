@@ -4,7 +4,7 @@
  * No network calls — pure computation.
  */
 
-import { encodeFunctionData, maxUint256 } from "viem";
+import { type Hex, encodeFunctionData, maxUint256 } from "viem";
 import { z } from "zod";
 import {
   SPOT_SKELETON,
@@ -98,7 +98,7 @@ export interface SpotPreparedOrder {
     spender: string;
     amount: string;
     exactApproval: boolean;
-    tx: { to: string; data: `0x${string}`; value: string };
+    tx: { to: string; data: Hex; value: string };
   };
   typedData: {
     domain: {

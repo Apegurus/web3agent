@@ -20,14 +20,14 @@ const fallbackSimulationAbi = parseAbi([
 ]);
 
 interface FallbackDecodeInput {
-  from: `0x${string}`;
-  to: `0x${string}`;
-  data: `0x${string}`;
+  from: Hex;
+  to: Hex;
+  data: Hex;
   value: bigint;
 }
 
 interface FallbackChange {
-  token: `0x${string}`;
+  token: Hex;
   direction: BalanceChange["direction"];
   amount: bigint;
 }
@@ -37,18 +37,18 @@ function readRecordField<T>(value: unknown, field: string): T | undefined {
   return (value as Record<string, unknown>)[field] as T | undefined;
 }
 
-function readPathEndpoints(path: Hex): { tokenIn: `0x${string}`; tokenOut: `0x${string}` } | null {
+function readPathEndpoints(path: Hex): { tokenIn: Hex; tokenOut: Hex } | null {
   const raw = path.slice(2);
   if (raw.length < 40) return null;
 
-  const tokenIn = `0x${raw.slice(0, 40)}` as `0x${string}`;
-  const tokenOut = `0x${raw.slice(raw.length - 40)}` as `0x${string}`;
+  const tokenIn = `0x${raw.slice(0, 40)}` as Hex;
+  const tokenOut = `0x${raw.slice(raw.length - 40)}` as Hex;
   return { tokenIn, tokenOut };
 }
 
 function pushChange(
   changes: FallbackChange[],
-  token: `0x${string}`,
+  token: Hex,
   direction: BalanceChange["direction"],
   amount: bigint
 ): void {
@@ -82,7 +82,7 @@ export function decodeFallbackBalanceChanges(input: FallbackDecodeInput): Fallba
 
   switch (decoded.functionName) {
     case "transfer": {
-      const [recipient, amount] = decoded.args as readonly [`0x${string}`, bigint];
+      const [recipient, amount] = decoded.args as readonly [Hex, bigint];
       pushChange(changes, input.to, "out", amount);
       if (normalizeAddress(recipient) === normalizeAddress(input.from)) {
         pushChange(changes, input.to, "in", amount);
@@ -90,11 +90,7 @@ export function decodeFallbackBalanceChanges(input: FallbackDecodeInput): Fallba
       break;
     }
     case "transferFrom": {
-      const [sender, recipient, amount] = decoded.args as readonly [
-        `0x${string}`,
-        `0x${string}`,
-        bigint,
-      ];
+      const [sender, recipient, amount] = decoded.args as readonly [Hex, Hex, bigint];
       if (normalizeAddress(sender) === normalizeAddress(input.from)) {
         pushChange(changes, input.to, "out", amount);
       }
@@ -110,7 +106,7 @@ export function decodeFallbackBalanceChanges(input: FallbackDecodeInput): Fallba
       const [permitValue, transferDetails, owner] = decoded.args as readonly [
         unknown,
         unknown,
-        `0x${string}`,
+        Hex,
         Hex,
       ];
       const permitted = readRecordField<Record<string, unknown>>(permitValue, "permitted");

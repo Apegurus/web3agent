@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { Hex } from "viem";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   getRequiredApprovals as getRequiredApprovalsForIntent,
@@ -387,7 +388,7 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
     const signature = await account.signTypedData({
       domain: {
         ...prepared.typedData.domain,
-        verifyingContract: prepared.typedData.domain.verifyingContract as `0x${string}`,
+        verifyingContract: prepared.typedData.domain.verifyingContract as Hex,
       },
       types: prepared.typedData.types,
       primaryType: prepared.typedData.primaryType,
@@ -581,7 +582,7 @@ async function orbsQueryOrders(params: Record<string, unknown>): Promise<CallToo
 
 async function executeSpotCancelNow(params: Record<string, unknown>): Promise<CallToolResult> {
   const chainId = resolveChainId(params);
-  const digest = params.digest as `0x${string}`;
+  const digest = params.digest as Hex;
 
   try {
     const ctx = buildWriteContext(chainId);

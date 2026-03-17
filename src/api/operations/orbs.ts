@@ -1,5 +1,5 @@
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
-import { encodeFunctionData, maxUint256 } from "viem";
+import { type Hex, encodeFunctionData, maxUint256 } from "viem";
 import { getConfig } from "../../config/env.js";
 import { createPublicClientForRuntimeChain } from "../../operations/chain-access.js";
 import { assertAddress } from "../../operations/validation.js";
@@ -97,8 +97,7 @@ export async function getRequiredApprovals(
     const steps: ApprovalStep[] = [];
     let effectiveFromToken = assertAddress(input.fromToken, "fromToken");
     const mode = input.mode ?? "swap";
-    const spender: `0x${string}` =
-      mode === "order" ? (getSpotContracts().repermit as `0x${string}`) : PERMIT2_ADDRESS;
+    const spender: Hex = mode === "order" ? (getSpotContracts().repermit as Hex) : PERMIT2_ADDRESS;
 
     if (isNativeTokenAddress(input.fromToken)) {
       const wrapped = getWrappedNativeToken(chainId);
