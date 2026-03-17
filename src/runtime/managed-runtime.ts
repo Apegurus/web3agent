@@ -32,6 +32,13 @@ import {
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
+import {
+  getExplorerToolDefinitions,
+  type ExplorerDeps,
+} from "../tools/explorer/index.js";
+import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
+import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
+import { ExplorerRouter } from "../api/explorer/router.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
 import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
@@ -158,6 +165,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly erc8004Tools: ToolDefinition[];
   private readonly evmTools: ToolDefinition[];
   private readonly policyTools: ToolDefinition[];
+  private readonly explorerDeps: ExplorerDeps;
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -170,9 +178,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
     private readonly blockscoutAdapter: BlockscoutAdapter,
     private readonly etherscanAdapter: EtherscanAdapter,
     goatProvider: GoatProvider,
+    explorerDeps: ExplorerDeps,
     pendingOpsRestored: number
   ) {
     this.goatProvider = goatProvider;
+    this.explorerDeps = explorerDeps;
     this.pendingOpsRestored = pendingOpsRestored;
     this.frameworkTools = [
       ...getWalletToolDefinitions(),
@@ -539,6 +549,13 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
 
+    for (const tool of getExplorerToolDefinitions(this.explorerDeps)) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "explorer"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+
     for (const tool of this.evmTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "evm"),
@@ -615,11 +632,26 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
   const runtimeGoatProvider = new GoatProvider();
   await runtimeGoatProvider.initialize(config);
 
+  const explorerBlockscout = new ExplorerBlockscoutClient();
+  const explorerEtherscan = config.etherscanApiKey
+    ? new ExplorerEtherscanClient(config.etherscanApiKey, config.etherscanApiUrl)
+    : undefined;
+  const explorerRouter = new ExplorerRouter(
+    explorerBlockscout.getSupportedChainIds(),
+    explorerEtherscan?.getSupportedChainIds() ?? [],
+  );
+  const explorerDeps: ExplorerDeps = {
+    router: explorerRouter,
+    blockscout: explorerBlockscout,
+    etherscan: explorerEtherscan,
+  };
+
   const runtime = new ManagedRuntime(
     config,
     blockscoutAdapter,
     etherscanAdapter,
     runtimeGoatProvider,
+    explorerDeps,
     pendingOpsRestored
   );
   runtime.initialize();
