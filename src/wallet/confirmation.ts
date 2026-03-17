@@ -49,11 +49,12 @@ export class ConfirmationQueueManager {
     if (this.persistDirty) return;
     this.persistDirty = true;
     this.persistChain = this.persistChain
+      .then(() => this.persistQueue())
       .then(() => {
         this.persistDirty = false;
-        return this.persistQueue();
       })
       .catch((e: unknown) => {
+        this.persistDirty = false;
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
   }

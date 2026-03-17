@@ -8,7 +8,8 @@ function normalizeResult(result: CallToolResult): unknown {
   if (!text) return result;
   try {
     return JSON.parse(text);
-  } catch {
+  } catch (_e: unknown) {
+    // text is not JSON — return as plain string (e.g. error messages)
     return text;
   }
 }

@@ -206,6 +206,8 @@ async function ensureWalletDir(): Promise<void> {
   }
 }
 
+// Unlike confirmation/spend-tracker (fire-and-forget), persistWallet awaits the
+// chain so callers like activateWallet know the write landed before proceeding.
 let walletPersistChain: Promise<void> = Promise.resolve();
 
 async function persistWallet(data: PersistedWallet): Promise<void> {

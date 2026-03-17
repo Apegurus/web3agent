@@ -53,9 +53,7 @@ process.on("SIGINT", () => {
 function setInputEnabled(enabled: boolean) {
   if (enabled) {
     process.stdin.resume();
-    if (process.stdin.isTTY) process.stdin.setRawMode(false);
   } else {
-    if (process.stdin.isTTY) process.stdin.setRawMode(true);
     process.stdin.pause();
   }
 }
@@ -86,11 +84,13 @@ while (running) {
         for (const call of event.toolCalls) {
           process.stderr.write(`  -> ${call.toolName}(${JSON.stringify(call.args)})\n`);
         }
-        const toolResults = (event as Record<string, unknown>).toolResults as
-          | Array<{ result: unknown }>
-          | undefined;
-        for (const result of toolResults ?? []) {
-          const data = typeof result.result === "object" ? result.result : null;
+        const rawResults = "toolResults" in event ? event.toolResults : undefined;
+        if (!Array.isArray(rawResults)) return;
+        for (const raw of rawResults) {
+          const entry = raw as Record<string, unknown>;
+          if (typeof entry !== "object" || entry === null || !("result" in entry)) continue;
+          const data =
+            typeof entry.result === "object" && entry.result !== null ? entry.result : null;
           if (!data) continue;
           const payload = data as Record<string, unknown>;
           if (payload.ok === false) {
@@ -100,9 +100,7 @@ while (running) {
             if (inner.queued) {
               process.stderr.write(`  <- QUEUED: id=${inner.id} — ${inner.summary}\n`);
             } else if (inner.txHash || inner.transactionHash) {
-              process.stderr.write(
-                `  <- TX: ${(inner.txHash ?? inner.transactionHash) as string}\n`
-              );
+              process.stderr.write(`  <- TX: ${String(inner.txHash ?? inner.transactionHash)}\n`);
             }
           }
         }

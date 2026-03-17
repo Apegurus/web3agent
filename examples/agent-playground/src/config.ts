@@ -6,6 +6,7 @@ const providers: Record<string, { defaultModel: string; create: (id: string) => 
   {
     anthropic: { defaultModel: "claude-sonnet-4-6", create: (id) => anthropic(id) },
     openai: { defaultModel: "gpt-5-mini", create: (id) => openai(id) },
+    // Kimi's coding API is Anthropic-compatible — uses the same message format
     kimi: {
       defaultModel: "kimi-for-coding",
       create: (id) =>

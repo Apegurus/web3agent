@@ -20,11 +20,12 @@ function schedulePersist(): void {
   if (persistDirty) return;
   persistDirty = true;
   persistChain = persistChain
+    .then(() => persistSpendLog())
     .then(() => {
       persistDirty = false;
-      return persistSpendLog();
     })
     .catch((e: unknown) => {
+      persistDirty = false;
       process.stderr.write(`[policy] Failed to persist spend log: ${e}\n`);
     });
 }
