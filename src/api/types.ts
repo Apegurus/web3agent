@@ -22,6 +22,26 @@ import type {
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
   listChainTokensSchema,
+  marketGetCategoriesSchema,
+  marketGetCexFundFlowsSchema,
+  marketGetChainTvlSchema,
+  marketGetDexVolumeSchema,
+  marketGetExchangeRankingsSchema,
+  marketGetFundingRatesSchema,
+  marketGetGainersLosersSchema,
+  marketGetGlobalStatsSchema,
+  marketGetKlinesSchema,
+  marketGetOrderBookSchema,
+  marketGetProtocolTvlSchema,
+  marketGetSentimentSchema,
+  marketGetStablecoinStatsSchema,
+  marketGetTickerSchema,
+  marketGetTokenHistorySchema,
+  marketGetTokenPriceSchema,
+  marketGetTopProtocolsSchema,
+  marketGetTopTokensSchema,
+  marketGetTrendingSchema,
+  marketSearchTokenSchema,
   operationActionResultSchema,
   operationResumeStateSchema,
   orbsCancelOrderSchema,
@@ -44,6 +64,19 @@ import type {
   preparedSignTypedDataActionSchema,
   preparedTransactionActionSchema,
   preparedTransactionRequestSchema,
+  researchAirdropsSchema,
+  researchCompareYieldsSchema,
+  researchContractSecuritySchema,
+  researchFundRaisesSchema,
+  researchGovernanceSchema,
+  researchHackHistorySchema,
+  researchNewsSchema,
+  researchProtocolInfoSchema,
+  researchTokenDueDiligenceSchema,
+  researchTokenHoldersSchema,
+  researchTokenUnlocksSchema,
+  researchWhaleTransfersSchema,
+  researchYieldOpportunitiesSchema,
   resolveTokenSchema,
   transactionConfirmSchema,
   transactionDenySchema,
@@ -384,6 +417,41 @@ export type ExplorerNativePrice = z.infer<typeof explorerNativePriceSchema>;
 export type ExplorerHistoricalPriceEntry = z.infer<typeof explorerHistoricalPriceEntrySchema>;
 export type ExplorerHistoricalPrice = z.infer<typeof explorerHistoricalPriceSchema>;
 export type ExplorerNativeSupply = z.infer<typeof explorerNativeSupplySchema>;
+
+export type GetProtocolTvlInput = z.infer<typeof marketGetProtocolTvlSchema>;
+export type GetTopProtocolsInput = z.infer<typeof marketGetTopProtocolsSchema>;
+export type GetChainTvlInput = z.infer<typeof marketGetChainTvlSchema>;
+export type GetTokenPriceInput = z.infer<typeof marketGetTokenPriceSchema>;
+export type GetTokenHistoryInput = z.infer<typeof marketGetTokenHistorySchema>;
+export type GetGainersLosersInput = z.infer<typeof marketGetGainersLosersSchema>;
+export type GetDexVolumeInput = z.infer<typeof marketGetDexVolumeSchema>;
+export type GetStablecoinStatsInput = z.infer<typeof marketGetStablecoinStatsSchema>;
+export type GetGlobalStatsInput = z.infer<typeof marketGetGlobalStatsSchema>;
+export type GetCexFundFlowsInput = z.infer<typeof marketGetCexFundFlowsSchema>;
+export type GetExchangeRankingsInput = z.infer<typeof marketGetExchangeRankingsSchema>;
+export type GetSentimentInput = z.infer<typeof marketGetSentimentSchema>;
+export type GetTrendingInput = z.infer<typeof marketGetTrendingSchema>;
+export type GetTopTokensInput = z.infer<typeof marketGetTopTokensSchema>;
+export type SearchTokenInput = z.infer<typeof marketSearchTokenSchema>;
+export type GetCategoriesInput = z.infer<typeof marketGetCategoriesSchema>;
+export type GetTickerInput = z.infer<typeof marketGetTickerSchema>;
+export type GetKlinesInput = z.infer<typeof marketGetKlinesSchema>;
+export type GetOrderBookInput = z.infer<typeof marketGetOrderBookSchema>;
+export type GetFundingRatesInput = z.infer<typeof marketGetFundingRatesSchema>;
+
+export type GetContractSecurityInput = z.infer<typeof researchContractSecuritySchema>;
+export type GetTokenDueDiligenceInput = z.infer<typeof researchTokenDueDiligenceSchema>;
+export type GetTokenHoldersInput = z.infer<typeof researchTokenHoldersSchema>;
+export type GetYieldOpportunitiesInput = z.infer<typeof researchYieldOpportunitiesSchema>;
+export type GetCompareYieldsInput = z.infer<typeof researchCompareYieldsSchema>;
+export type GetProtocolInfoInput = z.infer<typeof researchProtocolInfoSchema>;
+export type GetTokenUnlocksInput = z.infer<typeof researchTokenUnlocksSchema>;
+export type GetHackHistoryInput = z.infer<typeof researchHackHistorySchema>;
+export type GetFundRaisesInput = z.infer<typeof researchFundRaisesSchema>;
+export type GetWhaleTransfersInput = z.infer<typeof researchWhaleTransfersSchema>;
+export type GetGovernanceInput = z.infer<typeof researchGovernanceSchema>;
+export type GetNewsInput = z.infer<typeof researchNewsSchema>;
+export type GetAirdropsInput = z.infer<typeof researchAirdropsSchema>;
 
 export type {
   CallToolResult,
