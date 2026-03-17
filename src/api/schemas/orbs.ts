@@ -92,6 +92,8 @@ export const orbsPlaceTwapSchema = tokenAmountSchema.extend({
   chainId: chainIdOptionalSchema,
   chunks: z
     .number({ required_error: "chunks is required" })
+    .int()
+    .min(1)
     .describe("Number of chunks to split the order into"),
   fillDelay: z
     .number({ required_error: "fillDelay is required" })

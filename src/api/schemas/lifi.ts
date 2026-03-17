@@ -1,16 +1,9 @@
 import { z } from "zod";
-import { addressSchema } from "./common.js";
+import { addressSchema, tokenAmountSchema } from "./common.js";
 
-export const lifiGetQuoteSchema = z.object({
+export const lifiGetQuoteSchema = tokenAmountSchema.extend({
   fromChainId: z.number({ required_error: "fromChainId is required" }).describe("Source chain ID"),
   toChainId: z.number({ required_error: "toChainId is required" }).describe("Destination chain ID"),
-  fromToken: z.string({ required_error: "fromToken is required" }).describe("Source token address"),
-  toToken: z
-    .string({ required_error: "toToken is required" })
-    .describe("Destination token address"),
-  fromAmount: z
-    .string({ required_error: "fromAmount is required" })
-    .describe("Amount in smallest token units"),
 });
 
 export const lifiExecuteBridgeSchema = lifiGetQuoteSchema;

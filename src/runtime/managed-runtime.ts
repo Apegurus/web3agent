@@ -4,7 +4,11 @@ import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
 import { initializeLifi } from "../lifi/config.js";
-import { getCachedBalanceUsd, refreshBalanceUsd } from "../policy/balance-cache.js";
+import {
+  getCachedBalanceUsd,
+  refreshBalanceUsd,
+  resetBalanceCache,
+} from "../policy/balance-cache.js";
 import { resolvePolicy } from "../policy/config.js";
 import { evaluatePolicy } from "../policy/engine.js";
 import { extractEstimatedUsd } from "../policy/extract-usd.js";
@@ -228,6 +232,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
           `[web3agent] Wallet changed — flushed ${flushed} pending operation(s) from confirmation queue\n`
         );
       }
+      resetBalanceCache();
       const wallet = getWalletState();
       if (wallet.address) {
         refreshBalanceUsd(wallet.address, wallet.chainId).catch((e: unknown) => {
@@ -296,8 +301,23 @@ export class ManagedRuntime implements Web3AgentRuntime {
     if (isFinancial) {
       if (estimatedUsd === 0) {
         process.stderr.write(
-          `[web3agent] Warning: no USD estimate for financial tool "${name}" — spend limits cannot be enforced for this call\n`
+          `[web3agent] Denied financial tool "${name}" — no USD estimate available for spend-limit enforcement\n`
         );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                ok: false,
+                error: {
+                  code: "SPEND_LIMIT_ERROR",
+                  message: `Cannot execute financial tool "${name}" without a USD estimate. Ensure the token is recognized and price feeds are available.`,
+                },
+              }),
+            },
+          ],
+          isError: true,
+        };
       }
       const decision = evaluatePolicy(resolvePolicy(this.config), {
         toolName: name,

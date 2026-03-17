@@ -5,6 +5,7 @@
  */
 
 import { encodeFunctionData, maxUint256 } from "viem";
+import { z } from "zod";
 import {
   SPOT_SKELETON,
   getSpotAdapter,
@@ -39,24 +40,47 @@ const APPROVE_ABI = [
 
 /* ---------- Types ---------- */
 
-export interface SpotOrderParams {
-  chainId: number;
-  swapper: string;
-  fromToken: string;
-  fromAmount: string;
-  toToken: string;
-  fromMaxAmount?: string;
-  nonce?: number;
-  start?: number;
-  deadline?: number;
-  epoch?: number;
-  slippage?: number;
-  outputLimit?: string;
-  outputTriggerLower?: string;
-  outputTriggerUpper?: string;
-  outputRecipient?: string;
-  exactApproval?: boolean;
-}
+export const spotOrderParamsSchema = z.object({
+  chainId: z.number().describe("Chain ID for the order"),
+  swapper: z.string().describe("Swapper wallet address"),
+  fromToken: z.string().describe("Source token address"),
+  fromAmount: z.string().describe("Amount per chunk in smallest token units"),
+  toToken: z.string().describe("Destination token address"),
+  fromMaxAmount: z
+    .string()
+    .optional()
+    .describe("Total input amount for chunked orders (defaults to fromAmount)"),
+  nonce: z.number().optional().describe("Order nonce (defaults to current timestamp)"),
+  start: z.number().optional().describe("Order start time as Unix timestamp (defaults to now)"),
+  deadline: z
+    .number()
+    .optional()
+    .describe("Order deadline as Unix timestamp (defaults to auto-calculated)"),
+  epoch: z
+    .number()
+    .optional()
+    .describe("Seconds between chunk fills (0 for single, 60 default for chunked)"),
+  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  outputLimit: z
+    .string()
+    .optional()
+    .describe("Minimum output per chunk in output token units (0 = market order)"),
+  outputTriggerLower: z
+    .string()
+    .optional()
+    .describe("Lower trigger price per chunk for stop-loss orders"),
+  outputTriggerUpper: z
+    .string()
+    .optional()
+    .describe("Upper trigger price per chunk for take-profit orders"),
+  outputRecipient: z.string().optional().describe("Output recipient address (defaults to swapper)"),
+  exactApproval: z
+    .boolean()
+    .optional()
+    .describe("If true, approve only the exact amount needed instead of unlimited"),
+});
+
+export type SpotOrderParams = z.infer<typeof spotOrderParamsSchema>;
 
 export interface SpotPreparedOrder {
   meta: {

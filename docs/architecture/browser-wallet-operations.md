@@ -40,7 +40,7 @@ The protocol-specific helpers remain available:
 - `prepareLimitIntent`
 - `prepareBridgeIntent`
 - `submitSignedSwap`
-- `submitSignedTwapOrder`
+- `submitSignedOrder`
 
 They are now thin wrappers over the generic prepared-operation engine.
 

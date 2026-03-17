@@ -14,6 +14,7 @@ export {
   prepareTwapIntent,
   submitSignedOrder,
   submitSignedSwap,
+  submitSignedTwapOrder,
 } from "./api/intents.js";
 export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
 export { cancelOrder, listOrders, placeOrder } from "./api/orders.js";
@@ -143,6 +144,7 @@ export { x402ProbeResultSchema } from "./x402/schemas.js";
 export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
 export {
   addressSchema,
+  chainIdOptionalSchema,
   hexSchema,
   operationActionResultSchema,
   operationActionResultsMapSchema,
@@ -151,6 +153,9 @@ export {
   preparedSignTypedDataActionSchema,
   preparedTransactionActionSchema,
   preparedTransactionRequestSchema,
+  tokenAmountSchema,
+  tokenEstimateSchema,
+  tokenPairSchema,
   typedDataPayloadSchema,
 } from "./api/schemas/common.js";
 export {

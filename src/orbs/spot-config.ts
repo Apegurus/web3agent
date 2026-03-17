@@ -21,7 +21,7 @@ const SPOT_CHAIN_ADAPTERS: Record<number, { name: string; adapter: `0x${string}`
   59144: { name: "Linea", adapter: "0x55E4da2cd634729064bEb294EC682Dc94f5c3f24" },
 };
 
-const SPOT_API_URL = "https://agents-sink-dev.orbs.network";
+const SPOT_API_URL = process.env.SPOT_API_URL ?? "https://agents-sink-dev.orbs.network";
 
 export function getSpotContracts(): typeof SPOT_CONTRACTS {
   return SPOT_CONTRACTS;

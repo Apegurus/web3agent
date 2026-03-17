@@ -1,3 +1,4 @@
+import { getWalletState } from "../wallet/persistence.js";
 import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
   CancelOrderInput,
@@ -11,7 +12,14 @@ export async function listOrders(
   options?: RuntimeBoundOptions
 ): Promise<ListOrdersResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData<ListOrdersResult>(runtime, "orbs_query_orders", params);
+  const resolvedParams = { ...params };
+  if (!resolvedParams.swapper && !resolvedParams.hash) {
+    const wallet = getWalletState();
+    if (wallet.address) {
+      resolvedParams.swapper = wallet.address;
+    }
+  }
+  return invokeAndRequireData<ListOrdersResult>(runtime, "orbs_query_orders", resolvedParams);
 }
 
 export async function placeOrder(

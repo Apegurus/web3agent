@@ -15,8 +15,8 @@ export const typedDataPayloadSchema = z.object({
     .record(
       z.array(
         z.object({
-          name: z.string(),
-          type: z.string(),
+          name: z.string().describe("Field name"),
+          type: z.string().describe("Solidity type"),
         })
       )
     )
@@ -64,17 +64,23 @@ export const preparedActionSchema = z.union([
 
 export const operationActionResultSchema = z.union([
   z.object({
-    type: z.literal("transaction"),
-    txHash: z.string({ required_error: "txHash is required" }),
-    status: z.literal("confirmed"),
+    type: z.literal("transaction").describe("Action type discriminator"),
+    txHash: z
+      .string({ required_error: "txHash is required" })
+      .describe("Confirmed transaction hash"),
+    status: z.literal("confirmed").describe("Transaction confirmation status"),
   }),
   z.object({
-    type: z.literal("signature"),
-    signature: z.string({ required_error: "signature is required" }),
+    type: z.literal("signature").describe("Action type discriminator"),
+    signature: z
+      .string({ required_error: "signature is required" })
+      .describe("EIP-712 typed-data signature"),
   }),
   z.object({
-    type: z.literal("messageSignature"),
-    signature: z.string({ required_error: "signature is required" }),
+    type: z.literal("messageSignature").describe("Action type discriminator"),
+    signature: z
+      .string({ required_error: "signature is required" })
+      .describe("Personal message signature"),
   }),
 ]);
 

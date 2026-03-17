@@ -1,4 +1,4 @@
-import { createPublicClient } from "viem";
+import { createPublicClient, formatUnits } from "viem";
 import type { Address } from "viem";
 import { getChainById } from "../chains/registry.js";
 import { getTransportForChain } from "../config/wallet-factory.js";
@@ -19,7 +19,7 @@ export async function refreshBalanceUsd(address: string, chainId: number): Promi
     const client = createPublicClient({ chain, transport });
     const balanceWei = await client.getBalance({ address: address as Address });
     const decimals = chain.nativeCurrency?.decimals ?? 18;
-    const balanceNative = Number(balanceWei) / 10 ** decimals;
+    const balanceNative = Number(formatUnits(balanceWei, decimals));
 
     if (balanceNative === 0) {
       cachedBalanceUsd = 0;

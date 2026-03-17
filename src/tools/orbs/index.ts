@@ -268,6 +268,28 @@ const orbsSubmitSignedSwapTool = createToolHandler(
 /* ---------- New Spot order handlers ---------- */
 
 async function executeSpotOrderNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  // Normalize legacy field names from pre-v0.3.0 queued entries
+  if ("srcToken" in params && !("fromToken" in params)) {
+    params.fromToken = params.srcToken;
+    params.srcToken = undefined;
+  }
+  if ("dstToken" in params && !("toToken" in params)) {
+    params.toToken = params.dstToken;
+    params.dstToken = undefined;
+  }
+  if ("srcAmount" in params && !("fromAmount" in params)) {
+    params.fromAmount = params.srcAmount;
+    params.srcAmount = undefined;
+  }
+  if ("inAmount" in params && !("fromAmount" in params)) {
+    params.fromAmount = params.inAmount;
+    params.inAmount = undefined;
+  }
+  if ("dstMinAmount" in params && !("toMinAmount" in params)) {
+    params.toMinAmount = params.dstMinAmount;
+    params.dstMinAmount = undefined;
+  }
+
   const chainId = resolveChainId(params);
 
   try {

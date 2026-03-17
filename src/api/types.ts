@@ -23,6 +23,7 @@ import type {
   lifiPrepareBridgeIntentSchema,
   listChainTokensSchema,
   operationActionResultSchema,
+  operationResumeStateSchema,
   orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
@@ -202,32 +203,17 @@ export type PreparedAction = z.infer<typeof preparedActionSchema>;
 
 export type PreparedOperationIntegration = "orbs" | "lifi" | "goat";
 
-export interface OperationResumeState {
-  version: 1;
-  integration: PreparedOperationIntegration;
-  kind: string;
-  state: Record<string, unknown>;
-}
+export type OperationResumeState = z.infer<typeof operationResumeStateSchema>;
 
 export type PreparedOperation = z.infer<typeof preparedOperationSchema>;
 
-export interface OperationTransactionResult {
-  type: "transaction";
-  txHash: string;
-  status: "confirmed";
-}
-
-export interface OperationSignatureResult {
-  type: "signature";
-  signature: string;
-}
-
-export interface OperationMessageSignatureResult {
-  type: "messageSignature";
-  signature: string;
-}
-
 export type OperationActionResult = z.infer<typeof operationActionResultSchema>;
+export type OperationTransactionResult = Extract<OperationActionResult, { type: "transaction" }>;
+export type OperationSignatureResult = Extract<OperationActionResult, { type: "signature" }>;
+export type OperationMessageSignatureResult = Extract<
+  OperationActionResult,
+  { type: "messageSignature" }
+>;
 export type OrbsSwapOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "orbs"; kind: "swap" }

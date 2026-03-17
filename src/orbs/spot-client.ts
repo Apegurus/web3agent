@@ -1,3 +1,4 @@
+import { resilientFetch } from "../utils/resilient-fetch.js";
 import { getSpotApiUrl } from "./spot-config.js";
 
 export interface SpotSubmitParams {
@@ -33,11 +34,15 @@ export async function submitSpotOrder(params: SpotSubmitParams): Promise<SpotSub
     status: "pending",
   });
 
-  const res = await fetch(params.url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body,
-  });
+  const res = await resilientFetch(
+    params.url,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    },
+    { label: "spot-submit", retry: { maxRetries: 1 } }
+  );
 
   if (res.ok) {
     const response = (await res.json()) as unknown;
@@ -64,7 +69,10 @@ export async function querySpotOrders(params: SpotQueryParams): Promise<SpotQuer
 
   const url = `${getSpotApiUrl()}/orders?${searchParams.toString()}`;
 
-  const res = await fetch(url);
+  const res = await resilientFetch(url, undefined, {
+    label: "spot-query",
+    retry: { maxRetries: 2 },
+  });
 
   if (res.ok) {
     const json = (await res.json()) as unknown;

@@ -32,5 +32,38 @@ export async function extractEstimatedUsd(args: Record<string, unknown>): Promis
     }
   }
 
+  // 3. Check inside resumeState.state for operation_resume calls
+  const resumeState = args.resumeState;
+  if (
+    resumeState &&
+    typeof resumeState === "object" &&
+    "state" in resumeState &&
+    resumeState.state &&
+    typeof resumeState.state === "object"
+  ) {
+    const state = resumeState.state as Record<string, unknown>;
+    const nestedFromToken = state.fromToken;
+    const nestedFromAmount = state.fromAmount;
+    const nestedChainId = state.chainId;
+    if (
+      typeof nestedFromToken === "string" &&
+      typeof nestedFromAmount === "string" &&
+      typeof nestedChainId === "number"
+    ) {
+      const entry = lookupTokenByAddress(nestedFromToken, nestedChainId);
+      const decimals =
+        entry?.decimals ?? (typeof state.fromDecimals === "number" ? state.fromDecimals : null);
+      if (decimals !== null) {
+        const usd = await estimateTokenUsd(
+          nestedFromToken,
+          nestedChainId,
+          nestedFromAmount,
+          decimals
+        );
+        return usd ?? 0;
+      }
+    }
+  }
+
   return 0;
 }
