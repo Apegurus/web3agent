@@ -56,7 +56,7 @@ describe("operation MCP tools", () => {
       chainId: 8453,
       fromToken: "0x1",
       toToken: "0x2",
-      inAmount: "100",
+      fromAmount: "100",
       account: "0x1234567890123456789012345678901234567890",
     });
 

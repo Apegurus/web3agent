@@ -21,14 +21,14 @@ describe("browser wallet flow (env gated)", () => {
     const account = process.env.BROWSER_WALLET_E2E_ACCOUNT as string;
     const fromToken = process.env.BROWSER_WALLET_E2E_FROM_TOKEN as string;
     const toToken = process.env.BROWSER_WALLET_E2E_TO_TOKEN as string;
-    const inAmount = process.env.BROWSER_WALLET_E2E_IN_AMOUNT as string;
+    const fromAmount = process.env.BROWSER_WALLET_E2E_IN_AMOUNT as string;
     const signature = process.env.BROWSER_WALLET_E2E_SIGNATURE as string;
 
     const intent = await prepareSwapIntent({
       chainId,
       fromToken,
       toToken,
-      inAmount,
+      fromAmount,
       account,
     });
 

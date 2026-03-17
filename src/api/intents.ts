@@ -1,26 +1,29 @@
+import type { Hex } from "viem";
+import { submitSpotOrder } from "../orbs/spot-client.js";
+import { getSpotApiUrl } from "../orbs/spot-config.js";
+import { formatSpotSubmitError } from "../utils/errors.js";
+import { joinSignature, splitSignature } from "../utils/signature.js";
 import { Web3AgentError } from "./errors.js";
 import {
   getRequiredApprovals as getRequiredApprovalsForOperation,
   prepareCompatibilityBridgeIntent,
   prepareOperation,
   submitSignedSwap as submitSignedSwapViaOperation,
-  submitSignedTwapOrder as submitSignedTwapOrderViaOperation,
 } from "./operations.js";
 import type {
   ApprovalStep,
   BridgeIntent,
   GetRequiredApprovalsInput,
-  LimitIntent,
   PrepareBridgeIntentInput,
   PrepareLimitIntentInput,
   PrepareOperationInput,
+  PrepareOrderIntentInput,
   PrepareSwapIntentInput,
   PrepareTwapIntentInput,
   PreparedOperation,
+  SpotOrderIntent,
   SwapIntent,
   SwapSubmissionResult,
-  TwapIntent,
-  TwapOrderResult,
 } from "./types.js";
 
 function getCompatibilityIntent<T>(operation: PreparedOperation, field: string): T {
@@ -40,35 +43,15 @@ function getCompatibilityIntent<T>(operation: PreparedOperation, field: string):
       message: "swap intent must contain a quote",
     });
   }
-  if ((field === "twap" || field === "limit") && !record.order) {
+
+  if (field === "order" && !record.typedData) {
     throw new Web3AgentError({
       code: "INVALID_PARAMS",
-      message: `${field} intent must contain an order`,
+      message: "order intent must contain typedData",
     });
   }
 
   return intent as T;
-}
-
-async function prepareCompatibilityIntent<T>(params: {
-  input: PrepareSwapIntentInput | PrepareTwapIntentInput | PrepareLimitIntentInput;
-  kind: "swap" | "twap" | "limit";
-  errorCode: "ORBS_QUOTE_ERROR" | "ORBS_TWAP_ERROR" | "ORBS_LIMIT_ERROR";
-}): Promise<T> {
-  const result = await prepareOperation({
-    integration: "orbs",
-    kind: params.kind,
-    ...params.input,
-  } as PrepareOperationInput);
-
-  if ("completed" in result) {
-    throw new Web3AgentError({
-      code: params.errorCode,
-      message: `${params.kind.toUpperCase()} preparation completed unexpectedly without returning an intent`,
-    });
-  }
-
-  return getCompatibilityIntent<T>(result, params.kind);
 }
 
 export async function getRequiredApprovals(
@@ -78,27 +61,20 @@ export async function getRequiredApprovals(
 }
 
 export async function prepareSwapIntent(params: PrepareSwapIntentInput): Promise<SwapIntent> {
-  return prepareCompatibilityIntent<SwapIntent>({
-    input: params,
+  const result = await prepareOperation({
+    integration: "orbs",
     kind: "swap",
-    errorCode: "ORBS_QUOTE_ERROR",
-  });
-}
+    ...params,
+  } as PrepareOperationInput);
 
-export async function prepareTwapIntent(params: PrepareTwapIntentInput): Promise<TwapIntent> {
-  return prepareCompatibilityIntent<TwapIntent>({
-    input: params,
-    kind: "twap",
-    errorCode: "ORBS_TWAP_ERROR",
-  });
-}
+  if ("completed" in result) {
+    throw new Web3AgentError({
+      code: "ORBS_QUOTE_ERROR",
+      message: "SWAP preparation completed unexpectedly without returning an intent",
+    });
+  }
 
-export async function prepareLimitIntent(params: PrepareLimitIntentInput): Promise<LimitIntent> {
-  return prepareCompatibilityIntent<LimitIntent>({
-    input: params,
-    kind: "limit",
-    errorCode: "ORBS_LIMIT_ERROR",
-  });
+  return getCompatibilityIntent<SwapIntent>(result, "swap");
 }
 
 export async function prepareBridgeIntent(params: PrepareBridgeIntentInput): Promise<BridgeIntent> {
@@ -108,14 +84,104 @@ export async function prepareBridgeIntent(params: PrepareBridgeIntentInput): Pro
 export async function submitSignedSwap(params: {
   chainId: number;
   quote: Record<string, unknown>;
-  signature: `0x${string}`;
+  signature: Hex;
 }): Promise<SwapSubmissionResult> {
   return submitSignedSwapViaOperation(params);
 }
 
+export async function prepareOrderIntent(
+  params: PrepareOrderIntentInput
+): Promise<SpotOrderIntent> {
+  const result = await prepareOperation({
+    integration: "orbs",
+    kind: "order",
+    ...params,
+  } as PrepareOperationInput);
+
+  if ("completed" in result) {
+    throw new Web3AgentError({
+      code: "ORBS_ORDER_ERROR",
+      message: "Order preparation completed unexpectedly without returning an intent",
+    });
+  }
+
+  return getCompatibilityIntent<SpotOrderIntent>(result, "order");
+}
+
+export async function prepareTwapIntent(params: PrepareTwapIntentInput): Promise<SpotOrderIntent> {
+  const totalAmount = BigInt(params.fromAmount);
+  const perChunkAmount = totalAmount / BigInt(params.chunks);
+
+  return prepareOrderIntent({
+    ...params,
+    fromAmount: perChunkAmount.toString(),
+    fromMaxAmount: params.fromAmount,
+    epoch: params.fillDelay,
+  });
+}
+
+export async function prepareLimitIntent(
+  params: PrepareLimitIntentInput
+): Promise<SpotOrderIntent> {
+  const expiry = params.expiry ?? 86400;
+  const orderParams: PrepareOrderIntentInput = {
+    ...params,
+    outputLimit: params.toMinAmount,
+    deadline: Math.floor(Date.now() / 1000) + expiry,
+  };
+  return prepareOrderIntent(orderParams);
+}
+
+export async function submitSignedOrder(params: {
+  submitUrl: string;
+  order: Record<string, unknown>;
+  signature: Hex;
+}): Promise<{ status: string; response: unknown }> {
+  const expectedBase = getSpotApiUrl();
+  if (!params.submitUrl.startsWith(expectedBase)) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: `Submit URL must start with ${expectedBase}. Refusing to send signed order to untrusted endpoint.`,
+    });
+  }
+  const { r, s, v } = splitSignature(params.signature);
+  const result = await submitSpotOrder({
+    url: params.submitUrl,
+    order: params.order,
+    signature: { r, s, v },
+  });
+
+  if (!result.ok) {
+    throw new Web3AgentError({
+      code: "ORBS_ORDER_ERROR",
+      message: formatSpotSubmitError(result.status, result.response),
+    });
+  }
+
+  return { status: "submitted", response: result.response };
+}
+
+/** @deprecated Use submitSignedOrder instead. Will be removed in v0.4.0. */
 export async function submitSignedTwapOrder(params: {
   order: Record<string, unknown>;
   signature: { v: number; r: string; s: string };
-}): Promise<TwapOrderResult> {
-  return submitSignedTwapOrderViaOperation(params);
+}): Promise<{ status: string; response: unknown }> {
+  let signatureHex: Hex;
+  try {
+    signatureHex = joinSignature({
+      v: params.signature.v,
+      r: params.signature.r as Hex,
+      s: params.signature.s as Hex,
+    });
+  } catch (e: unknown) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: e instanceof Error ? e.message : "Invalid signature",
+    });
+  }
+  return submitSignedOrder({
+    submitUrl: `${getSpotApiUrl()}/orders/new`,
+    order: params.order,
+    signature: signatureHex,
+  });
 }

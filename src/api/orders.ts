@@ -1,45 +1,39 @@
-import {
-  orbsListOrdersSchema,
-  orbsPlaceLimitSchema,
-  orbsPlaceTwapSchema,
-} from "../tools/orbs/schemas.js";
+import { getWalletState } from "../wallet/persistence.js";
 import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
-  ListOrdersInput,
+  CancelOrderInput,
   ListOrdersResult,
-  PlaceLimitOrderInput,
-  PlaceTwapOrderInput,
+  PlaceOrderInput,
   RuntimeBoundOptions,
-  WriteOperationResult,
 } from "./types.js";
-import { parseInput } from "./validation.js";
-import { normalizeWriteResult } from "./write-results.js";
-
-export async function placeLimitOrder(
-  params: PlaceLimitOrderInput,
-  options?: RuntimeBoundOptions
-): Promise<WriteOperationResult> {
-  const runtime = await getRuntime(options);
-  const input = parseInput(orbsPlaceLimitSchema, params);
-  const data = await invokeAndRequireData(runtime, "orbs_place_limit", input);
-  return normalizeWriteResult(data);
-}
-
-export async function placeTwapOrder(
-  params: PlaceTwapOrderInput,
-  options?: RuntimeBoundOptions
-): Promise<WriteOperationResult> {
-  const runtime = await getRuntime(options);
-  const input = parseInput(orbsPlaceTwapSchema, params);
-  const data = await invokeAndRequireData(runtime, "orbs_place_twap", input);
-  return normalizeWriteResult(data);
-}
 
 export async function listOrders(
-  params: ListOrdersInput,
+  params: { chainId?: number; swapper?: string; hash?: string },
   options?: RuntimeBoundOptions
 ): Promise<ListOrdersResult> {
   const runtime = await getRuntime(options);
-  const input = parseInput(orbsListOrdersSchema, params);
-  return invokeAndRequireData<ListOrdersResult>(runtime, "orbs_list_orders", input);
+  const resolvedParams = { ...params };
+  if (!resolvedParams.swapper && !resolvedParams.hash) {
+    const wallet = getWalletState();
+    if (wallet.address) {
+      resolvedParams.swapper = wallet.address;
+    }
+  }
+  return invokeAndRequireData<ListOrdersResult>(runtime, "orbs_query_orders", resolvedParams);
+}
+
+export async function placeOrder(
+  params: PlaceOrderInput,
+  options?: RuntimeBoundOptions
+): Promise<{ status: string; response: unknown }> {
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData(runtime, "orbs_place_order", params);
+}
+
+export async function cancelOrder(
+  params: CancelOrderInput,
+  options?: RuntimeBoundOptions
+): Promise<{ status: string; txHash: string }> {
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData(runtime, "orbs_cancel_order", params);
 }

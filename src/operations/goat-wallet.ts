@@ -1,5 +1,5 @@
 import type { EvmChain, Signature, Token, ToolBase } from "@goat-sdk/core";
-import type { Abi } from "viem";
+import type { Abi, Hex } from "viem";
 import { encodeFunctionData, parseAbi } from "viem";
 import { Web3AgentError } from "../api/errors.js";
 import { getConfirmedReceipt } from "../api/operations/shared.js";
@@ -20,7 +20,7 @@ interface EVMTransaction {
   args?: unknown[];
   value?: bigint;
   abi?: Abi;
-  data?: `0x${string}`;
+  data?: Hex;
 }
 
 interface EVMReadRequest {
@@ -111,7 +111,7 @@ export class PreparedActionGoatWallet {
     };
   }
 
-  getAddress(): `0x${string}` {
+  getAddress(): Hex {
     return assertAddress(this.options.account, "account");
   }
 

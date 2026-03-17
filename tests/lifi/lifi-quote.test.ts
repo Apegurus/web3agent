@@ -122,8 +122,8 @@ describe("LI.FI tools", () => {
     const result = await quoteTool.handler({
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x0000000000000000000000000000000000000000",
-      toTokenAddress: "0x0000000000000000000000000000000000000000",
+      fromToken: "0x0000000000000000000000000000000000000000",
+      toToken: "0x0000000000000000000000000000000000000000",
       fromAmount: "1000000000000000000",
     });
     expect(result.isError).toBe(false);

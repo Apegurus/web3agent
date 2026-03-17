@@ -30,7 +30,7 @@ async function lifiGetChains(_params: Record<string, unknown>): Promise<CallTool
 async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(lifiGetQuoteSchema, params);
   if (!v.success) return v.error;
-  const { fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount } = v.data;
+  const { fromChainId, toChainId, fromToken, toToken, fromAmount } = v.data;
 
   try {
     ensureLifiInitialized();
@@ -38,8 +38,8 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     const quote: LiFiStep = await getQuote({
       fromChain: fromChainId as string | number,
       toChain: toChainId as string | number,
-      fromToken: fromTokenAddress as string,
-      toToken: toTokenAddress as string,
+      fromToken: fromToken as string,
+      toToken: toToken as string,
       fromAmount: fromAmount as string,
       fromAddress: walletState.address ?? "0x0000000000000000000000000000000000000000",
     });
@@ -47,8 +47,10 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     const trimmed = {
       fromChainId: quote.action.fromChainId,
       toChainId: quote.action.toChainId,
-      fromToken: quote.action.fromToken?.symbol,
-      toToken: quote.action.toToken?.symbol,
+      fromToken: quote.action.fromToken?.address,
+      toToken: quote.action.toToken?.address,
+      fromDecimals: quote.action.fromToken?.decimals,
+      toDecimals: quote.action.toToken?.decimals,
       fromAmount: quote.action.fromAmount,
       fromAmountUSD: quote.estimate?.fromAmountUSD,
       toAmount: quote.estimate?.toAmount,
@@ -90,14 +92,14 @@ const lifiPrepareBridgeIntentTool = createToolHandler(
 async function executeBridgeNow(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
     ensureLifiInitialized();
-    const { fromChainId, toChainId, fromTokenAddress, toTokenAddress, fromAmount } = params;
+    const { fromChainId, toChainId, fromToken, toToken, fromAmount } = params;
     const walletState = getWalletState();
 
     const quote = await getQuote({
       fromChain: fromChainId as string | number,
       toChain: toChainId as string | number,
-      fromToken: fromTokenAddress as string,
-      toToken: toTokenAddress as string,
+      fromToken: fromToken as string,
+      toToken: toToken as string,
       fromAmount: fromAmount as string,
       fromAddress: walletState.address ?? "0x0000000000000000000000000000000000000000",
     });
@@ -157,6 +159,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
         "Requires token addresses — use resolve_token first to get addresses.",
       inputSchema: zodToJsonSchema(lifiGetQuoteSchema) as Record<string, unknown>,
       handler: lifiExecuteBridge,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

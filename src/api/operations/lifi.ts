@@ -6,6 +6,7 @@ import {
   setAllowance,
 } from "@lifi/sdk";
 import {
+  type Hex,
   createClient,
   encodeFunctionData,
   keccak256,
@@ -86,15 +87,15 @@ type LifiBridgeFinalization =
   | {
       kind: "permit2";
       signatureActionId: string;
-      tokenAddress: `0x${string}`;
+      tokenAddress: Hex;
       amount: string;
       nonce: string;
       deadline: string;
-      permit2Proxy: `0x${string}`;
-      account: `0x${string}`;
+      permit2Proxy: Hex;
+      account: Hex;
       witness: true;
-      diamondAddress: `0x${string}`;
-      diamondCalldataHash: `0x${string}`;
+      diamondAddress: Hex;
+      diamondCalldataHash: Hex;
     };
 
 interface ExtendedChain {
@@ -115,8 +116,8 @@ interface LifiTransactionRequest {
 interface LifiBridgePreparationContext {
   quote: LiFiStep;
   summary: string;
-  account: `0x${string}`;
-  fromTokenAddress: `0x${string}`;
+  account: Hex;
+  fromTokenAddress: Hex;
   fromAmount: bigint;
   finalAction: PreparedTransactionAction;
   fromChain?: ExtendedChain;
@@ -147,8 +148,8 @@ function createBridgeTxSteps(
 async function createAllowanceAction(params: {
   id: string;
   chainId: number;
-  tokenAddress: `0x${string}`;
-  spender: `0x${string}`;
+  tokenAddress: Hex;
+  spender: Hex;
   amount: bigint;
   label: string;
 }): Promise<PreparedTransactionAction> {
@@ -234,8 +235,8 @@ async function fetchLifiQuote(input: PrepareBridgeIntentInput): Promise<LiFiStep
     getLifiQuote({
       fromChain: input.fromChainId,
       toChain: input.toChainId,
-      fromToken: input.fromTokenAddress,
-      toToken: input.toTokenAddress,
+      fromToken: input.fromToken,
+      toToken: input.toToken,
       fromAmount: input.fromAmount,
       fromAddress: input.account,
     }),
@@ -284,8 +285,10 @@ function createBridgeIntentPayload(
     steps,
     actions,
     estimate: {
-      fromToken: quote.action.fromToken?.symbol ?? input.fromTokenAddress,
-      toToken: quote.action.toToken?.symbol ?? input.toTokenAddress,
+      fromToken: quote.action.fromToken?.address ?? input.fromToken,
+      toToken: quote.action.toToken?.address ?? input.toToken,
+      fromDecimals: quote.action.fromToken?.decimals,
+      toDecimals: quote.action.toToken?.decimals,
       fromAmount: quote.action.fromAmount,
       fromAmountUSD: quote.estimate?.fromAmountUSD,
       toAmount: quote.estimate?.toAmount ?? "0",
@@ -339,7 +342,7 @@ async function getLifiExtendedChain(chainId: number): Promise<ExtendedChain> {
   return chain;
 }
 
-function getPermit2Domain(permit2: `0x${string}`, chainId: number): TypedDataPayload["domain"] {
+function getPermit2Domain(permit2: Hex, chainId: number): TypedDataPayload["domain"] {
   return {
     name: "Permit2",
     chainId,
@@ -347,7 +350,7 @@ function getPermit2Domain(permit2: `0x${string}`, chainId: number): TypedDataPay
   };
 }
 
-function buildLifiReadClient(account: `0x${string}`, chainId: number) {
+function buildLifiReadClient(account: Hex, chainId: number) {
   return createClient({
     account: parseAccount(account),
     chain: getChainForRuntime(chainId),
@@ -356,8 +359,8 @@ function buildLifiReadClient(account: `0x${string}`, chainId: number) {
 }
 
 async function getPermit2TypedData(params: {
-  account: `0x${string}`;
-  tokenAddress: `0x${string}`;
+  account: Hex;
+  tokenAddress: Hex;
   amount: bigint;
   chain: ExtendedChain;
   finalAction: PreparedTransactionAction;
@@ -365,8 +368,8 @@ async function getPermit2TypedData(params: {
   typedData: TypedDataPayload;
   nonce: string;
   deadline: string;
-  diamondAddress: `0x${string}`;
-  diamondCalldataHash: `0x${string}`;
+  diamondAddress: Hex;
+  diamondCalldataHash: Hex;
 }> {
   if (!params.chain.permit2 || !params.chain.permit2Proxy || !params.chain.diamondAddress) {
     throw new Web3AgentError({
@@ -428,14 +431,14 @@ async function getPermit2TypedData(params: {
   };
 }
 
-function needsLifiBridgeApproval(quote: LiFiStep, fromTokenAddress: `0x${string}`): boolean {
+function needsLifiBridgeApproval(quote: LiFiStep, fromTokenAddress: Hex): boolean {
   return !isNativeTokenAddress(fromTokenAddress) && !quote.estimate?.skipApproval;
 }
 
 function getDefaultLifiApprovalSpender(
   quote: LiFiStep,
   finalAction: PreparedTransactionAction
-): `0x${string}` {
+): Hex {
   return assertAddress(
     quote.estimate?.approvalAddress ?? finalAction.tx.to,
     quote.estimate?.approvalAddress ? "quote.estimate.approvalAddress" : "bridge.tx.to"
@@ -444,10 +447,10 @@ function getDefaultLifiApprovalSpender(
 
 async function getLifiApprovalActions(params: {
   chainId: number;
-  account: `0x${string}`;
-  fromTokenAddress: `0x${string}`;
+  account: Hex;
+  fromTokenAddress: Hex;
   fromAmount: bigint;
-  spender: `0x${string}`;
+  spender: Hex;
   approvalReset?: boolean;
   approvalAmount: bigint;
   approvalLabel: string;

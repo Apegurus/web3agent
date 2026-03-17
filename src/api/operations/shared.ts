@@ -1,5 +1,5 @@
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
-import type { TransactionReceipt } from "viem";
+import type { Hex, TransactionReceipt } from "viem";
 import { createPublicClientForRuntimeChain } from "../../operations/chain-access.js";
 import { assertRecord } from "../../operations/validation.js";
 import { Web3AgentError } from "../errors.js";
@@ -128,7 +128,7 @@ export async function getConfirmedReceipt(
 
   try {
     const receipt = await publicClient.getTransactionReceipt({
-      hash: result.txHash as `0x${string}`,
+      hash: result.txHash as Hex,
     });
     if (receipt.status !== "success") {
       throw new Web3AgentError({

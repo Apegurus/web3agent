@@ -40,12 +40,21 @@ function parseDescription(rawDescription: string): string {
   }
 }
 
-export async function appendAuditLog(entry: AuditEntry): Promise<void> {
-  const dir = getAuditDir();
-  if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
-  }
-  await appendFile(getAuditPath(), formatEntry(entry), { mode: 0o600 });
+let auditChain: Promise<void> = Promise.resolve();
+
+export function appendAuditLog(entry: AuditEntry): Promise<void> {
+  auditChain = auditChain
+    .catch((e: unknown) => {
+      process.stderr.write(`[audit] Prior write failed: ${e}\n`);
+    })
+    .then(async () => {
+      const dir = getAuditDir();
+      if (!existsSync(dir)) {
+        await mkdir(dir, { recursive: true });
+      }
+      await appendFile(getAuditPath(), formatEntry(entry), { mode: 0o600 });
+    });
+  return auditChain;
 }
 
 export async function readAuditLog(limit?: number): Promise<AuditLogEntry[]> {

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OperationExecutor, PendingOperation } from "../types/wallet.js";
+import { atomicWriteJson } from "../utils/atomic-write.js";
 import { type AuditAction, appendAuditLog } from "./audit.js";
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
@@ -16,6 +17,7 @@ interface SerializedPendingOperation {
   createdAt: string;
   ttlMs: number;
   walletAddress?: string;
+  riskLevel?: PendingOperation["riskLevel"];
 }
 
 const executorRegistry = new Map<string, OperationExecutor>();
@@ -34,6 +36,9 @@ function getPendingOpsPath(): string {
 
 export class ConfirmationQueueManager {
   private queue: Map<string, PendingOperation> = new Map();
+  private persistChain: Promise<void> = Promise.resolve();
+  private persistScheduled = false;
+  private persistNeeded = false;
   public enabled: boolean;
   public ttlMs: number;
 
@@ -42,12 +47,32 @@ export class ConfirmationQueueManager {
     this.ttlMs = ttlMs;
   }
 
+  private schedulePersist(): void {
+    this.persistNeeded = true;
+    if (this.persistScheduled) return;
+    this.persistScheduled = true;
+    this.persistChain = this.persistChain
+      .then(() => {
+        this.persistNeeded = false;
+        return this.persistQueue();
+      })
+      .then(() => {
+        this.persistScheduled = false;
+        if (this.persistNeeded) this.schedulePersist();
+      })
+      .catch((e: unknown) => {
+        this.persistScheduled = false;
+        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
+      });
+  }
+
   enqueue(
     type: string,
     description: string,
     params: Record<string, unknown>,
     executor: OperationExecutor,
-    walletAddress?: string
+    walletAddress?: string,
+    riskLevel?: PendingOperation["riskLevel"]
   ): { queued: boolean; id: string | null; summary: string } {
     if (!this.enabled) {
       return {
@@ -67,12 +92,11 @@ export class ConfirmationQueueManager {
       createdAt: new Date(),
       ttlMs: this.ttlMs,
       walletAddress,
+      riskLevel,
     };
 
     this.queue.set(id, operation);
-    this.persistQueue().catch((e: unknown) => {
-      process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-    });
+    this.schedulePersist();
 
     return {
       queued: true,
@@ -96,9 +120,7 @@ export class ConfirmationQueueManager {
   complete(id: string): void {
     const op = this.queue.get(id);
     this.queue.delete(id);
-    this.persistQueue().catch((e: unknown) => {
-      process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-    });
+    this.schedulePersist();
     if (op) this.audit("CONFIRMED", op);
   }
 
@@ -106,9 +128,7 @@ export class ConfirmationQueueManager {
     const op = this.queue.get(id);
     const removed = this.queue.delete(id);
     if (removed) {
-      this.persistQueue().catch((e: unknown) => {
-        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-      });
+      this.schedulePersist();
       if (op) this.audit("DENIED", op);
     }
     return removed;
@@ -128,9 +148,7 @@ export class ConfirmationQueueManager {
       }
     }
     if (expired.length > 0) {
-      this.persistQueue().catch((e: unknown) => {
-        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-      });
+      this.schedulePersist();
       for (const op of expired) {
         this.audit("EXPIRED", op);
       }
@@ -140,9 +158,7 @@ export class ConfirmationQueueManager {
   flushAll(): number {
     const count = this.queue.size;
     this.queue.clear();
-    this.persistQueue().catch((e: unknown) => {
-      process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
-    });
+    this.schedulePersist();
     return count;
   }
 
@@ -167,23 +183,10 @@ export class ConfirmationQueueManager {
       createdAt: op.createdAt.toISOString(),
       ttlMs: op.ttlMs,
       walletAddress: op.walletAddress,
+      riskLevel: op.riskLevel,
     }));
 
-    const filePath = getPendingOpsPath();
-    const dir = join(homedir(), ".web3agent");
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-
-    const tmpPath = `${filePath}.tmp`;
-    const fd = await open(tmpPath, "w", 0o600);
-    try {
-      await fd.writeFile(JSON.stringify(ops, null, 2));
-      await fd.sync();
-    } finally {
-      await fd.close();
-    }
-    await rename(tmpPath, filePath);
+    await atomicWriteJson(getPendingOpsPath(), ops);
   }
 
   async loadQueue(): Promise<number> {
@@ -217,6 +220,7 @@ export class ConfirmationQueueManager {
           createdAt,
           ttlMs: serialized.ttlMs,
           walletAddress: serialized.walletAddress,
+          riskLevel: serialized.riskLevel,
         });
       }
 

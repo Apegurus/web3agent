@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LIQUIDITY_HUB_CHAINS,
   getLiquidityHubError,
+  getSpotError,
   getTwapError,
   isLiquidityHubSupported,
+  isSpotSupported,
   isTwapSupported,
 } from "../../src/orbs/chains.js";
 
@@ -61,5 +63,23 @@ describe("orbs chain support utilities", () => {
   it("formats twap unsupported-chain error", () => {
     const message = getTwapError(10);
     expect(message).toContain("Orbs dTWAP/dLIMIT is not available on chain 10");
+  });
+});
+
+describe("isSpotSupported", () => {
+  it("returns true for Spot-supported chains", () => {
+    expect(isSpotSupported(42161)).toBe(true);
+    expect(isSpotSupported(1)).toBe(true);
+  });
+  it("returns false for unsupported chains", () => {
+    expect(isSpotSupported(999999)).toBe(false);
+  });
+});
+
+describe("getSpotError", () => {
+  it("returns error message with chain ID", () => {
+    const msg = getSpotError(999999);
+    expect(msg).toContain("999999");
+    expect(msg).toContain("Spot");
   });
 });

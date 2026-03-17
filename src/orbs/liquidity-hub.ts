@@ -23,6 +23,7 @@ import { getChainById } from "../chains/registry.js";
 import { tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
 import { assertAddress } from "../operations/validation.js";
+import { resilientFetch } from "../utils/resilient-fetch.js";
 import { withTimeout } from "../utils/timeout.js";
 
 export type { Quote };
@@ -199,8 +200,11 @@ export async function submitSwap(params: {
       `${quote.inAmount} ${quote.inToken} → ${quote.outToken}\n`
   );
 
-  const response = await withTimeout(
-    fetch(`${apiUrl}/swap-async?chainId=${chainId}`, {
+  // resilientFetch may retry on timeout/5xx. This is safe because the Orbs API
+  // deduplicates by sessionId — a retried submission for the same session is a no-op.
+  const response = await resilientFetch(
+    `${apiUrl}/swap-async?chainId=${chainId}`,
+    {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -212,9 +216,8 @@ export async function submitSwap(params: {
         signature,
         sessionId: quote.sessionId,
       }),
-    }),
-    ORBS_REQUEST_TIMEOUT_MS,
-    "Orbs swap submission"
+    },
+    { label: "orbs", retry: { maxRetries: 2 }, timeoutMs: ORBS_REQUEST_TIMEOUT_MS }
   );
 
   // biome-ignore lint/suspicious/noExplicitAny: Orbs API returns untyped JSON
@@ -245,14 +248,14 @@ export async function pollSwapStatus(params: {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     try {
-      const response = await withTimeout(
-        fetch(`${apiUrl}/swap/status/${sessionId}?chainId=${chainId}`, {
+      const response = await resilientFetch(
+        `${apiUrl}/swap/status/${sessionId}?chainId=${chainId}`,
+        {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user }),
-        }),
-        ORBS_REQUEST_TIMEOUT_MS,
-        "Orbs swap status poll"
+        },
+        { label: "orbs", timeoutMs: ORBS_REQUEST_TIMEOUT_MS }
       );
 
       // biome-ignore lint/suspicious/noExplicitAny: Orbs API returns untyped JSON

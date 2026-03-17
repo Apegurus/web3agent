@@ -53,6 +53,11 @@ export function formatToolResponse(data: unknown): CallToolResult {
   };
 }
 
+export function formatSpotSubmitError(status: number, response: unknown): string {
+  const preview = JSON.stringify(response).slice(0, 200);
+  return `Spot submit failed (${status}): ${preview}`;
+}
+
 export function formatToolErrorFromUnknown(
   fallbackCode: string,
   error: unknown,

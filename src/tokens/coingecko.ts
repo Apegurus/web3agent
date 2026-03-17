@@ -1,4 +1,5 @@
 import { getConfig } from "../config/env.js";
+import { resilientFetch } from "../utils/resilient-fetch.js";
 
 const COINGECKO_PUBLIC_API_URL = "https://api.coingecko.com/api/v3";
 const COINGECKO_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
@@ -25,7 +26,7 @@ export interface CoinGeckoTopTokenSignals {
   addressesByChain: ReadonlyMap<number, ReadonlySet<string>>;
 }
 
-const FALLBACK_PLATFORM_CHAIN_IDS: Readonly<Record<string, number>> = {
+export const FALLBACK_PLATFORM_CHAIN_IDS: Readonly<Record<string, number>> = {
   ethereum: 1,
   "binance-smart-chain": 56,
   "polygon-pos": 137,
@@ -50,7 +51,7 @@ let cachedTopTokenSignals:
     }
   | undefined;
 
-function getCoinGeckoApiKey(): string | undefined {
+export function getCoinGeckoApiKey(): string | undefined {
   try {
     return getConfig().coingeckoApiKey ?? process.env.COINGECKO_API_KEY;
   } catch (_error: unknown) {
@@ -68,6 +69,14 @@ function getCoinGeckoHeaders(apiKey: string | undefined): Record<string, string>
     accept: "application/json",
     ...(apiKey ? { "x-cg-pro-api-key": apiKey } : {}),
   };
+}
+
+export function getTokenPriceUrl(): string {
+  return getCoinGeckoBaseUrl(getCoinGeckoApiKey());
+}
+
+export function getTokenPriceHeaders(): Record<string, string> {
+  return getCoinGeckoHeaders(getCoinGeckoApiKey());
 }
 
 function isPlatformMap(value: unknown): value is Record<string, unknown> {
@@ -167,9 +176,9 @@ export async function getTopCoinGeckoSignals(): Promise<CoinGeckoTopTokenSignals
 
   try {
     const [marketsResult, coinListResult, assetPlatformsResult] = await Promise.allSettled([
-      fetch(marketsUrl, { headers }),
-      fetch(coinListUrl, { headers }),
-      fetch(assetPlatformsUrl, { headers }),
+      resilientFetch(marketsUrl, { headers }, { label: "coingecko" }),
+      resilientFetch(coinListUrl, { headers }, { label: "coingecko" }),
+      resilientFetch(assetPlatformsUrl, { headers }, { label: "coingecko" }),
     ]);
 
     if (marketsResult.status !== "fulfilled") {

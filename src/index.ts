@@ -9,13 +9,15 @@ export { Web3AgentError } from "./api/errors.js";
 export {
   prepareBridgeIntent,
   prepareLimitIntent,
+  prepareOrderIntent,
   prepareSwapIntent,
   prepareTwapIntent,
+  submitSignedOrder,
   submitSignedSwap,
   submitSignedTwapOrder,
 } from "./api/intents.js";
 export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
-export { listOrders, placeLimitOrder, placeTwapOrder } from "./api/orders.js";
+export { cancelOrder, listOrders, placeOrder } from "./api/orders.js";
 export { clearTraceSupportCache, simulateTransaction } from "./api/simulation.js";
 export {
   executeBridge,
@@ -38,6 +40,7 @@ export type {
   BridgeIntent,
   BridgeTxStep,
   CallToolResult,
+  CancelOrderInput,
   ChainLookupResult,
   CompletedOperationResult,
   CreateRuntimeOptions,
@@ -49,7 +52,6 @@ export type {
   LifiQuoteInput,
   LimitIntent,
   ListChainTokensInput,
-  ListOrdersInput,
   ListOrdersResult,
   OperationActionResult,
   OperationMessageSignatureResult,
@@ -58,6 +60,7 @@ export type {
   OperationTransactionResult,
   PendingConfirmationResult,
   PlaceLimitOrderInput,
+  PlaceOrderInput,
   PlaceTwapOrderInput,
   PrepareBridgeIntentInput,
   PreparedAction,
@@ -66,11 +69,13 @@ export type {
   PreparedSignMessageAction,
   PreparedSignTypedDataAction,
   PreparedTransactionAction,
-  PrepareLimitIntentInput,
   PrepareOperationInput,
   PrepareOperationResult,
+  PrepareLimitIntentInput,
+  PrepareOrderIntentInput,
   PrepareSwapIntentInput,
   PrepareTwapIntentInput,
+  QueryOrdersInput,
   ResolveTokenInput,
   ResumeOperationCompletedResult,
   ResumeOperationInput,
@@ -84,8 +89,9 @@ export type {
   ServerStatusResult,
   SimulateTransactionInput,
   SimulationResult,
+  SpotOrderIntent,
+  SubmitSignedOrderInput,
   SubmitSignedSwapInput,
-  SubmitSignedTwapOrderInput,
   SupportedChainEntry,
   SupportedChainsResult,
   SwapHistoryEntry,
@@ -109,7 +115,6 @@ export type {
   TransactionListEntry,
   TransactionListResult,
   TwapIntent,
-  TwapOrderResult,
   WalletActivateInput,
   WalletAddressDerivationResult,
   WalletConfirmationResult,
@@ -125,29 +130,77 @@ export type {
   WriteOperationResult,
 } from "./api/types.js";
 export { parseEnv, resetConfig, setConfig } from "./config/env.js";
+export {
+  agdpAgentSchema,
+  agdpCreateJobInputSchema,
+  agdpGetJobsInputSchema,
+  agdpGetOfferingByIdInputSchema,
+  agdpJobResponseSchema,
+  agdpJobSchema,
+  agdpOfferingSchema,
+  agdpSearchOfferingsInputSchema,
+} from "./agdp/schemas.js";
+export { x402ProbeResultSchema } from "./x402/schemas.js";
 export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
+export {
+  addressSchema,
+  chainIdOptionalSchema,
+  hexSchema,
+  operationActionResultSchema,
+  operationActionResultsMapSchema,
+  preparedActionSchema,
+  preparedSignMessageActionSchema,
+  preparedSignTypedDataActionSchema,
+  preparedTransactionActionSchema,
+  preparedTransactionRequestSchema,
+  tokenAmountSchema,
+  tokenEstimateSchema,
+  tokenPairSchema,
+  typedDataPayloadSchema,
+} from "./api/schemas/common.js";
+export {
+  approvalStepSchema,
+  balanceChangeSchema,
+  bridgeIntentEstimateSchema,
+  bridgeIntentSchema,
+  bridgeTxStepSchema,
+  crossChainSwapQuoteResultSchema,
+  crossChainSwapQuoteSummarySchema,
+  limitIntentSchema,
+  preparedOperationSchema,
+  sameChainSwapQuoteResultSchema,
+  simulationResultSchema,
+  spotOrderIntentSchema,
+  swapIntentSchema,
+  swapQuoteResultSchema,
+  swapSubmissionResultSchema,
+  tokenSwappableResultSchema,
+  twapIntentSchema,
+} from "./api/schemas/outputs.js";
 export {
   lifiExecuteBridgeSchema,
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
 } from "./tools/lifi/schemas.js";
 export {
-  operationActionResultSchema,
   operationResumeStateSchema,
   prepareOperationSchema,
   resumeOperationSchema,
 } from "./tools/operations/schemas.js";
 export {
+  orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
-  orbsListOrdersSchema,
   orbsPlaceLimitSchema,
+  orbsPlaceOrderSchema,
   orbsPlaceTwapSchema,
   orbsPrepareLimitIntentSchema,
+  orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
   orbsPrepareTwapIntentSchema,
+  orbsQueryOrdersSchema,
+  orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
-  orbsSubmitSignedTwapOrderSchema,
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./tools/orbs/schemas.js";

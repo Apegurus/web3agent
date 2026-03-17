@@ -1,6 +1,6 @@
 {
   "name": "web3agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Web3 MCP proxy server — gives AI agents complete blockchain capabilities through a single install",
   "license": "MIT",
   "author": "Apeguru <hello@apeguru.dev>",
@@ -33,6 +33,14 @@
     "./mcp": {
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js"
+    },
+    "./agdp": {
+      "types": "./dist/agdp/api.d.ts",
+      "import": "./dist/agdp/api.js"
+    },
+    "./x402": {
+      "types": "./dist/x402/client.d.ts",
+      "import": "./dist/x402/client.js"
     }
   },
   "bin": {

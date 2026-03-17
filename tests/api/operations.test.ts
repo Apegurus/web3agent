@@ -12,12 +12,6 @@ const liquidityHubMocks = vi.hoisted(() => ({
   submitSwap: vi.fn(),
 }));
 
-const twapMocks = vi.hoisted(() => ({
-  getSrcTokenChunkAmount: vi.fn(),
-  prepareTwapOrder: vi.fn(),
-  submitSignedOrder: vi.fn(),
-}));
-
 const lifiMocks = vi.hoisted(() => ({
   getQuote: vi.fn(),
   getChains: vi.fn(),
@@ -49,16 +43,6 @@ vi.mock("../../src/orbs/liquidity-hub.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../src/orbs/twap.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/orbs/twap.js")>();
-  return {
-    ...actual,
-    getSrcTokenChunkAmount: (...args: unknown[]) => twapMocks.getSrcTokenChunkAmount(...args),
-    prepareTwapOrder: (...args: unknown[]) => twapMocks.prepareTwapOrder(...args),
-    submitSignedOrder: (...args: unknown[]) => twapMocks.submitSignedOrder(...args),
-  };
-});
-
 vi.mock("@lifi/sdk", () => ({
   getQuote: (...args: unknown[]) => lifiMocks.getQuote(...args),
   getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
@@ -76,7 +60,7 @@ vi.mock("../../src/operations/goat.js", () => ({
 describe("generic prepared operations API", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    setupDefaultOperationMocks({ viemMocks, twapMocks, lifiMocks });
+    setupDefaultOperationMocks({ viemMocks, lifiMocks });
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
       getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: null }),
@@ -136,7 +120,7 @@ describe("generic prepared operations API", () => {
       chainId: 8453,
       fromToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       toToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
       account: "0x1234567890123456789012345678901234567890",
     });
 
@@ -406,8 +390,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -487,8 +471,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 1,
       toChainId: 8453,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -559,8 +543,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 8453,
       toChainId: 1,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -676,8 +660,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 8453,
       toChainId: 1,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -764,8 +748,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 8453,
       toChainId: 1,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -848,8 +832,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 8453,
       toChainId: 1,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -926,8 +910,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 8453,
       toChainId: 1,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });
@@ -939,8 +923,8 @@ describe("generic prepared operations API", () => {
       kind: "bridge",
       fromChainId: 8453,
       toChainId: 1,
-      fromTokenAddress: "0x3333333333333333333333333333333333333333",
-      toTokenAddress: "0x4444444444444444444444444444444444444444",
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
       fromAmount: "1000",
       account: "0x1234567890123456789012345678901234567890",
     });

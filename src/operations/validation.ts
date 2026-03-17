@@ -1,4 +1,4 @@
-import { isAddress, isHex } from "viem";
+import { type Hex, isAddress, isHex } from "viem";
 import { Web3AgentError } from "../api/errors.js";
 import { getChainById } from "../chains/registry.js";
 
@@ -13,7 +13,7 @@ export function assertChainSupported(chainId: number) {
   return chain;
 }
 
-export function assertHex(value: string, field: string): `0x${string}` {
+export function assertHex(value: string, field: string): Hex {
   if (!isHex(value)) {
     throw new Web3AgentError({
       code: "INVALID_PARAMS",
@@ -23,7 +23,7 @@ export function assertHex(value: string, field: string): `0x${string}` {
   return value;
 }
 
-export function assertAddress(value: string, field: string): `0x${string}` {
+export function assertAddress(value: string, field: string): Hex {
   if (!isAddress(value)) {
     throw new Web3AgentError({
       code: "INVALID_PARAMS",

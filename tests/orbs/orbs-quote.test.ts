@@ -11,7 +11,7 @@ vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
     getQuote: vi.fn().mockResolvedValue({
       inToken: "0xTokenA",
       outToken: "0xTokenB",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
       outAmount: "2000000000",
       minAmountOut: "1990000000",
       exchange: "paraswap",
@@ -76,7 +76,7 @@ describe("Orbs quote tools", () => {
       chainId: 8453,
       fromToken: "0xTokenA",
       toToken: "0xTokenB",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
     });
 
     expect(result.isError).toBe(false);
@@ -95,7 +95,7 @@ describe("Orbs quote tools", () => {
       chainId: 1,
       fromToken: "0xTokenA",
       toToken: "0xTokenB",
-      inAmount: "1000000000000000000",
+      fromAmount: "1000000000000000000",
     });
 
     expect(result.isError).toBe(true);
@@ -111,9 +111,9 @@ describe("Orbs quote tools", () => {
 
     expect(names).toContain("orbs_get_quote");
     expect(names).toContain("orbs_swap");
-    expect(names).toContain("orbs_place_twap");
-    expect(names).toContain("orbs_place_limit");
-    expect(names).toContain("orbs_list_orders");
+    expect(names).toContain("orbs_place_order");
+    expect(names).toContain("orbs_query_orders");
+    expect(names).toContain("orbs_cancel_order");
   });
 
   it("exports explicit categories for Orbs tool definitions", async () => {
@@ -125,9 +125,9 @@ describe("Orbs quote tools", () => {
     expect(categories.orbs_get_quote).toBe("swap");
     expect(categories.orbs_swap).toBe("swap");
     expect(categories.orbs_swap_status).toBe("swap");
-    expect(categories.orbs_place_twap).toBe("orders");
-    expect(categories.orbs_place_limit).toBe("orders");
-    expect(categories.orbs_list_orders).toBe("orders");
+    expect(categories.orbs_place_order).toBe("orders");
+    expect(categories.orbs_query_orders).toBe("orders");
+    expect(categories.orbs_cancel_order).toBe("orders");
   });
 
   it("orbs_get_quote works on all supported chains", async () => {
@@ -141,7 +141,7 @@ describe("Orbs quote tools", () => {
         chainId,
         fromToken: "0xA",
         toToken: "0xB",
-        inAmount: "1000",
+        fromAmount: "1000",
       });
       expect(result.isError).toBe(false);
     }

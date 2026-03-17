@@ -1,20 +1,18 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { Hex } from "viem";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   getRequiredApprovals as getRequiredApprovalsForIntent,
-  prepareLimitIntent,
   prepareSwapIntent,
-  prepareTwapIntent,
   submitSignedSwap as submitPreparedSwap,
-  submitSignedTwapOrder,
 } from "../../api/intents.js";
+import { getRequiredApprovals } from "../../api/operations/orbs.js";
 import {
   getLiquidityHubError,
-  getTwapError,
+  getSpotError,
   isLiquidityHubSupported,
-  isTwapSupported,
+  isSpotSupported,
 } from "../../orbs/chains.js";
-import { getDsltpToolDefinitions } from "../../orbs/dsltp.js";
 import {
   DEX_MIN_AMOUNT_OUT_DISABLED,
   getQuote,
@@ -24,12 +22,10 @@ import {
   prepareSwap,
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
-import {
-  getTwapDurationSeconds,
-  listOrders,
-  prepareTwapOrder,
-  submitSignedOrder,
-} from "../../orbs/twap.js";
+import { querySpotOrders, submitSpotOrder } from "../../orbs/spot-client.js";
+import { REPERMIT_CANCEL_ABI, getSpotApiUrl, getSpotContracts } from "../../orbs/spot-config.js";
+import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
+import { listOrders } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { splitSignature } from "../../utils/signature.js";
@@ -40,25 +36,31 @@ import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
 import { resolveToolChainId } from "../shared/chain-context.js";
 import { createToolHandler } from "../shared/handler-factory.js";
+import { buildWriteContext, isWriteContext } from "../shared/write-context.js";
 import {
+  orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
-  orbsListOrdersSchema,
   orbsPlaceLimitSchema,
+  orbsPlaceOrderSchema,
   orbsPlaceTwapSchema,
   orbsPrepareLimitIntentSchema,
+  orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
   orbsPrepareTwapIntentSchema,
+  orbsQueryOrdersSchema,
+  orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
-  orbsSubmitSignedTwapOrderSchema,
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./schemas.js";
 
+/* ---------- Existing swap handlers ---------- */
+
 async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsGetQuoteSchema, params);
   if (!v.success) return v.error;
-  const { fromToken, toToken, inAmount, slippage } = v.data;
+  const { fromToken, toToken, fromAmount, slippage } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
@@ -69,7 +71,7 @@ async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolRe
     const result = await getQuote(chainId, {
       fromToken,
       toToken,
-      inAmount,
+      inAmount: fromAmount,
       slippage: slippage ?? 0.5,
     });
 
@@ -88,14 +90,14 @@ async function executeOrbsSwapNow(params: Record<string, unknown>): Promise<Call
     const { fromToken } = await prepareSwap({
       chainId,
       fromToken: params.fromToken as string,
-      inAmount: params.inAmount as string,
+      inAmount: params.fromAmount as string,
       account,
     });
 
     const sdk = getSdk(chainId);
     const slippage = (params.slippage as number) ?? 0.5;
     const toToken = params.toToken as string;
-    const inAmount = params.inAmount as string;
+    const inAmount = params.fromAmount as string;
 
     const quote = await sdk.getQuote({
       fromToken,
@@ -231,7 +233,7 @@ async function orbsSwapStatus(params: Record<string, unknown>): Promise<CallTool
 async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsSwapSchema, params);
   if (!v.success) return v.error;
-  const { fromToken, toToken, inAmount } = v.data;
+  const { fromToken, toToken, fromAmount } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
@@ -240,7 +242,7 @@ async function orbsSwap(params: Record<string, unknown>): Promise<CallToolResult
 
   return executeWrite({
     toolName: "orbs_swap",
-    description: `Orbs Liquidity Hub swap: ${inAmount} of ${fromToken} → ${toToken} on chain ${chainId}`,
+    description: `Orbs Liquidity Hub swap: ${fromAmount} of ${fromToken} → ${toToken} on chain ${chainId}`,
     params: { ...v.data } as Record<string, unknown>,
     executor: executeOrbsSwapNow,
   });
@@ -258,188 +260,565 @@ const orbsGetRequiredApprovalsTool = createToolHandler(
   "APPROVAL_CHECK_ERROR"
 );
 
-async function executeOrbsTwapNow(params: Record<string, unknown>): Promise<CallToolResult> {
-  const chainId = resolveChainId(params);
-  const chunks = Number(params.chunks ?? 5);
-  const fillDelay = Number(params.fillDelay ?? 300);
-
-  try {
-    const account = getActiveAccount();
-
-    const durationSeconds = getTwapDurationSeconds(chunks, fillDelay);
-    const prepared = prepareTwapOrder({
-      chainId,
-      srcToken: params.srcToken as string,
-      dstToken: params.dstToken as string,
-      srcAmount: params.srcAmount as string,
-      chunks,
-      fillDelaySeconds: fillDelay,
-      durationSeconds,
-      account: account.address,
-    });
-
-    if (!account.signTypedData) {
-      return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
-    }
-    const signature = await account.signTypedData({
-      domain: prepared.domain,
-      types: prepared.types,
-      primaryType: prepared.primaryType as "RePermitWitnessTransferFrom",
-      message: prepared.order as unknown as Record<string, unknown>,
-    });
-
-    const { v, r, s } = splitSignature(signature);
-
-    const order = await submitSignedOrder(prepared.order, { v, r, s });
-    return formatToolResponse({
-      orderId: order.id,
-      status: order.status,
-      txHash: order.txHash,
-    });
-  } catch (e: unknown) {
-    return formatToolError("ORBS_TWAP_ERROR", String(e));
-  }
-}
-
-async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(orbsPlaceTwapSchema, params);
-  if (!v.success) return v.error;
-  const { srcToken, dstToken, srcAmount, chunks, fillDelay } = v.data;
-  const chainId = resolveToolChainId(v.data.chainId);
-
-  if (!isTwapSupported(chainId)) {
-    return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
-  }
-
-  return executeWrite({
-    toolName: "orbs_place_twap",
-    description: `dTWAP order: ${srcAmount} of ${srcToken} → ${dstToken}, ${chunks} chunks, ${fillDelay}s delay on chain ${chainId}`,
-    params: { ...v.data } as Record<string, unknown>,
-    executor: executeOrbsTwapNow,
-  });
-}
-
-const orbsPrepareTwapIntentTool = createToolHandler(
-  orbsPrepareTwapIntentSchema,
-  prepareTwapIntent,
-  "ORBS_TWAP_ERROR"
-);
-
-async function executeOrbsLimitNow(params: Record<string, unknown>): Promise<CallToolResult> {
-  const chainId = resolveChainId(params);
-
-  try {
-    const account = getActiveAccount();
-
-    const expirySeconds = Number(params.expiry ?? 86400);
-    const prepared = prepareTwapOrder({
-      chainId,
-      srcToken: params.srcToken as string,
-      dstToken: params.dstToken as string,
-      srcAmount: params.srcAmount as string,
-      chunks: 1,
-      fillDelaySeconds: 0,
-      durationSeconds: expirySeconds,
-      account: account.address,
-      dstMinAmountPerTrade: params.dstMinAmount as string,
-    });
-
-    if (!account.signTypedData) {
-      return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
-    }
-    const signature = await account.signTypedData({
-      domain: prepared.domain,
-      types: prepared.types,
-      primaryType: prepared.primaryType as "RePermitWitnessTransferFrom",
-      message: prepared.order as unknown as Record<string, unknown>,
-    });
-
-    const { v, r, s } = splitSignature(signature);
-
-    const order = await submitSignedOrder(prepared.order, { v, r, s });
-    return formatToolResponse({
-      orderId: order.id,
-      status: order.status,
-      txHash: order.txHash,
-    });
-  } catch (e: unknown) {
-    return formatToolError("ORBS_LIMIT_ERROR", String(e));
-  }
-}
-
-async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(orbsPlaceLimitSchema, params);
-  if (!v.success) return v.error;
-  const { srcToken, dstToken, srcAmount, dstMinAmount } = v.data;
-  const chainId = resolveToolChainId(v.data.chainId);
-
-  if (!isTwapSupported(chainId)) {
-    return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
-  }
-
-  return executeWrite({
-    toolName: "orbs_place_limit",
-    description: `dLIMIT order: ${srcAmount} of ${srcToken} → ${dstToken}, min output ${dstMinAmount} on chain ${chainId}`,
-    params: { ...v.data } as Record<string, unknown>,
-    executor: executeOrbsLimitNow,
-  });
-}
-
-const orbsPrepareLimitIntentTool = createToolHandler(
-  orbsPrepareLimitIntentSchema,
-  prepareLimitIntent,
-  "ORBS_LIMIT_ERROR"
-);
-
 const orbsSubmitSignedSwapTool = createToolHandler(
   orbsSubmitSignedSwapSchema,
   submitPreparedSwap,
   "ORBS_SWAP_ERROR"
 );
 
-const orbsSubmitSignedTwapOrderTool = createToolHandler(
-  orbsSubmitSignedTwapOrderSchema,
-  submitSignedTwapOrder,
-  "ORBS_TWAP_ERROR"
-);
+/* ---------- New Spot order handlers ---------- */
 
-async function orbsListOrders(params: Record<string, unknown>): Promise<CallToolResult> {
-  const v = validateInput(orbsListOrdersSchema, params);
+async function executeSpotOrderNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  // Normalize legacy field names from pre-v0.3.0 queued entries
+  if ("srcToken" in params && !("fromToken" in params)) {
+    params.fromToken = params.srcToken;
+    params.srcToken = undefined;
+  }
+  if ("dstToken" in params && !("toToken" in params)) {
+    params.toToken = params.dstToken;
+    params.dstToken = undefined;
+  }
+  if ("srcAmount" in params && !("fromAmount" in params)) {
+    params.fromAmount = params.srcAmount;
+    params.srcAmount = undefined;
+  }
+  if ("inAmount" in params && !("fromAmount" in params)) {
+    params.fromAmount = params.inAmount;
+    params.inAmount = undefined;
+  }
+  if ("dstMinAmount" in params && !("toMinAmount" in params)) {
+    params.toMinAmount = params.dstMinAmount;
+    params.dstMinAmount = undefined;
+  }
+
+  // Convert legacy TWAP semantics (chunks/fillDelay → fromMaxAmount/epoch)
+  if (
+    typeof params.chunks === "number" &&
+    params.chunks >= 1 &&
+    typeof params.fillDelay === "number" &&
+    typeof params.fromAmount === "string"
+  ) {
+    const spotParams = twapParamsToSpotParams({
+      fromAmount: params.fromAmount,
+      chunks: params.chunks,
+      fillDelay: params.fillDelay,
+      slippage: typeof params.slippage === "number" ? params.slippage : undefined,
+      exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
+    });
+    params.fromAmount = spotParams.fromAmount;
+    params.fromMaxAmount = spotParams.fromMaxAmount;
+    params.epoch = spotParams.epoch;
+    params.chunks = undefined;
+    params.fillDelay = undefined;
+  }
+
+  // Convert legacy limit semantics (toMinAmount/expiry → outputLimit/deadline)
+  if (typeof params.toMinAmount === "string" && !("outputLimit" in params)) {
+    const spotParams = limitParamsToSpotParams({
+      fromAmount: params.fromAmount as string,
+      toMinAmount: params.toMinAmount,
+      expiry: typeof params.expiry === "number" ? params.expiry : undefined,
+      slippage: typeof params.slippage === "number" ? params.slippage : undefined,
+      exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
+    });
+    params.outputLimit = spotParams.outputLimit;
+    if (spotParams.deadline !== undefined) params.deadline = spotParams.deadline;
+    params.toMinAmount = undefined;
+    params.expiry = undefined;
+  }
+
+  const chainId = resolveChainId(params);
+
+  try {
+    const account = getActiveAccount();
+
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: account.address,
+      fromToken: params.fromToken as string,
+      fromAmount: params.fromAmount as string,
+      toToken: params.toToken as string,
+      fromMaxAmount: params.fromMaxAmount as string | undefined,
+      epoch: params.epoch as number | undefined,
+      slippage: params.slippage as number | undefined,
+      outputLimit: params.outputLimit as string | undefined,
+      outputTriggerLower: params.outputTriggerLower as string | undefined,
+      outputTriggerUpper: params.outputTriggerUpper as string | undefined,
+      start: params.start as number | undefined,
+      deadline: params.deadline as number | undefined,
+      exactApproval: params.exactApproval as boolean | undefined,
+    });
+
+    // Check & execute approvals to RePermit
+    const approvalSteps = await getRequiredApprovals({
+      chainId,
+      fromToken: params.fromToken as string,
+      fromAmount: prepared.approval.amount,
+      account: account.address,
+      mode: "order",
+      exactApproval: params.exactApproval as boolean | undefined,
+    });
+
+    if (approvalSteps.some((s) => s.tx?.data)) {
+      const ctx = buildWriteContext(chainId);
+      if (!isWriteContext(ctx)) return ctx;
+
+      for (const step of approvalSteps) {
+        if (step.tx?.data) {
+          const txHash = await ctx.walletClient.sendTransaction({
+            to: step.tx.to,
+            data: step.tx.data,
+            value: step.tx.value ? BigInt(step.tx.value) : 0n,
+            chain: ctx.chain,
+            account: ctx.account,
+          });
+
+          process.stderr.write(`[orbs-spot] Approval tx sent: ${txHash}\n`);
+          await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+          process.stderr.write(`[orbs-spot] Approval tx confirmed: ${txHash}\n`);
+        }
+      }
+    }
+
+    // Sign EIP-712 typed data
+    if (!account.signTypedData) {
+      return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
+    }
+
+    const signature = await account.signTypedData({
+      domain: {
+        ...prepared.typedData.domain,
+        verifyingContract: prepared.typedData.domain.verifyingContract as Hex,
+      },
+      types: prepared.typedData.types,
+      primaryType: prepared.typedData.primaryType,
+      message: prepared.typedData.message as unknown as Record<string, unknown>,
+    });
+
+    const { v, r, s } = splitSignature(signature);
+
+    // Submit via Spot API
+    const result = await submitSpotOrder({
+      url: prepared.submit.url,
+      order: prepared.submit.body.order as Record<string, unknown>,
+      signature: { v, r, s },
+    });
+
+    if (!result.ok) {
+      return formatToolError(
+        "ORBS_ORDER_ERROR",
+        `Spot API returned ${result.status}: ${typeof result.response === "string" ? result.response : JSON.stringify(result.response)}`
+      );
+    }
+
+    return formatToolResponse({
+      status: "submitted",
+      response: result.response,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_ORDER_ERROR", String(e));
+  }
+}
+
+async function orbsPlaceOrder(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPlaceOrderSchema, params);
+  if (!v.success) return v.error;
+  const { fromToken, toToken, fromAmount } = v.data;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  return executeWrite({
+    toolName: "orbs_place_order",
+    description: `Spot order: ${fromAmount} of ${fromToken} → ${toToken} on chain ${chainId}`,
+    params: { ...v.data } as Record<string, unknown>,
+    executor: executeSpotOrderNow,
+  });
+}
+
+async function orbsPrepareOrderIntent(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareOrderIntentSchema, params);
   if (!v.success) return v.error;
   const chainId = resolveToolChainId(v.data.chainId);
 
-  if (!isTwapSupported(chainId)) {
-    return formatToolError("CHAIN_NOT_SUPPORTED", getTwapError(chainId));
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
   }
 
-  const walletState = getWalletState();
-  if (!walletState.address) {
+  try {
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: v.data.account,
+      fromToken: v.data.fromToken,
+      fromAmount: v.data.fromAmount,
+      toToken: v.data.toToken,
+      fromMaxAmount: v.data.fromMaxAmount,
+      epoch: v.data.epoch,
+      slippage: v.data.slippage,
+      outputLimit: v.data.outputLimit,
+      outputTriggerLower: v.data.outputTriggerLower,
+      outputTriggerUpper: v.data.outputTriggerUpper,
+      start: v.data.start,
+      deadline: v.data.deadline,
+      exactApproval: v.data.exactApproval,
+    });
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: v.data.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: v.data.account,
+      mode: "order",
+      exactApproval: v.data.exactApproval,
+    });
+
+    return formatToolResponse({
+      typedData: prepared.typedData,
+      approval: prepared.approval,
+      submit: prepared.submit,
+      query: prepared.query,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+      requiredApprovals,
+      chainId,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_ORDER_ERROR", String(e));
+  }
+}
+
+async function orbsSubmitSignedOrderHandler(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  const v = validateInput(orbsSubmitSignedOrderSchema, params);
+  if (!v.success) return v.error;
+
+  const expectedBase = getSpotApiUrl();
+  if (!v.data.submitUrl.startsWith(expectedBase)) {
     return formatToolError(
-      "WALLET_READ_ONLY",
-      "orbs_list_orders requires an active wallet with an address."
+      "ORBS_ORDER_ERROR",
+      `Submit URL must start with ${expectedBase}. Refusing to send signed order to untrusted endpoint.`
     );
   }
 
   try {
-    const orders = await listOrders(chainId, walletState.address);
+    const { v: sigV, r, s } = splitSignature(v.data.signature);
+
+    const result = await submitSpotOrder({
+      url: v.data.submitUrl,
+      order: v.data.order,
+      signature: { v: sigV, r, s },
+    });
+
+    if (!result.ok) {
+      return formatToolError(
+        "ORBS_ORDER_ERROR",
+        `Spot API returned ${result.status}: ${typeof result.response === "string" ? result.response : JSON.stringify(result.response)}`
+      );
+    }
 
     return formatToolResponse({
-      count: orders.length,
-      orders: orders.map((o) => ({
-        id: o.id,
-        type: o.type,
-        status: o.status,
-        srcToken: o.srcTokenAddress,
-        dstToken: o.dstTokenAddress,
-        srcAmount: o.srcAmount,
-        progress: o.progress,
-        createdAt: o.createdAt,
-      })),
+      status: "submitted",
+      response: result.response,
     });
   } catch (e: unknown) {
-    return formatToolError("ORBS_LIST_ERROR", String(e));
+    return formatToolError("ORBS_ORDER_ERROR", String(e));
   }
 }
+
+async function orbsQueryOrders(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsQueryOrdersSchema, params);
+  if (!v.success) return v.error;
+
+  try {
+    // Try Spot API first
+    const spotResult = await querySpotOrders({
+      swapper: v.data.swapper,
+      hash: v.data.hash,
+    });
+
+    if (spotResult.ok) {
+      return formatToolResponse({
+        source: "spot",
+        orders: spotResult.orders,
+      });
+    }
+
+    // If Spot API fails AND swapper is provided, fall back to SDK listOrders
+    if (v.data.swapper) {
+      const chainId = resolveToolChainId(v.data.chainId);
+      try {
+        const sdkOrders = await listOrders(chainId, v.data.swapper);
+        return formatToolResponse({
+          source: "sdk-fallback",
+          orders: sdkOrders.map((o) => ({
+            id: o.id,
+            type: o.type,
+            status: o.status,
+            fromToken: o.srcTokenAddress,
+            toToken: o.dstTokenAddress,
+            fromAmount: o.srcAmount,
+            progress: o.progress,
+            createdAt: o.createdAt,
+          })),
+        });
+      } catch (fallbackErr: unknown) {
+        process.stderr.write(`[orbs-spot] SDK fallback also failed: ${fallbackErr}\n`);
+      }
+    }
+
+    return formatToolError(
+      "ORBS_QUERY_ERROR",
+      `Spot API returned status ${spotResult.status}: ${spotResult.error}`
+    );
+  } catch (e: unknown) {
+    return formatToolError("ORBS_QUERY_ERROR", String(e));
+  }
+}
+
+async function executeSpotCancelNow(params: Record<string, unknown>): Promise<CallToolResult> {
+  const chainId = resolveChainId(params);
+  const digest = params.digest as Hex;
+
+  try {
+    const ctx = buildWriteContext(chainId);
+    if (!isWriteContext(ctx)) return ctx;
+
+    const contracts = getSpotContracts();
+
+    const txHash = await ctx.walletClient.writeContract({
+      address: contracts.repermit,
+      abi: REPERMIT_CANCEL_ABI,
+      functionName: "cancel",
+      args: [[digest]],
+      chain: ctx.chain,
+      account: ctx.account,
+    });
+
+    process.stderr.write(`[orbs-spot] Cancel tx sent: ${txHash}\n`);
+    const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+
+    return formatToolResponse({
+      status: receipt.status === "success" ? "cancelled" : "failed",
+      txHash,
+      digest,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_CANCEL_ERROR", String(e));
+  }
+}
+
+async function orbsCancelOrder(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsCancelOrderSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  return executeWrite({
+    toolName: "orbs_cancel_order",
+    description: `Cancel Spot order ${v.data.digest} on chain ${chainId}`,
+    params: { ...v.data } as Record<string, unknown>,
+    executor: executeSpotCancelNow,
+  });
+}
+
+/* ---------- TWAP / Limit param mapping ---------- */
+
+function twapParamsToSpotParams(params: {
+  fromAmount: string;
+  chunks: number;
+  fillDelay: number;
+  slippage?: number;
+  exactApproval?: boolean;
+}): {
+  fromAmount: string;
+  fromMaxAmount: string;
+  epoch: number;
+  slippage?: number;
+  exactApproval?: boolean;
+} {
+  const totalAmount = BigInt(params.fromAmount);
+  const perChunkAmount = totalAmount / BigInt(params.chunks);
+  return {
+    fromAmount: perChunkAmount.toString(),
+    fromMaxAmount: params.fromAmount,
+    epoch: params.fillDelay,
+    slippage: params.slippage,
+    exactApproval: params.exactApproval,
+  };
+}
+
+function limitParamsToSpotParams(params: {
+  fromAmount: string;
+  toMinAmount: string;
+  expiry?: number;
+  slippage?: number;
+  exactApproval?: boolean;
+}): {
+  fromAmount: string;
+  outputLimit: string;
+  deadline?: number;
+  slippage?: number;
+  exactApproval?: boolean;
+} {
+  const expiry = params.expiry ?? 86400;
+  return {
+    fromAmount: params.fromAmount,
+    outputLimit: params.toMinAmount,
+    deadline: Math.floor(Date.now() / 1000) + expiry,
+    slippage: params.slippage,
+    exactApproval: params.exactApproval,
+  };
+}
+
+/* ---------- TWAP wrapper handlers ---------- */
+
+async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPlaceTwapSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  const spotParams = twapParamsToSpotParams(v.data);
+
+  return executeWrite({
+    toolName: "orbs_place_twap",
+    description: `TWAP order: ${v.data.fromAmount} of ${v.data.fromToken} → ${v.data.toToken}, ${v.data.chunks} chunks, ${v.data.fillDelay}s delay on chain ${chainId}`,
+    params: {
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      chainId,
+      ...spotParams,
+    } as Record<string, unknown>,
+    executor: executeSpotOrderNow,
+  });
+}
+
+async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareTwapIntentSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  try {
+    const spotParams = twapParamsToSpotParams(v.data);
+
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: v.data.account,
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      ...spotParams,
+    });
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: v.data.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: v.data.account,
+      mode: "order",
+      exactApproval: v.data.exactApproval,
+    });
+
+    return formatToolResponse({
+      typedData: prepared.typedData,
+      approval: prepared.approval,
+      submit: prepared.submit,
+      query: prepared.query,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+      requiredApprovals,
+      chainId,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_TWAP_ERROR", String(e));
+  }
+}
+
+/* ---------- Limit wrapper handlers ---------- */
+
+async function orbsPlaceLimit(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPlaceLimitSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  const spotParams = limitParamsToSpotParams(v.data);
+
+  return executeWrite({
+    toolName: "orbs_place_limit",
+    description: `Limit order: ${v.data.fromAmount} of ${v.data.fromToken} → ${v.data.toToken}, min output ${v.data.toMinAmount} on chain ${chainId}`,
+    params: {
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      chainId,
+      ...spotParams,
+    } as Record<string, unknown>,
+    executor: executeSpotOrderNow,
+  });
+}
+
+async function orbsPrepareLimitIntent(params: Record<string, unknown>): Promise<CallToolResult> {
+  const v = validateInput(orbsPrepareLimitIntentSchema, params);
+  if (!v.success) return v.error;
+  const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
+
+  try {
+    const spotParams = limitParamsToSpotParams(v.data);
+
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: v.data.account,
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      ...spotParams,
+    });
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: v.data.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: v.data.account,
+      mode: "order",
+      exactApproval: v.data.exactApproval,
+    });
+
+    return formatToolResponse({
+      typedData: prepared.typedData,
+      approval: prepared.approval,
+      submit: prepared.submit,
+      query: prepared.query,
+      meta: prepared.meta,
+      warnings: prepared.warnings,
+      requiredApprovals,
+      chainId,
+    });
+  } catch (e: unknown) {
+    return formatToolError("ORBS_LIMIT_ERROR", String(e));
+  }
+}
+
+/* ---------- Tool definitions ---------- */
 
 export function getOrbsToolDefinitions(): ToolDefinition[] {
   const tools: ToolDefinition[] = [
@@ -462,6 +841,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Requires token addresses — use resolve_token first.",
       inputSchema: zodToJsonSchema(orbsSwapSchema) as Record<string, unknown>,
       handler: orbsSwap,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -483,55 +863,13 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
-      name: "orbs_place_twap",
-      category: "orders",
-      description: "Place a dTWAP (time-weighted average price) order (write, confirmation-gated)",
-      inputSchema: zodToJsonSchema(orbsPlaceTwapSchema) as Record<string, unknown>,
-      handler: orbsPlaceTwap,
-      annotations: { destructiveHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_prepare_twap_intent",
-      category: "orders",
-      description:
-        "Prepare a dTWAP order for external wallet signing. Returns raw order data and EIP-712 typed data.",
-      inputSchema: zodToJsonSchema(orbsPrepareTwapIntentSchema) as Record<string, unknown>,
-      handler: orbsPrepareTwapIntentTool,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_place_limit",
-      category: "orders",
-      description: "Place a dLIMIT order (write, confirmation-gated)",
-      inputSchema: zodToJsonSchema(orbsPlaceLimitSchema) as Record<string, unknown>,
-      handler: orbsPlaceLimit,
-      annotations: { destructiveHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_prepare_limit_intent",
-      category: "orders",
-      description:
-        "Prepare a dLIMIT order for external wallet signing. Returns raw order data and EIP-712 typed data.",
-      inputSchema: zodToJsonSchema(orbsPrepareLimitIntentSchema) as Record<string, unknown>,
-      handler: orbsPrepareLimitIntentTool,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    {
       name: "orbs_submit_signed_swap",
       category: "swap",
       description:
         "Submit an externally signed Orbs Liquidity Hub swap using the quote returned by orbs_prepare_swap_intent.",
       inputSchema: zodToJsonSchema(orbsSubmitSignedSwapSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedSwapTool,
-      annotations: { destructiveHint: true, openWorldHint: true },
-    },
-    {
-      name: "orbs_submit_signed_twap_order",
-      category: "orders",
-      description:
-        "Submit an externally signed dTWAP or dLIMIT order using the order returned by the prepare intent tools.",
-      inputSchema: zodToJsonSchema(orbsSubmitSignedTwapOrderSchema) as Record<string, unknown>,
-      handler: orbsSubmitSignedTwapOrderTool,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -543,14 +881,96 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     {
-      name: "orbs_list_orders",
+      name: "orbs_place_twap",
       category: "orders",
-      description: "List open TWAP/dLIMIT orders for active wallet",
-      inputSchema: zodToJsonSchema(orbsListOrdersSchema) as Record<string, unknown>,
-      handler: orbsListOrders,
+      description:
+        "Place a TWAP (time-weighted average price) order via Spot protocol. " +
+        "Splits fromAmount into equal chunks executed at regular intervals. Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsPlaceTwapSchema) as Record<string, unknown>,
+      handler: orbsPlaceTwap,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_twap_intent",
+      category: "orders",
+      description:
+        "Prepare a TWAP order for external wallet signing. Returns EIP-712 typed data, approval calldata, and metadata.",
+      inputSchema: zodToJsonSchema(orbsPrepareTwapIntentSchema) as Record<string, unknown>,
+      handler: orbsPrepareTwapIntent,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    ...getDsltpToolDefinitions(),
+    {
+      name: "orbs_place_limit",
+      category: "orders",
+      description:
+        "Place a limit order via Spot protocol. Executes only when output meets minimum amount. Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsPlaceLimitSchema) as Record<string, unknown>,
+      handler: orbsPlaceLimit,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_limit_intent",
+      category: "orders",
+      description:
+        "Prepare a limit order for external wallet signing. Returns EIP-712 typed data, approval calldata, and metadata.",
+      inputSchema: zodToJsonSchema(orbsPrepareLimitIntentSchema) as Record<string, unknown>,
+      handler: orbsPrepareLimitIntent,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_place_order",
+      category: "orders",
+      description:
+        "Place a gasless order via Spot protocol. Supports market, limit, TWAP, stop-loss, take-profit, " +
+        "and delayed orders. Order type determined by parameters: limit (outputLimit > 0), " +
+        "chunked/TWAP (fromMaxAmount > fromAmount + epoch), stop-loss (outputTriggerLower), " +
+        "take-profit (outputTriggerUpper), delayed (future start). Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsPlaceOrderSchema) as Record<string, unknown>,
+      handler: orbsPlaceOrder,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_prepare_order_intent",
+      category: "orders",
+      description:
+        "Prepare a Spot order for external wallet signing. Returns EIP-712 typed data, " +
+        "approval calldata, submit URL, and order metadata. Supports all order types.",
+      inputSchema: zodToJsonSchema(orbsPrepareOrderIntentSchema) as Record<string, unknown>,
+      handler: orbsPrepareOrderIntent,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_submit_signed_order",
+      category: "orders",
+      description:
+        "Submit an externally signed Spot order using the submit URL and order from orbs_prepare_order_intent.",
+      inputSchema: zodToJsonSchema(orbsSubmitSignedOrderSchema) as Record<string, unknown>,
+      handler: orbsSubmitSignedOrderHandler,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_query_orders",
+      category: "orders",
+      description:
+        "Query Spot orders by swapper address or order hash. Falls back to SDK query if Spot API unavailable.",
+      inputSchema: zodToJsonSchema(orbsQueryOrdersSchema) as Record<string, unknown>,
+      handler: orbsQueryOrders,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "orbs_cancel_order",
+      category: "orders",
+      description:
+        "Cancel a Spot order onchain by calling RePermit.cancel with the order digest. Write, confirmation-gated.",
+      inputSchema: zodToJsonSchema(orbsCancelOrderSchema) as Record<string, unknown>,
+      handler: orbsCancelOrder,
+      riskLevel: "financial",
+      annotations: { destructiveHint: true, openWorldHint: true },
+    },
   ];
 
   return tools;
@@ -558,6 +978,8 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
 
 export function registerOrbsExecutors(): void {
   registerExecutor("orbs_swap", executeOrbsSwapNow);
-  registerExecutor("orbs_place_twap", executeOrbsTwapNow);
-  registerExecutor("orbs_place_limit", executeOrbsLimitNow);
+  registerExecutor("orbs_place_order", executeSpotOrderNow);
+  registerExecutor("orbs_place_twap", executeSpotOrderNow);
+  registerExecutor("orbs_place_limit", executeSpotOrderNow);
+  registerExecutor("orbs_cancel_order", executeSpotCancelNow);
 }

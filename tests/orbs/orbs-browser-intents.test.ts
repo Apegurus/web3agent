@@ -5,19 +5,23 @@ import type { ToolDefinition } from "../../src/tools/register.js";
 const intentMocks = vi.hoisted(() => ({
   prepareSwapIntent: vi.fn(),
   getRequiredApprovals: vi.fn(),
-  prepareTwapIntent: vi.fn(),
-  prepareLimitIntent: vi.fn(),
   submitSignedSwap: vi.fn(),
-  submitSignedTwapOrder: vi.fn(),
+}));
+
+const spotClientMocks = vi.hoisted(() => ({
+  submitSpotOrder: vi.fn(),
+  querySpotOrders: vi.fn(),
 }));
 
 vi.mock("../../src/api/intents.js", () => ({
   prepareSwapIntent: (...args: unknown[]) => intentMocks.prepareSwapIntent(...args),
   getRequiredApprovals: (...args: unknown[]) => intentMocks.getRequiredApprovals(...args),
-  prepareTwapIntent: (...args: unknown[]) => intentMocks.prepareTwapIntent(...args),
-  prepareLimitIntent: (...args: unknown[]) => intentMocks.prepareLimitIntent(...args),
   submitSignedSwap: (...args: unknown[]) => intentMocks.submitSignedSwap(...args),
-  submitSignedTwapOrder: (...args: unknown[]) => intentMocks.submitSignedTwapOrder(...args),
+}));
+
+vi.mock("../../src/orbs/spot-client.js", () => ({
+  submitSpotOrder: (...args: unknown[]) => spotClientMocks.submitSpotOrder(...args),
+  querySpotOrders: (...args: unknown[]) => spotClientMocks.querySpotOrders(...args),
 }));
 
 describe("Orbs browser-wallet MCP tools", () => {
@@ -28,10 +32,10 @@ describe("Orbs browser-wallet MCP tools", () => {
 
     expect(categories.orbs_prepare_swap_intent).toBe("swap");
     expect(categories.orbs_get_required_approvals).toBe("swap");
-    expect(categories.orbs_prepare_twap_intent).toBe("orders");
-    expect(categories.orbs_prepare_limit_intent).toBe("orders");
     expect(categories.orbs_submit_signed_swap).toBe("swap");
-    expect(categories.orbs_submit_signed_twap_order).toBe("orders");
+    expect(categories.orbs_prepare_order_intent).toBe("orders");
+    expect(categories.orbs_submit_signed_order).toBe("orders");
+    expect(categories.orbs_query_orders).toBe("orders");
   });
 
   it("delegates orbs_prepare_swap_intent to the shared API", async () => {
@@ -43,7 +47,7 @@ describe("Orbs browser-wallet MCP tools", () => {
         sessionId: "session-1",
         inToken: "0x1",
         outToken: "0x2",
-        inAmount: "10",
+        fromAmount: "10",
         outAmount: "20",
         minAmountOut: "19",
         user: "0x1234567890123456789012345678901234567890",
@@ -57,7 +61,7 @@ describe("Orbs browser-wallet MCP tools", () => {
       chainId: 8453,
       fromToken: "0x1111111111111111111111111111111111111111",
       toToken: "0x2222222222222222222222222222222222222222",
-      inAmount: "10",
+      fromAmount: "10",
       account: "0x1234567890123456789012345678901234567890",
     });
 
@@ -65,32 +69,31 @@ describe("Orbs browser-wallet MCP tools", () => {
       chainId: 8453,
       fromToken: "0x1111111111111111111111111111111111111111",
       toToken: "0x2222222222222222222222222222222222222222",
-      inAmount: "10",
+      fromAmount: "10",
       account: "0x1234567890123456789012345678901234567890",
     });
     expect(result.isError).toBe(false);
   });
 
-  it("delegates orbs_submit_signed_twap_order to the shared API", async () => {
-    intentMocks.submitSignedTwapOrder.mockResolvedValue({
-      orderId: "order-1",
-      status: "OPEN",
-      txHash: "0xhash",
+  it("delegates orbs_submit_signed_order to the Spot API", async () => {
+    spotClientMocks.submitSpotOrder.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: { id: "order-1" },
     });
 
     const tool = getOrbsToolDefinitions().find(
-      (definition) => definition.name === "orbs_submit_signed_twap_order"
+      (definition) => definition.name === "orbs_submit_signed_order"
     ) as ToolDefinition;
+    // Build a valid 65-byte signature (0x + 130 hex chars)
+    const sig = `0x${"ab".repeat(65)}`;
     const result = await tool.handler({
+      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
       order: { maker: "0xabc" },
-      signature: {
-        v: 27,
-        r: `0x${"11".repeat(32)}`,
-        s: `0x${"22".repeat(32)}`,
-      },
+      signature: sig,
     });
 
-    expect(intentMocks.submitSignedTwapOrder).toHaveBeenCalled();
+    expect(spotClientMocks.submitSpotOrder).toHaveBeenCalled();
     expect(result.isError).toBe(false);
   });
 });

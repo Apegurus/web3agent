@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createPublicClient } from "viem";
+import { type Hex, createPublicClient } from "viem";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { getConfig } from "../../config/env.js";
 import { getTransportForChain } from "../../config/wallet-factory.js";
@@ -12,6 +12,7 @@ import {
 import { buildRegistrationJson, validateRegistrationJson } from "../../erc8004/registration.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
@@ -27,7 +28,7 @@ import {
   erc8004UpdateAgentSchema,
 } from "./schemas.js";
 
-function requireIdentityAddress(chainId: number): { address: `0x${string}` } | CallToolResult {
+function requireIdentityAddress(chainId: number): { address: Hex } | CallToolResult {
   const address = getIdentityAddress(chainId);
   if (!address) {
     return formatToolError(
@@ -38,7 +39,7 @@ function requireIdentityAddress(chainId: number): { address: `0x${string}` } | C
   return { address };
 }
 
-function requireReputationAddress(chainId: number): { address: `0x${string}` } | CallToolResult {
+function requireReputationAddress(chainId: number): { address: Hex } | CallToolResult {
   const address = getReputationAddress(chainId);
   if (!address) {
     return formatToolError(
@@ -61,17 +62,21 @@ function toHttpUri(uri: string): string {
 }
 
 async function pinToIpfs(json: object, label: string, pinataJwt: string): Promise<string> {
-  const response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${pinataJwt}`,
+  const response = await resilientFetch(
+    "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pinataJwt}`,
+      },
+      body: JSON.stringify({
+        pinataContent: json,
+        pinataMetadata: { name: label },
+      }),
     },
-    body: JSON.stringify({
-      pinataContent: json,
-      pinataMetadata: { name: label },
-    }),
-  });
+    { label: "pinata" }
+  );
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
@@ -83,7 +88,7 @@ async function pinToIpfs(json: object, label: string, pinataJwt: string): Promis
 }
 
 async function fetchRegistrationJson(agentURI: string): Promise<Record<string, unknown>> {
-  const response = await fetch(toHttpUri(agentURI));
+  const response = await resilientFetch(toHttpUri(agentURI), undefined, { label: "erc8004" });
   if (!response.ok) {
     throw new Error(`Failed to fetch existing agentURI (${response.status})`);
   }
@@ -252,7 +257,7 @@ async function erc8004GetAgent(params: Record<string, unknown>): Promise<CallToo
         address: identityAddress,
         abi: identityRegistryAbi,
         functionName: "addressToTokenId",
-        args: [v.data.walletAddress as `0x${string}`],
+        args: [v.data.walletAddress as Hex],
       })) as bigint;
 
       if (agentId === 0n) {
@@ -474,7 +479,7 @@ async function executeSubmitFeedback(params: Record<string, unknown>): Promise<C
         `ERC-8004 Reputation Registry not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
       );
     }
-    const zeroBytes32 = `0x${"0".repeat(64)}` as `0x${string}`;
+    const zeroBytes32 = `0x${"0".repeat(64)}` as Hex;
 
     const txHash = await walletClient.writeContract({
       address: reputationAddress,
@@ -558,6 +563,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
         "Register an agent on the ERC-8004 Identity Registry (write operation, wallet + confirmation required).",
       inputSchema: zodToJsonSchema(erc8004RegisterSchema) as Record<string, unknown>,
       handler: erc8004RegisterAgent,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -576,6 +582,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
         "Update ERC-8004 agent metadata URI (write operation, wallet + confirmation required).",
       inputSchema: zodToJsonSchema(erc8004UpdateAgentSchema) as Record<string, unknown>,
       handler: erc8004UpdateAgent,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -585,6 +592,7 @@ export function getErc8004ToolDefinitions(): ToolDefinition[] {
         "Submit reputation feedback for an ERC-8004 agent (write operation, wallet + confirmation required).",
       inputSchema: zodToJsonSchema(erc8004SubmitFeedbackSchema) as Record<string, unknown>,
       handler: erc8004SubmitFeedback,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

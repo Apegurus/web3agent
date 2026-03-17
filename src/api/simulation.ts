@@ -59,8 +59,8 @@ export function clearTraceSupportCache(): void {
   traceSupportCache.clear();
 }
 
-function getAddressFromTopic(topic: string): `0x${string}` {
-  return `0x${topic.slice(-40)}` as `0x${string}`;
+function getAddressFromTopic(topic: string): Hex {
+  return `0x${topic.slice(-40)}` as Hex;
 }
 
 export function parseNumericValue(value: string | undefined): bigint {
@@ -141,7 +141,7 @@ function extractErrorMessage(error: unknown): string {
 
 function addAggregatedChange(
   changes: Map<string, bigint>,
-  token: `0x${string}`,
+  token: Hex,
   direction: BalanceChange["direction"],
   amount: bigint
 ): void {
@@ -218,7 +218,7 @@ async function resolveBalanceChanges(
 
     const token = lookupTokenByAddress(tokenAddress, chainId);
     return {
-      token: (token?.address ?? tokenAddress) as `0x${string}`,
+      token: (token?.address ?? tokenAddress) as Hex,
       symbol: token?.symbol ?? null,
       decimals: token?.decimals ?? null,
       amount: amount.toString(),
