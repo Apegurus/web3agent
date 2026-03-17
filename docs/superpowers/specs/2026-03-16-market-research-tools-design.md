@@ -10,8 +10,8 @@ Ottie (a competing agent framework) covers this space via Markdown-prompt skills
 
 ## Scope
 
-**Must-have (30 tools):**
-- Market tool group (17 tools) — prices, TVL, sentiment, trending, CEX data
+**Must-have (33 tools):**
+- Market tool group (20 tools) — prices, TVL, sentiment, trending, CEX data, token rankings, categories
 - Research tool group (13 tools) — contract security, due diligence, yields, governance, whale tracking
 
 **Out of scope for this pass:**
@@ -27,7 +27,7 @@ All primary sources are free, no API key required:
 |--------|---------|----------|
 | DefiLlama API | Market + Research | `https://api.llama.fi`, `https://yields.llama.fi`, `https://stablecoins.llama.fi`, `https://feed-api.llama.fi`, `https://fe-cache.llama.fi` |
 | Fear & Greed Index | Market | `https://api.alternative.me/fng/` |
-| CoinGecko (free) | Market | `https://api.coingecko.com/api/v3` |
+| CoinGecko (free) | Market + Research | `https://api.coingecko.com/api/v3` |
 | Binance public API | Market | `https://api.binance.com/api/v3`, `https://fapi.binance.com/fapi/v1` |
 | GoPlus Security | Research | `https://api.gopluslabs.io/api/v1` |
 | DexScreener | Research | `https://api.dexscreener.com` (direct HTTP for due diligence, separate from GOAT plugin) |
@@ -39,7 +39,7 @@ All primary sources are free, no API key required:
 
 | Key | Unlocks |
 |-----|---------|
-| `COINGECKO_API_KEY` | Higher rate limits on trending/gainers, sparkline data |
+| `COINGECKO_API_KEY` | Higher rate limits across all CoinGecko-backed tools, sparkline data, richer market charts |
 | `GOPLUS_API_KEY` | Higher rate limits on security checks (free tier is 30 req/min) |
 
 ## Type Changes
@@ -70,7 +70,7 @@ src/tools/market/
 ├── schemas.ts            # Re-exports from src/api/schemas/market.ts
 ├── defillama.ts          # DefiLlama-backed handlers
 ├── sentiment.ts          # Fear & Greed handler
-├── coingecko.ts          # Trending handler
+├── coingecko.ts          # Trending, top tokens, search, categories, token history (primary)
 └── binance.ts            # CEX data handlers
 
 src/tools/research/
@@ -173,10 +173,11 @@ annotations: {
 - **Returns:** Map of `{ price, symbol, decimals, confidence, timestamp }`
 
 #### `market_get_token_history`
-- **Input:** `token` (`chain:address`), `period?` (1d/7d/30d/90d/1y, default 30d)
-- **Source:** `GET https://coins.llama.fi/chart/{token}?start={start}&span={span}&period={resolution}`
-- **Note:** DefiLlama's chart endpoint uses `start`/`span`/`period` (resolution) params, not a single period shorthand. The handler computes `start` timestamp from the user-facing `period` input (e.g., "30d" → now minus 30 days), and selects an appropriate resolution (hourly for ≤7d, daily for >7d).
-- **Returns:** Array of `{ timestamp, price }` data points
+- **Input:** `token` (CoinGecko ID or `chain:address`), `period?` (1d/7d/30d/90d/1y, default 30d)
+- **Primary source:** `GET https://api.coingecko.com/api/v3/coins/{id}/market_chart?vs_currency=usd&days={days}` — returns price, market cap, and volume history in one call. More reliable and richer than DefiLlama charts.
+- **Fallback:** If CoinGecko rate-limited or token only identifiable by `chain:address`, falls back to `GET https://coins.llama.fi/chart/{token}?start={start}&span={span}&period={resolution}`. The handler computes `start` timestamp from the user-facing `period` input and selects an appropriate resolution (hourly for ≤7d, daily for >7d).
+- **Progressive:** With `COINGECKO_API_KEY`, uses pro endpoint with higher rate limits.
+- **Returns:** Array of `{ timestamp, price, marketCap?, volume? }` (marketCap and volume included when from CoinGecko)
 
 #### `market_get_gainers_losers`
 - **Input:** `period?` (1h/24h/7d, default 24h), `limit?` (default 10)
@@ -218,11 +219,32 @@ annotations: {
 
 ### CoinGecko
 
+CoinGecko's free API is rate-limited (10-30 req/min). All CoinGecko-backed tools respect this via `fetchJson` TTL caching (120s default for CoinGecko responses). With `COINGECKO_API_KEY`, rate limits are significantly higher and pro endpoints are used automatically.
+
 #### `market_get_trending`
 - **Input:** `limit?` (default 10)
 - **Source:** `GET https://api.coingecko.com/api/v3/search/trending`
-- **Progressive:** If `COINGECKO_API_KEY` set, uses pro endpoint for richer data
-- **Returns:** Array of `{ name, symbol, marketCapRank, price, priceChange24h, marketCap }`
+- **Enrichment:** After fetching trending list, batch-fetches market data via `/coins/markets` for the trending coin IDs to include mcap, volume, and 24h change in a single follow-up call.
+- **Progressive:** With `COINGECKO_API_KEY`, uses pro endpoint for richer data (sparklines, ATH).
+- **Returns:** Array of `{ name, symbol, marketCapRank, price, priceChange24h, marketCap, volume24h }`
+
+#### `market_get_top_tokens`
+- **Input:** `category?` (e.g., "decentralized-finance-defi", "layer-2", "meme-token"), `limit?` (default 20, max 250), `order?` ("market_cap_desc"/"volume_desc", default "market_cap_desc")
+- **Source:** `GET https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order={order}&per_page={limit}&category={category}`
+- **Note:** This is the token counterpart to `market_get_top_protocols` (which ranks by TVL). Users asking "what are the top tokens?" want market cap rankings.
+- **Returns:** Array of `{ name, symbol, marketCapRank, currentPrice, priceChange24h, priceChange7d, marketCap, totalVolume, circulatingSupply, ath, athDate }`
+
+#### `market_search_token`
+- **Input:** `query` (name, symbol, or keyword)
+- **Source:** `GET https://api.coingecko.com/api/v3/search?query={query}`
+- **Note:** More flexible than `resolve_token` (which does exact symbol matching against a registry). This searches CoinGecko's full database by name/symbol/keyword, useful for discovery ("find AI tokens", "search for dog coins").
+- **Returns:** Array of `{ id, name, symbol, marketCapRank, thumb }` — the `id` can be used as input to other CoinGecko-backed tools.
+
+#### `market_get_categories`
+- **Input:** `order?` ("market_cap_desc"/"name_asc"/"market_cap_change_24h_desc", default "market_cap_desc"), `limit?` (default 20)
+- **Source:** `GET https://api.coingecko.com/api/v3/coins/categories`
+- **Note:** Sector-level analysis — shows aggregate market cap and volume for categories like DeFi, L2, AI, Meme, Gaming, etc.
+- **Returns:** Array of `{ name, marketCap, marketCapChange24h, volume24h, topCoins: [{ name, symbol }], updatedAt }`
 
 ### Binance Public API
 
@@ -294,8 +316,11 @@ Binance public API endpoints return 451/403 in some jurisdictions (notably the U
 
 #### `research_protocol_info`
 - **Input:** `protocol` (slug)
-- **Source:** `GET https://api.llama.fi/protocol/{slug}` + DefiLlama metadata
-- **Returns:** `{ name, description, category, chains, tvl, audits, url, raises, governanceLinks, twitter }`
+- **Sources:**
+  1. `GET https://api.llama.fi/protocol/{slug}` — TVL, chain breakdown, category, raises
+  2. `GET https://api.coingecko.com/api/v3/coins/{id}` — description, links, categories, developer activity, community stats (if the protocol has a CoinGecko-listed token). The handler maps the DefiLlama slug to a CoinGecko ID via the protocol's `gecko_id` field in the DefiLlama response.
+- **Partial failure handling:** Same pattern as `research_token_due_diligence` — if CoinGecko fails, DefiLlama data is still returned with a `warnings` note.
+- **Returns:** `{ name, description, category, chains, tvl, audits, url, raises, governanceLinks, twitter, devActivity?, communityScore?, categories?, sentimentUp?, sentimentDown?, sources: [...] }`
 
 ### DefiLlama Feed Tools
 
@@ -355,7 +380,30 @@ export const protocolSlugSchema = z.string()
 
 export const tradingPairSchema = z.string()
   .describe("Trading pair symbol (e.g., 'BTCUSDT', 'ETHUSDT')");
+
+export const coingeckoIdSchema = z.string()
+  .describe("CoinGecko coin ID (e.g., 'bitcoin', 'ethereum', 'uniswap'). Use market_search_token to find IDs.");
 ```
+
+### CoinGecko URL Helper
+
+A shared `coingeckoUrl(path)` helper in `src/tools/market/coingecko.ts` builds the correct base URL depending on whether `COINGECKO_API_KEY` is set:
+
+```typescript
+function coingeckoUrl(path: string): string {
+  const base = process.env.COINGECKO_API_KEY
+    ? "https://pro-api.coingecko.com/api/v3"
+    : "https://api.coingecko.com/api/v3";
+  return `${base}${path}`;
+}
+
+function coingeckoHeaders(): Record<string, string> {
+  const key = process.env.COINGECKO_API_KEY;
+  return key ? { "x-cg-pro-api-key": key } : {};
+}
+```
+
+All CoinGecko handlers use this helper, so progressive enhancement is transparent.
 
 ### Naming Convention
 
