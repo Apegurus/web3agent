@@ -1,3 +1,4 @@
+import { isHex } from "viem";
 import { submitSpotOrder } from "../orbs/spot-client.js";
 import { getSpotApiUrl } from "../orbs/spot-config.js";
 import { joinSignature, splitSignature } from "../utils/signature.js";
@@ -121,13 +122,12 @@ export async function prepareTwapIntent(params: PrepareTwapIntentInput): Promise
 export async function prepareLimitIntent(
   params: PrepareLimitIntentInput
 ): Promise<SpotOrderIntent> {
+  const expiry = params.expiry ?? 86400;
   const orderParams: PrepareOrderIntentInput = {
     ...params,
     outputLimit: params.toMinAmount,
+    deadline: Math.floor(Date.now() / 1000) + expiry,
   };
-  if (params.expiry !== undefined) {
-    orderParams.deadline = Math.floor(Date.now() / 1000) + params.expiry;
-  }
   return prepareOrderIntent(orderParams);
 }
 
@@ -136,6 +136,13 @@ export async function submitSignedOrder(params: {
   order: Record<string, unknown>;
   signature: `0x${string}`;
 }): Promise<{ status: string; response: unknown }> {
+  const expectedBase = getSpotApiUrl();
+  if (!params.submitUrl.startsWith(expectedBase)) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: `Submit URL must start with ${expectedBase}. Refusing to send signed order to untrusted endpoint.`,
+    });
+  }
   const { r, s, v } = splitSignature(params.signature);
   const result = await submitSpotOrder({
     url: params.submitUrl,
@@ -158,13 +165,25 @@ export async function submitSignedTwapOrder(params: {
   order: Record<string, unknown>;
   signature: { v: number; r: string; s: string };
 }): Promise<{ status: string; response: unknown }> {
+  if (!isHex(params.signature.r, { strict: true })) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "signature.r must be a 0x-prefixed hex string",
+    });
+  }
+  if (!isHex(params.signature.s, { strict: true })) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "signature.s must be a 0x-prefixed hex string",
+    });
+  }
   const signatureHex = joinSignature({
     v: params.signature.v,
     r: params.signature.r as `0x${string}`,
     s: params.signature.s as `0x${string}`,
   });
   return submitSignedOrder({
-    submitUrl: `${getSpotApiUrl()}/orders`,
+    submitUrl: `${getSpotApiUrl()}/orders/new`,
     order: params.order,
     signature: signatureHex,
   });

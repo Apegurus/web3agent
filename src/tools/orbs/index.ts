@@ -667,11 +667,11 @@ function limitParamsToSpotParams(params: {
   slippage?: number;
   exactApproval?: boolean;
 } {
+  const expiry = params.expiry ?? 86400;
   return {
     fromAmount: params.fromAmount,
     outputLimit: params.toMinAmount,
-    deadline:
-      params.expiry !== undefined ? Math.floor(Date.now() / 1000) + params.expiry : undefined,
+    deadline: Math.floor(Date.now() / 1000) + expiry,
     slippage: params.slippage,
     exactApproval: params.exactApproval,
   };
