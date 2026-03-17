@@ -12,12 +12,6 @@ const liquidityHubMocks = vi.hoisted(() => ({
   submitSwap: vi.fn(),
 }));
 
-const twapMocks = vi.hoisted(() => ({
-  getSrcTokenChunkAmount: vi.fn(),
-  prepareTwapOrder: vi.fn(),
-  submitSignedOrder: vi.fn(),
-}));
-
 const lifiMocks = vi.hoisted(() => ({
   getQuote: vi.fn(),
   getChains: vi.fn(),
@@ -49,16 +43,6 @@ vi.mock("../../src/orbs/liquidity-hub.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../src/orbs/twap.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/orbs/twap.js")>();
-  return {
-    ...actual,
-    getSrcTokenChunkAmount: (...args: unknown[]) => twapMocks.getSrcTokenChunkAmount(...args),
-    prepareTwapOrder: (...args: unknown[]) => twapMocks.prepareTwapOrder(...args),
-    submitSignedOrder: (...args: unknown[]) => twapMocks.submitSignedOrder(...args),
-  };
-});
-
 vi.mock("@lifi/sdk", () => ({
   getQuote: (...args: unknown[]) => lifiMocks.getQuote(...args),
   getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
@@ -76,7 +60,7 @@ vi.mock("../../src/operations/goat.js", () => ({
 describe("generic prepared operations API", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    setupDefaultOperationMocks({ viemMocks, twapMocks, lifiMocks });
+    setupDefaultOperationMocks({ viemMocks, lifiMocks });
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
       getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: null }),

@@ -1,14 +1,13 @@
 import type { Quote } from "@orbs-network/liquidity-hub-sdk";
-import type { RePermitOrder } from "@orbs-network/twap-sdk";
 import { encodeFunctionData, maxUint256 } from "viem";
 import { getConfig } from "../../config/env.js";
 import { createPublicClientForRuntimeChain } from "../../operations/chain-access.js";
-import { assertAddress, assertHex } from "../../operations/validation.js";
+import { assertAddress } from "../../operations/validation.js";
 import {
   getLiquidityHubError,
-  getTwapError,
+  getSpotError,
   isLiquidityHubSupported,
-  isTwapSupported,
+  isSpotSupported,
 } from "../../orbs/chains.js";
 import {
   PERMIT2_ADDRESS,
@@ -20,44 +19,35 @@ import {
   resolveSwapQuoteFromToken,
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
-import {
-  getSrcTokenChunkAmount,
-  getTwapDurationSeconds,
-  prepareTwapOrder,
-  submitSignedOrder,
-} from "../../orbs/twap.js";
-import { joinSignature, splitSignature } from "../../utils/signature.js";
+import { submitSpotOrder } from "../../orbs/spot-client.js";
+import { getSpotContracts } from "../../orbs/spot-config.js";
+import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
+import { splitSignature } from "../../utils/signature.js";
 import { Web3AgentError } from "../errors.js";
 import {
   orbsGetRequiredApprovalsSchema,
-  orbsOrderResumeStateStateSchema,
+  orbsSpotOrderResumeStateStateSchema,
   orbsSwapResumeStateStateSchema,
 } from "../schemas.js";
 import type {
   ApprovalStep,
   GetRequiredApprovalsInput,
-  LimitIntent,
   OperationActionResult,
   OperationResumeState,
-  PrepareLimitIntentInput,
+  PrepareOrderIntentInput,
   PrepareSwapIntentInput,
-  PrepareTwapIntentInput,
   PreparedOperation,
   PreparedSignTypedDataAction,
   ResumeOperationCompletedResult,
   SubmitSignedSwapInput,
-  SubmitSignedTwapOrderInput,
   SwapIntent,
   SwapSubmissionResult,
-  TwapIntent,
-  TwapOrderResult,
   TypedDataPayload,
 } from "../types.js";
 import { parseInput } from "../validation.js";
 import {
   asQuote,
   assertActionResultType,
-  assertSignedOrder,
   assertSubmitSwapQuote,
   buildPreparedOperation,
   createPreparedApprovalActions,
@@ -96,25 +86,6 @@ function toSwapIntentQuote(quote: RawOrbsQuote): SwapIntent["quote"] {
   };
 }
 
-function toRePermitOrder(value: Record<string, unknown>): RePermitOrder {
-  // Validate minimum fields the Orbs SDK reads at submission time (maker, deadline).
-  // The full RePermitOrder shape is owned by @orbs-network/twap-sdk — if the SDK adds
-  // required fields, submitSignedOrder will fail at the API level with a clear error.
-  if (typeof value.maker !== "string") {
-    throw new Web3AgentError({
-      code: "INVALID_PARAMS",
-      message: "order.maker must be a string",
-    });
-  }
-  if (typeof value.deadline !== "string" && typeof value.deadline !== "number") {
-    throw new Web3AgentError({
-      code: "INVALID_PARAMS",
-      message: "order.deadline must be a string or number",
-    });
-  }
-  return value as unknown as RePermitOrder;
-}
-
 export async function getRequiredApprovals(
   params: GetRequiredApprovalsInput
 ): Promise<ApprovalStep[]> {
@@ -125,6 +96,9 @@ export async function getRequiredApprovals(
   try {
     const steps: ApprovalStep[] = [];
     let effectiveFromToken = assertAddress(input.fromToken, "fromToken");
+    const mode = input.mode ?? "swap";
+    const spender: `0x${string}` =
+      mode === "order" ? (getSpotContracts().repermit as `0x${string}`) : PERMIT2_ADDRESS;
 
     if (isNativeTokenAddress(input.fromToken)) {
       const wrapped = getWrappedNativeToken(chainId);
@@ -154,19 +128,21 @@ export async function getRequiredApprovals(
       address: effectiveFromToken,
       abi: SWAP_PREPARATION_ABI,
       functionName: "allowance",
-      args: [assertAddress(input.account, "account"), PERMIT2_ADDRESS],
+      args: [assertAddress(input.account, "account"), spender],
     });
 
     if ((allowance as bigint) < BigInt(input.fromAmount)) {
       steps.push({
         type: "approve",
-        label: "Approve Permit2 (unlimited allowance)",
+        label: input.exactApproval
+          ? `Approve ${mode === "order" ? "RePermit" : "Permit2"} (exact amount)`
+          : `Approve ${mode === "order" ? "RePermit" : "Permit2"} (unlimited allowance)`,
         tx: {
           to: effectiveFromToken,
           data: encodeFunctionData({
             abi: SWAP_PREPARATION_ABI,
             functionName: "approve",
-            args: [PERMIT2_ADDRESS, maxUint256],
+            args: [spender, input.exactApproval ? BigInt(input.fromAmount) : maxUint256],
           }),
         },
       });
@@ -254,121 +230,6 @@ export async function prepareSwapOperation(
   }
 }
 
-function prepareTwapOrLimitIntent(
-  kind: "twap" | "limit",
-  params: PrepareTwapIntentInput | PrepareLimitIntentInput
-): { intent: TwapIntent | LimitIntent; signAction: PreparedSignTypedDataAction } {
-  const chainId = params.chainId ?? getConfig().chainId;
-
-  if (!isTwapSupported(chainId)) {
-    throw new Web3AgentError({
-      code: "CHAIN_NOT_SUPPORTED",
-      message: getTwapError(chainId),
-    });
-  }
-
-  const isLimit = kind === "limit";
-  const expirySeconds = isLimit ? ((params as PrepareLimitIntentInput).expiry ?? 86400) : undefined;
-  const chunks = isLimit ? 1 : (params as PrepareTwapIntentInput).chunks;
-  const fillDelaySeconds = isLimit ? 0 : (params as PrepareTwapIntentInput).fillDelay;
-  const durationSeconds = isLimit
-    ? (expirySeconds ?? 86400)
-    : getTwapDurationSeconds(chunks, fillDelaySeconds);
-  const order = prepareTwapOrder({
-    chainId,
-    srcToken: params.fromToken,
-    dstToken: params.toToken,
-    srcAmount: params.fromAmount,
-    chunks,
-    fillDelaySeconds,
-    durationSeconds,
-    account: params.account,
-    ...(isLimit
-      ? {
-          dstMinAmountPerTrade: (params as PrepareLimitIntentInput).toMinAmount,
-        }
-      : {}),
-  });
-  const eip712: TypedDataPayload = {
-    domain: order.domain as TypedDataPayload["domain"],
-    types: order.types as TypedDataPayload["types"],
-    primaryType: order.primaryType,
-    message: { ...order.order },
-  };
-
-  if (isLimit) {
-    const intent: LimitIntent = {
-      eip712,
-      order: { ...order.order },
-      chainId,
-      meta: {
-        expirySeconds: expirySeconds ?? 86400,
-        toMinAmount: (params as PrepareLimitIntentInput).toMinAmount,
-      },
-    };
-    return {
-      intent,
-      signAction: createTypedDataAction(chainId, "Sign limit order", eip712),
-    };
-  }
-
-  const intent: TwapIntent = {
-    eip712,
-    order: { ...order.order },
-    chainId,
-    meta: {
-      chunks,
-      fillDelaySeconds,
-      durationSeconds,
-      srcAmountPerChunk: getSrcTokenChunkAmount(params.fromAmount, chunks),
-    },
-  };
-  return {
-    intent,
-    signAction: createTypedDataAction(chainId, "Sign TWAP order", eip712),
-  };
-}
-
-async function prepareTwapOrLimitOperation(
-  kind: "twap" | "limit",
-  input: PrepareTwapIntentInput | PrepareLimitIntentInput
-): Promise<PreparedOperation> {
-  const errorCode = kind === "twap" ? "ORBS_TWAP_ERROR" : "ORBS_LIMIT_ERROR";
-  const chainId = input.chainId ?? getConfig().chainId;
-  const summary = `Prepare Orbs ${kind === "twap" ? "TWAP order" : "limit order"} on chain ${chainId}`;
-
-  try {
-    const { intent, signAction } = prepareTwapOrLimitIntent(kind, input);
-    return buildPreparedOperation(
-      "orbs",
-      kind,
-      summary,
-      [signAction],
-      {
-        summary,
-        intent,
-        order: intent.order,
-        signAction,
-      },
-      { intent }
-    );
-  } catch (error: unknown) {
-    throw Web3AgentError.fromUnknown(errorCode, error);
-  }
-}
-
-export async function prepareTwapOperation(
-  input: PrepareTwapIntentInput
-): Promise<PreparedOperation> {
-  return prepareTwapOrLimitOperation("twap", input);
-}
-
-export async function prepareLimitOperation(
-  input: PrepareLimitIntentInput
-): Promise<PreparedOperation> {
-  return prepareTwapOrLimitOperation("limit", input);
-}
-
 export async function resumeOrbsSwapOperation(
   resumeState: OperationResumeState,
   actionResults: Record<string, OperationActionResult>
@@ -413,39 +274,136 @@ export async function resumeOrbsSwapOperation(
   };
 }
 
-export async function resumeOrbsOrderOperation(
+export async function prepareOrderOperation(
+  input: PrepareOrderIntentInput
+): Promise<PreparedOperation> {
+  const chainId = input.chainId ?? getConfig().chainId;
+
+  if (!isSpotSupported(chainId)) {
+    throw new Web3AgentError({
+      code: "CHAIN_NOT_SUPPORTED",
+      message: getSpotError(chainId),
+    });
+  }
+
+  try {
+    const prepared = prepareSpotOrder({
+      chainId,
+      swapper: input.account,
+      fromToken: input.fromToken,
+      fromAmount: input.fromAmount,
+      toToken: input.toToken,
+      fromMaxAmount: input.fromMaxAmount,
+      epoch: input.epoch,
+      slippage: input.slippage,
+      outputLimit: input.outputLimit,
+      outputTriggerLower: input.outputTriggerLower,
+      outputTriggerUpper: input.outputTriggerUpper,
+      start: input.start,
+      deadline: input.deadline,
+      exactApproval: input.exactApproval,
+    });
+
+    const eip712: TypedDataPayload = {
+      domain: prepared.typedData.domain as TypedDataPayload["domain"],
+      types: prepared.typedData.types as TypedDataPayload["types"],
+      primaryType: prepared.typedData.primaryType,
+      message: prepared.typedData.message as Record<string, unknown>,
+    };
+
+    const requiredApprovals = await getRequiredApprovals({
+      chainId,
+      fromToken: input.fromToken,
+      fromAmount: prepared.approval.amount,
+      account: input.account,
+      mode: "order",
+      exactApproval: input.exactApproval,
+    });
+
+    const approvalActions = createPreparedApprovalActions(chainId, requiredApprovals);
+    const signAction = createTypedDataAction(chainId, "Sign Spot order", eip712);
+
+    const intent = {
+      ...prepared,
+      requiredApprovals,
+      chainId,
+    };
+
+    return buildPreparedOperation(
+      "orbs",
+      "order",
+      `Prepare Spot ${prepared.meta.kind} order on chain ${chainId}`,
+      approvalActions.length > 0 ? approvalActions : [signAction],
+      {
+        summary: `Prepare Spot order on chain ${chainId}`,
+        intent,
+        order: prepared.submit.body.order,
+        signAction,
+        approvalActions,
+        submitUrl: prepared.submit.url,
+      },
+      { intent }
+    );
+  } catch (error: unknown) {
+    throw Web3AgentError.fromUnknown("ORBS_ORDER_ERROR", error);
+  }
+}
+
+export async function resumeSpotOrderOperation(
   resumeState: OperationResumeState,
   actionResults: Record<string, OperationActionResult>
 ): Promise<ResumeOperationCompletedResult | { completed: false; operation: PreparedOperation }> {
-  const state = parseInput(orbsOrderResumeStateStateSchema, resumeState.state);
-  const signatureResult = assertActionResultType(actionResults, state.signAction.id, "signature");
+  const state = parseInput(orbsSpotOrderResumeStateStateSchema, resumeState.state);
+  const approvalActions = state.approvalActions;
+
+  if (approvalActions && approvalActions.length > 0) {
+    const pendingApprovals = await getPendingPreparedActions(approvalActions, actionResults);
+    if (pendingApprovals.length > 0) {
+      return {
+        completed: false,
+        operation: toPendingOperation(
+          resumeState,
+          pendingApprovals,
+          "Resume Spot order approvals",
+          actionResults
+        ),
+      };
+    }
+  }
+
+  const signAction = state.signAction;
+  const signatureResult = assertActionResultType(actionResults, signAction.id, "signature");
   if (!signatureResult) {
     return {
       completed: false,
       operation: toPendingOperation(
         resumeState,
-        [state.signAction],
-        `Resume Orbs ${resumeState.kind} signing`,
+        [signAction],
+        "Resume Spot order signing",
         actionResults
       ),
     };
   }
 
-  const signature = splitSignature(signatureResult.signature);
-  const submittedOrder = await submitSignedOrder(
-    toRePermitOrder(assertSignedOrder(state.order)),
-    signature
-  );
-  const result: TwapOrderResult = {
-    orderId: submittedOrder.id,
-    status: submittedOrder.status,
-    ...(submittedOrder.txHash ? { txHash: submittedOrder.txHash } : {}),
-  };
+  const { r, s, v } = splitSignature(signatureResult.signature);
+  const submitResult = await submitSpotOrder({
+    url: state.submitUrl,
+    order: state.order,
+    signature: { r, s, v },
+  });
+
+  if (!submitResult.ok) {
+    throw new Web3AgentError({
+      code: "ORBS_ORDER_ERROR",
+      message: `Submit failed (${submitResult.status}): ${JSON.stringify(submitResult.response)}`,
+    });
+  }
+
   return {
     completed: true,
     integration: "orbs",
-    kind: resumeState.kind,
-    result: { ...result },
+    kind: "order",
+    result: { status: "submitted", response: submitResult.response },
   };
 }
 
@@ -458,29 +416,4 @@ export async function submitSignedSwapDirect(
     quote: asQuote(assertSubmitSwapQuote(params.quote)),
     signature: params.signature,
   });
-}
-
-export async function submitSignedTwapOrderDirect(
-  params: SubmitSignedTwapOrderInput
-): Promise<TwapOrderResult> {
-  let signatureHex: `0x${string}`;
-  try {
-    signatureHex = joinSignature({
-      r: assertHex(params.signature.r, "signature.r"),
-      s: assertHex(params.signature.s, "signature.s"),
-      v: params.signature.v,
-    });
-  } catch (error: unknown) {
-    throw Web3AgentError.fromUnknown("INVALID_PARAMS", error, "Invalid TWAP signature");
-  }
-
-  const result = await submitSignedOrder(
-    toRePermitOrder(assertSignedOrder(params.order)),
-    splitSignature(signatureHex)
-  );
-  return {
-    orderId: result.id,
-    status: result.status,
-    ...(result.txHash ? { txHash: result.txHash } : {}),
-  };
 }

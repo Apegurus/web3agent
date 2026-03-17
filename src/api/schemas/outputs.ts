@@ -163,6 +163,60 @@ export const simulationResultSchema = z.object({
   balanceChanges: z.array(balanceChangeSchema).describe("Token balance changes"),
 });
 
+// --- Spot Order Intent ---
+
+export const spotOrderIntentSchema = z.object({
+  typedData: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
+  approval: z
+    .object({
+      token: z.string().describe("Token to approve"),
+      spender: z.string().describe("RePermit contract address"),
+      amount: z.string().describe("Approval amount"),
+      exactApproval: z.boolean().describe("Whether approval is for exact amount or unlimited"),
+      tx: z
+        .object({
+          to: z.string().describe("Token contract address"),
+          data: hexSchema.describe("Approval calldata"),
+          value: z.string().describe("Native value (always 0x0)"),
+        })
+        .describe("Approval transaction"),
+    })
+    .describe("Token approval for RePermit"),
+  submit: z
+    .object({
+      url: z.string().describe("URL to POST the signed order"),
+      body: z
+        .object({
+          order: z.record(z.unknown()).describe("Order witness to submit"),
+          signature: z.null().describe("Placeholder for signature after signing"),
+          status: z.literal("pending").describe("Order status"),
+        })
+        .describe("Submit request body template"),
+    })
+    .describe("Submit endpoint and payload template"),
+  query: z
+    .object({
+      url: z.string().describe("Base URL for querying order status"),
+    })
+    .describe("Query endpoint"),
+  meta: z
+    .object({
+      kind: z.enum(["single", "chunked"]).describe("Order kind"),
+      chunkCount: z.number().describe("Number of chunks"),
+      chunkInputAmount: z.string().describe("Input amount per chunk"),
+      start: z.number().describe("Start timestamp"),
+      deadline: z.number().describe("Deadline timestamp"),
+      epoch: z.number().describe("Epoch seconds between chunks"),
+      limit: z.string().describe("Output limit per chunk"),
+    })
+    .describe("Order metadata"),
+  requiredApprovals: z
+    .array(approvalStepSchema)
+    .describe("Approval transactions needed before signing"),
+  warnings: z.array(z.string()).describe("Validation warnings"),
+  chainId: z.number().describe("Chain ID"),
+});
+
 // --- Swap Status & History ---
 
 export const swapSubmissionResultSchema = z.object({

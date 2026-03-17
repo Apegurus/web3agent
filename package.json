@@ -65,7 +65,6 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@orbs-network/liquidity-hub-sdk": "^1.0.74",
     "@orbs-network/twap-sdk": "^5.0.0",
-    "@orbs-network/twap-ui": "4.0.26-fix.1",
     "@x402/core": "^2.6.0",
     "@x402/evm": "^2.6.0",
     "@x402/fetch": "^2.6.0",

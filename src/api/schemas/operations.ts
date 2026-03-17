@@ -9,11 +9,7 @@ import {
   resumeStateBaseSchema,
 } from "./common.js";
 import { lifiPrepareBridgeIntentSchema } from "./lifi.js";
-import {
-  orbsPrepareLimitIntentSchema,
-  orbsPrepareSwapIntentSchema,
-  orbsPrepareTwapIntentSchema,
-} from "./orbs.js";
+import { orbsPrepareOrderIntentSchema, orbsPrepareSwapIntentSchema } from "./orbs.js";
 
 const integerChainIdSchema = z.custom<number>(
   (value) => typeof value === "number" && Number.isInteger(value),
@@ -48,9 +44,14 @@ export const orbsSwapResumeStateStateSchema = resumeStateBaseSchema.extend({
   signAction: preparedSignTypedDataActionSchema,
 });
 
-export const orbsOrderResumeStateStateSchema = resumeStateBaseSchema.extend({
-  order: z.record(z.unknown()),
-  signAction: preparedSignTypedDataActionSchema,
+export const orbsSpotOrderResumeStateStateSchema = resumeStateBaseSchema.extend({
+  order: z.record(z.unknown()).describe("Spot order typed data object"),
+  submitUrl: z.string().describe("API URL for submitting the signed order"),
+  approvalActions: z
+    .array(preparedTransactionActionSchema)
+    .optional()
+    .describe("Pending ERC-20 approval actions"),
+  signAction: preparedSignTypedDataActionSchema.describe("EIP-712 sign action for the order"),
 });
 
 export const goatResumeStateStateSchema = resumeStateBaseSchema.extend({
@@ -78,13 +79,9 @@ export const prepareOperationSchema = z.union([
     integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
     kind: z.literal("swap").describe("Action type"),
   }),
-  orbsPrepareTwapIntentSchema.extend({
+  orbsPrepareOrderIntentSchema.extend({
     integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
-    kind: z.literal("twap").describe("Action type"),
-  }),
-  orbsPrepareLimitIntentSchema.extend({
-    integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
-    kind: z.literal("limit").describe("Action type"),
+    kind: z.literal("order").describe("Action type"),
   }),
   lifiPrepareBridgeIntentSchema.extend({
     integration: z.literal("lifi").describe("Integration name (e.g. 'orbs', 'lifi')"),

@@ -5,9 +5,6 @@ interface OperationMocks {
     createPublicClient: ReturnType<typeof vi.fn>;
     createClient: ReturnType<typeof vi.fn>;
   };
-  twapMocks: {
-    getSrcTokenChunkAmount: ReturnType<typeof vi.fn>;
-  };
   lifiMocks: {
     getChains: ReturnType<typeof vi.fn>;
     convertQuoteToRoute: ReturnType<typeof vi.fn>;
@@ -24,7 +21,6 @@ export function setupDefaultOperationMocks(mocks: OperationMocks): void {
       readContract: vi.fn().mockResolvedValue(9n),
     }),
   });
-  mocks.twapMocks.getSrcTokenChunkAmount.mockReturnValue("200");
   mocks.lifiMocks.getChains.mockResolvedValue([{ id: 1 }, { id: 8453 }]);
   mocks.lifiMocks.convertQuoteToRoute.mockImplementation((quote: Record<string, unknown>) => ({
     steps: [{ transactionRequest: quote.transactionRequest }],
