@@ -161,7 +161,8 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
     {
       name: "evm_get_balance",
       category: CATEGORY,
-      description: "Get native token balance (ETH, MATIC, etc.) for an address or ENS name.",
+      description:
+        "Get NATIVE token balance (ETH, MATIC, BNB, etc.) for an address or ENS name. This does NOT return ERC-20 token balances — use evm_get_token_balance for that.",
       inputSchema: zodToJsonSchema(evmGetBalanceSchema) as Record<string, unknown>,
       handler: evmGetBalance,
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -169,7 +170,8 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
     {
       name: "evm_get_token_balance",
       category: CATEGORY,
-      description: "Get ERC-20 token balance for an owner address.",
+      description:
+        "Get ERC-20 token balance (USDC, WETH, DAI, etc.) for an owner address. Requires the token contract address. For native token balance (ETH, MATIC), use evm_get_balance instead.",
       inputSchema: zodToJsonSchema(evmGetTokenBalanceSchema) as Record<string, unknown>,
       handler: evmGetTokenBalance,
       annotations: { readOnlyHint: true, openWorldHint: true },

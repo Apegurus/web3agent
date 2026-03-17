@@ -1,0 +1,17 @@
+{
+  "name": "agent-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --env-file=.env src/index.ts"
+  },
+  "dependencies": {
+    "web3agent": "workspace:*",
+    "ai": "^4",
+    "@ai-sdk/anthropic": "^1",
+    "@ai-sdk/openai": "^1"
+  },
+  "devDependencies": {
+    "tsx": "^4"
+  }
+}

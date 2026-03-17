@@ -13,6 +13,22 @@ function getSpendLogPath(): string {
 }
 
 let records: SpendRecord[] = [];
+let persistChain: Promise<void> = Promise.resolve();
+let persistDirty = false;
+
+function schedulePersist(): void {
+  if (persistDirty) return;
+  persistDirty = true;
+  persistChain = persistChain
+    .then(() => persistSpendLog())
+    .then(() => {
+      persistDirty = false;
+    })
+    .catch((e: unknown) => {
+      persistDirty = false;
+      process.stderr.write(`[policy] Failed to persist spend log: ${e}\n`);
+    });
+}
 
 // recordSpend is synchronous for fast dispatch; persistence is async fire-and-forget.
 // If the process crashes between push() and persist completing, recent spend is lost.
@@ -25,9 +41,7 @@ export function recordSpend(toolName: string, estimatedUsd: number, walletAddres
     walletAddress,
   });
   pruneOldRecords();
-  persistSpendLog().catch((e: unknown) => {
-    process.stderr.write(`[policy] Failed to persist spend log: ${e}\n`);
-  });
+  schedulePersist();
 }
 
 export function getSpendWindow(): SpendWindow {
