@@ -1,4 +1,7 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
+import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
+import { ExplorerRouter } from "../api/explorer/router.js";
 import { ValidationError, parseEnv, withConfig } from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
@@ -22,6 +25,7 @@ import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/ac
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
+import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
@@ -32,13 +36,6 @@ import {
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
-import {
-  getExplorerToolDefinitions,
-  type ExplorerDeps,
-} from "../tools/explorer/index.js";
-import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
-import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
-import { ExplorerRouter } from "../api/explorer/router.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
 import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
@@ -638,7 +635,7 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     : undefined;
   const explorerRouter = new ExplorerRouter(
     explorerBlockscout.getSupportedChainIds(),
-    explorerEtherscan?.getSupportedChainIds() ?? [],
+    explorerEtherscan?.getSupportedChainIds() ?? []
   );
   const explorerDeps: ExplorerDeps = {
     router: explorerRouter,

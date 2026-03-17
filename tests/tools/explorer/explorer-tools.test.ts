@@ -1,8 +1,17 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import type { ExplorerRouter } from "../../../src/api/explorer/router.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { BlockscoutClient } from "../../../src/api/explorer/blockscout/client.js";
 import type { EtherscanClient } from "../../../src/api/explorer/etherscan/client.js";
-import { getExplorerToolDefinitions, type ExplorerDeps } from "../../../src/tools/explorer/index.js";
+import type { ExplorerRouter } from "../../../src/api/explorer/router.js";
+import {
+  type ExplorerDeps,
+  getExplorerToolDefinitions,
+} from "../../../src/tools/explorer/index.js";
+
+function findTool(name: string, list: ReturnType<typeof getExplorerToolDefinitions>) {
+  const tool = list.find((t) => t.name === name);
+  if (!tool) throw new Error(`Tool ${name} not found`);
+  return tool;
+}
 
 function createMockDeps(): ExplorerDeps {
   const router = {
@@ -48,19 +57,19 @@ describe("explorer tools", () => {
   });
 
   it("explorer_get_address_info rejects invalid input", async () => {
-    const tool = tools.find((t) => t.name === "explorer_get_address_info")!;
+    const tool = findTool("explorer_get_address_info", tools);
     const result = await tool.handler({});
     expect(result.isError).toBe(true);
   });
 
   it("explorer_get_tx_history rejects invalid input", async () => {
-    const tool = tools.find((t) => t.name === "explorer_get_tx_history")!;
+    const tool = findTool("explorer_get_tx_history", tools);
     const result = await tool.handler({});
     expect(result.isError).toBe(true);
   });
 
   it("explorer_get_block rejects invalid input", async () => {
-    const tool = tools.find((t) => t.name === "explorer_get_block")!;
+    const tool = findTool("explorer_get_block", tools);
     const result = await tool.handler({});
     expect(result.isError).toBe(true);
   });

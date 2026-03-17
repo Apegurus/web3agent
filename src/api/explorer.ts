@@ -4,8 +4,8 @@ import {
   explorerGetContractAbiSchema,
   explorerGetContractSourceSchema,
   explorerGetNftInventorySchema,
-  explorerGetTokensByAddressSchema,
   explorerGetTokenTransfersSchema,
+  explorerGetTokensByAddressSchema,
   explorerGetTxDetailsSchema,
   explorerGetTxHistorySchema,
   explorerGetTxReceiptSchema,
@@ -28,7 +28,7 @@ import { parseInput } from "./validation.js";
 
 export async function getAddressInfo(
   params: { chainId: number; address: string },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerAddressInfo> {
   const input = parseInput(explorerGetAddressInfoSchema, params);
   const runtime = await getRuntime(options);
@@ -37,14 +37,14 @@ export async function getAddressInfo(
 
 export async function getTokensByAddress(
   params: { chainId: number; address: string; page?: number; pageSize?: number },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerTokensByAddress> {
   const input = parseInput(explorerGetTokensByAddressSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData<ExplorerTokensByAddress>(
     runtime,
     "explorer_get_tokens_by_address",
-    input,
+    input
   );
 }
 
@@ -58,7 +58,7 @@ export async function getTransactionHistory(
     pageSize?: number;
     method?: string;
   },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerTxHistory> {
   const input = parseInput(explorerGetTxHistorySchema, params);
   const runtime = await getRuntime(options);
@@ -67,7 +67,7 @@ export async function getTransactionHistory(
 
 export async function getTransactionDetails(
   params: { chainId: number; txHash: string },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerTxDetails> {
   const input = parseInput(explorerGetTxDetailsSchema, params);
   const runtime = await getRuntime(options);
@@ -76,7 +76,7 @@ export async function getTransactionDetails(
 
 export async function getTransactionReceipt(
   params: { chainId: number; txHash: string },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerTxReceipt> {
   const input = parseInput(explorerGetTxReceiptSchema, params);
   const runtime = await getRuntime(options);
@@ -93,20 +93,20 @@ export async function getTokenTransfers(
     page?: number;
     pageSize?: number;
   },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerTokenTransfers> {
   const input = parseInput(explorerGetTokenTransfersSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData<ExplorerTokenTransfers>(
     runtime,
     "explorer_get_token_transfers",
-    input,
+    input
   );
 }
 
 export async function getNftInventory(
   params: { chainId: number; address: string; page?: number; pageSize?: number },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerNftInventory> {
   const input = parseInput(explorerGetNftInventorySchema, params);
   const runtime = await getRuntime(options);
@@ -115,7 +115,7 @@ export async function getNftInventory(
 
 export async function getContractAbi(
   params: { chainId: number; contractAddress: string },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerContractAbi> {
   const input = parseInput(explorerGetContractAbiSchema, params);
   const runtime = await getRuntime(options);
@@ -124,20 +124,20 @@ export async function getContractAbi(
 
 export async function getContractSource(
   params: { chainId: number; contractAddress: string },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerContractSource> {
   const input = parseInput(explorerGetContractSourceSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData<ExplorerContractSource>(
     runtime,
     "explorer_get_contract_source",
-    input,
+    input
   );
 }
 
 export async function getBlock(
   params: { chainId: number; blockNumber: number; includeTxs?: boolean },
-  options?: RuntimeBoundOptions,
+  options?: RuntimeBoundOptions
 ): Promise<ExplorerBlockInfo> {
   const input = parseInput(explorerGetBlockSchema, params);
   const runtime = await getRuntime(options);
