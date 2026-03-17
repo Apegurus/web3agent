@@ -2,6 +2,12 @@ import { anthropic, createAnthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import type { LanguageModelV1 } from "ai";
 
+const ENV_KEYS: Record<string, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  kimi: "KIMI_API_KEY",
+};
+
 const providers: Record<string, { defaultModel: string; create: (id: string) => LanguageModelV1 }> =
   {
     anthropic: { defaultModel: "claude-sonnet-4-6", create: (id) => anthropic(id) },
@@ -23,6 +29,11 @@ export function loadConfig() {
 
   if (!provider) {
     throw new Error(`Unsupported AI_PROVIDER "${name}". Use: ${Object.keys(providers).join(", ")}`);
+  }
+
+  const envKey = ENV_KEYS[name];
+  if (envKey && !process.env[envKey]) {
+    throw new Error(`${envKey} is required when AI_PROVIDER="${name}". Set it in your .env file.`);
   }
 
   const model = provider.create(process.env.AI_MODEL ?? provider.defaultModel);

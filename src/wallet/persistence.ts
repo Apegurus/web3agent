@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Account } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import { getConfig } from "../config/env.js";
 import type { WalletMode, WalletState } from "../types/wallet.js";
+import { atomicWriteJson } from "../utils/atomic-write.js";
 import { walletEvents } from "./events.js";
 
 export type { WalletMode };
@@ -199,13 +200,6 @@ export async function initializeWallet(config: {
   walletEvents.emit("wallet-changed", currentState);
 }
 
-async function ensureWalletDir(): Promise<void> {
-  const dir = getWalletDir();
-  if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
-  }
-}
-
 // Unlike confirmation/spend-tracker (fire-and-forget), persistWallet awaits the
 // chain so callers like activateWallet know the write landed before proceeding.
 let walletPersistChain: Promise<void> = Promise.resolve();
@@ -215,19 +209,7 @@ async function persistWallet(data: PersistedWallet): Promise<void> {
     .catch((e: unknown) => {
       process.stderr.write(`[wallet] Prior persist failed: ${e}\n`);
     })
-    .then(async () => {
-      await ensureWalletDir();
-      const walletPath = getWalletPath();
-      const tmpPath = `${walletPath}.tmp`;
-      const fd = await open(tmpPath, "w", 0o600);
-      try {
-        await fd.writeFile(JSON.stringify(data, null, 2));
-        await fd.sync();
-      } finally {
-        await fd.close();
-      }
-      await rename(tmpPath, walletPath);
-    });
+    .then(() => atomicWriteJson(getWalletPath(), data));
   walletPersistChain = work;
   await work;
 }
