@@ -174,8 +174,9 @@ annotations: {
 
 #### `market_get_token_history`
 - **Input:** `token` (CoinGecko ID or `chain:address`), `period?` (1d/7d/30d/90d/1y, default 30d)
-- **Primary source:** `GET https://api.coingecko.com/api/v3/coins/{id}/market_chart?vs_currency=usd&days={days}` — returns price, market cap, and volume history in one call. More reliable and richer than DefiLlama charts.
-- **Fallback:** If CoinGecko rate-limited or token only identifiable by `chain:address`, falls back to `GET https://coins.llama.fi/chart/{token}?start={start}&span={span}&period={resolution}`. The handler computes `start` timestamp from the user-facing `period` input and selects an appropriate resolution (hourly for ≤7d, daily for >7d).
+- **Routing logic:** If the `token` input contains `:` (e.g., `ethereum:0x...`), it is a `chain:address` format — use DefiLlama directly (CoinGecko doesn't accept this format). Otherwise, treat it as a CoinGecko ID and try CoinGecko first.
+- **CoinGecko source:** `GET https://api.coingecko.com/api/v3/coins/{id}/market_chart?vs_currency=usd&days={days}` — returns price, market cap, and volume history in one call. More reliable and richer than DefiLlama charts.
+- **DefiLlama fallback:** On any non-2xx CoinGecko response (429, 404, etc.), falls back to `GET https://coins.llama.fi/chart/{token}?start={start}&span={span}&period={resolution}`. The handler computes `start` timestamp from the user-facing `period` input and selects an appropriate resolution (hourly for ≤7d, daily for >7d). Note: this fallback requires a `chain:address` format, so if the original input was a CoinGecko ID with no resolvable address, the fallback will fail and the tool returns an error suggesting the user provide a `chain:address`.
 - **Progressive:** With `COINGECKO_API_KEY`, uses pro endpoint with higher rate limits.
 - **Returns:** Array of `{ timestamp, price, marketCap?, volume? }` (marketCap and volume included when from CoinGecko)
 
@@ -219,17 +220,22 @@ annotations: {
 
 ### CoinGecko
 
-CoinGecko's free API is rate-limited (10-30 req/min). All CoinGecko-backed tools respect this via `fetchJson` TTL caching (120s default for CoinGecko responses). With `COINGECKO_API_KEY`, rate limits are significantly higher and pro endpoints are used automatically.
+CoinGecko's free API is rate-limited (10-30 req/min). Rate limit strategy:
+- **TTL cache:** All CoinGecko responses cached by URL (120s default) via `fetchJson`. Cache is LRU with a 500-entry cap to bound memory.
+- **Circuit breaker:** All CoinGecko calls share a single `resilientFetch` circuit breaker label (`"coingecko"`), so rate limit pressure across all CoinGecko tools is tracked as one domain. If CoinGecko returns 429, the circuit opens for all CoinGecko tools, not just the one that triggered it.
+- **Backoff tuning:** CoinGecko calls use a higher `baseDelayMs` (5000ms) for retries, since the free tier can block for 60+ seconds. If a `Retry-After` header is present, respect it.
+- **Binance cache policy:** Binance endpoints are real-time data — use `fetchJson` with no TTL cache (ticker, order book) or very short TTL (5s for klines).
+- With `COINGECKO_API_KEY`, rate limits are significantly higher and pro endpoints are used automatically.
 
 #### `market_get_trending`
 - **Input:** `limit?` (default 10)
 - **Source:** `GET https://api.coingecko.com/api/v3/search/trending`
-- **Enrichment:** After fetching trending list, batch-fetches market data via `/coins/markets` for the trending coin IDs to include mcap, volume, and 24h change in a single follow-up call.
+- **Enrichment:** After fetching trending list, batch-fetches market data via a single `GET /coins/markets?ids={comma-separated-ids}` call to include mcap, volume, and 24h change. If the enrichment call fails, return the base trending data without market enrichment and include a warning in the response.
 - **Progressive:** With `COINGECKO_API_KEY`, uses pro endpoint for richer data (sparklines, ATH).
 - **Returns:** Array of `{ name, symbol, marketCapRank, price, priceChange24h, marketCap, volume24h }`
 
 #### `market_get_top_tokens`
-- **Input:** `category?` (e.g., "decentralized-finance-defi", "layer-2", "meme-token"), `limit?` (default 20, max 250), `order?` ("market_cap_desc"/"volume_desc", default "market_cap_desc")
+- **Input:** `category?` (e.g., "decentralized-finance-defi", "layer-2", "meme-token"), `limit?` (default 20, max 250), `order?` ("marketCap"/"volume", default "marketCap") — mapped to CoinGecko's `market_cap_desc`/`volume_desc` at the call boundary
 - **Source:** `GET https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order={order}&per_page={limit}&category={category}`
 - **Note:** This is the token counterpart to `market_get_top_protocols` (which ranks by TVL). Users asking "what are the top tokens?" want market cap rankings.
 - **Returns:** Array of `{ name, symbol, marketCapRank, currentPrice, priceChange24h, priceChange7d, marketCap, totalVolume, circulatingSupply, ath, athDate }`
@@ -241,7 +247,7 @@ CoinGecko's free API is rate-limited (10-30 req/min). All CoinGecko-backed tools
 - **Returns:** Array of `{ id, name, symbol, marketCapRank, thumb }` — the `id` can be used as input to other CoinGecko-backed tools.
 
 #### `market_get_categories`
-- **Input:** `order?` ("market_cap_desc"/"name_asc"/"market_cap_change_24h_desc", default "market_cap_desc"), `limit?` (default 20)
+- **Input:** `order?` ("marketCap"/"name"/"marketCapChange24h", default "marketCap") — mapped to CoinGecko values at the call boundary. `limit?` (default 20)
 - **Source:** `GET https://api.coingecko.com/api/v3/coins/categories`
 - **Note:** Sector-level analysis — shows aggregate market cap and volume for categories like DeFi, L2, AI, Meme, Gaming, etc.
 - **Returns:** Array of `{ name, marketCap, marketCapChange24h, volume24h, topCoins: [{ name, symbol }], updatedAt }`
@@ -319,7 +325,7 @@ Binance public API endpoints return 451/403 in some jurisdictions (notably the U
 - **Sources:**
   1. `GET https://api.llama.fi/protocol/{slug}` — TVL, chain breakdown, category, raises
   2. `GET https://api.coingecko.com/api/v3/coins/{id}` — description, links, categories, developer activity, community stats (if the protocol has a CoinGecko-listed token). The handler maps the DefiLlama slug to a CoinGecko ID via the protocol's `gecko_id` field in the DefiLlama response.
-- **Partial failure handling:** Same pattern as `research_token_due_diligence` — if CoinGecko fails, DefiLlama data is still returned with a `warnings` note.
+- **Partial failure handling:** Same pattern as `research_token_due_diligence` — if CoinGecko fails, DefiLlama data is still returned with a `warnings` note. If the DefiLlama response does not include a `gecko_id` field (common for protocols without listed tokens), skip CoinGecko enrichment silently and return DefiLlama-only data without a warning (this is expected, not an error).
 - **Returns:** `{ name, description, category, chains, tvl, audits, url, raises, governanceLinks, twitter, devActivity?, communityScore?, categories?, sentimentUp?, sentimentDown?, sources: [...] }`
 
 ### DefiLlama Feed Tools
@@ -381,6 +387,8 @@ export const protocolSlugSchema = z.string()
 export const tradingPairSchema = z.string()
   .describe("Trading pair symbol (e.g., 'BTCUSDT', 'ETHUSDT')");
 
+// Placed in common.ts since it is shared across market and research tool groups
+// src/api/schemas/common.ts
 export const coingeckoIdSchema = z.string()
   .describe("CoinGecko coin ID (e.g., 'bitcoin', 'ethereum', 'uniswap'). Use market_search_token to find IDs.");
 ```
@@ -419,14 +427,7 @@ Enforced by the existing `tests/tools/schema-quality.test.ts` which auto-discove
 
 ## Error Handling
 
-All tools use `createToolHandler` which wraps validation + try-catch + response formatting. Specific error codes:
-
-- `MARKET_FETCH_ERROR` — HTTP failure reaching data source
-- `MARKET_PARSE_ERROR` — unexpected response shape
-- `MARKET_NOT_FOUND` — protocol/token slug not found
-- `RESEARCH_FETCH_ERROR` — HTTP failure
-- `RESEARCH_NOT_FOUND` — contract/token not found
-- `RESEARCH_CHAIN_UNSUPPORTED` — GoPlus doesn't support the requested chain
+All tools use `createToolHandler` which wraps validation + try-catch + response formatting. Each tool gets a tool-specific error code passed to `createToolHandler`, following the pattern `MARKET_<TOOL_NAME>_ERROR` / `RESEARCH_<TOOL_NAME>_ERROR` (e.g., `MARKET_PROTOCOL_TVL_ERROR`, `RESEARCH_CONTRACT_SECURITY_ERROR`). This matches the existing codebase pattern and is more debuggable than shared codes.
 
 Rate limit errors from upstream APIs return a clear message suggesting the user wait or provide an API key.
 
