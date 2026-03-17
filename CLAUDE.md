@@ -22,6 +22,33 @@ All four must pass before committing: `pnpm run lint && pnpm run typecheck && pn
 - **Type safety** — `catch (e: unknown)` always. No `@ts-ignore` or `@ts-expect-error`. `as any` only with biome-ignore explaining the SDK constraint.
 - **Import style** — prefer `import type { Foo }` for type-only imports. Group: Node builtins, external packages, internal modules.
 
+## Two-Layer Architecture
+
+This package serves **two audiences** and every feature must work for both:
+
+1. **MCP tool layer** (`src/tools/`) — AI agents (Claude Code, Cursor, etc.) discover and call tools via the MCP protocol. Tools are registered in `src/tools/<group>/index.ts`.
+2. **Programmatic SDK layer** (`src/api/`, `src/index.ts`) — downstream projects (e.g. Orbzy) `import { ... } from "web3agent"` and call functions directly. SDK functions invoke tools via `getRuntime()` + `invokeAndRequireData(runtime, toolName, params)` from `src/api/shared.ts`.
+
+**SDK entry points by domain:**
+
+| Domain | File | Pattern | Example |
+|--------|------|---------|---------|
+| Swaps & bridge | `src/api/swaps.ts` | Runtime → tool invocation | `getSwapQuote()`, `executeSameChainSwap()` |
+| Intents (external signing) | `src/api/intents.ts` | Wraps `operations.ts` | `prepareSwapIntent()`, `prepareOrderIntent()` |
+| Orders | `src/api/orders.ts` | Runtime → tool invocation | `listOrders()`, `placeOrder()`, `cancelOrder()` |
+| Operations (staged) | `src/api/operations.ts` | Multi-integration dispatch | `prepareOperation()`, `resumeOperation()` |
+| Chains | `src/api/chains.ts` | Direct + runtime | `getChain()`, `listSupportedChains()` |
+| Tokens | `src/api/tokens.ts` | Direct | `resolveToken()`, `listChainTokens()` |
+| Simulation | `src/api/simulation.ts` | Direct | `simulateTransaction()` |
+
+**When adding or removing tools, you must update both layers:**
+- Add/remove the MCP tool handler in `src/tools/<group>/index.ts`
+- Add/remove the corresponding SDK function in the appropriate `src/api/` file
+- Export the function, schemas, and types from `src/index.ts`
+- Verify with `pnpm run build` — the DTS output in `dist/index.d.ts` is the public API contract
+
+**Never remove a public export without checking downstream consumers.** Search the monorepo (`/Users/ignacioblitzer/Develop/defizoo/web3agent/`) for imports of any function you're removing.
+
 ## Tool Schemas
 
 - **Zod as single source of truth** — for both input and output shapes. Define the Zod schema first, then derive the TypeScript type with `z.infer<typeof schema>`. Never maintain a separate `interface` that duplicates a Zod schema.

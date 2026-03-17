@@ -61,6 +61,7 @@ Never use `srcToken`, `dstToken`, `inAmount`, `fromTokenAddress`, `toTokenAddres
 
 ## Adding a New Tool
 
+**MCP layer:**
 1. Define Zod input schema in `src/tools/<group>/schemas.ts` with `.describe()` on every field
 2. Define Zod output schema in `src/api/schemas/outputs.ts` with `.describe()` on every field if the output is part of the public API
 3. Derive TypeScript types in `src/api/types.ts` via `z.infer<typeof schema>`
@@ -68,7 +69,12 @@ Never use `srcToken`, `dstToken`, `inAmount`, `fromTokenAddress`, `toTokenAddres
 5. Define tool in `src/tools/<group>/index.ts` with `zodToJsonSchema(schema)` for `inputSchema`
 6. Register executors if tool uses `executeWrite()`
 7. Add tests in `tests/` mirroring source path
-8. Export schemas and types from `src/index.ts` if part of the public API
+
+**SDK layer (mandatory — downstream projects like Orbzy import from `"web3agent"`):**
+8. Add SDK function in the appropriate `src/api/` file — use `getRuntime()` + `invokeAndRequireData(runtime, toolName, params)` for tool-backed functions, or wrap `prepareOperation()` for intent flows
+9. Export the function, schemas, and types from `src/index.ts`
+10. Run `pnpm run build` and verify the export appears in `dist/index.d.ts`
+11. Search the monorepo for imports of any function you're removing or renaming
 
 ## Read-Only Tools
 
