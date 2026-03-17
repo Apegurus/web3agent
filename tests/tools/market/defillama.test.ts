@@ -271,8 +271,10 @@ describe("getGainersLosers", () => {
     expect(result.losers).toHaveLength(2);
     expect(result.gainers[0].symbol).toBe("SOL");
     expect(result.gainers[0].priceChange).toBe(15.0);
+    expect(result.gainers[0].price).toBeNull();
     expect(result.losers[0].symbol).toBe("AVAX");
     expect(result.losers[0].priceChange).toBe(-8.0);
+    expect(result.losers[0].price).toBeNull();
   });
 
   it("uses 24h period by default", async () => {
@@ -306,6 +308,7 @@ describe("getDexVolume", () => {
     mockFetch.mockResolvedValueOnce(
       mockResponse({
         total24h: 1_000_000_000,
+        total7d: 7_000_000_000,
         protocols: [
           { name: "Uniswap", total24h: 600_000_000, change_1d: 5.0 },
           { name: "Curve", total24h: 400_000_000, change_1d: -2.0 },
@@ -316,6 +319,7 @@ describe("getDexVolume", () => {
     const result = await getDexVolume({});
 
     expect(result.totalVolume24h).toBe(1_000_000_000);
+    expect(result.totalVolume7d).toBe(7_000_000_000);
     expect(result.protocols).toHaveLength(2);
     expect(result.protocols[0].name).toBe("Uniswap");
     expect(result.protocols[0].volume24h).toBe(600_000_000);
@@ -325,6 +329,19 @@ describe("getDexVolume", () => {
       undefined,
       expect.any(Object)
     );
+  });
+
+  it("sets totalVolume7d to null when not returned by API", async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({
+        total24h: 1_000_000_000,
+        protocols: [],
+      })
+    );
+
+    const result = await getDexVolume({});
+
+    expect(result.totalVolume7d).toBeNull();
   });
 
   it("uses chain-specific endpoint when chain is provided", async () => {
@@ -337,6 +354,38 @@ describe("getDexVolume", () => {
       undefined,
       expect.any(Object)
     );
+  });
+
+  it("filters protocols by name when protocol is provided (case-insensitive)", async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({
+        total24h: 1_000_000_000,
+        protocols: [
+          { name: "Uniswap V3", total24h: 600_000_000, change_1d: 5.0 },
+          { name: "Curve Finance", total24h: 400_000_000, change_1d: -2.0 },
+          { name: "Uniswap V2", total24h: 200_000_000, change_1d: 1.0 },
+        ],
+      })
+    );
+
+    const result = await getDexVolume({ protocol: "uniswap" });
+
+    expect(result.protocols).toHaveLength(2);
+    expect(result.protocols[0].name).toBe("Uniswap V3");
+    expect(result.protocols[1].name).toBe("Uniswap V2");
+  });
+
+  it("returns empty protocols array when protocol filter matches nothing", async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({
+        total24h: 1_000_000_000,
+        protocols: [{ name: "Uniswap", total24h: 600_000_000, change_1d: 5.0 }],
+      })
+    );
+
+    const result = await getDexVolume({ protocol: "curve" });
+
+    expect(result.protocols).toHaveLength(0);
   });
 });
 

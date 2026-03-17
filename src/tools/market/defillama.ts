@@ -47,6 +47,8 @@ export interface TokenPriceResult {
 export interface GainerLoserEntry {
   symbol: string;
   priceChange: number;
+  // price is not provided by the DefiLlama percentage endpoint
+  price: number | null;
 }
 
 export interface GainersLosersResult {
@@ -62,6 +64,8 @@ export interface DexProtocolEntry {
 
 export interface DexVolumeResult {
   totalVolume24h: number;
+  // totalVolume7d is returned by the DefiLlama dex overview API as total7d
+  totalVolume7d: number | null;
   protocols: DexProtocolEntry[];
 }
 
@@ -230,6 +234,8 @@ export async function getGainersLosers(input: {
     const entries = Object.entries(data.coins).map(([symbol, priceChange]) => ({
       symbol,
       priceChange,
+      // price is not provided by the percentage endpoint
+      price: null as number | null,
     }));
 
     entries.sort((a, b) => b.priceChange - a.priceChange);
@@ -245,7 +251,7 @@ export async function getDexVolume(input: {
   chain?: string;
   protocol?: string;
 }): Promise<DexVolumeResult> {
-  const { chain } = input;
+  const { chain, protocol } = input;
   const url = chain
     ? `https://api.llama.fi/overview/dexs/${chain}`
     : "https://api.llama.fi/overview/dexs";
@@ -254,16 +260,25 @@ export async function getDexVolume(input: {
     const response = await resilientFetch(url, undefined, { label: "defillama-dexs" });
     const data = (await response.json()) as {
       total24h: number;
+      total7d?: number;
       protocols: Array<{ name: string; total24h: number; change_1d: number }>;
     };
 
+    let protocols = (data.protocols ?? []).map((p) => ({
+      name: p.name,
+      volume24h: p.total24h,
+      change1d: p.change_1d,
+    }));
+
+    if (protocol) {
+      const lowerProtocol = protocol.toLowerCase();
+      protocols = protocols.filter((p) => p.name.toLowerCase().includes(lowerProtocol));
+    }
+
     return {
       totalVolume24h: data.total24h,
-      protocols: (data.protocols ?? []).map((p) => ({
-        name: p.name,
-        volume24h: p.total24h,
-        change1d: p.change_1d,
-      })),
+      totalVolume7d: data.total7d ?? null,
+      protocols,
     };
   });
 }

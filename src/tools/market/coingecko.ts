@@ -3,14 +3,14 @@ import { ttlCache } from "./cache.js";
 
 // ── Shared helpers ───────────────────────────────────────────────
 
-function coingeckoUrl(path: string): string {
+export function coingeckoUrl(path: string): string {
   const base = process.env.COINGECKO_API_KEY
     ? "https://pro-api.coingecko.com/api/v3"
     : "https://api.coingecko.com/api/v3";
   return `${base}${path}`;
 }
 
-function coingeckoHeaders(): Record<string, string> {
+export function coingeckoHeaders(): Record<string, string> {
   const key = process.env.COINGECKO_API_KEY;
   return key ? { "x-cg-pro-api-key": key } : {};
 }
@@ -122,8 +122,9 @@ export async function getTrending(input: { limit?: number }): Promise<TrendingRe
     });
 
     return { coins };
-  } catch {
-    // Enrichment failed — return base data with warning
+  } catch (e: unknown) {
+    process.stderr.write(`[market] Trending enrichment failed: ${e}\n`);
+    // Return base data with warning
     const coins: TrendingCoin[] = items.map((item) => ({
       name: item.name,
       symbol: item.symbol,
@@ -236,6 +237,7 @@ export interface CategoryResult {
   marketCap: number;
   marketCapChange24h: number;
   volume24h: number;
+  /** Thumbnail image URLs for the top 3 coins in this category (from CoinGecko top_3_coins field) */
   topCoins: string[];
   updatedAt: string;
 }
@@ -321,7 +323,9 @@ export async function getTokenHistory(input: {
   const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
 
   if (!res.ok) {
-    throw new Error(`CoinGecko returned ${res.status} for token "${input.token}"`);
+    throw new Error(
+      `CoinGecko returned ${res.status} for token '${input.token}'. Try using chain:address format (e.g., 'ethereum:0x...') for DefiLlama fallback.`
+    );
   }
 
   const data = (await res.json()) as {
