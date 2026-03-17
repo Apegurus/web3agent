@@ -86,9 +86,6 @@ src/api/schemas/
 ├── research.ts           # Input schemas for research tools
 └── outputs.ts            # (extend) Output schemas for both groups
 
-src/utils/
-└── http.ts               # NEW — shared fetchJson utility
-
 tests/tools/market/
 ├── handlers.test.ts
 └── schemas.test.ts
@@ -102,18 +99,11 @@ tests/tools/research/
 
 Both groups follow the existing pattern. `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by `src/runtime/server.ts` and added to the tool dispatch map alongside existing groups. Both `server.ts` and `default.ts` registration points must be updated.
 
-### Shared HTTP Client (NEW: `src/utils/http.ts`)
+### HTTP Calls
 
-A new `fetchJson<T>(url, options?)` utility handles:
-- JSON parsing with error handling
-- Timeout (configurable, default 10s)
-- User-Agent header
-- Logging failures to stderr with `[http]` prefix
-- Simple in-memory TTL cache (configurable per call, default off) to reduce rate limit pressure on slowly-changing data (e.g., 60s for prices, 300s for TVL/protocol metadata)
+All handlers use the existing `resilientFetch` from `src/utils/resilient-fetch.ts` (retry, circuit breaker, jittered backoff) and call `.json()` on the response. No new HTTP utility needed.
 
-All handlers call `fetchJson` rather than raw `fetch`. This avoids duplicating error handling across 30 handlers. After implementation, add to the "Single Source of Truth" table in CLAUDE.md.
-
-**Relationship with `resilientFetch`:** The codebase has an existing `src/utils/resilient-fetch.ts` with retry/circuit-breaker logic. `fetchJson` should compose with `resilientFetch` under the hood to get retry + jittered backoff for free, adding JSON parsing, TTL cache, and User-Agent on top.
+**TTL cache for rate-limited sources:** A simple in-memory `Map<string, { data: unknown; expiry: number }>` in each handler file (or a shared tiny helper if duplication becomes obvious) caches responses by URL. Default TTLs: 120s for CoinGecko, 60s for DefiLlama prices, 300s for DefiLlama protocol metadata, no cache for Binance real-time data. This is a flat Map, not a new abstraction.
 
 ### Tool Pattern
 
@@ -221,7 +211,7 @@ annotations: {
 ### CoinGecko
 
 CoinGecko's free API is rate-limited (10-30 req/min). Rate limit strategy:
-- **TTL cache:** All CoinGecko responses cached by URL (120s default) via `fetchJson`. Cache is LRU with a 500-entry cap to bound memory.
+- **TTL cache:** All CoinGecko responses cached by URL (120s default) via a simple in-memory Map per handler file.
 - **Circuit breaker:** All CoinGecko calls share a single `resilientFetch` circuit breaker label (`"coingecko"`), so rate limit pressure across all CoinGecko tools is tracked as one domain. If CoinGecko returns 429, the circuit opens for all CoinGecko tools, not just the one that triggered it.
 - **Backoff tuning:** CoinGecko calls use a higher `baseDelayMs` (5000ms) for retries, since the free tier can block for 60+ seconds. If a `Retry-After` header is present, respect it.
 - **Binance cache policy:** Binance endpoints are real-time data — use `fetchJson` with no TTL cache (ticker, order book) or very short TTL (5s for klines).
