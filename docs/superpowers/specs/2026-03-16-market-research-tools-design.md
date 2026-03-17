@@ -65,9 +65,21 @@ Both types must be extended:
 Following the existing flat-file pattern used by all current tool groups (orbs, lifi, evm, tokens):
 
 ```
+src/api/schemas/
+├── market.ts             # Input schemas (canonical definitions)
+├── research.ts           # Input schemas (canonical definitions)
+├── common.ts             # (extend) Add coingeckoIdSchema
+└── outputs.ts            # (extend) Output schemas for both groups
+
+src/api/
+├── market.ts             # NEW — SDK functions for market tools
+├── research.ts           # NEW — SDK functions for research tools
+└── types.ts              # (extend) Input/output types for both groups
+
 src/tools/market/
 ├── index.ts              # getMarketToolDefinitions() → ToolDefinition[]
-├── schemas.ts            # Re-exports from src/api/schemas/market.ts
+├── schemas.ts            # Re-exports from src/api/schemas/market.ts (existing codebase pattern)
+├── cache.ts              # Shared TTL cache helper (used by research handlers too)
 ├── defillama.ts          # DefiLlama-backed handlers
 ├── sentiment.ts          # Fear & Greed handler
 ├── coingecko.ts          # Trending, top tokens, search, categories, token history (primary)
@@ -80,19 +92,6 @@ src/tools/research/
 ├── security.ts           # GoPlus + aggregated due diligence
 ├── holders.ts            # Blockscout/Etherscan holder data
 └── yields.ts             # DefiLlama yields handlers
-
-src/api/schemas/
-├── market.ts             # Input schemas for market tools
-├── research.ts           # Input schemas for research tools
-└── outputs.ts            # (extend) Output schemas for both groups
-
-src/api/
-├── market.ts             # NEW — SDK functions for market tools
-├── research.ts           # NEW — SDK functions for research tools
-├── types.ts              # (extend) Input/output types for both groups
-└── schemas/
-    ├── market.ts         # Input schemas
-    └── research.ts       # Input schemas
 
 tests/tools/market/
 ├── handlers.test.ts
@@ -111,9 +110,17 @@ tests/api/
 
 Per the project's two-layer architecture, every tool must be available both via MCP and the programmatic SDK.
 
-**MCP layer:** `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by `src/runtime/server.ts` and added to the tool dispatch map alongside existing groups. Both `server.ts` and `default.ts` registration points must be updated.
+**MCP layer:** `getMarketToolDefinitions()` and `getResearchToolDefinitions()` are imported by both:
+- `src/runtime/server.ts` — MCP server tool list
+- `src/runtime/managed-runtime.ts` — runtime tool registration. Requires:
+  - New class properties (`marketTools`, `researchTools`) initialized via `getMarketToolDefinitions()` / `getResearchToolDefinitions()`
+  - New entries in the `toolGroups` array (line ~510): `["market", this.marketTools]`, `["research", this.researchTools]`
 
-**SDK layer:** Each MCP tool gets a corresponding SDK function in `src/api/market.ts` or `src/api/research.ts`. SDK functions use `getRuntime()` + `invokeAndRequireData(runtime, toolName, params)` from `src/api/shared.ts` to invoke the underlying MCP tool. All SDK functions, schemas, and types are exported from `src/index.ts`.
+**Runtime health:** Market and research tools are stateless HTTP calls with no persistent SDK client to health-check. They do NOT get entries in `RuntimeHealth.backends` — unlike blockscout/etherscan/goat which represent initialized client connections.
+
+**SDK layer:** Each MCP tool gets a corresponding SDK function in `src/api/market.ts` or `src/api/research.ts`. These follow the `swaps.ts` pattern (runtime invocation via `getRuntime()` + `invokeAndRequireData()`), NOT the `tokens.ts` pattern (direct library import). The runtime-invocation pattern is correct here because market/research tools have no standalone library to call — the MCP handler IS the implementation (HTTP fetch + transform).
+
+SDK functions skip `parseInput()` validation because they are pure pass-throughs — the MCP handler's `createToolHandler` already validates inputs via Zod. This differs from `swaps.ts` which validates because it sometimes transforms inputs before invocation.
 
 Example SDK function pattern:
 
@@ -131,15 +138,20 @@ export async function getProtocolTvl(
 }
 ```
 
-**SDK naming convention:** Tool name `market_get_protocol_tvl` → SDK function `getProtocolTvl()`. Tool name `research_contract_security` → SDK function `getContractSecurity()`. Drop the group prefix and use camelCase.
+**SDK naming convention:** Drop the group prefix and use camelCase. All read-only SDK functions use a `get` prefix for consistency, even if the MCP tool name doesn't include `get`:
+- `market_get_protocol_tvl` → `getProtocolTvl()`
+- `market_get_trending` → `getTrending()`
+- `research_contract_security` → `getContractSecurity()`
+- `research_token_due_diligence` → `getTokenDueDiligence()`
+- `research_hack_history` → `getHackHistory()`
 
-**Exports:** All SDK functions, input types, and output types must be added to `src/index.ts`. Run `pnpm run build` and verify they appear in `dist/index.d.ts`.
+**Exports:** All SDK functions, input types, and output types are exported from `src/index.ts` via barrel re-exports from `src/api/market.ts` and `src/api/research.ts` (e.g., `export { getProtocolTvl, getTrending, ... } from "./api/market.js"`). This keeps `src/index.ts` manageable. Run `pnpm run build` and verify they appear in `dist/index.d.ts`.
 
 ### HTTP Calls
 
 All handlers use the existing `resilientFetch` from `src/utils/resilient-fetch.ts` (retry, circuit breaker, jittered backoff) and call `.json()` on the response. No new HTTP utility needed.
 
-**TTL cache for rate-limited sources:** A simple in-memory `Map<string, { data: unknown; expiry: number }>` in each handler file (or a shared tiny helper if duplication becomes obvious) caches responses by URL. Default TTLs: 120s for CoinGecko, 60s for DefiLlama prices, 300s for DefiLlama protocol metadata, no cache for Binance real-time data. This is a flat Map, not a new abstraction.
+**TTL cache for rate-limited sources:** A shared `ttlCache<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T>` helper (defined once in a shared file like `src/tools/market/cache.ts` and imported by both market and research handlers) wraps `resilientFetch` calls with URL-keyed caching. Internally a `Map<string, { data: unknown; expiry: number }>` — not a new abstraction, just a small function. Default TTLs: 120s for CoinGecko, 60s for DefiLlama prices, 300s for DefiLlama protocol metadata, no cache for Binance real-time data.
 
 ### Tool Pattern
 
@@ -149,7 +161,8 @@ Every tool is read-only and uses `createToolHandler`:
 const handler = createToolHandler(
   inputSchema,
   async (input) => {
-    const data = await fetchJson<ResponseType>(buildUrl(input));
+    const res = await resilientFetch(buildUrl(input), { label: "defillama" });
+    const data = await res.json() as ResponseType;
     // Transform/filter response
     return { protocols: [...] };
   },
