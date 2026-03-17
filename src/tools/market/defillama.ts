@@ -152,28 +152,28 @@ export async function getGainersLosers(input: {
   limit?: number;
 }): Promise<GainersLosersResult> {
   const { period = "24h", limit = 10 } = input;
-  return ttlCache(`defillama:gainers-losers:${period}:${limit}`, TTL_PRICE, async () => {
+  const data = await ttlCache(`defillama:gainers-losers:${period}`, TTL_PRICE, async () => {
     const response = await resilientFetch(
       `https://coins.llama.fi/percentage/${period}`,
       undefined,
       { label: "defillama-percentage" }
     );
-    const data = (await response.json()) as { coins: Record<string, number> };
-
-    const entries = Object.entries(data.coins).map(([symbol, priceChange]) => ({
-      symbol,
-      priceChange,
-      // price is not provided by the percentage endpoint
-      price: null as number | null,
-    }));
-
-    entries.sort((a, b) => b.priceChange - a.priceChange);
-
-    const gainers = entries.slice(0, limit);
-    const losers = entries.slice(-limit).reverse();
-
-    return { gainers, losers };
+    return (await response.json()) as { coins: Record<string, number> };
   });
+
+  const entries = Object.entries(data.coins).map(([symbol, priceChange]) => ({
+    symbol,
+    priceChange,
+    // price is not provided by the percentage endpoint
+    price: null as number | null,
+  }));
+
+  entries.sort((a, b) => b.priceChange - a.priceChange);
+
+  const gainers = entries.slice(0, limit);
+  const losers = entries.slice(-limit).reverse();
+
+  return { gainers, losers };
 }
 
 export async function getDexVolume(input: {
@@ -289,11 +289,11 @@ export async function getCexFundFlows(input: {
   limit?: number;
 }): Promise<CexFundFlowEntry[]> {
   const { limit = 20 } = input;
-  return ttlCache(`defillama:cex-flows:${limit}`, TTL_FEED, async () => {
+  const data = await ttlCache("defillama:cex-flows", TTL_FEED, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/flows", undefined, {
       label: "defillama-flows",
     });
-    const data = (await response.json()) as Array<{
+    return (await response.json()) as Array<{
       symbol: string;
       deposit_count: number;
       withdraw_count: number;
@@ -301,28 +301,28 @@ export async function getCexFundFlows(input: {
       withdraw_sum_usd: number;
       total_users: number;
     }>;
-
-    return data.slice(0, limit).map((item) => ({
-      symbol: item.symbol,
-      depositCount: item.deposit_count,
-      withdrawCount: item.withdraw_count,
-      depositSumUsd: item.deposit_sum_usd,
-      withdrawSumUsd: item.withdraw_sum_usd,
-      netFlow: item.deposit_sum_usd - item.withdraw_sum_usd,
-      totalUsers: item.total_users,
-    }));
   });
+
+  return data.slice(0, limit).map((item) => ({
+    symbol: item.symbol,
+    depositCount: item.deposit_count,
+    withdrawCount: item.withdraw_count,
+    depositSumUsd: item.deposit_sum_usd,
+    withdrawSumUsd: item.withdraw_sum_usd,
+    netFlow: item.deposit_sum_usd - item.withdraw_sum_usd,
+    totalUsers: item.total_users,
+  }));
 }
 
 export async function getExchangeRankings(input: {
   limit?: number;
 }): Promise<ExchangeRankingEntry[]> {
   const { limit = 20 } = input;
-  return ttlCache(`defillama:exchanges:${limit}`, TTL_FEED, async () => {
+  const raw = await ttlCache("defillama:exchanges", TTL_FEED, async () => {
     const response = await resilientFetch("https://fe-cache.llama.fi/exchanges", undefined, {
       label: "defillama-exchanges",
     });
-    const raw = (await response.json()) as {
+    return (await response.json()) as {
       data: Array<{
         name: string;
         trust_score: number;
@@ -332,14 +332,14 @@ export async function getExchangeRankings(input: {
         year_established: number;
       }>;
     };
-
-    return raw.data.slice(0, limit).map((item) => ({
-      name: item.name,
-      trustScore: item.trust_score,
-      trustScoreRank: item.trust_score_rank,
-      volume24hBtc: item.trade_volume_24h_btc,
-      country: item.country,
-      yearEstablished: item.year_established,
-    }));
   });
+
+  return raw.data.slice(0, limit).map((item) => ({
+    name: item.name,
+    trustScore: item.trust_score,
+    trustScoreRank: item.trust_score_rank,
+    volume24hBtc: item.trade_volume_24h_btc,
+    country: item.country,
+    yearEstablished: item.year_established,
+  }));
 }

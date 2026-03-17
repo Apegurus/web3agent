@@ -277,7 +277,7 @@ export async function getTokenHistory(input: {
 
   // If token is chain:address format, use DefiLlama directly
   if (input.token.includes(":")) {
-    return fetchFromDefiLlama(input.token, period, periodSeconds, days);
+    return fetchFromDefiLlama(input.token, periodSeconds, days);
   }
 
   // Otherwise try CoinGecko first
@@ -309,7 +309,6 @@ export async function getTokenHistory(input: {
 
 async function fetchFromDefiLlama(
   token: string,
-  period: string,
   periodSeconds: number,
   days: number
 ): Promise<TokenHistoryEntry[]> {

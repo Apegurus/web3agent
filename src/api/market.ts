@@ -1,142 +1,208 @@
 import { getRuntime, invokeAndRequireData } from "./shared.js";
-import type { RuntimeBoundOptions } from "./types.js";
+import type {
+  CategoryEntry,
+  CexFundFlowEntry,
+  ChainTvlEntry,
+  DexVolumeResult,
+  ExchangeRankingEntry,
+  FundingRateEntry,
+  GainersLosersResult,
+  GetCategoriesInput,
+  GetCexFundFlowsInput,
+  GetChainTvlInput,
+  GetDexVolumeInput,
+  GetExchangeRankingsInput,
+  GetFundingRatesInput,
+  GetGainersLosersInput,
+  GetGlobalStatsInput,
+  GetKlinesInput,
+  GetOrderBookInput,
+  GetProtocolTvlInput,
+  GetSentimentInput,
+  GetStablecoinStatsInput,
+  GetTickerInput,
+  GetTokenHistoryInput,
+  GetTokenPriceInput,
+  GetTopProtocolsInput,
+  GetTopTokensInput,
+  GetTrendingInput,
+  GlobalStatsResult,
+  KlineEntry,
+  OrderBookResult,
+  ProtocolTvlResult,
+  RuntimeBoundOptions,
+  SearchTokenInput,
+  SentimentResult,
+  StablecoinEntry,
+  TickerResult,
+  TokenHistoryEntry,
+  TokenPriceResult,
+  TokenSearchResultEntry,
+  TopProtocolEntry,
+  TopTokenEntry,
+  TrendingResult,
+} from "./types.js";
 
-export async function getProtocolTvl(params: { protocol: string }, options?: RuntimeBoundOptions) {
+export async function getProtocolTvl(
+  params: GetProtocolTvlInput,
+  options?: RuntimeBoundOptions
+): Promise<ProtocolTvlResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_protocol_tvl", params);
+  return invokeAndRequireData<ProtocolTvlResult>(runtime, "market_get_protocol_tvl", params);
 }
 
 export async function getTopProtocols(
-  params: { chain?: string; category?: string; limit?: number },
+  params: GetTopProtocolsInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<TopProtocolEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_top_protocols", params);
+  return invokeAndRequireData<TopProtocolEntry[]>(runtime, "market_get_top_protocols", params);
 }
 
-export async function getChainTvl(params: { chain: string }, options?: RuntimeBoundOptions) {
+export async function getChainTvl(
+  params: GetChainTvlInput,
+  options?: RuntimeBoundOptions
+): Promise<ChainTvlEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_chain_tvl", params);
+  return invokeAndRequireData<ChainTvlEntry[]>(runtime, "market_get_chain_tvl", params);
 }
 
 export async function getTokenPrice(
-  params: { tokens: string[]; searchWidth?: string },
+  params: GetTokenPriceInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<TokenPriceResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_token_price", params);
+  return invokeAndRequireData<TokenPriceResult>(runtime, "market_get_token_price", params);
 }
 
 export async function getTokenHistory(
-  params: { token: string; period?: "1d" | "7d" | "30d" | "90d" | "1y" },
+  params: GetTokenHistoryInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<TokenHistoryEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_token_history", params);
+  return invokeAndRequireData<TokenHistoryEntry[]>(runtime, "market_get_token_history", params);
 }
 
 export async function getGainersLosers(
-  params: { period?: "1h" | "24h" | "7d"; limit?: number },
+  params: GetGainersLosersInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<GainersLosersResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_gainers_losers", params);
+  return invokeAndRequireData<GainersLosersResult>(runtime, "market_get_gainers_losers", params);
 }
 
 export async function getDexVolume(
-  params: { chain?: string; protocol?: string },
+  params: GetDexVolumeInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<DexVolumeResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_dex_volume", params);
+  return invokeAndRequireData<DexVolumeResult>(runtime, "market_get_dex_volume", params);
 }
 
 export async function getStablecoinStats(
-  params: { chain?: string },
+  params: GetStablecoinStatsInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<StablecoinEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_stablecoin_stats", params);
+  return invokeAndRequireData<StablecoinEntry[]>(runtime, "market_get_stablecoin_stats", params);
 }
 
-export async function getGlobalStats(params: Record<string, never>, options?: RuntimeBoundOptions) {
+export async function getGlobalStats(
+  params: GetGlobalStatsInput,
+  options?: RuntimeBoundOptions
+): Promise<GlobalStatsResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_global_stats", params);
+  return invokeAndRequireData<GlobalStatsResult>(runtime, "market_get_global_stats", params);
 }
 
-export async function getCexFundFlows(params: { limit?: number }, options?: RuntimeBoundOptions) {
+export async function getCexFundFlows(
+  params: GetCexFundFlowsInput,
+  options?: RuntimeBoundOptions
+): Promise<CexFundFlowEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_cex_fund_flows", params);
+  return invokeAndRequireData<CexFundFlowEntry[]>(runtime, "market_get_cex_fund_flows", params);
 }
 
 export async function getExchangeRankings(
-  params: { limit?: number },
+  params: GetExchangeRankingsInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<ExchangeRankingEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_exchange_rankings", params);
+  return invokeAndRequireData<ExchangeRankingEntry[]>(
+    runtime,
+    "market_get_exchange_rankings",
+    params
+  );
 }
 
-export async function getSentiment(params: { days?: number }, options?: RuntimeBoundOptions) {
+export async function getSentiment(
+  params: GetSentimentInput,
+  options?: RuntimeBoundOptions
+): Promise<SentimentResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_sentiment", params);
+  return invokeAndRequireData<SentimentResult>(runtime, "market_get_sentiment", params);
 }
 
-export async function getTrending(params: { limit?: number }, options?: RuntimeBoundOptions) {
+export async function getTrending(
+  params: GetTrendingInput,
+  options?: RuntimeBoundOptions
+): Promise<TrendingResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_trending", params);
+  return invokeAndRequireData<TrendingResult>(runtime, "market_get_trending", params);
 }
 
 export async function getTopTokens(
-  params: { category?: string; limit?: number; order?: "marketCap" | "volume" },
+  params: GetTopTokensInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<TopTokenEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_top_tokens", params);
+  return invokeAndRequireData<TopTokenEntry[]>(runtime, "market_get_top_tokens", params);
 }
 
-export async function searchToken(params: { query: string }, options?: RuntimeBoundOptions) {
+export async function searchToken(
+  params: SearchTokenInput,
+  options?: RuntimeBoundOptions
+): Promise<TokenSearchResultEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_search_token", params);
+  return invokeAndRequireData<TokenSearchResultEntry[]>(runtime, "market_search_token", params);
 }
 
 export async function getCategories(
-  params: { order?: "marketCap" | "name" | "marketCapChange24h"; limit?: number },
+  params: GetCategoriesInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<CategoryEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_categories", params);
+  return invokeAndRequireData<CategoryEntry[]>(runtime, "market_get_categories", params);
 }
 
-export async function getTicker(params: { symbol: string }, options?: RuntimeBoundOptions) {
+export async function getTicker(
+  params: GetTickerInput,
+  options?: RuntimeBoundOptions
+): Promise<TickerResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_ticker", params);
+  return invokeAndRequireData<TickerResult>(runtime, "market_get_ticker", params);
 }
 
 export async function getKlines(
-  params: {
-    symbol: string;
-    interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w" | "1M";
-    limit?: number;
-  },
+  params: GetKlinesInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<KlineEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_klines", params);
+  return invokeAndRequireData<KlineEntry[]>(runtime, "market_get_klines", params);
 }
 
 export async function getOrderBook(
-  params: { symbol: string; limit?: "5" | "10" | "20" | "50" | "100" },
+  params: GetOrderBookInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<OrderBookResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_order_book", params);
+  return invokeAndRequireData<OrderBookResult>(runtime, "market_get_order_book", params);
 }
 
 export async function getFundingRates(
-  params: { symbol: string; limit?: number },
+  params: GetFundingRatesInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<FundingRateEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "market_get_funding_rates", params);
+  return invokeAndRequireData<FundingRateEntry[]>(runtime, "market_get_funding_rates", params);
 }

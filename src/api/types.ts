@@ -127,22 +127,55 @@ import {
 } from "./schemas/explorer-outputs.js";
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
 import {
+  airdropEntrySchema,
   approvalStepSchema,
   balanceChangeSchema,
   bridgeIntentSchema,
   bridgeTxStepSchema,
+  categoryEntrySchema,
+  cexFundFlowEntrySchema,
+  chainTvlEntrySchema,
+  contractSecurityResultSchema,
   crossChainSwapQuoteResultSchema,
   crossChainSwapQuoteSummarySchema,
+  dexVolumeResultSchema,
+  exchangeRankingEntrySchema,
+  fundRaiseEntrySchema,
+  fundingRateEntrySchema,
+  gainersLosersResultSchema,
+  globalStatsResultSchema,
+  governanceProposalEntrySchema,
+  hackEntrySchema,
+  klineEntrySchema,
   limitIntentSchema,
+  newsEntrySchema,
+  orderBookResultSchema,
   preparedOperationSchema,
+  protocolInfoResultSchema,
+  protocolTvlResultSchema,
   sameChainSwapQuoteResultSchema,
+  sentimentResultSchema,
   simulationResultSchema,
   spotOrderIntentSchema,
+  stablecoinEntrySchema,
   swapIntentSchema,
   swapQuoteResultSchema,
   swapSubmissionResultSchema,
+  tickerResultSchema,
+  tokenDueDiligenceResultSchema,
+  tokenHistoryEntrySchema,
+  tokenHolderEntrySchema,
+  tokenPriceResultSchema,
+  tokenSearchResultEntrySchema,
   tokenSwappableResultSchema,
+  tokenUnlockEntrySchema,
+  topProtocolEntrySchema,
+  topTokenEntrySchema,
+  trendingResultSchema,
   twapIntentSchema,
+  whaleTransferEntrySchema,
+  yieldComparisonEntrySchema,
+  yieldPoolEntrySchema,
 } from "./schemas/outputs.js";
 
 export type ResolveTokenInput = z.infer<typeof resolveTokenSchema>;
@@ -346,6 +379,43 @@ export type CrossChainSwapQuoteSummary = z.infer<typeof crossChainSwapQuoteSumma
 export type CrossChainSwapQuoteResult = z.infer<typeof crossChainSwapQuoteResultSchema>;
 export type SwapQuoteResult = z.infer<typeof swapQuoteResultSchema>;
 export type TokenSwappableResult = z.infer<typeof tokenSwappableResultSchema>;
+
+// ── Market output types ──────────────────────────────────────────────────────
+export type ProtocolTvlResult = z.infer<typeof protocolTvlResultSchema>;
+export type TopProtocolEntry = z.infer<typeof topProtocolEntrySchema>;
+export type ChainTvlEntry = z.infer<typeof chainTvlEntrySchema>;
+export type TokenPriceResult = z.infer<typeof tokenPriceResultSchema>;
+export type TokenHistoryEntry = z.infer<typeof tokenHistoryEntrySchema>;
+export type GainersLosersResult = z.infer<typeof gainersLosersResultSchema>;
+export type DexVolumeResult = z.infer<typeof dexVolumeResultSchema>;
+export type StablecoinEntry = z.infer<typeof stablecoinEntrySchema>;
+export type GlobalStatsResult = z.infer<typeof globalStatsResultSchema>;
+export type CexFundFlowEntry = z.infer<typeof cexFundFlowEntrySchema>;
+export type ExchangeRankingEntry = z.infer<typeof exchangeRankingEntrySchema>;
+export type SentimentResult = z.infer<typeof sentimentResultSchema>;
+export type TrendingResult = z.infer<typeof trendingResultSchema>;
+export type TopTokenEntry = z.infer<typeof topTokenEntrySchema>;
+export type TokenSearchResultEntry = z.infer<typeof tokenSearchResultEntrySchema>;
+export type CategoryEntry = z.infer<typeof categoryEntrySchema>;
+export type TickerResult = z.infer<typeof tickerResultSchema>;
+export type KlineEntry = z.infer<typeof klineEntrySchema>;
+export type OrderBookResult = z.infer<typeof orderBookResultSchema>;
+export type FundingRateEntry = z.infer<typeof fundingRateEntrySchema>;
+
+// ── Research output types ────────────────────────────────────────────────────
+export type ContractSecurityResult = z.infer<typeof contractSecurityResultSchema>;
+export type TokenDueDiligenceResult = z.infer<typeof tokenDueDiligenceResultSchema>;
+export type TokenHolderEntry = z.infer<typeof tokenHolderEntrySchema>;
+export type YieldPoolEntry = z.infer<typeof yieldPoolEntrySchema>;
+export type YieldComparisonEntry = z.infer<typeof yieldComparisonEntrySchema>;
+export type ProtocolInfoResult = z.infer<typeof protocolInfoResultSchema>;
+export type TokenUnlockEntry = z.infer<typeof tokenUnlockEntrySchema>;
+export type HackEntry = z.infer<typeof hackEntrySchema>;
+export type FundRaiseEntry = z.infer<typeof fundRaiseEntrySchema>;
+export type WhaleTransferEntry = z.infer<typeof whaleTransferEntrySchema>;
+export type GovernanceProposalEntry = z.infer<typeof governanceProposalEntrySchema>;
+export type NewsEntry = z.infer<typeof newsEntrySchema>;
+export type AirdropEntry = z.infer<typeof airdropEntrySchema>;
 
 export interface SwapStatusResult {
   provider: "orbs";

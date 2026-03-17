@@ -1,91 +1,142 @@
 import { getRuntime, invokeAndRequireData } from "./shared.js";
-import type { RuntimeBoundOptions } from "./types.js";
+import type {
+  AirdropEntry,
+  ContractSecurityResult,
+  FundRaiseEntry,
+  GetAirdropsInput,
+  GetCompareYieldsInput,
+  GetContractSecurityInput,
+  GetFundRaisesInput,
+  GetGovernanceInput,
+  GetHackHistoryInput,
+  GetNewsInput,
+  GetProtocolInfoInput,
+  GetTokenDueDiligenceInput,
+  GetTokenHoldersInput,
+  GetTokenUnlocksInput,
+  GetWhaleTransfersInput,
+  GetYieldOpportunitiesInput,
+  GovernanceProposalEntry,
+  HackEntry,
+  NewsEntry,
+  ProtocolInfoResult,
+  RuntimeBoundOptions,
+  TokenDueDiligenceResult,
+  TokenHolderEntry,
+  TokenUnlockEntry,
+  WhaleTransferEntry,
+  YieldComparisonEntry,
+  YieldPoolEntry,
+} from "./types.js";
 
 export async function getContractSecurity(
-  params: { address: string; chainId?: number },
+  params: GetContractSecurityInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<ContractSecurityResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_contract_security", params);
+  return invokeAndRequireData<ContractSecurityResult>(
+    runtime,
+    "research_contract_security",
+    params
+  );
 }
 
 export async function getTokenDueDiligence(
-  params: { token: string; chainId?: number },
+  params: GetTokenDueDiligenceInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<TokenDueDiligenceResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_token_due_diligence", params);
+  return invokeAndRequireData<TokenDueDiligenceResult>(
+    runtime,
+    "research_token_due_diligence",
+    params
+  );
 }
 
 export async function getTokenHolders(
-  params: { token: string; chainId?: number; limit?: number },
+  params: GetTokenHoldersInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<TokenHolderEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_token_holders", params);
+  return invokeAndRequireData<TokenHolderEntry[]>(runtime, "research_token_holders", params);
 }
 
 export async function getYieldOpportunities(
-  params: { token?: string; chain?: string; protocol?: string; minTvl?: number; limit?: number },
+  params: GetYieldOpportunitiesInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<YieldPoolEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_yield_opportunities", params);
+  return invokeAndRequireData<YieldPoolEntry[]>(runtime, "research_yield_opportunities", params);
 }
 
 export async function getCompareYields(
-  params: { token: string; chainId?: number; limit?: number },
+  params: GetCompareYieldsInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<YieldComparisonEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_compare_yields", params);
+  return invokeAndRequireData<YieldComparisonEntry[]>(runtime, "research_compare_yields", params);
 }
 
-export async function getProtocolInfo(params: { protocol: string }, options?: RuntimeBoundOptions) {
+export async function getProtocolInfo(
+  params: GetProtocolInfoInput,
+  options?: RuntimeBoundOptions
+): Promise<ProtocolInfoResult> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_protocol_info", params);
+  return invokeAndRequireData<ProtocolInfoResult>(runtime, "research_protocol_info", params);
 }
 
-export async function getTokenUnlocks(params: { limit?: number }, options?: RuntimeBoundOptions) {
+export async function getTokenUnlocks(
+  params: GetTokenUnlocksInput,
+  options?: RuntimeBoundOptions
+): Promise<TokenUnlockEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_token_unlocks", params);
+  return invokeAndRequireData<TokenUnlockEntry[]>(runtime, "research_token_unlocks", params);
 }
 
 export async function getHackHistory(
-  params: { protocol?: string; limit?: number },
+  params: GetHackHistoryInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<HackEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_hack_history", params);
+  return invokeAndRequireData<HackEntry[]>(runtime, "research_hack_history", params);
 }
 
-export async function getFundRaises(params: { limit?: number }, options?: RuntimeBoundOptions) {
+export async function getFundRaises(
+  params: GetFundRaisesInput,
+  options?: RuntimeBoundOptions
+): Promise<FundRaiseEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_fund_raises", params);
+  return invokeAndRequireData<FundRaiseEntry[]>(runtime, "research_fund_raises", params);
 }
 
 export async function getWhaleTransfers(
-  params: { symbol?: string; limit?: number },
+  params: GetWhaleTransfersInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<WhaleTransferEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_whale_transfers", params);
+  return invokeAndRequireData<WhaleTransferEntry[]>(runtime, "research_whale_transfers", params);
 }
 
 export async function getGovernance(
-  params: { protocol?: string; status?: "active" | "closed"; limit?: number },
+  params: GetGovernanceInput,
   options?: RuntimeBoundOptions
-) {
+): Promise<GovernanceProposalEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_governance", params);
+  return invokeAndRequireData<GovernanceProposalEntry[]>(runtime, "research_governance", params);
 }
 
-export async function getNews(params: { limit?: number }, options?: RuntimeBoundOptions) {
+export async function getNews(
+  params: GetNewsInput,
+  options?: RuntimeBoundOptions
+): Promise<NewsEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_news", params);
+  return invokeAndRequireData<NewsEntry[]>(runtime, "research_news", params);
 }
 
-export async function getAirdrops(params: { limit?: number }, options?: RuntimeBoundOptions) {
+export async function getAirdrops(
+  params: GetAirdropsInput,
+  options?: RuntimeBoundOptions
+): Promise<AirdropEntry[]> {
   const runtime = await getRuntime(options);
-  return invokeAndRequireData(runtime, "research_airdrops", params);
+  return invokeAndRequireData<AirdropEntry[]>(runtime, "research_airdrops", params);
 }

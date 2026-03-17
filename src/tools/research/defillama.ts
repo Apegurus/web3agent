@@ -30,11 +30,11 @@ export async function getTokenUnlocks(input: {
   limit?: number;
 }): Promise<TokenUnlockEntry[]> {
   const { limit = 20 } = input;
-  return ttlCache("defillama:unlocks", TTL_SHORT, async () => {
+  const data = await ttlCache("defillama:unlocks", TTL_SHORT, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/unlocks", undefined, {
       label: "defillama-unlocks",
     });
-    const data = (await response.json()) as Array<{
+    return (await response.json()) as Array<{
       name: string;
       symbol: string;
       next_event: number;
@@ -42,16 +42,16 @@ export async function getTokenUnlocks(input: {
       price: number;
       delta_rel: number;
     }>;
-
-    return data.slice(0, limit).map((item) => ({
-      name: item.name,
-      symbol: item.symbol,
-      nextEvent: new Date(item.next_event * 1000).toISOString(),
-      toUnlockUsd: item.to_unlock_usd,
-      price: item.price,
-      priceImpactPercent: item.delta_rel,
-    }));
   });
+
+  return data.slice(0, limit).map((item) => ({
+    name: item.name,
+    symbol: item.symbol,
+    nextEvent: new Date(item.next_event * 1000).toISOString(),
+    toUnlockUsd: item.to_unlock_usd,
+    price: item.price,
+    priceImpactPercent: item.delta_rel,
+  }));
 }
 
 export async function getHackHistory(input: {
@@ -94,11 +94,11 @@ export async function getFundRaises(input: {
   limit?: number;
 }): Promise<FundRaiseEntry[]> {
   const { limit = 20 } = input;
-  return ttlCache("defillama:raises", TTL_LONG, async () => {
+  const data = await ttlCache("defillama:raises", TTL_LONG, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/raises", undefined, {
       label: "defillama-raises",
     });
-    const data = (await response.json()) as Array<{
+    return (await response.json()) as Array<{
       name: string;
       timestamp: number;
       amount: number;
@@ -106,16 +106,16 @@ export async function getFundRaises(input: {
       lead_investor: string;
       source_url: string;
     }>;
-
-    return data.slice(0, limit).map((item) => ({
-      name: item.name,
-      date: new Date(item.timestamp * 1000).toISOString(),
-      amountUsd: item.amount,
-      round: item.round,
-      leadInvestor: item.lead_investor,
-      sourceUrl: item.source_url,
-    }));
   });
+
+  return data.slice(0, limit).map((item) => ({
+    name: item.name,
+    date: new Date(item.timestamp * 1000).toISOString(),
+    amountUsd: item.amount,
+    round: item.round,
+    leadInvestor: item.lead_investor,
+    sourceUrl: item.source_url,
+  }));
 }
 
 export async function getWhaleTransfers(input: {
@@ -213,11 +213,11 @@ export async function getNews(input: {
   limit?: number;
 }): Promise<NewsEntry[]> {
   const { limit = 20 } = input;
-  return ttlCache("defillama:news", TTL_SHORT, async () => {
+  const data = await ttlCache("defillama:news", TTL_SHORT, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/news", undefined, {
       label: "defillama-news",
     });
-    const data = (await response.json()) as Array<{
+    return (await response.json()) as Array<{
       title: string;
       content: string;
       link: string;
@@ -225,27 +225,27 @@ export async function getNews(input: {
       topic: string;
       sentiment: string;
     }>;
-
-    return data.slice(0, limit).map((item) => ({
-      title: item.title,
-      summary: item.content,
-      link: item.link,
-      publishedAt: item.pub_date,
-      topic: item.topic,
-      sentiment: item.sentiment,
-    }));
   });
+
+  return data.slice(0, limit).map((item) => ({
+    title: item.title,
+    summary: item.content,
+    link: item.link,
+    publishedAt: item.pub_date,
+    topic: item.topic,
+    sentiment: item.sentiment,
+  }));
 }
 
 export async function getAirdrops(input: {
   limit?: number;
 }): Promise<AirdropEntry[]> {
   const { limit = 20 } = input;
-  return ttlCache("defillama:airdrops", TTL_LONG, async () => {
+  const data = await ttlCache("defillama:airdrops", TTL_LONG, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/airdrops", undefined, {
       label: "defillama-airdrops",
     });
-    const data = (await response.json()) as Array<{
+    return (await response.json()) as Array<{
       name: string;
       symbol: string;
       claim_page: string;
@@ -253,14 +253,14 @@ export async function getAirdrops(input: {
       price: number;
       delta_rel: number;
     }>;
-
-    return data.slice(0, limit).map((item) => ({
-      name: item.name,
-      symbol: item.symbol,
-      claimPage: item.claim_page,
-      endsAt: item.ends !== null ? new Date(item.ends * 1000).toISOString() : null,
-      price: item.price,
-      priceChange: item.delta_rel,
-    }));
   });
+
+  return data.slice(0, limit).map((item) => ({
+    name: item.name,
+    symbol: item.symbol,
+    claimPage: item.claim_page,
+    endsAt: item.ends !== null ? new Date(item.ends * 1000).toISOString() : null,
+    price: item.price,
+    priceChange: item.delta_rel,
+  }));
 }
