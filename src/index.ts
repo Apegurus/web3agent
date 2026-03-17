@@ -6,9 +6,15 @@ export {
   listSupportedChains,
 } from "./api/chains.js";
 export { Web3AgentError } from "./api/errors.js";
-export { prepareBridgeIntent, prepareSwapIntent, submitSignedSwap } from "./api/intents.js";
+export {
+  prepareBridgeIntent,
+  prepareOrderIntent,
+  prepareSwapIntent,
+  submitSignedOrder,
+  submitSignedSwap,
+} from "./api/intents.js";
 export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
-export { listOrders } from "./api/orders.js";
+export { cancelOrder, listOrders, placeOrder } from "./api/orders.js";
 export { clearTraceSupportCache, simulateTransaction } from "./api/simulation.js";
 export {
   executeBridge,
@@ -31,6 +37,7 @@ export type {
   BridgeIntent,
   BridgeTxStep,
   CallToolResult,
+  CancelOrderInput,
   ChainLookupResult,
   CompletedOperationResult,
   CreateRuntimeOptions,
@@ -49,6 +56,7 @@ export type {
   OperationSignatureResult,
   OperationTransactionResult,
   PendingConfirmationResult,
+  PlaceOrderInput,
   PrepareBridgeIntentInput,
   PreparedAction,
   PreparedOperation,
@@ -58,7 +66,9 @@ export type {
   PreparedTransactionAction,
   PrepareOperationInput,
   PrepareOperationResult,
+  PrepareOrderIntentInput,
   PrepareSwapIntentInput,
+  QueryOrdersInput,
   ResolveTokenInput,
   ResumeOperationCompletedResult,
   ResumeOperationInput,
@@ -72,6 +82,8 @@ export type {
   ServerStatusResult,
   SimulateTransactionInput,
   SimulationResult,
+  SpotOrderIntent,
+  SubmitSignedOrderInput,
   SubmitSignedSwapInput,
   SupportedChainEntry,
   SupportedChainsResult,
@@ -147,6 +159,7 @@ export {
   preparedOperationSchema,
   sameChainSwapQuoteResultSchema,
   simulationResultSchema,
+  spotOrderIntentSchema,
   swapIntentSchema,
   swapQuoteResultSchema,
   swapSubmissionResultSchema,
@@ -164,9 +177,14 @@ export {
   resumeOperationSchema,
 } from "./tools/operations/schemas.js";
 export {
+  orbsCancelOrderSchema,
   orbsGetQuoteSchema,
   orbsGetRequiredApprovalsSchema,
+  orbsPlaceOrderSchema,
+  orbsPrepareOrderIntentSchema,
   orbsPrepareSwapIntentSchema,
+  orbsQueryOrdersSchema,
+  orbsSubmitSignedOrderSchema,
   orbsSubmitSignedSwapSchema,
   orbsSwapSchema,
   orbsSwapStatusSchema,

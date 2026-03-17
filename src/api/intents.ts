@@ -11,8 +11,10 @@ import type {
   GetRequiredApprovalsInput,
   PrepareBridgeIntentInput,
   PrepareOperationInput,
+  PrepareOrderIntentInput,
   PrepareSwapIntentInput,
   PreparedOperation,
+  SpotOrderIntent,
   SwapIntent,
   SwapSubmissionResult,
 } from "./types.js";
@@ -71,4 +73,48 @@ export async function submitSignedSwap(params: {
   signature: `0x${string}`;
 }): Promise<SwapSubmissionResult> {
   return submitSignedSwapViaOperation(params);
+}
+
+export async function prepareOrderIntent(
+  params: PrepareOrderIntentInput
+): Promise<SpotOrderIntent> {
+  const result = await prepareOperation({
+    integration: "orbs",
+    kind: "order",
+    ...params,
+  } as PrepareOperationInput);
+
+  if ("completed" in result) {
+    throw new Web3AgentError({
+      code: "ORBS_ORDER_ERROR",
+      message: "Order preparation completed unexpectedly without returning an intent",
+    });
+  }
+
+  return getCompatibilityIntent<SpotOrderIntent>(result, "order");
+}
+
+export async function submitSignedOrder(params: {
+  submitUrl: string;
+  order: Record<string, unknown>;
+  signature: `0x${string}`;
+}): Promise<{ status: string; response: unknown }> {
+  const { submitSpotOrder } = await import("../orbs/spot-client.js");
+  const { splitSignature } = await import("../utils/signature.js");
+
+  const { r, s, v } = splitSignature(params.signature);
+  const result = await submitSpotOrder({
+    url: params.submitUrl,
+    order: params.order,
+    signature: { r, s, v },
+  });
+
+  if (!result.ok) {
+    throw new Web3AgentError({
+      code: "ORBS_ORDER_ERROR",
+      message: `Submit failed (${result.status}): ${JSON.stringify(result.response)}`,
+    });
+  }
+
+  return { status: "submitted", response: result.response };
 }

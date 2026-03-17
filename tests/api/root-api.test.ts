@@ -115,8 +115,18 @@ describe("root API", () => {
     expect(typeof root.setConfig).toBe("function");
     expect(typeof root.pollSwapStatus).toBe("function");
     expect(typeof root.submitSignedSwap).toBe("function");
+    expect(typeof root.prepareOrderIntent).toBe("function");
+    expect(typeof root.submitSignedOrder).toBe("function");
+    expect(typeof root.placeOrder).toBe("function");
+    expect(typeof root.cancelOrder).toBe("function");
     expect(typeof root.simulateTransaction).toBe("function");
     expect(root.orbsPrepareSwapIntentSchema).toBeDefined();
+    expect(root.orbsPrepareOrderIntentSchema).toBeDefined();
+    expect(root.orbsPlaceOrderSchema).toBeDefined();
+    expect(root.orbsQueryOrdersSchema).toBeDefined();
+    expect(root.orbsCancelOrderSchema).toBeDefined();
+    expect(root.orbsSubmitSignedOrderSchema).toBeDefined();
+    expect(root.spotOrderIntentSchema).toBeDefined();
     expect(root.lifiPrepareBridgeIntentSchema).toBeDefined();
     expect(root.prepareOperationSchema).toBeDefined();
     expect(root.resumeOperationSchema).toBeDefined();
