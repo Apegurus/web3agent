@@ -1,3 +1,13 @@
+import type { z } from "zod";
+import type {
+  airdropEntrySchema,
+  fundRaiseEntrySchema,
+  governanceProposalEntrySchema,
+  hackEntrySchema,
+  newsEntrySchema,
+  tokenUnlockEntrySchema,
+  whaleTransferEntrySchema,
+} from "../../api/schemas/outputs.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "../market/cache.js";
 
@@ -6,72 +16,13 @@ const TTL_LONG = 300_000;
 
 // ── Types ─────────────────────────────────────────────────────────
 
-export interface TokenUnlockEntry {
-  name: string;
-  symbol: string;
-  nextEvent: string;
-  toUnlockUsd: number;
-  price: number;
-  priceImpactPercent: number;
-}
-
-export interface HackHistoryEntry {
-  name: string;
-  date: string;
-  amountUsd: number;
-  technique: string;
-  sourceUrl: string;
-}
-
-export interface FundRaiseEntry {
-  name: string;
-  date: string;
-  amountUsd: number;
-  round: string;
-  leadInvestor: string;
-  sourceUrl: string;
-}
-
-export interface WhaleTransferEntry {
-  txHash: string;
-  blockTime: string;
-  symbol: string;
-  value: number;
-  valueUsd: number;
-  fromEntity: string;
-  toEntity: string;
-}
-
-export interface GovernanceEntry {
-  orgName: string;
-  title: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  link: string;
-  quorum: number;
-  choices: string[];
-  votes: number[];
-  voterCount: number;
-}
-
-export interface NewsEntry {
-  title: string;
-  summary: string;
-  link: string;
-  publishedAt: string;
-  topic: string;
-  sentiment: string;
-}
-
-export interface AirdropEntry {
-  name: string;
-  symbol: string;
-  claimPage: string;
-  endsAt: string | null;
-  price: number;
-  priceChange: number;
-}
+export type TokenUnlockEntry = z.infer<typeof tokenUnlockEntrySchema>;
+export type HackHistoryEntry = z.infer<typeof hackEntrySchema>;
+export type FundRaiseEntry = z.infer<typeof fundRaiseEntrySchema>;
+export type WhaleTransferEntry = z.infer<typeof whaleTransferEntrySchema>;
+export type GovernanceEntry = z.infer<typeof governanceProposalEntrySchema>;
+export type NewsEntry = z.infer<typeof newsEntrySchema>;
+export type AirdropEntry = z.infer<typeof airdropEntrySchema>;
 
 // ── Handlers ──────────────────────────────────────────────────────
 

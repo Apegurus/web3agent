@@ -1,3 +1,9 @@
+import type { z } from "zod";
+import type {
+  contractSecurityResultSchema,
+  tokenDueDiligenceResultSchema,
+  tokenHolderEntrySchema,
+} from "../../api/schemas/outputs.js";
 import { resolveToken } from "../../tokens/resolver.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "../market/cache.js";
@@ -40,16 +46,7 @@ interface GoPlusContractData {
   external_call?: string;
 }
 
-export interface ContractSecurityResult {
-  verified: boolean;
-  isProxy: boolean;
-  ownerAddress: string | null;
-  canMint: boolean;
-  canPause: boolean;
-  canBlacklist: boolean;
-  isHoneypot: boolean;
-  maliciousFlags: string[];
-}
+export type ContractSecurityResult = z.infer<typeof contractSecurityResultSchema>;
 
 export async function getContractSecurity(input: {
   address: string;
@@ -129,20 +126,7 @@ interface DexScreenerPair {
   fdv?: number;
 }
 
-export interface TokenDueDiligenceResult {
-  isHoneypot: boolean | null;
-  buyTax: number | null;
-  sellTax: number | null;
-  liquidityUsd: number | null;
-  holderCount: number | null;
-  lpLocked: boolean | null;
-  topHolderPercent: number | null;
-  totalSupply: string | null;
-  createdAt: string | null;
-  riskLevel: "low" | "medium" | "high";
-  warnings: string[];
-  sources: string[];
-}
+export type TokenDueDiligenceResult = z.infer<typeof tokenDueDiligenceResultSchema>;
 
 export async function getTokenDueDiligence(input: {
   token: string;
@@ -273,12 +257,7 @@ interface GoPlusHolder {
   tag?: string;
 }
 
-export interface TokenHolder {
-  address: string;
-  balance: string;
-  percentOfSupply: number;
-  label: string | null;
-}
+export type TokenHolder = z.infer<typeof tokenHolderEntrySchema>;
 
 export async function getTokenHolders(input: {
   token: string;

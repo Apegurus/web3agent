@@ -1,7 +1,11 @@
+import type { z } from "zod";
+import type { sentimentResultSchema } from "../../api/schemas/outputs.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "./cache.js";
 
 const SENTIMENT_TTL = 300_000;
+
+type SentimentResult = z.infer<typeof sentimentResultSchema>;
 
 interface FearGreedEntry {
   value: string;
@@ -9,7 +13,7 @@ interface FearGreedEntry {
   timestamp: string;
 }
 
-export async function getSentiment(input: { days?: number }) {
+export async function getSentiment(input: { days?: number }): Promise<SentimentResult> {
   const days = input.days ?? 7;
   const url = `https://api.alternative.me/fng/?limit=${days}`;
   const data = await ttlCache(url, SENTIMENT_TTL, async () => {

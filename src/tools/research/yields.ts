@@ -1,3 +1,9 @@
+import type { z } from "zod";
+import type {
+  protocolInfoResultSchema,
+  yieldComparisonEntrySchema,
+  yieldPoolEntrySchema,
+} from "../../api/schemas/outputs.js";
 import { getChainById } from "../../chains/registry.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "../market/cache.js";
@@ -20,47 +26,9 @@ interface RawPool {
   rewardTokens: string[];
 }
 
-export interface YieldOpportunity {
-  pool: string;
-  project: string;
-  chain: string;
-  symbol: string;
-  tvlUsd: number;
-  apy: number;
-  apyBase: number;
-  apyReward: number;
-  ilRisk: string;
-  rewardTokens: string[];
-}
-
-export interface CompareYieldEntry {
-  project: string;
-  chain: string;
-  apy: number;
-  tvlUsd: number;
-  apyBase: number;
-  apyReward: number;
-}
-
-export interface ProtocolInfoResult {
-  name: string;
-  description?: string;
-  category: string;
-  chains: string[];
-  tvl: number;
-  audits?: string;
-  url?: string;
-  raises?: unknown[];
-  twitter?: string;
-  governanceLinks: string[] | null;
-  devActivity?: number;
-  communityScore?: number;
-  categories?: string[];
-  sentimentUp?: number;
-  sentimentDown?: number;
-  sources: string[];
-  warnings?: string[];
-}
+export type YieldOpportunity = z.infer<typeof yieldPoolEntrySchema>;
+export type CompareYieldEntry = z.infer<typeof yieldComparisonEntrySchema>;
+export type ProtocolInfoResult = z.infer<typeof protocolInfoResultSchema>;
 
 // ── Shared fetcher ───────────────────────────────────────────────
 

@@ -1,3 +1,10 @@
+import type { z } from "zod";
+import type {
+  fundingRateEntrySchema,
+  klineEntrySchema,
+  orderBookResultSchema,
+  tickerResultSchema,
+} from "../../api/schemas/outputs.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 
 function checkGeoRestriction(res: Response): void {
@@ -10,18 +17,7 @@ function checkGeoRestriction(res: Response): void {
 
 // ── getTicker ─────────────────────────────────────────────────────
 
-interface BinanceTicker {
-  symbol: string;
-  lastPrice: string;
-  priceChange: string;
-  priceChangePercent: string;
-  highPrice: string;
-  lowPrice: string;
-  volume: string;
-  quoteVolume: string;
-  bidPrice: string;
-  askPrice: string;
-}
+export type BinanceTicker = z.infer<typeof tickerResultSchema>;
 
 export async function getTicker(input: { symbol: string }): Promise<BinanceTicker> {
   const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${input.symbol}`;
@@ -47,16 +43,7 @@ export async function getTicker(input: { symbol: string }): Promise<BinanceTicke
 
 // ── getKlines ─────────────────────────────────────────────────────
 
-export interface BinanceKline {
-  openTime: number;
-  open: string;
-  high: string;
-  low: string;
-  close: string;
-  volume: string;
-  quoteVolume: string;
-  trades: number;
-}
+export type BinanceKline = z.infer<typeof klineEntrySchema>;
 
 type BinanceKlineRaw = [
   number, // openTime
@@ -100,11 +87,7 @@ export async function getKlines(input: {
 
 // ── getOrderBook ──────────────────────────────────────────────────
 
-export interface BinanceOrderBook {
-  lastUpdateId: number;
-  bids: { price: string; quantity: string }[];
-  asks: { price: string; quantity: string }[];
-}
+export type BinanceOrderBook = z.infer<typeof orderBookResultSchema>;
 
 interface BinanceDepthRaw {
   lastUpdateId: number;
@@ -133,11 +116,7 @@ export async function getOrderBook(input: {
 
 // ── getFundingRates ───────────────────────────────────────────────
 
-export interface BinanceFundingRate {
-  fundingTime: number;
-  fundingRate: string;
-  markPrice: string;
-}
+export type BinanceFundingRate = z.infer<typeof fundingRateEntrySchema>;
 
 interface BinanceFundingRateRaw {
   symbol: string;

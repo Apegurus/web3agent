@@ -1,3 +1,16 @@
+import type { z } from "zod";
+import type {
+  cexFundFlowEntrySchema,
+  chainTvlEntrySchema,
+  dexVolumeResultSchema,
+  exchangeRankingEntrySchema,
+  gainersLosersResultSchema,
+  globalStatsResultSchema,
+  protocolTvlResultSchema,
+  stablecoinEntrySchema,
+  tokenPriceResultSchema,
+  topProtocolEntrySchema,
+} from "../../api/schemas/outputs.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "./cache.js";
 
@@ -7,104 +20,20 @@ const TTL_FEED = 60_000;
 
 // ── Types ────────────────────────────────────────────────────────
 
-export interface ProtocolTvlResult {
-  name: string;
-  tvl: number;
-  tvlChange1d?: number;
-  tvlChange7d?: number;
-  tvlChange30d?: number;
-  chainTvls: Record<string, number>;
-  category: string;
-  url: string;
-}
-
-export interface TopProtocolEntry {
-  name: string;
-  tvl: number;
-  tvlChange1d: number;
-  chain: string;
-  category: string;
-  slug: string;
-}
-
-export interface ChainTvlEntry {
-  date: string;
-  tvl: number;
-}
-
-export interface TokenPriceEntry {
-  price: number;
-  symbol: string;
-  decimals: number;
-  confidence: number;
-  timestamp: number;
-}
-
-export interface TokenPriceResult {
-  coins: Record<string, TokenPriceEntry>;
-}
-
-export interface GainerLoserEntry {
-  symbol: string;
-  priceChange: number;
-  // price is not provided by the DefiLlama percentage endpoint
-  price: number | null;
-}
-
-export interface GainersLosersResult {
-  gainers: GainerLoserEntry[];
-  losers: GainerLoserEntry[];
-}
-
-export interface DexProtocolEntry {
-  name: string;
-  volume24h: number;
-  change1d: number;
-}
-
-export interface DexVolumeResult {
-  totalVolume24h: number;
-  // totalVolume7d is returned by the DefiLlama dex overview API as total7d
-  totalVolume7d: number | null;
-  protocols: DexProtocolEntry[];
-}
-
-export interface StablecoinEntry {
-  name: string;
-  symbol: string;
-  totalCirculating: number;
-  pegDeviation: number;
-  dominance: number;
-}
-
-export interface GlobalStatsResult {
-  totalMarketCap: number;
-  totalVolume24h: number;
-  btcDominance: number;
-  ethDominance: number;
-  defiMarketCap: number;
-  defiDominance: number;
-  marketCapChange24h: number;
-}
-
-export interface CexFundFlowEntry {
-  symbol: string;
-  depositCount: number;
-  withdrawCount: number;
-  depositSumUsd: number;
-  withdrawSumUsd: number;
-  netFlow: number;
-  totalUsers: number;
-}
-
-export interface ExchangeRankingEntry {
-  name: string;
-  trustScore: number;
-  trustScoreRank: number;
-  volume24hBtc: number;
-  country: string;
-  yearEstablished: number;
-}
+export type ProtocolTvlResult = z.infer<typeof protocolTvlResultSchema>;
+export type TopProtocolEntry = z.infer<typeof topProtocolEntrySchema>;
+export type ChainTvlEntry = z.infer<typeof chainTvlEntrySchema>;
+export type TokenPriceResult = z.infer<typeof tokenPriceResultSchema>;
+// GainerLoserEntry is an element of the arrays inside GainersLosersResult
+export type GainersLosersResult = z.infer<typeof gainersLosersResultSchema>;
+export type GainerLoserEntry = GainersLosersResult["gainers"][number];
+// DexProtocolEntry is an element of DexVolumeResult.protocols
+export type DexVolumeResult = z.infer<typeof dexVolumeResultSchema>;
+export type DexProtocolEntry = DexVolumeResult["protocols"][number];
+export type StablecoinEntry = z.infer<typeof stablecoinEntrySchema>;
+export type GlobalStatsResult = z.infer<typeof globalStatsResultSchema>;
+export type CexFundFlowEntry = z.infer<typeof cexFundFlowEntrySchema>;
+export type ExchangeRankingEntry = z.infer<typeof exchangeRankingEntrySchema>;
 
 // ── Handlers ─────────────────────────────────────────────────────
 

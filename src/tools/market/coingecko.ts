@@ -1,3 +1,11 @@
+import type { z } from "zod";
+import type {
+  categoryEntrySchema,
+  tokenHistoryEntrySchema,
+  tokenSearchResultEntrySchema,
+  topTokenEntrySchema,
+  trendingResultSchema,
+} from "../../api/schemas/outputs.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 import { ttlCache } from "./cache.js";
 
@@ -57,20 +65,8 @@ interface CoinGeckoCategoryRaw {
 
 // ── getTrending ──────────────────────────────────────────────────
 
-export interface TrendingCoin {
-  name: string;
-  symbol: string;
-  marketCapRank: number;
-  price?: number;
-  priceChange24h?: number;
-  marketCap?: number;
-  volume24h?: number;
-}
-
-export interface TrendingResult {
-  coins: TrendingCoin[];
-  warnings?: string[];
-}
+export type TrendingResult = z.infer<typeof trendingResultSchema>;
+export type TrendingCoin = TrendingResult["coins"][number];
 
 export async function getTrending(input: { limit?: number }): Promise<TrendingResult> {
   const limit = input.limit ?? 10;
@@ -136,19 +132,7 @@ export async function getTrending(input: { limit?: number }): Promise<TrendingRe
 
 // ── getTopTokens ─────────────────────────────────────────────────
 
-export interface TopToken {
-  name: string;
-  symbol: string;
-  marketCapRank: number;
-  currentPrice: number;
-  priceChange24h: number;
-  priceChange7d?: number;
-  marketCap: number;
-  totalVolume: number;
-  circulatingSupply?: number;
-  ath?: number;
-  athDate?: string;
-}
+export type TopToken = z.infer<typeof topTokenEntrySchema>;
 
 export async function getTopTokens(input: {
   category?: string;
@@ -197,13 +181,7 @@ export async function getTopTokens(input: {
 
 // ── searchToken ──────────────────────────────────────────────────
 
-export interface SearchTokenResult {
-  id: string;
-  name: string;
-  symbol: string;
-  marketCapRank: number;
-  thumb: string;
-}
+export type SearchTokenResult = z.infer<typeof tokenSearchResultEntrySchema>;
 
 interface CoinGeckoSearchCoin {
   id: string;
@@ -232,15 +210,7 @@ export async function searchToken(input: { query: string }): Promise<SearchToken
 
 // ── getCategories ────────────────────────────────────────────────
 
-export interface CategoryResult {
-  name: string;
-  marketCap: number;
-  marketCapChange24h: number;
-  volume24h: number;
-  /** Thumbnail image URLs for the top 3 coins in this category (from CoinGecko top_3_coins field) */
-  topCoins: string[];
-  updatedAt: string;
-}
+export type CategoryResult = z.infer<typeof categoryEntrySchema>;
 
 export async function getCategories(input: {
   order?: "marketCap" | "name" | "marketCapChange24h";
@@ -279,12 +249,7 @@ export async function getCategories(input: {
 
 // ── getTokenHistory ──────────────────────────────────────────────
 
-export interface TokenHistoryEntry {
-  timestamp: string;
-  price: number;
-  marketCap?: number;
-  volume?: number;
-}
+export type TokenHistoryEntry = z.infer<typeof tokenHistoryEntrySchema>;
 
 const PERIOD_DAYS: Record<string, number> = {
   "1d": 1,
