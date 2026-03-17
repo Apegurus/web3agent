@@ -11,6 +11,8 @@ export interface RuntimeConfig {
   confirmTtlMinutes: number;
   blockscoutMcpUrl: string;
   etherscanMcpUrl: string;
+  blockscoutApiUrl: string;
+  etherscanApiUrl: string;
   etherscanApiKey?: string;
   lifiApiKey?: string;
   zeroxApiKey?: string;
