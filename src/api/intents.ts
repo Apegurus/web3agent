@@ -1,4 +1,3 @@
-import { isHex } from "viem";
 import { submitSpotOrder } from "../orbs/spot-client.js";
 import { getSpotApiUrl } from "../orbs/spot-config.js";
 import { joinSignature, splitSignature } from "../utils/signature.js";
@@ -165,23 +164,19 @@ export async function submitSignedTwapOrder(params: {
   order: Record<string, unknown>;
   signature: { v: number; r: string; s: string };
 }): Promise<{ status: string; response: unknown }> {
-  if (!isHex(params.signature.r, { strict: true })) {
+  let signatureHex: `0x${string}`;
+  try {
+    signatureHex = joinSignature({
+      v: params.signature.v,
+      r: params.signature.r as `0x${string}`,
+      s: params.signature.s as `0x${string}`,
+    });
+  } catch (e: unknown) {
     throw new Web3AgentError({
       code: "INVALID_PARAMS",
-      message: "signature.r must be a 0x-prefixed hex string",
+      message: e instanceof Error ? e.message : "Invalid signature",
     });
   }
-  if (!isHex(params.signature.s, { strict: true })) {
-    throw new Web3AgentError({
-      code: "INVALID_PARAMS",
-      message: "signature.s must be a 0x-prefixed hex string",
-    });
-  }
-  const signatureHex = joinSignature({
-    v: params.signature.v,
-    r: params.signature.r as `0x${string}`,
-    s: params.signature.s as `0x${string}`,
-  });
   return submitSignedOrder({
     submitUrl: `${getSpotApiUrl()}/orders/new`,
     order: params.order,
