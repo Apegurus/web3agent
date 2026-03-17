@@ -116,9 +116,13 @@ describe("prepareSpotOrder", () => {
       })
     );
 
-    // 10 / 3 = 3 chunks (rounds down), maxAmount stays as specified
+    // 10 / 3 = 3 chunks (rounds down), effectiveMaxAmount = 3 * 3 = 9
     expect(result.meta.chunkCount).toBe(3);
-    expect(result.warnings).toContain("rounding down");
+    expect(result.warnings.some((w) => w.includes("fromMaxAmount rounded down"))).toBe(true);
+    // input.maxAmount and permitted.amount should use the rounded value
+    expect(result.typedData.message.witness.input.maxAmount).toBe("9000000000000000000");
+    expect(result.typedData.message.permitted.amount).toBe("9000000000000000000");
+    expect(result.approval.amount).toBe("9000000000000000000");
   });
 
   it("builds a limit order with output.limit > 0", () => {
@@ -134,15 +138,20 @@ describe("prepareSpotOrder", () => {
     expect(result.typedData.message.witness.output.triggerLower).toBe("1500000");
   });
 
-  it("includes approval calldata for RePermit", () => {
+  it("includes approval calldata for RePermit (unlimited by default)", () => {
     const result = prepareSpotOrder(baseParams());
 
     expect(result.approval.token).toBe(baseParams().fromToken);
     expect(result.approval.spender).toBe(contracts.repermit);
     expect(result.approval.amount).toBe(baseParams().fromAmount);
+    expect(result.approval.exactApproval).toBe(false);
     expect(result.approval.tx.to).toBe(baseParams().fromToken);
     // approve function selector: 0x095ea7b3
     expect(result.approval.tx.data.startsWith("0x095ea7b3")).toBe(true);
+    // unlimited approval: data should contain MaxUint256 (all f's)
+    expect(result.approval.tx.data).toContain(
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    );
     expect(result.approval.tx.value).toBe("0");
   });
 
@@ -150,6 +159,7 @@ describe("prepareSpotOrder", () => {
     const result = prepareSpotOrder(baseParams());
 
     expect(result.submit.url).toContain("agents-sink");
+    expect(result.submit.url).toContain("/orders/new");
     expect(result.submit.body.signature).toBeNull();
     expect(result.submit.body.status).toBe("pending");
     expect(result.submit.body.order).toBeDefined();
@@ -233,7 +243,7 @@ describe("prepareSpotOrder", () => {
 
   it("warns when slippage is below default 500", () => {
     const result = prepareSpotOrder(baseParams({ slippage: 100 }));
-    expect(result.warnings).toContain("slippage below 5%");
+    expect(result.warnings.some((w) => w.includes("slippage below default"))).toBe(true);
   });
 
   it("warns when recipient differs from swapper", () => {
@@ -273,5 +283,24 @@ describe("prepareSpotOrder", () => {
   it("includes query URL", () => {
     const result = prepareSpotOrder(baseParams());
     expect(result.query.url).toContain("agents-sink");
+    expect(result.query.url).toContain("/orders");
+  });
+
+  it("uses exact approval amount when exactApproval is true", () => {
+    const result = prepareSpotOrder({ ...baseParams(), exactApproval: true });
+    expect(result.approval.exactApproval).toBe(true);
+    // exact approval data should NOT contain MaxUint256
+    expect(result.approval.tx.data).not.toContain(
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    );
+  });
+
+  it("uses unlimited approval by default", () => {
+    const result = prepareSpotOrder(baseParams());
+    expect(result.approval.exactApproval).toBe(false);
+    // approval data should contain MaxUint256
+    expect(result.approval.tx.data).toContain(
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    );
   });
 });

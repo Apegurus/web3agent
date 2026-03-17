@@ -4,7 +4,7 @@
  * No network calls — pure computation.
  */
 
-import { encodeFunctionData } from "viem";
+import { encodeFunctionData, maxUint256 } from "viem";
 import {
   SPOT_SKELETON,
   getSpotAdapter,
@@ -55,6 +55,7 @@ export interface SpotOrderParams {
   outputTriggerLower?: string;
   outputTriggerUpper?: string;
   outputRecipient?: string;
+  exactApproval?: boolean;
 }
 
 export interface SpotPreparedOrder {
@@ -72,6 +73,7 @@ export interface SpotPreparedOrder {
     token: string;
     spender: string;
     amount: string;
+    exactApproval: boolean;
     tx: { to: string; data: `0x${string}`; value: string };
   };
   typedData: {
@@ -168,12 +170,19 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
 
   /* ---- Chunk math ---- */
 
-  const chunkCount = Number(fromMaxAmountBig / fromAmountBig);
-  const isSingle = params.fromAmount === fromMaxAmount;
+  let effectiveMaxAmount = fromMaxAmount;
+  let effectiveMaxAmountBig = fromMaxAmountBig;
 
   if (fromMaxAmountBig % fromAmountBig !== 0n) {
-    warnings.push("rounding down");
+    effectiveMaxAmountBig = (fromMaxAmountBig / fromAmountBig) * fromAmountBig;
+    effectiveMaxAmount = effectiveMaxAmountBig.toString();
+    warnings.push(
+      `fromMaxAmount rounded down from ${fromMaxAmount} to ${effectiveMaxAmount} for even chunk sizes`
+    );
   }
+
+  const chunkCount = Number(effectiveMaxAmountBig / fromAmountBig);
+  const isSingle = params.fromAmount === effectiveMaxAmount;
 
   /* ---- Epoch resolution ---- */
 
@@ -206,7 +215,7 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
   /* ---- Warnings ---- */
 
   if (slippage < DEF_SLIPPAGE) {
-    warnings.push("slippage below 5%");
+    warnings.push("slippage below default (5%); low slippage can reduce fill probability");
   }
 
   if (outputRecipient.toLowerCase() !== params.swapper.toLowerCase()) {
@@ -219,10 +228,11 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
 
   /* ---- Approval calldata ---- */
 
+  const approvalAmount = params.exactApproval ? effectiveMaxAmountBig : maxUint256;
   const approvalData = encodeFunctionData({
     abi: APPROVE_ABI,
     functionName: "approve",
-    args: [contracts.repermit, fromMaxAmountBig],
+    args: [contracts.repermit, approvalAmount],
   });
 
   /* ---- Build typed data ---- */
@@ -248,7 +258,7 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
     input: {
       token: params.fromToken,
       amount: params.fromAmount,
-      maxAmount: fromMaxAmount,
+      maxAmount: effectiveMaxAmount,
     },
     output: {
       token: params.toToken,
@@ -262,7 +272,7 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
   const message = {
     permitted: {
       token: params.fromToken,
-      amount: params.fromAmount,
+      amount: effectiveMaxAmount,
     },
     spender: contracts.reactor,
     nonce: String(nonce),
@@ -300,7 +310,8 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
     approval: {
       token: params.fromToken,
       spender: contracts.repermit,
-      amount: fromMaxAmount,
+      amount: effectiveMaxAmount,
+      exactApproval: params.exactApproval ?? false,
       tx: {
         to: params.fromToken,
         data: approvalData,
@@ -309,7 +320,7 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
     },
     typedData,
     submit: {
-      url: `${apiUrl}/spot/order`,
+      url: `${apiUrl}/orders/new`,
       body: {
         order: typedData,
         signature: null,
@@ -317,7 +328,7 @@ export function prepareSpotOrder(params: SpotOrderParams): SpotPreparedOrder {
       },
     },
     query: {
-      url: `${apiUrl}/spot/order`,
+      url: `${apiUrl}/orders`,
     },
   };
 }

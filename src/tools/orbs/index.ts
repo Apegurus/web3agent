@@ -295,6 +295,7 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
       outputTriggerUpper: params.outputTriggerUpper as string | undefined,
       start: params.start as number | undefined,
       deadline: params.deadline as number | undefined,
+      exactApproval: params.exactApproval as boolean | undefined,
     });
 
     // Check & execute approvals to RePermit
@@ -403,6 +404,7 @@ async function orbsPrepareOrderIntent(params: Record<string, unknown>): Promise<
       outputTriggerUpper: v.data.outputTriggerUpper,
       start: v.data.start,
       deadline: v.data.deadline,
+      exactApproval: v.data.exactApproval,
     });
 
     const requiredApprovals = await getRequiredApprovals({
@@ -535,6 +537,10 @@ async function orbsCancelOrder(params: Record<string, unknown>): Promise<CallToo
   const v = validateInput(orbsCancelOrderSchema, params);
   if (!v.success) return v.error;
   const chainId = resolveToolChainId(v.data.chainId);
+
+  if (!isSpotSupported(chainId)) {
+    return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
+  }
 
   return executeWrite({
     toolName: "orbs_cancel_order",

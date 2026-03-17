@@ -302,6 +302,7 @@ export async function prepareOrderOperation(
       outputTriggerUpper: input.outputTriggerUpper,
       start: input.start,
       deadline: input.deadline,
+      exactApproval: input.exactApproval,
     });
 
     const eip712: TypedDataPayload = {

@@ -172,6 +172,7 @@ export const spotOrderIntentSchema = z.object({
       token: z.string().describe("Token to approve"),
       spender: z.string().describe("RePermit contract address"),
       amount: z.string().describe("Approval amount"),
+      exactApproval: z.boolean().describe("Whether approval is for exact amount or unlimited"),
       tx: z
         .object({
           to: z.string().describe("Token contract address"),

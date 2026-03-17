@@ -26,30 +26,6 @@ export const orbsGetRequiredApprovalsSchema = z.object({
     .describe("Approval mode: 'swap' checks Permit2, 'order' checks RePermit"),
 });
 
-export const orbsPlaceTwapSchema = tokenAmountSchema.extend({
-  chainId: chainIdOptionalSchema,
-  chunks: z.number({ required_error: "chunks is required" }).describe("Number of TWAP intervals"),
-  fillDelay: z
-    .number({ required_error: "fillDelay is required" })
-    .describe("Delay between fills in seconds"),
-});
-
-export const orbsPrepareTwapIntentSchema = orbsPlaceTwapSchema.extend({
-  account: addressSchema.describe("User wallet address"),
-});
-
-export const orbsPlaceLimitSchema = tokenAmountSchema.extend({
-  chainId: chainIdOptionalSchema,
-  toMinAmount: z
-    .string({ required_error: "toMinAmount is required" })
-    .describe("Minimum output amount in smallest token units"),
-  expiry: z.number().optional().describe("Order expiry as Unix timestamp"),
-});
-
-export const orbsPrepareLimitIntentSchema = orbsPlaceLimitSchema.extend({
-  account: addressSchema.describe("User wallet address"),
-});
-
 export const orbsSubmitSignedSwapSchema = z.object({
   chainId: chainIdOptionalSchema,
   quote: z.record(z.unknown()).describe("Quote object from orbs_get_quote"),
@@ -58,17 +34,6 @@ export const orbsSubmitSignedSwapSchema = z.object({
       message: "signature must be at least 65 bytes (132 hex characters + 0x prefix)",
     })
     .describe("Hex-encoded signature of the permit2 typed data"),
-});
-
-export const orbsSubmitSignedTwapOrderSchema = z.object({
-  order: z.record(z.unknown()).describe("Order object from orbs_place_twap"),
-  signature: z
-    .object({
-      v: z.number({ required_error: "signature.v is required" }).describe("Recovery parameter"),
-      r: z.string({ required_error: "signature.r is required" }).describe("ECDSA r value"),
-      s: z.string({ required_error: "signature.s is required" }).describe("ECDSA s value"),
-    })
-    .describe("EIP-712 signature components"),
 });
 
 export const orbsSwapStatusSchema = z.object({
@@ -112,6 +77,10 @@ export const orbsPlaceOrderSchema = tokenAmountSchema.extend({
     .number()
     .optional()
     .describe("Order deadline as Unix timestamp (default: auto-calculated)"),
+  exactApproval: z
+    .boolean()
+    .optional()
+    .describe("If true, approve only the exact amount needed instead of unlimited"),
 });
 
 export const orbsPrepareOrderIntentSchema = orbsPlaceOrderSchema.extend({
@@ -140,5 +109,9 @@ export const orbsQueryOrdersSchema = z
 
 export const orbsCancelOrderSchema = z.object({
   chainId: chainIdOptionalSchema,
-  digest: hexSchema.describe("RePermit digest to cancel (from prepare step or query)"),
+  digest: hexSchema
+    .refine((v) => v.length === 66, {
+      message: "digest must be a 32-byte hex value (66 characters with 0x prefix)",
+    })
+    .describe("RePermit digest to cancel (from prepare step or query)"),
 });
