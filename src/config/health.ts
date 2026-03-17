@@ -29,6 +29,7 @@ export function formatHealthSummary(report: StartupReport): string {
     `  wallet:       ${walletLabel}`,
     `  confirmation: ${report.confirmWrites ? "enabled" : "disabled"}`,
     "  adapters:",
+    formatAdapterLine("explorer", report.health.explorer),
     formatAdapterLine("blockscout", report.health.blockscout),
     formatAdapterLine("etherscan", report.health.etherscan),
     formatAdapterLine("evm", report.health.evm),
@@ -55,6 +56,14 @@ export function formatHealthSummary(report: StartupReport): string {
 export function createDefaultHealthStatus(): HealthStatus {
   return {
     core: "ok",
+    explorer: {
+      name: "block-explorer",
+      status: "not_configured",
+      backends: {
+        blockscout: { status: "not_configured", chainCount: 0 },
+        etherscan: { status: "not_configured", chainCount: 0 },
+      },
+    },
     blockscout: { name: "blockscout", status: "not_configured" },
     etherscan: { name: "etherscan", status: "not_configured" },
     evm: { name: "evm", status: "not_configured" },

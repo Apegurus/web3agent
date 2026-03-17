@@ -1,15 +1,15 @@
-import type {
-  ExplorerNftInventory,
-  ExplorerTokenTransfers,
-} from "../types.js";
-import type {
-  BlockscoutNftList,
-  BlockscoutTokenTransferList,
-} from "./blockscout/types.js";
+import type { ExplorerNftInventory, ExplorerTokenTransfers } from "../types.js";
+import type { BlockscoutNftList, BlockscoutTokenTransferList } from "./blockscout/types.js";
 import type { EtherscanTokenTransfer } from "./etherscan/types.js";
 
+function parseDecimals(raw: string | null): number | undefined {
+  if (raw == null) return undefined;
+  const d = Number.parseInt(raw, 10);
+  return Number.isNaN(d) ? undefined : d;
+}
+
 export function normalizeBlockscoutTokenTransfers(
-  raw: BlockscoutTokenTransferList,
+  raw: BlockscoutTokenTransferList
 ): ExplorerTokenTransfers {
   return {
     transfers: raw.items.map((t) => ({
@@ -20,13 +20,7 @@ export function normalizeBlockscoutTokenTransfers(
       to: t.to.hash,
       token: t.token.address,
       symbol: t.token.symbol ?? undefined,
-      decimals:
-        t.token.decimals != null
-          ? (() => {
-              const d = Number.parseInt(t.token.decimals as string, 10);
-              return Number.isNaN(d) ? undefined : d;
-            })()
-          : undefined,
+      decimals: parseDecimals(t.token.decimals),
       value: t.total.value,
       type: t.token.type,
     })),
@@ -35,11 +29,10 @@ export function normalizeBlockscoutTokenTransfers(
 }
 
 export function normalizeEtherscanTokenTransfers(
-  raw: EtherscanTokenTransfer[],
+  raw: EtherscanTokenTransfer[]
 ): ExplorerTokenTransfers {
   return {
     transfers: raw.map((t) => {
-      const decimals = Number.parseInt(t.tokenDecimal, 10);
       return {
         hash: t.hash,
         blockNumber: Number(t.blockNumber),
@@ -48,7 +41,7 @@ export function normalizeEtherscanTokenTransfers(
         to: t.to,
         token: t.contractAddress,
         symbol: t.tokenSymbol || undefined,
-        decimals: Number.isNaN(decimals) ? undefined : decimals,
+        decimals: parseDecimals(t.tokenDecimal),
         value: t.value,
       };
     }),
@@ -57,7 +50,7 @@ export function normalizeEtherscanTokenTransfers(
 
 export function normalizeBlockscoutNfts(
   address: string,
-  raw: BlockscoutNftList,
+  raw: BlockscoutNftList
 ): ExplorerNftInventory {
   return {
     address,

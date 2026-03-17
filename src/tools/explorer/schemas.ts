@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addressSchema } from "../../api/schemas/common.js";
 import {
   explorerAddressSchema,
   explorerBlockSchema,
@@ -12,9 +13,8 @@ import {
 
 export const explorerGetAddressInfoSchema = explorerAddressSchema;
 
-export const explorerGetTokensByAddressSchema = explorerAddressSchema.merge(
-  explorerPaginatedSchema,
-);
+export const explorerGetTokensByAddressSchema =
+  explorerAddressSchema.merge(explorerPaginatedSchema);
 
 // --- Transactions ---
 
@@ -35,12 +35,10 @@ export const explorerGetTokenTransfersSchema = explorerAddressSchema
   .merge(explorerTimeRangeSchema)
   .merge(explorerPaginatedSchema)
   .extend({
-    tokenContract: z.string().optional().describe("Filter by token contract address"),
+    tokenContract: addressSchema.optional().describe("Filter by token contract address"),
   });
 
-export const explorerGetNftInventorySchema = explorerAddressSchema.merge(
-  explorerPaginatedSchema,
-);
+export const explorerGetNftInventorySchema = explorerAddressSchema.merge(explorerPaginatedSchema);
 
 // --- Contracts ---
 

@@ -56,6 +56,23 @@ import type {
 } from "./schemas.js";
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
 import {
+  explorerAddressInfoSchema,
+  explorerBlockInfoSchema,
+  explorerContractAbiSchema,
+  explorerContractSourceSchema,
+  explorerNftInventorySchema,
+  explorerNftItemSchema,
+  explorerTokenHoldingSchema,
+  explorerTokenTransferSchema,
+  explorerTokenTransfersSchema,
+  explorerTokensByAddressSchema,
+  explorerTransactionSchema,
+  explorerTxDetailsSchema,
+  explorerTxHistorySchema,
+  explorerTxReceiptSchema,
+} from "./schemas/explorer-outputs.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
   approvalStepSchema,
   balanceChangeSchema,
   bridgeIntentSchema,
@@ -73,23 +90,6 @@ import {
   tokenSwappableResultSchema,
   twapIntentSchema,
 } from "./schemas/outputs.js";
-// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
-import {
-  explorerAddressInfoSchema,
-  explorerBlockInfoSchema,
-  explorerContractAbiSchema,
-  explorerContractSourceSchema,
-  explorerNftInventorySchema,
-  explorerNftItemSchema,
-  explorerTokenHoldingSchema,
-  explorerTokenTransferSchema,
-  explorerTokenTransfersSchema,
-  explorerTokensByAddressSchema,
-  explorerTransactionSchema,
-  explorerTxDetailsSchema,
-  explorerTxHistorySchema,
-  explorerTxReceiptSchema,
-} from "./schemas/explorer-outputs.js";
 
 export type ResolveTokenInput = z.infer<typeof resolveTokenSchema>;
 export type ListChainTokensInput = z.infer<typeof listChainTokensSchema>;

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-  normalizeBlockscoutNfts,
-  normalizeBlockscoutTokenTransfers,
-  normalizeEtherscanTokenTransfers,
-} from "../../../src/api/explorer/tokens.js";
 import type {
   BlockscoutNftList,
   BlockscoutTokenTransferList,
 } from "../../../src/api/explorer/blockscout/types.js";
 import type { EtherscanTokenTransfer } from "../../../src/api/explorer/etherscan/types.js";
+import {
+  normalizeBlockscoutNfts,
+  normalizeBlockscoutTokenTransfers,
+  normalizeEtherscanTokenTransfers,
+} from "../../../src/api/explorer/tokens.js";
 
 const bsTransferList: BlockscoutTokenTransferList = {
   items: [

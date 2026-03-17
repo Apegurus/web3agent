@@ -4,8 +4,8 @@ vi.mock("../../../../src/utils/resilient-fetch.js", () => ({
   resilientFetch: vi.fn(),
 }));
 
-import { resilientFetch } from "../../../../src/utils/resilient-fetch.js";
 import { EtherscanClient } from "../../../../src/api/explorer/etherscan/client.js";
+import { resilientFetch } from "../../../../src/utils/resilient-fetch.js";
 
 const mockFetch = vi.mocked(resilientFetch);
 
@@ -14,7 +14,7 @@ function mockEtherscanResponse(result: unknown, status: "0" | "1" = "1") {
     new Response(JSON.stringify({ status, message: "OK", result }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
-    }),
+    })
   );
 }
 

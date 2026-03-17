@@ -5,14 +5,14 @@ import type { EtherscanResponse } from "./types.js";
 export class EtherscanClient {
   constructor(
     private readonly apiKey: string,
-    private readonly baseUrlOverride?: string,
+    private readonly baseUrlOverride?: string
   ) {}
 
   async call<T = unknown>(
     chainId: number,
     module: string,
     action: string,
-    params: Record<string, string> = {},
+    params: Record<string, string> = {}
   ): Promise<T> {
     const baseUrl = getEtherscanApiUrl(chainId, this.baseUrlOverride);
     if (!baseUrl) {
@@ -38,7 +38,7 @@ export class EtherscanClient {
       {
         retry: { maxRetries: 3, baseDelayMs: 200 },
         label: `etherscan:${module}.${action}`,
-      },
+      }
     );
 
     if (!response.ok) {

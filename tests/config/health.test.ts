@@ -10,6 +10,14 @@ describe("health configuration utilities", () => {
   it("builds default health status with all optional backends not configured", () => {
     expect(createDefaultHealthStatus()).toEqual({
       core: "ok",
+      explorer: {
+        name: "block-explorer",
+        status: "not_configured",
+        backends: {
+          blockscout: { status: "not_configured", chainCount: 0 },
+          etherscan: { status: "not_configured", chainCount: 0 },
+        },
+      },
       blockscout: { name: "blockscout", status: "not_configured" },
       etherscan: { name: "etherscan", status: "not_configured" },
       evm: { name: "evm", status: "not_configured" },
@@ -36,6 +44,14 @@ describe("health configuration utilities", () => {
     const report = createStartupReport({
       health: {
         core: "degraded",
+        explorer: {
+          name: "block-explorer",
+          status: "not_configured",
+          backends: {
+            blockscout: { status: "not_configured", chainCount: 0 },
+            etherscan: { status: "not_configured", chainCount: 0 },
+          },
+        },
         blockscout: { name: "blockscout", status: "degraded", message: "limited" },
         etherscan: { name: "etherscan", status: "not_configured" },
         evm: { name: "evm", status: "ok" },

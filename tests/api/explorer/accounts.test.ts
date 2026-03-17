@@ -4,7 +4,10 @@ import {
   normalizeBlockscoutTokens,
   normalizeEtherscanAddress,
 } from "../../../src/api/explorer/accounts.js";
-import type { BlockscoutAddress, BlockscoutToken } from "../../../src/api/explorer/blockscout/types.js";
+import type {
+  BlockscoutAddress,
+  BlockscoutToken,
+} from "../../../src/api/explorer/blockscout/types.js";
 
 describe("normalizeBlockscoutAddress", () => {
   const fullAddress: BlockscoutAddress = {

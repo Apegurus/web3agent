@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { BlockscoutSmartContract } from "../../../src/api/explorer/blockscout/types.js";
 import {
   normalizeBlockscoutContractAbi,
   normalizeBlockscoutContractSource,
   normalizeEtherscanContractAbi,
   normalizeEtherscanContractSource,
 } from "../../../src/api/explorer/contracts.js";
-import type { BlockscoutSmartContract } from "../../../src/api/explorer/blockscout/types.js";
 import type { EtherscanContractSource } from "../../../src/api/explorer/etherscan/types.js";
 
 const bsContract: BlockscoutSmartContract = {

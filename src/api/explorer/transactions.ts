@@ -1,8 +1,4 @@
-import type {
-  ExplorerTransaction,
-  ExplorerTxDetails,
-  ExplorerTxReceipt,
-} from "../types.js";
+import type { ExplorerTransaction, ExplorerTxDetails, ExplorerTxReceipt } from "../types.js";
 import type { BlockscoutTransaction } from "./blockscout/types.js";
 import type { EtherscanTransaction } from "./etherscan/types.js";
 
@@ -12,9 +8,7 @@ function blockscoutStatus(raw: BlockscoutTransaction): "success" | "failed" | "p
   return "pending";
 }
 
-export function normalizeBlockscoutTransaction(
-  raw: BlockscoutTransaction,
-): ExplorerTransaction {
+export function normalizeBlockscoutTransaction(raw: BlockscoutTransaction): ExplorerTransaction {
   const result: ExplorerTransaction = {
     hash: raw.hash,
     blockNumber: raw.block,
@@ -49,9 +43,7 @@ export function normalizeBlockscoutTransaction(
   return result;
 }
 
-export function normalizeBlockscoutTxDetails(
-  raw: BlockscoutTransaction,
-): ExplorerTxDetails {
+export function normalizeBlockscoutTxDetails(raw: BlockscoutTransaction): ExplorerTxDetails {
   const base = normalizeBlockscoutTransaction(raw);
 
   const details: ExplorerTxDetails = {
@@ -80,9 +72,7 @@ export function normalizeBlockscoutTxDetails(
   return details;
 }
 
-export function normalizeBlockscoutTxReceipt(
-  raw: BlockscoutTransaction,
-): ExplorerTxReceipt {
+export function normalizeBlockscoutTxReceipt(raw: BlockscoutTransaction): ExplorerTxReceipt {
   const status = blockscoutStatus(raw);
 
   const receipt: ExplorerTxReceipt = {
@@ -103,9 +93,7 @@ export function normalizeBlockscoutTxReceipt(
   return receipt;
 }
 
-export function normalizeEtherscanTransaction(
-  raw: EtherscanTransaction,
-): ExplorerTransaction {
+export function normalizeEtherscanTransaction(raw: EtherscanTransaction): ExplorerTransaction {
   const status: "success" | "failed" = raw.isError === "1" ? "failed" : "success";
 
   const result: ExplorerTransaction = {

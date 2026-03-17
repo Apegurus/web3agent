@@ -4,7 +4,7 @@ import type { EtherscanContractSource } from "./etherscan/types.js";
 
 export function normalizeBlockscoutContractAbi(
   contractAddress: string,
-  raw: BlockscoutSmartContract,
+  raw: BlockscoutSmartContract
 ): ExplorerContractAbi {
   const result: ExplorerContractAbi = {
     contractAddress,
@@ -30,7 +30,7 @@ export function normalizeBlockscoutContractAbi(
 
 export function normalizeBlockscoutContractSource(
   contractAddress: string,
-  raw: BlockscoutSmartContract,
+  raw: BlockscoutSmartContract
 ): ExplorerContractSource {
   const result: ExplorerContractSource = {
     contractAddress,
@@ -63,9 +63,17 @@ export function normalizeBlockscoutContractSource(
 
 export function normalizeEtherscanContractAbi(
   contractAddress: string,
-  abiJson: string,
+  abiJson: string
 ): ExplorerContractAbi {
-  const abi = JSON.parse(abiJson) as Record<string, unknown>[];
+  let abi: Record<string, unknown>[];
+  try {
+    abi = JSON.parse(abiJson) as Record<string, unknown>[];
+  } catch (e: unknown) {
+    throw new Error("Contract ABI not available (source not verified or invalid response)");
+  }
+  if (!Array.isArray(abi)) {
+    throw new Error("Contract ABI not available (source not verified or invalid response)");
+  }
   return {
     contractAddress,
     abi,
@@ -74,7 +82,7 @@ export function normalizeEtherscanContractAbi(
 
 export function normalizeEtherscanContractSource(
   contractAddress: string,
-  raw: EtherscanContractSource,
+  raw: EtherscanContractSource
 ): ExplorerContractSource {
   const result: ExplorerContractSource = {
     contractAddress,

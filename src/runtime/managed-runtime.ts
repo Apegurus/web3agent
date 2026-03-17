@@ -136,6 +136,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
 
 function summarizeBackends(health: HealthStatus): RuntimeHealth["backends"] {
   return {
+    explorer: { ...health.explorer },
     blockscout: { ...health.blockscout },
     etherscan: { ...health.etherscan },
     evm: { ...health.evm },
@@ -428,6 +429,26 @@ export class ManagedRuntime implements Web3AgentRuntime {
   }
 
   private refreshHealthStatus(): void {
+    // Unified explorer health
+    const explorerToolCount = getExplorerToolDefinitions(this.explorerDeps).length;
+    const bsChainCount = this.explorerDeps.blockscout.getSupportedChainIds().length;
+    const esChainCount = this.explorerDeps.etherscan?.getSupportedChainIds().length ?? 0;
+    const esConfigured = this.explorerDeps.etherscan != null;
+    this.health.explorer = {
+      name: "block-explorer",
+      status: bsChainCount > 0 || esChainCount > 0 ? "ok" : "unavailable",
+      toolCount: explorerToolCount,
+      message: `${explorerToolCount} tools, ${bsChainCount + esChainCount} chains`,
+      backends: {
+        blockscout: { status: "ok", chainCount: bsChainCount },
+        etherscan: {
+          status: esConfigured ? "ok" : "not_configured",
+          chainCount: esChainCount,
+          message: esConfigured ? undefined : "No API key provided",
+        },
+      },
+    };
+    // Legacy adapter health (kept until adapter removal)
     this.health.blockscout = this.blockscoutAdapter.getHealth();
     this.health.etherscan = this.etherscanAdapter.getHealth();
     this.health.evm = {

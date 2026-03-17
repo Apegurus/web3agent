@@ -7,8 +7,22 @@ export interface BackendStatus {
   toolCount?: number;
 }
 
+export interface ExplorerBackendHealth {
+  status: BackendStatusCode;
+  chainCount: number;
+  message?: string;
+}
+
+export interface ExplorerHealth extends BackendStatus {
+  backends: {
+    blockscout: ExplorerBackendHealth;
+    etherscan: ExplorerBackendHealth;
+  };
+}
+
 export interface HealthStatus {
   core: BackendStatusCode;
+  explorer: ExplorerHealth;
   blockscout: BackendStatus;
   etherscan: BackendStatus;
   evm: BackendStatus;

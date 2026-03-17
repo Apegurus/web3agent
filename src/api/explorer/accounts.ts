@@ -1,7 +1,4 @@
-import type {
-  ExplorerAddressInfo,
-  ExplorerTokensByAddress,
-} from "../types.js";
+import type { ExplorerAddressInfo, ExplorerTokensByAddress } from "../types.js";
 import type { BlockscoutAddress, BlockscoutToken } from "./blockscout/types.js";
 
 export function normalizeBlockscoutAddress(raw: BlockscoutAddress): ExplorerAddressInfo {
@@ -40,7 +37,7 @@ export function normalizeBlockscoutAddress(raw: BlockscoutAddress): ExplorerAddr
 
 export function normalizeBlockscoutTokens(
   address: string,
-  tokens: BlockscoutToken[],
+  tokens: BlockscoutToken[]
 ): ExplorerTokensByAddress {
   return {
     address,
@@ -61,13 +58,12 @@ export function normalizeBlockscoutTokens(
   };
 }
 
-export function normalizeEtherscanAddress(
-  address: string,
-  balance: string,
-): ExplorerAddressInfo {
+export function normalizeEtherscanAddress(address: string, balance: string): ExplorerAddressInfo {
   return {
     address,
     balance,
+    // Etherscan balance endpoint doesn't return contract status — always false.
+    // Consumers needing accurate isContract should use Blockscout-supported chains.
     isContract: false,
   };
 }

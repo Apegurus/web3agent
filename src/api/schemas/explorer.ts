@@ -20,7 +20,10 @@ export const explorerTimeRangeSchema = z.object({
 });
 
 export const explorerTxHashSchema = explorerBaseSchema.extend({
-  txHash: z.string().describe("Transaction hash (0x-prefixed)"),
+  txHash: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/)
+    .describe("Transaction hash (0x-prefixed, 64 hex chars)"),
 });
 
 export const explorerContractSchema = explorerBaseSchema.extend({
@@ -28,6 +31,6 @@ export const explorerContractSchema = explorerBaseSchema.extend({
 });
 
 export const explorerBlockSchema = explorerBaseSchema.extend({
-  blockNumber: z.number().describe("Block number"),
+  blockNumber: z.number().int().nonnegative().describe("Block number"),
   includeTxs: z.boolean().optional().describe("Include full transaction objects (default false)"),
 });

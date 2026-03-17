@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { BlockscoutTransaction } from "../../../src/api/explorer/blockscout/types.js";
+import type { EtherscanTransaction } from "../../../src/api/explorer/etherscan/types.js";
 import {
   normalizeBlockscoutTransaction,
   normalizeBlockscoutTxDetails,
   normalizeBlockscoutTxReceipt,
   normalizeEtherscanTransaction,
 } from "../../../src/api/explorer/transactions.js";
-import type { BlockscoutTransaction } from "../../../src/api/explorer/blockscout/types.js";
-import type { EtherscanTransaction } from "../../../src/api/explorer/etherscan/types.js";
 
 const baseBsTx: BlockscoutTransaction = {
   hash: "0xhash1",

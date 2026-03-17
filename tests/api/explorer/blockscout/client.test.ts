@@ -4,8 +4,8 @@ vi.mock("../../../../src/utils/resilient-fetch.js", () => ({
   resilientFetch: vi.fn(),
 }));
 
-import { resilientFetch } from "../../../../src/utils/resilient-fetch.js";
 import { BlockscoutClient } from "../../../../src/api/explorer/blockscout/client.js";
+import { resilientFetch } from "../../../../src/utils/resilient-fetch.js";
 
 const mockFetch = vi.mocked(resilientFetch);
 
@@ -14,7 +14,7 @@ function mockJsonResponse(data: unknown) {
     new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
-    }),
+    })
   );
 }
 
