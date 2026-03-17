@@ -1,4 +1,5 @@
 import { getConfig } from "../config/env.js";
+import { resilientFetch } from "../utils/resilient-fetch.js";
 
 export const AGDP_DEFAULT_URL = "https://acpx.virtuals.io/api";
 
@@ -43,7 +44,8 @@ export function getAgdpBaseUrl(): string {
   try {
     const config = getConfig();
     return config.agdpApiUrl ?? AGDP_DEFAULT_URL;
-  } catch {
+  } catch (e: unknown) {
+    // Config may not be initialized yet (e.g., during module loading)
     return AGDP_DEFAULT_URL;
   }
 }
@@ -71,13 +73,17 @@ function flattenResponse<T>(body: unknown): T[] {
 
 async function agdpFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const baseUrl = getAgdpBaseUrl();
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers as Record<string, string> | undefined),
+  const response = await resilientFetch(
+    `${baseUrl}${path}`,
+    {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options?.headers as Record<string, string> | undefined),
+      },
     },
-  });
+    { label: "agdp" }
+  );
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(`aGDP API error ${response.status}: ${text}`);

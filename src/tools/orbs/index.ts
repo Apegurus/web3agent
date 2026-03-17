@@ -573,6 +573,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Requires token addresses — use resolve_token first.",
       inputSchema: zodToJsonSchema(orbsSwapSchema) as Record<string, unknown>,
       handler: orbsSwap,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -600,6 +601,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Submit an externally signed Orbs Liquidity Hub swap using the quote returned by orbs_prepare_swap_intent.",
       inputSchema: zodToJsonSchema(orbsSubmitSignedSwapSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedSwapTool,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -620,6 +622,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "take-profit (outputTriggerUpper), delayed (future start). Write, confirmation-gated.",
       inputSchema: zodToJsonSchema(orbsPlaceOrderSchema) as Record<string, unknown>,
       handler: orbsPlaceOrder,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -639,6 +642,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Submit an externally signed Spot order using the submit URL and order from orbs_prepare_order_intent.",
       inputSchema: zodToJsonSchema(orbsSubmitSignedOrderSchema) as Record<string, unknown>,
       handler: orbsSubmitSignedOrderHandler,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -657,6 +661,7 @@ export function getOrbsToolDefinitions(): ToolDefinition[] {
         "Cancel a Spot order onchain by calling RePermit.cancel with the order digest. Write, confirmation-gated.",
       inputSchema: zodToJsonSchema(orbsCancelOrderSchema) as Record<string, unknown>,
       handler: orbsCancelOrder,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
   ];

@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { RiskLevel } from "../policy/types.js";
 import type { OperationExecutor } from "../types/wallet.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { getWalletState } from "../wallet/persistence.js";
@@ -9,6 +10,7 @@ export interface ExecuteWriteOptions {
   description: string;
   params: Record<string, unknown>;
   executor: OperationExecutor;
+  riskLevel?: RiskLevel;
 }
 
 export async function executeWrite(options: ExecuteWriteOptions): Promise<CallToolResult> {
@@ -25,7 +27,8 @@ export async function executeWrite(options: ExecuteWriteOptions): Promise<CallTo
     options.description,
     options.params,
     options.executor,
-    walletState.address
+    walletState.address,
+    options.riskLevel
   );
 
   if (queued) {

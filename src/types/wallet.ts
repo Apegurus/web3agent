@@ -1,3 +1,6 @@
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { RiskLevel } from "../policy/types.js";
+
 export type WalletMode = "private-key" | "mnemonic" | "read-only";
 
 export interface WalletState {
@@ -7,8 +10,6 @@ export interface WalletState {
   accountIndex: number;
   addressIndex: number;
 }
-
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 export type OperationExecutor = (params: Record<string, unknown>) => Promise<CallToolResult>;
 
@@ -21,6 +22,7 @@ export interface PendingOperation {
   createdAt: Date;
   ttlMs: number;
   walletAddress?: string;
+  riskLevel?: RiskLevel;
 }
 
 export interface ConfirmationQueue {

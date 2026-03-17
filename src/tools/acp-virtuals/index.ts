@@ -665,6 +665,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
         "Set a job budget on the Virtuals ACPRouter using setBudgetWithPaymentToken and optional token override.",
       inputSchema: zodToJsonSchema(acpVSetBudgetSchema) as Record<string, unknown>,
       handler: acpSetBudget,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -674,6 +675,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
         "Fund a Virtuals ACPRouter job. Automatically checks allowance, approves ERC-20 if needed, then creates payable memo escrow.",
       inputSchema: zodToJsonSchema(acpVFundJobSchema) as Record<string, unknown>,
       handler: acpFundJob,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -692,6 +694,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
         "Complete a job on the Virtuals ACPRouter by auto-resolving the pending memo and signing approval.",
       inputSchema: zodToJsonSchema(acpVCompleteJobSchema) as Record<string, unknown>,
       handler: acpCompleteJob,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {
@@ -709,6 +712,7 @@ export function getAcpToolDefinitions(): ToolDefinition[] {
       description: "Claim remaining budget for a Virtuals ACPRouter job using claimBudget.",
       inputSchema: zodToJsonSchema(acpVClaimRefundSchema) as Record<string, unknown>,
       handler: acpClaimRefund,
+      riskLevel: "financial",
       annotations: { destructiveHint: true, openWorldHint: true },
     },
     {

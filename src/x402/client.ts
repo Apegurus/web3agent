@@ -6,6 +6,7 @@ import { createPublicClient, createWalletClient, publicActions } from "viem";
 import type { LocalAccount } from "viem/accounts";
 import { getChainById } from "../chains/registry.js";
 import { getTransportForChain } from "../config/wallet-factory.js";
+import { resilientFetch } from "../utils/resilient-fetch.js";
 import { getActiveAccount } from "../wallet/persistence.js";
 
 export type X402ClientResult = {
@@ -41,11 +42,15 @@ export async function probePaymentRequirements(
   headers: Record<string, string> = {},
   body?: string
 ): Promise<{ requirements: PaymentRequired | null; probeResponse: Response }> {
-  const response = await globalThis.fetch(url, {
-    method,
-    headers,
-    body: body ?? undefined,
-  });
+  const response = await resilientFetch(
+    url,
+    {
+      method,
+      headers,
+      body: body ?? undefined,
+    },
+    { label: "x402" }
+  );
 
   if (response.status !== 402) {
     return { requirements: null, probeResponse: response };

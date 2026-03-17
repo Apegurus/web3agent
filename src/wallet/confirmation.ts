@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OperationExecutor, PendingOperation } from "../types/wallet.js";
+import { atomicWriteJson } from "../utils/atomic-write.js";
 import { type AuditAction, appendAuditLog } from "./audit.js";
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
@@ -47,7 +48,8 @@ export class ConfirmationQueueManager {
     description: string,
     params: Record<string, unknown>,
     executor: OperationExecutor,
-    walletAddress?: string
+    walletAddress?: string,
+    riskLevel?: PendingOperation["riskLevel"]
   ): { queued: boolean; id: string | null; summary: string } {
     if (!this.enabled) {
       return {
@@ -67,6 +69,7 @@ export class ConfirmationQueueManager {
       createdAt: new Date(),
       ttlMs: this.ttlMs,
       walletAddress,
+      riskLevel,
     };
 
     this.queue.set(id, operation);
@@ -169,21 +172,7 @@ export class ConfirmationQueueManager {
       walletAddress: op.walletAddress,
     }));
 
-    const filePath = getPendingOpsPath();
-    const dir = join(homedir(), ".web3agent");
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-
-    const tmpPath = `${filePath}.tmp`;
-    const fd = await open(tmpPath, "w", 0o600);
-    try {
-      await fd.writeFile(JSON.stringify(ops, null, 2));
-      await fd.sync();
-    } finally {
-      await fd.close();
-    }
-    await rename(tmpPath, filePath);
+    await atomicWriteJson(getPendingOpsPath(), ops);
   }
 
   async loadQueue(): Promise<number> {
