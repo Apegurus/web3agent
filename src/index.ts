@@ -242,6 +242,22 @@ export {
   explorerGetTxHistorySchema,
   explorerGetTxReceiptSchema,
 } from "./tools/explorer/schemas.js";
+export {
+  explorerAddressInfoSchema,
+  explorerBlockInfoSchema,
+  explorerContractAbiSchema,
+  explorerContractSourceSchema,
+  explorerNftInventorySchema,
+  explorerNftItemSchema,
+  explorerTokenHoldingSchema,
+  explorerTokenTransferSchema,
+  explorerTokenTransfersSchema,
+  explorerTokensByAddressSchema,
+  explorerTransactionSchema,
+  explorerTxDetailsSchema,
+  explorerTxHistorySchema,
+  explorerTxReceiptSchema,
+} from "./api/schemas/explorer-outputs.js";
 export { listChainTokensSchema, resolveTokenSchema } from "./tools/tokens/schemas.js";
 export {
   transactionConfirmSchema,

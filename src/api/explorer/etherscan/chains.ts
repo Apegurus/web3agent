@@ -15,6 +15,12 @@ const ETHERSCAN_CHAIN_URLS: Record<number, string> = {
   5000: "https://api.mantlescan.xyz",
 };
 
+/**
+ * Get the Etherscan-compatible API base URL for a chain.
+ * The baseUrlOverride (from ETHERSCAN_API_URL env) only applies to Ethereum mainnet (chain 1),
+ * since other chains use dedicated domains (arbiscan.io, basescan.org, etc.) that aren't
+ * interchangeable. Phase 2 may add per-chain URL overrides if needed.
+ */
 export function getEtherscanApiUrl(chainId: number, baseUrlOverride?: string): string | undefined {
   if (baseUrlOverride && chainId === 1) return baseUrlOverride;
   return ETHERSCAN_CHAIN_URLS[chainId];

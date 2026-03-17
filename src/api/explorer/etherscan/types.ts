@@ -1,8 +1,20 @@
-export interface EtherscanResponse<T = unknown> {
+export interface EtherscanStandardResponse<T = unknown> {
   status: "0" | "1";
   message: string;
   result: T;
 }
+
+export interface EtherscanProxyResponse<T = unknown> {
+  jsonrpc: string;
+  id: number;
+  result?: T;
+  error?: { code: number; message: string };
+}
+
+/** Etherscan returns standard format for most endpoints, JSON-RPC for proxy module */
+export type EtherscanApiResponse<T = unknown> =
+  | EtherscanStandardResponse<T>
+  | EtherscanProxyResponse<T>;
 
 export interface EtherscanTransaction {
   blockNumber: string;
@@ -59,6 +71,7 @@ export interface EtherscanContractSource {
   SwarmSource: string;
 }
 
+/** Phase 2: used by explorer_get_block_rewards */
 export interface EtherscanBlock {
   blockNumber: string;
   timeStamp: string;
@@ -68,21 +81,25 @@ export interface EtherscanBlock {
   uncleInclusionReward: string;
 }
 
+/** Phase 2: used by explorer_get_tx_execution_status */
 export interface EtherscanTxStatus {
   isError: "0" | "1";
   errDescription: string;
 }
 
+/** Phase 2: used by explorer_get_tx_execution_status */
 export interface EtherscanTxReceiptStatus {
   status: "" | "0" | "1";
 }
 
+/** Phase 2: used by explorer_get_contract_creator */
 export interface EtherscanContractCreator {
   contractAddress: string;
   contractCreator: string;
   txHash: string;
 }
 
+/** Phase 2: used by explorer_get_historical_balance */
 export interface EtherscanBalance {
   account: string;
   balance: string;

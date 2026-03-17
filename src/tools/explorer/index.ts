@@ -228,6 +228,9 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
                 process.stderr.write(`[explorer] Failed to fetch block timestamp: ${e}\n`);
               }
             }
+            const gasUsed = receiptRaw.gasUsed ? BigInt(receiptRaw.gasUsed) : undefined;
+            const gasPrice = txRaw.gasPrice ? BigInt(txRaw.gasPrice) : undefined;
+            const fee = gasUsed && gasPrice ? (gasUsed * gasPrice).toString() : undefined;
             return {
               hash: input.txHash,
               blockNumber: Number.parseInt(txRaw.blockNumber, 16),
@@ -235,8 +238,9 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
               from: txRaw.from ?? "",
               to: txRaw.to,
               value: BigInt(txRaw.value ?? "0x0").toString(),
-              gasUsed: receiptRaw.gasUsed ? BigInt(receiptRaw.gasUsed).toString() : undefined,
-              gasPrice: txRaw.gasPrice ? BigInt(txRaw.gasPrice).toString() : undefined,
+              gasUsed: gasUsed?.toString(),
+              gasPrice: gasPrice?.toString(),
+              fee,
               status:
                 receiptRaw.status === "0x1"
                   ? ("success" as const)

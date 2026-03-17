@@ -1,5 +1,10 @@
 import { resilientFetch } from "../../../utils/resilient-fetch.js";
 import { getEtherscanApiUrl, getEtherscanSupportedChainIds } from "./chains.js";
+import type {
+  EtherscanApiResponse,
+  EtherscanProxyResponse,
+  EtherscanStandardResponse,
+} from "./types.js";
 
 export class EtherscanClient {
   constructor(
@@ -48,32 +53,33 @@ export class EtherscanClient {
       throw new Error(`Etherscan HTTP ${response.status}: ${text}`);
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: Etherscan uses two different response formats (standard vs JSON-RPC proxy)
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as EtherscanApiResponse<T>;
 
-    // Proxy endpoints (module=proxy) return JSON-RPC format: { jsonrpc, id, result, error }
-    if (body.jsonrpc) {
-      if (body.error) {
+    // Proxy endpoints (module=proxy) return JSON-RPC format
+    if ("jsonrpc" in body) {
+      const proxy = body as EtherscanProxyResponse<T>;
+      if (proxy.error) {
         throw new Error(
-          `Etherscan proxy error: ${body.error.message ?? JSON.stringify(body.error)}`
+          `Etherscan proxy error: ${proxy.error.message ?? JSON.stringify(proxy.error)}`
         );
       }
-      if (body.result == null) {
+      if (proxy.result == null) {
         throw new Error("Etherscan proxy returned null (resource not found)");
       }
-      return body.result as T;
+      return proxy.result;
     }
 
     // Standard endpoints return { status, message, result }
-    if (body.status === "0") {
-      const msg = typeof body.result === "string" ? body.result : body.message;
+    const standard = body as EtherscanStandardResponse<T>;
+    if (standard.status === "0") {
+      const msg = typeof standard.result === "string" ? standard.result : standard.message;
       if (/rate limit/i.test(msg)) {
         throw new Error(`Etherscan rate limited: ${msg}`);
       }
       throw new Error(`Etherscan error: ${msg}`);
     }
 
-    return body.result as T;
+    return standard.result;
   }
 
   getSupportedChainIds(): number[] {

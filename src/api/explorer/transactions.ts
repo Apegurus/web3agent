@@ -77,6 +77,8 @@ export function normalizeBlockscoutTxReceipt(raw: BlockscoutTransaction): Explor
 
   const receipt: ExplorerTxReceipt = {
     hash: raw.hash,
+    // Receipt schema only allows "success"|"failed". A receipt implies the tx was mined,
+    // so "pending" from Blockscout (rare edge case) is coerced to "failed" as the safer default.
     status: status === "pending" ? "failed" : status,
     blockNumber: raw.block,
     gasUsed: raw.gas_used,
