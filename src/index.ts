@@ -20,6 +20,18 @@ export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/o
 export { cancelOrder, listOrders, placeOrder } from "./api/orders.js";
 export { clearTraceSupportCache, simulateTransaction } from "./api/simulation.js";
 export {
+  getAddressInfo,
+  getBlock,
+  getContractAbi,
+  getContractSource,
+  getNftInventory,
+  getTokensByAddress,
+  getTokenTransfers,
+  getTransactionDetails,
+  getTransactionHistory,
+  getTransactionReceipt,
+} from "./api/explorer.js";
+export {
   executeBridge,
   executeSameChainSwap,
   getSwapHistory,
@@ -40,6 +52,20 @@ export type {
   BridgeIntent,
   BridgeTxStep,
   CallToolResult,
+  ExplorerAddressInfo,
+  ExplorerBlockInfo,
+  ExplorerContractAbi,
+  ExplorerContractSource,
+  ExplorerNftInventory,
+  ExplorerNftItem,
+  ExplorerTokenHolding,
+  ExplorerTokensByAddress,
+  ExplorerTokenTransfer,
+  ExplorerTokenTransfers,
+  ExplorerTransaction,
+  ExplorerTxDetails,
+  ExplorerTxHistory,
+  ExplorerTxReceipt,
   CancelOrderInput,
   ChainLookupResult,
   CompletedOperationResult,
@@ -204,6 +230,18 @@ export {
   orbsSwapSchema,
   orbsSwapStatusSchema,
 } from "./tools/orbs/schemas.js";
+export {
+  explorerGetAddressInfoSchema,
+  explorerGetBlockSchema,
+  explorerGetContractAbiSchema,
+  explorerGetContractSourceSchema,
+  explorerGetNftInventorySchema,
+  explorerGetTokensByAddressSchema,
+  explorerGetTokenTransfersSchema,
+  explorerGetTxDetailsSchema,
+  explorerGetTxHistorySchema,
+  explorerGetTxReceiptSchema,
+} from "./tools/explorer/schemas.js";
 export { listChainTokensSchema, resolveTokenSchema } from "./tools/tokens/schemas.js";
 export {
   transactionConfirmSchema,
