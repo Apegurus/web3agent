@@ -71,21 +71,21 @@ describe("extractEstimatedUsd", () => {
     expect(result).toBe(0);
   });
 
-  it("returns 0 when no recognizable fields", async () => {
+  it("returns null when no recognizable fields (gas-only tool)", async () => {
     const result = await extractEstimatedUsd({ foo: "bar" });
-    expect(result).toBe(0);
+    expect(result).toBeNull();
   });
 
-  it("returns 0 when fromToken present but no chainId", async () => {
+  it("returns null when fromToken present but no chainId", async () => {
     const result = await extractEstimatedUsd({
       fromToken: "0xtoken",
       fromAmount: "1000000000000000000",
     });
-    expect(result).toBe(0);
+    expect(result).toBeNull();
   });
 
   it("ignores negative and NaN explicit values", async () => {
-    expect(await extractEstimatedUsd({ amountUsd: -5 })).toBe(0);
-    expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBe(0);
+    expect(await extractEstimatedUsd({ amountUsd: -5 })).toBeNull();
+    expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBeNull();
   });
 });

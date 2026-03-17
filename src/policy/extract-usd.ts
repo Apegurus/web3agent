@@ -3,7 +3,13 @@ import { lookupTokenByAddress } from "../tokens/registry.js";
 
 const USD_FIELD_NAMES = ["amountUsd", "amount_usd", "estimatedUsd"];
 
-export async function extractEstimatedUsd(args: Record<string, unknown>): Promise<number> {
+/**
+ * Returns the estimated USD value for a financial tool call.
+ * - positive number: estimation succeeded
+ * - 0: estimation was attempted (token fields present) but failed (price feed down, unknown token)
+ * - null: tool args have no estimable token fields (gas-only write, cancellation, approval)
+ */
+export async function extractEstimatedUsd(args: Record<string, unknown>): Promise<number | null> {
   // 1. Check explicit USD fields
   for (const key of USD_FIELD_NAMES) {
     const val = args[key];
@@ -63,7 +69,10 @@ export async function extractEstimatedUsd(args: Record<string, unknown>): Promis
         return usd ?? 0;
       }
     }
+    // resumeState has nested token fields but estimation failed
+    return 0;
   }
 
-  return 0;
+  // No token amount fields found — tool is gas-only (cancel, approve, generic write)
+  return null;
 }

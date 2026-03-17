@@ -296,12 +296,13 @@ export class ManagedRuntime implements Web3AgentRuntime {
     }
 
     const isFinancial = tool.riskLevel === "financial";
-    const estimatedUsd = isFinancial ? await extractEstimatedUsd(args) : 0;
+    const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
 
     if (isFinancial) {
-      if (estimatedUsd === 0) {
+      if (rawEstimatedUsd === 0) {
+        // Token fields were present but estimation failed (price feed down, unknown token)
         process.stderr.write(
-          `[web3agent] Denied financial tool "${name}" — no USD estimate available for spend-limit enforcement\n`
+          `[web3agent] Denied financial tool "${name}" — USD estimation failed for spend-limit enforcement\n`
         );
         return {
           content: [
@@ -319,10 +320,16 @@ export class ManagedRuntime implements Web3AgentRuntime {
           isError: true,
         };
       }
+      if (rawEstimatedUsd === null) {
+        // Gas-only tool (cancel, approve, generic write) — no token fields to estimate
+        process.stderr.write(
+          `[web3agent] Allowing gas-only financial tool "${name}" — no token amount fields to estimate\n`
+        );
+      }
       const decision = evaluatePolicy(resolvePolicy(this.config), {
         toolName: name,
         riskLevel: tool.riskLevel,
-        estimatedUsd,
+        estimatedUsd: rawEstimatedUsd ?? 0,
         walletBalanceUsd: getCachedBalanceUsd(),
       });
 
@@ -352,7 +359,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
           payload.status === "pending_confirmation";
 
         if (!isPendingConfirmation) {
-          recordSpend(name, estimatedUsd, getWalletState().address);
+          recordSpend(name, rawEstimatedUsd ?? 0, getWalletState().address);
         }
       }
 

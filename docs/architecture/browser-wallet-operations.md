@@ -7,7 +7,7 @@
 1. `prepareOperation(...)`
    - Returns the next wallet actions plus opaque `resumeState`
    - Supported integrations today:
-     - `orbs` (`swap`, `twap`, `limit`)
+     - `orbs` (`swap`, `order`)
      - `lifi` (`bridge`)
      - `goat` (`tool`)
 2. The surrounding app performs the wallet work externally

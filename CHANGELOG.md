@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Output Zod schemas exported** — `swapIntentSchema`, `bridgeIntentSchema`, `simulationResultSchema`, `preparedOperationSchema`, and 12 more. Consumers get runtime-validatable schemas for API outputs.
 - **`agdp` and `x402` public entry points** — `import from "web3agent/agdp"` and `"web3agent/x402"` now work.
 - **109 schema quality tests** (auto-discovered) enforce `.describe()` on all schema fields.
+- **Spot API URL configurable** — set `SPOT_API_URL` env var to override the default endpoint. Required for production deployments.
 
 ### Fixed
 

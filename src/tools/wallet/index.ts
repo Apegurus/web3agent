@@ -239,7 +239,8 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
 
     const opRiskLevel = result.operation.riskLevel ?? "financial";
     const opParams = result.operation.params;
-    const estimatedUsd = opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
+    const rawEstimatedUsd = opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
+    const estimatedUsd = rawEstimatedUsd ?? 0;
 
     if (opRiskLevel === "financial") {
       const config = getConfig();

@@ -14,18 +14,24 @@ function getSpendLogPath(): string {
 
 let records: SpendRecord[] = [];
 let persistChain: Promise<void> = Promise.resolve();
-let persistDirty = false;
+let persistScheduled = false;
+let persistNeeded = false;
 
 function schedulePersist(): void {
-  if (persistDirty) return;
-  persistDirty = true;
+  persistNeeded = true;
+  if (persistScheduled) return;
+  persistScheduled = true;
   persistChain = persistChain
-    .then(() => persistSpendLog())
     .then(() => {
-      persistDirty = false;
+      persistNeeded = false;
+      return persistSpendLog();
+    })
+    .then(() => {
+      persistScheduled = false;
+      if (persistNeeded) schedulePersist();
     })
     .catch((e: unknown) => {
-      persistDirty = false;
+      persistScheduled = false;
       process.stderr.write(`[policy] Failed to persist spend log: ${e}\n`);
     });
 }

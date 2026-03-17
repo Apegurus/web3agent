@@ -17,6 +17,7 @@ interface SerializedPendingOperation {
   createdAt: string;
   ttlMs: number;
   walletAddress?: string;
+  riskLevel?: PendingOperation["riskLevel"];
 }
 
 const executorRegistry = new Map<string, OperationExecutor>();
@@ -36,7 +37,8 @@ function getPendingOpsPath(): string {
 export class ConfirmationQueueManager {
   private queue: Map<string, PendingOperation> = new Map();
   private persistChain: Promise<void> = Promise.resolve();
-  private persistDirty = false;
+  private persistScheduled = false;
+  private persistNeeded = false;
   public enabled: boolean;
   public ttlMs: number;
 
@@ -46,15 +48,20 @@ export class ConfirmationQueueManager {
   }
 
   private schedulePersist(): void {
-    if (this.persistDirty) return;
-    this.persistDirty = true;
+    this.persistNeeded = true;
+    if (this.persistScheduled) return;
+    this.persistScheduled = true;
     this.persistChain = this.persistChain
-      .then(() => this.persistQueue())
       .then(() => {
-        this.persistDirty = false;
+        this.persistNeeded = false;
+        return this.persistQueue();
+      })
+      .then(() => {
+        this.persistScheduled = false;
+        if (this.persistNeeded) this.schedulePersist();
       })
       .catch((e: unknown) => {
-        this.persistDirty = false;
+        this.persistScheduled = false;
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
   }
@@ -176,6 +183,7 @@ export class ConfirmationQueueManager {
       createdAt: op.createdAt.toISOString(),
       ttlMs: op.ttlMs,
       walletAddress: op.walletAddress,
+      riskLevel: op.riskLevel,
     }));
 
     await atomicWriteJson(getPendingOpsPath(), ops);
@@ -212,6 +220,7 @@ export class ConfirmationQueueManager {
           createdAt,
           ttlMs: serialized.ttlMs,
           walletAddress: serialized.walletAddress,
+          riskLevel: serialized.riskLevel,
         });
       }
 
