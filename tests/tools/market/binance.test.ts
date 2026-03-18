@@ -81,12 +81,10 @@ describe("getTicker", () => {
     );
   });
 
-  it("throws on geo-restriction (403)", async () => {
+  it("throws on 403 as generic error (not geo-restriction)", async () => {
     mockResilientFetch.mockResolvedValueOnce(new Response("Forbidden", { status: 403 }));
 
-    await expect(getTicker({ symbol: "BTCUSDT" })).rejects.toThrow(
-      "Binance API is not available in your region"
-    );
+    await expect(getTicker({ symbol: "BTCUSDT" })).rejects.toThrow("403");
   });
 
   it("throws on non-ok response", async () => {
@@ -345,12 +343,10 @@ describe("getFundingRates", () => {
     );
   });
 
-  it("throws on geo-restriction (403)", async () => {
+  it("throws on 403 as generic error (not geo-restriction)", async () => {
     mockResilientFetch.mockResolvedValueOnce(new Response("Forbidden", { status: 403 }));
 
-    await expect(getFundingRates({ symbol: "BTCUSDT" })).rejects.toThrow(
-      "Binance API is not available in your region"
-    );
+    await expect(getFundingRates({ symbol: "BTCUSDT" })).rejects.toThrow("403");
   });
 
   it("throws on non-ok response", async () => {

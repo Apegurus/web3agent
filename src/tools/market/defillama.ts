@@ -355,8 +355,8 @@ export async function getExchangeRankings(input: {
         trust_score: number;
         trust_score_rank: number;
         trade_volume_24h_btc: number;
-        country: string;
-        year_established: number;
+        country: string | null;
+        year_established: number | null;
       }>;
     };
   });
@@ -366,7 +366,7 @@ export async function getExchangeRankings(input: {
     trustScore: item.trust_score,
     trustScoreRank: item.trust_score_rank,
     volume24hBtc: item.trade_volume_24h_btc,
-    country: item.country,
-    yearEstablished: item.year_established,
+    country: item.country ?? null,
+    yearEstablished: item.year_established ?? null,
   }));
 }

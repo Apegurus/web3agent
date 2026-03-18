@@ -146,13 +146,17 @@ export async function getTokenDueDiligence(input: {
   const dexscreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
 
   const [goplusSettled, dexscreenerSettled] = await Promise.allSettled([
-    resilientFetch(goplusUrl, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG).then(
-      (res) => res.json() as Promise<{ result: Record<string, GoPlusTokenData> }>
-    ),
+    resilientFetch(goplusUrl, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG).then((res) => {
+      if (!res.ok) throw new Error(`GoPlus API returned ${res.status}`);
+      return res.json() as Promise<{ result: Record<string, GoPlusTokenData> }>;
+    }),
     resilientFetch(dexscreenerUrl, undefined, {
       label: "dexscreener",
       retry: { baseDelayMs: 1000 },
-    }).then((res) => res.json() as Promise<{ pairs?: DexScreenerPair[] }>),
+    }).then((res) => {
+      if (!res.ok) throw new Error(`DexScreener API returned ${res.status}`);
+      return res.json() as Promise<{ pairs?: DexScreenerPair[] }>;
+    }),
   ]);
 
   const warnings: string[] = [];

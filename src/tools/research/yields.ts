@@ -6,6 +6,23 @@ import { ttlCache } from "../shared/cache.js";
 
 const TTL = 300_000;
 
+// Common chain name aliases → DefiLlama canonical names
+const CHAIN_ALIASES: Record<string, string> = {
+  bsc: "binance",
+  bnb: "binance",
+  avax: "avalanche",
+  matic: "polygon",
+  arb: "arbitrum",
+  op: "optimism",
+  ftm: "fantom",
+  eth: "ethereum",
+};
+
+function normalizeChainName(chain: string): string {
+  const lower = chain.toLowerCase();
+  return CHAIN_ALIASES[lower] ?? lower;
+}
+
 // ── Types ────────────────────────────────────────────────────────
 
 // Local aliases for use as function return types
@@ -61,8 +78,8 @@ export async function getYieldOpportunities(input: {
   }
 
   if (chain) {
-    const chainLower = chain.toLowerCase();
-    filtered = filtered.filter((p) => p.chain.toLowerCase() === chainLower);
+    const normalized = normalizeChainName(chain);
+    filtered = filtered.filter((p) => p.chain.toLowerCase() === normalized);
   }
 
   if (protocol) {

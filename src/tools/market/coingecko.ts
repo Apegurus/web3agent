@@ -74,6 +74,9 @@ export async function getTrending(input: { limit?: number }): Promise<TrendingRe
 
   const data = await ttlCache(url, CG_TTL, async () => {
     const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
+    if (!res.ok) {
+      throw new Error(`CoinGecko API returned ${res.status}`);
+    }
     return (await res.json()) as { coins: Array<{ item: CoinGeckoTrendingItem }> };
   });
 

@@ -319,8 +319,8 @@ export const exchangeRankingEntrySchema = z.object({
   trustScore: z.number().describe("CoinGecko trust score"),
   trustScoreRank: z.number().describe("Trust score rank"),
   volume24hBtc: z.number().describe("24-hour trading volume in BTC"),
-  country: z.string().describe("Country of registration"),
-  yearEstablished: z.number().describe("Year the exchange was established"),
+  country: z.string().nullable().describe("Country of registration"),
+  yearEstablished: z.number().nullable().describe("Year the exchange was established"),
 });
 
 export const sentimentEntrySchema = z.object({

@@ -74,7 +74,7 @@ export function getMarketToolDefinitions(): ToolDefinition[] {
       category: "market",
       description:
         "Retrieve a ranked list of the top DeFi protocols by TVL from DefiLlama. " +
-        "Returns protocol name, current TVL, 1-day TVL change, primary chain, category, and DefiLlama slug " +
+        "Returns protocol name, current TVL, 1-day TVL change, first listed chain, category, and DefiLlama slug " +
         "for each entry in the list.",
       inputSchema: zodToJsonSchema(marketGetTopProtocolsSchema) as Record<string, unknown>,
       handler: createToolHandler(

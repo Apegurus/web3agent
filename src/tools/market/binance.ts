@@ -8,7 +8,7 @@ import type {
 import { resilientFetch } from "../../utils/resilient-fetch.js";
 
 function checkGeoRestriction(res: Response): void {
-  if (res.status === 451 || res.status === 403) {
+  if (res.status === 451) {
     throw new Error(
       "Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."
     );
