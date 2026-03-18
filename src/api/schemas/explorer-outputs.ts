@@ -306,8 +306,4 @@ export const explorerBlockInfoSchema = z.object({
   baseFeePerGas: z.string().optional().describe("Base fee per gas (EIP-1559)"),
   txCount: z.number().describe("Number of transactions"),
   reward: z.string().optional().describe("Block reward in wei"),
-  transactions: z
-    .array(explorerTransactionSchema)
-    .optional()
-    .describe("Transactions (if requested)"),
 });

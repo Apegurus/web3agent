@@ -48,7 +48,7 @@ export function getBlockToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
               "eth_getBlockByNumber",
               {
                 tag: `0x${input.blockNumber.toString(16)}`,
-                boolean: input.includeTxs ? "true" : "false",
+                boolean: "false",
               }
             );
             const txs = raw.transactions as unknown[] | undefined;

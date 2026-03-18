@@ -124,9 +124,11 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
             const gasUsed = receiptRaw.gasUsed ? BigInt(receiptRaw.gasUsed) : undefined;
             const gasPrice = txRaw.gasPrice ? BigInt(txRaw.gasPrice) : undefined;
             const fee = gasUsed && gasPrice ? (gasUsed * gasPrice).toString() : undefined;
+            // Pending txs have no blockNumber — guard the parse
+            const blockNumber = txRaw.blockNumber ? Number.parseInt(txRaw.blockNumber, 16) : 0;
             return {
               hash: input.txHash,
-              blockNumber: Number.parseInt(txRaw.blockNumber, 16),
+              blockNumber,
               timestamp,
               from: txRaw.from ?? "",
               to: txRaw.to,
@@ -134,8 +136,9 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
               gasUsed: gasUsed?.toString(),
               gasPrice: gasPrice?.toString(),
               fee,
-              status:
-                receiptRaw.status === "0x1"
+              status: !txRaw.blockNumber
+                ? ("pending" as const)
+                : receiptRaw.status === "0x1"
                   ? ("success" as const)
                   : receiptRaw.status === "0x0"
                     ? ("failed" as const)

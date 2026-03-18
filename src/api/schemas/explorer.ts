@@ -38,5 +38,4 @@ export const explorerDateRangeSchema = explorerBaseSchema.extend({
 
 export const explorerBlockSchema = explorerBaseSchema.extend({
   blockNumber: z.number().int().nonnegative().describe("Block number"),
-  includeTxs: z.boolean().optional().describe("Include full transaction objects (default false)"),
 });

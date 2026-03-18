@@ -23,7 +23,12 @@ export class EtherscanClient {
       throw new Error(`Etherscan API not supported for chain ${chainId}`);
     }
 
-    const url = new URL("/api", baseUrl);
+    // Preserve base path (e.g., Routescan URLs include /v2/.../etherscan)
+    const parsed = new URL(baseUrl);
+    const apiPath = parsed.pathname.endsWith("/")
+      ? `${parsed.pathname}api`
+      : `${parsed.pathname}/api`;
+    const url = new URL(apiPath, parsed.origin);
     url.searchParams.set("module", module);
     url.searchParams.set("action", action);
     url.searchParams.set("apikey", this.apiKey);
@@ -73,6 +78,10 @@ export class EtherscanClient {
     const standard = body as EtherscanStandardResponse<T>;
     if (standard.status === "0") {
       const msg = typeof standard.result === "string" ? standard.result : standard.message;
+      // "No transactions/records found" is a normal empty result, not an error
+      if (/no (?:transactions|records|token|data) found/i.test(msg)) {
+        return standard.result;
+      }
       if (/rate limit/i.test(msg)) {
         throw new Error(`Etherscan rate limited: ${msg}`);
       }
