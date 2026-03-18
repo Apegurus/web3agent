@@ -22,14 +22,25 @@ import type {
   EtherscanBlock,
   EtherscanContractCreator,
   EtherscanContractSource,
+  EtherscanEventLog,
+  EtherscanHistoricalPrice,
   EtherscanInternalTx,
   EtherscanNftTransfer,
+  EtherscanPrice,
+  EtherscanSupply,
   EtherscanTokenHolder,
   EtherscanTokenInfo,
   EtherscanTokenTransfer,
   EtherscanTransaction,
   EtherscanTxStatus,
 } from "../../api/explorer/etherscan/types.js";
+import { normalizeEtherscanEventLog } from "../../api/explorer/events.js";
+import {
+  normalizeEtherscanDailyStats,
+  normalizeEtherscanHistoricalPrice,
+  normalizeEtherscanNativePrice,
+  normalizeEtherscanNativeSupply,
+} from "../../api/explorer/network.js";
 import type { BackendId, ExplorerCapability, ExplorerRouter } from "../../api/explorer/router.js";
 import {
   normalizeBlockscoutNfts,
@@ -59,9 +70,15 @@ import {
   explorerGetContractCodeSchema,
   explorerGetContractCreatorSchema,
   explorerGetContractSourceSchema,
+  explorerGetDailyStatsSchema,
+  explorerGetEventLogsByTopicsSchema,
+  explorerGetEventLogsSchema,
   explorerGetHistoricalBalanceSchema,
+  explorerGetHistoricalPriceSchema,
   explorerGetHistoricalTokenBalanceSchema,
   explorerGetInternalTxsSchema,
+  explorerGetNativePriceSchema,
+  explorerGetNativeSupplySchema,
   explorerGetNftInventorySchema,
   explorerGetNftTransfersSchema,
   explorerGetTokenHoldersSchema,
@@ -100,6 +117,12 @@ type BlockRewardsInput = z.infer<typeof explorerGetBlockRewardsSchema>;
 type BlocksByValidatorInput = z.infer<typeof explorerGetBlocksByValidatorSchema>;
 type ContractCreatorInput = z.infer<typeof explorerGetContractCreatorSchema>;
 type ContractCodeInput = z.infer<typeof explorerGetContractCodeSchema>;
+type EventLogsInput = z.infer<typeof explorerGetEventLogsSchema>;
+type EventLogsByTopicsInput = z.infer<typeof explorerGetEventLogsByTopicsSchema>;
+type DailyStatsInput = z.infer<typeof explorerGetDailyStatsSchema>;
+type NativePriceInput = z.infer<typeof explorerGetNativePriceSchema>;
+type HistoricalPriceInput = z.infer<typeof explorerGetHistoricalPriceSchema>;
+type NativeSupplyInput = z.infer<typeof explorerGetNativeSupplySchema>;
 
 export interface ExplorerDeps {
   router: ExplorerRouter;
@@ -894,6 +917,276 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
           };
         },
         "EXPLORER_CONTRACT_CODE_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 3: Event Logs ---
+    {
+      name: "explorer_get_event_logs",
+      category: "explorer",
+      description:
+        "Get event logs emitted by a specific contract address, optionally filtered by topics and block range.",
+      inputSchema: zodToJsonSchema(explorerGetEventLogsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetEventLogsSchema,
+        async (input: EventLogsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            address: input.address,
+          };
+          if (input.startBlock != null) params.fromBlock = String(input.startBlock);
+          if (input.endBlock != null) params.toBlock = String(input.endBlock);
+          if (input.topic0) params.topic0 = input.topic0;
+          if (input.topic1) {
+            params.topic1 = input.topic1;
+            params.topic0_1_opr = "and";
+          }
+          if (input.topic2) {
+            params.topic2 = input.topic2;
+            params.topic0_2_opr = "and";
+            if (input.topic1) params.topic1_2_opr = "and";
+          }
+          if (input.topic3) {
+            params.topic3 = input.topic3;
+            params.topic0_3_opr = "and";
+            if (input.topic2) params.topic2_3_opr = "and";
+          }
+          const raw = await eth.call<EtherscanEventLog[]>(input.chainId, "logs", "getLogs", params);
+          return {
+            logs: raw.map(normalizeEtherscanEventLog),
+            hasMore: raw.length === 1000,
+          };
+        },
+        "EXPLORER_EVENT_LOGS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_event_logs_by_topics",
+      category: "explorer",
+      description:
+        "Get event logs across all contracts filtered by topics and block range (no address required).",
+      inputSchema: zodToJsonSchema(explorerGetEventLogsByTopicsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetEventLogsByTopicsSchema,
+        async (input: EventLogsByTopicsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            topic0: input.topic0,
+          };
+          if (input.startBlock != null) params.fromBlock = String(input.startBlock);
+          if (input.endBlock != null) params.toBlock = String(input.endBlock);
+          if (input.topic1) {
+            params.topic1 = input.topic1;
+            params.topic0_1_opr = "and";
+          }
+          if (input.topic2) {
+            params.topic2 = input.topic2;
+            params.topic0_2_opr = "and";
+            if (input.topic1) params.topic1_2_opr = "and";
+          }
+          if (input.topic3) {
+            params.topic3 = input.topic3;
+            params.topic0_3_opr = "and";
+            if (input.topic2) params.topic2_3_opr = "and";
+          }
+          const raw = await eth.call<EtherscanEventLog[]>(input.chainId, "logs", "getLogs", params);
+          return {
+            logs: raw.map(normalizeEtherscanEventLog),
+            hasMore: raw.length === 1000,
+          };
+        },
+        "EXPLORER_EVENT_LOGS_BY_TOPICS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 3: Network Statistics ---
+    {
+      name: "explorer_get_daily_tx_count",
+      category: "explorer",
+      description: "Get daily transaction count for a date range.",
+      inputSchema: zodToJsonSchema(explorerGetDailyStatsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetDailyStatsSchema,
+        async (input: DailyStatsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            startdate: input.startDate,
+            enddate: input.endDate,
+            sort: input.sort ?? "asc",
+          };
+          const raw = await eth.call<Record<string, string>[]>(
+            input.chainId,
+            "stats",
+            "dailytx",
+            params
+          );
+          return normalizeEtherscanDailyStats(raw, "dailyTxCount");
+        },
+        "EXPLORER_DAILY_TX_COUNT_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_daily_gas_used",
+      category: "explorer",
+      description: "Get daily average gas used for a date range.",
+      inputSchema: zodToJsonSchema(explorerGetDailyStatsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetDailyStatsSchema,
+        async (input: DailyStatsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            startdate: input.startDate,
+            enddate: input.endDate,
+            sort: input.sort ?? "asc",
+          };
+          const raw = await eth.call<Record<string, string>[]>(
+            input.chainId,
+            "stats",
+            "dailyavggasused",
+            params
+          );
+          return normalizeEtherscanDailyStats(raw, "dailyGasUsed");
+        },
+        "EXPLORER_DAILY_GAS_USED_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_daily_new_addresses",
+      category: "explorer",
+      description: "Get daily new address count for a date range.",
+      inputSchema: zodToJsonSchema(explorerGetDailyStatsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetDailyStatsSchema,
+        async (input: DailyStatsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            startdate: input.startDate,
+            enddate: input.endDate,
+            sort: input.sort ?? "asc",
+          };
+          const raw = await eth.call<Record<string, string>[]>(
+            input.chainId,
+            "stats",
+            "dailynewaddress",
+            params
+          );
+          return normalizeEtherscanDailyStats(raw, "dailyNewAddresses");
+        },
+        "EXPLORER_DAILY_NEW_ADDRESSES_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_daily_block_rewards",
+      category: "explorer",
+      description: "Get daily block rewards for a date range.",
+      inputSchema: zodToJsonSchema(explorerGetDailyStatsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetDailyStatsSchema,
+        async (input: DailyStatsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            startdate: input.startDate,
+            enddate: input.endDate,
+            sort: input.sort ?? "asc",
+          };
+          const raw = await eth.call<Record<string, string>[]>(
+            input.chainId,
+            "stats",
+            "dailyblockrewards",
+            params
+          );
+          return normalizeEtherscanDailyStats(raw, "dailyBlockRewards");
+        },
+        "EXPLORER_DAILY_BLOCK_REWARDS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_network_utilization",
+      category: "explorer",
+      description: "Get daily network utilization percentage for a date range.",
+      inputSchema: zodToJsonSchema(explorerGetDailyStatsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetDailyStatsSchema,
+        async (input: DailyStatsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            startdate: input.startDate,
+            enddate: input.endDate,
+            sort: input.sort ?? "asc",
+          };
+          const raw = await eth.call<Record<string, string>[]>(
+            input.chainId,
+            "stats",
+            "dailynetutilization",
+            params
+          );
+          return normalizeEtherscanDailyStats(raw, "networkUtilization");
+        },
+        "EXPLORER_NETWORK_UTILIZATION_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 3: Price & Supply ---
+    {
+      name: "explorer_get_native_price",
+      category: "explorer",
+      description: "Get the current native token price in USD and BTC.",
+      inputSchema: zodToJsonSchema(explorerGetNativePriceSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetNativePriceSchema,
+        async (input: NativePriceInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanPrice>(input.chainId, "stats", "ethprice", {});
+          return normalizeEtherscanNativePrice(raw);
+        },
+        "EXPLORER_NATIVE_PRICE_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_historical_price",
+      category: "explorer",
+      description: "Get historical daily native token prices for a date range.",
+      inputSchema: zodToJsonSchema(explorerGetHistoricalPriceSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetHistoricalPriceSchema,
+        async (input: HistoricalPriceInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanHistoricalPrice[]>(
+            input.chainId,
+            "stats",
+            "ethdailyprice",
+            {
+              startdate: input.startDate,
+              enddate: input.endDate,
+              sort: input.sort ?? "asc",
+            }
+          );
+          return normalizeEtherscanHistoricalPrice(raw);
+        },
+        "EXPLORER_HISTORICAL_PRICE_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_native_supply",
+      category: "explorer",
+      description:
+        "Get the native token supply including staking, burned fees, and withdrawal totals.",
+      inputSchema: zodToJsonSchema(explorerGetNativeSupplySchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetNativeSupplySchema,
+        async (input: NativeSupplyInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanSupply>(input.chainId, "stats", "ethsupply2", {});
+          return normalizeEtherscanNativeSupply(raw);
+        },
+        "EXPLORER_NATIVE_SUPPLY_ERROR"
       ),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

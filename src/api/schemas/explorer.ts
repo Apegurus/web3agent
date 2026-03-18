@@ -30,6 +30,12 @@ export const explorerContractSchema = explorerBaseSchema.extend({
   contractAddress: addressSchema.describe("Contract address (0x-prefixed)"),
 });
 
+export const explorerDateRangeSchema = explorerBaseSchema.extend({
+  startDate: z.string().describe("Start date (YYYY-MM-DD)"),
+  endDate: z.string().describe("End date (YYYY-MM-DD)"),
+  sort: z.enum(["asc", "desc"]).optional().describe("Sort order (default asc)"),
+});
+
 export const explorerBlockSchema = explorerBaseSchema.extend({
   blockNumber: z.number().int().nonnegative().describe("Block number"),
   includeTxs: z.boolean().optional().describe("Include full transaction objects (default false)"),

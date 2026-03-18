@@ -65,9 +65,17 @@ import {
   explorerContractCodeSchema,
   explorerContractCreatorSchema,
   explorerContractSourceSchema,
+  explorerDailyStatSchema,
+  explorerDailyStatsSchema,
+  explorerEventLogSchema,
+  explorerEventLogsSchema,
   explorerHistoricalBalanceSchema,
+  explorerHistoricalPriceEntrySchema,
+  explorerHistoricalPriceSchema,
   explorerInternalTxSchema,
   explorerInternalTxsSchema,
+  explorerNativePriceSchema,
+  explorerNativeSupplySchema,
   explorerNftInventorySchema,
   explorerNftItemSchema,
   explorerTokenHolderSchema,
@@ -368,6 +376,14 @@ export type ExplorerBlockRewardUncle = z.infer<typeof explorerBlockRewardUncleSc
 export type ExplorerBlockRewards = z.infer<typeof explorerBlockRewardsSchema>;
 export type ExplorerContractCreator = z.infer<typeof explorerContractCreatorSchema>;
 export type ExplorerContractCode = z.infer<typeof explorerContractCodeSchema>;
+export type ExplorerEventLog = z.infer<typeof explorerEventLogSchema>;
+export type ExplorerEventLogs = z.infer<typeof explorerEventLogsSchema>;
+export type ExplorerDailyStat = z.infer<typeof explorerDailyStatSchema>;
+export type ExplorerDailyStats = z.infer<typeof explorerDailyStatsSchema>;
+export type ExplorerNativePrice = z.infer<typeof explorerNativePriceSchema>;
+export type ExplorerHistoricalPriceEntry = z.infer<typeof explorerHistoricalPriceEntrySchema>;
+export type ExplorerHistoricalPrice = z.infer<typeof explorerHistoricalPriceSchema>;
+export type ExplorerNativeSupply = z.infer<typeof explorerNativeSupplySchema>;
 
 export type {
   CallToolResult,

@@ -176,3 +176,39 @@ export interface EtherscanBalance {
   account: string;
   balance: string;
 }
+
+/** Phase 3: used by explorer_get_event_logs */
+export interface EtherscanEventLog {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  timeStamp: string;
+  gasPrice: string;
+  gasUsed: string;
+  logIndex: string;
+  transactionHash: string;
+  transactionIndex: string;
+}
+
+/** Phase 3: used by explorer_get_native_price */
+export interface EtherscanPrice {
+  ethbtc: string;
+  ethbtc_timestamp: string;
+  ethusd: string;
+  ethusd_timestamp: string;
+}
+
+/** Phase 3: used by explorer_get_historical_price */
+export interface EtherscanHistoricalPrice {
+  UTCDate: string;
+  value: string;
+}
+
+/** Phase 3: used by explorer_get_native_supply */
+export interface EtherscanSupply {
+  EthSupply: string;
+  Eth2Staking: string;
+  BurntFees: string;
+  WithdrawnTotal: string;
+}

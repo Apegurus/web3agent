@@ -33,8 +33,8 @@ describe("explorer tools", () => {
     tools = getExplorerToolDefinitions(createMockDeps());
   });
 
-  it("registers 25 tools", () => {
-    expect(tools).toHaveLength(25);
+  it("registers 35 tools", () => {
+    expect(tools).toHaveLength(35);
   });
 
   it("all tools have category explorer", () => {

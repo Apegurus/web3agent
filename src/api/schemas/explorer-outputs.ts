@@ -244,6 +244,56 @@ export const explorerContractCodeSchema = z.object({
   bytecode: z.string().describe("Deployed bytecode (hex-encoded)"),
 });
 
+// --- Event Logs ---
+export const explorerEventLogSchema = z.object({
+  address: z.string().describe("Contract address that emitted the event"),
+  topics: z.array(z.string()).describe("Event topics (indexed parameters)"),
+  data: z.string().describe("Event data (non-indexed parameters)"),
+  blockNumber: z.number().describe("Block number"),
+  timestamp: z.string().describe("ISO 8601 timestamp"),
+  txHash: z.string().describe("Transaction hash"),
+  logIndex: z.number().describe("Log index within the block"),
+});
+
+export const explorerEventLogsSchema = z.object({
+  logs: z.array(explorerEventLogSchema).describe("Event logs"),
+  hasMore: z.boolean().optional().describe("Whether more logs are available"),
+});
+
+// --- Network Statistics ---
+export const explorerDailyStatSchema = z.object({
+  date: z.string().describe("Date (YYYY-MM-DD)"),
+  value: z.string().describe("Statistic value for the day"),
+});
+
+export const explorerDailyStatsSchema = z.object({
+  stats: z.array(explorerDailyStatSchema).describe("Daily statistics"),
+  metric: z.string().describe("Name of the metric"),
+});
+
+// --- Price & Supply ---
+export const explorerNativePriceSchema = z.object({
+  priceUsd: z.string().describe("Current price in USD"),
+  priceBtc: z.string().describe("Current price in BTC"),
+  timestamp: z.string().describe("Price timestamp"),
+});
+
+export const explorerHistoricalPriceEntrySchema = z.object({
+  date: z.string().describe("Date (YYYY-MM-DD)"),
+  priceUsd: z.string().describe("Price in USD"),
+});
+
+export const explorerHistoricalPriceSchema = z.object({
+  prices: z.array(explorerHistoricalPriceEntrySchema).describe("Historical daily prices"),
+});
+
+export const explorerNativeSupplySchema = z.object({
+  totalSupply: z.string().describe("Total native token supply"),
+  stakedAmount: z.string().optional().describe("ETH2 staking amount"),
+  burnedFees: z.string().optional().describe("EIP-1559 burned fees"),
+  withdrawnTotal: z.string().optional().describe("Total withdrawn from beacon chain"),
+});
+
 // --- Blocks ---
 export const explorerBlockInfoSchema = z.object({
   number: z.number().describe("Block number"),

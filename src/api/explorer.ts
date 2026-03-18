@@ -9,9 +9,15 @@ import {
   explorerGetContractCodeSchema,
   explorerGetContractCreatorSchema,
   explorerGetContractSourceSchema,
+  explorerGetDailyStatsSchema,
+  explorerGetEventLogsByTopicsSchema,
+  explorerGetEventLogsSchema,
   explorerGetHistoricalBalanceSchema,
+  explorerGetHistoricalPriceSchema,
   explorerGetHistoricalTokenBalanceSchema,
   explorerGetInternalTxsSchema,
+  explorerGetNativePriceSchema,
+  explorerGetNativeSupplySchema,
   explorerGetNftInventorySchema,
   explorerGetNftTransfersSchema,
   explorerGetTokenHoldersSchema,
@@ -35,8 +41,13 @@ import type {
   ExplorerContractCode,
   ExplorerContractCreator,
   ExplorerContractSource,
+  ExplorerDailyStats,
+  ExplorerEventLogs,
   ExplorerHistoricalBalance,
+  ExplorerHistoricalPrice,
   ExplorerInternalTxs,
+  ExplorerNativePrice,
+  ExplorerNativeSupply,
   ExplorerNftInventory,
   ExplorerTokenHolders,
   ExplorerTokenInfo,
@@ -345,4 +356,131 @@ export async function getContractCode(
   const input = parseInput(explorerGetContractCodeSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData<ExplorerContractCode>(runtime, "explorer_get_contract_code", input);
+}
+
+export async function getEventLogs(
+  params: {
+    chainId: number;
+    address: string;
+    startBlock?: number;
+    endBlock?: number;
+    topic0?: string;
+    topic1?: string;
+    topic2?: string;
+    topic3?: string;
+  },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerEventLogs> {
+  const input = parseInput(explorerGetEventLogsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerEventLogs>(runtime, "explorer_get_event_logs", input);
+}
+
+export async function getEventLogsByTopics(
+  params: {
+    chainId: number;
+    startBlock?: number;
+    endBlock?: number;
+    topic0: string;
+    topic1?: string;
+    topic2?: string;
+    topic3?: string;
+  },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerEventLogs> {
+  const input = parseInput(explorerGetEventLogsByTopicsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerEventLogs>(
+    runtime,
+    "explorer_get_event_logs_by_topics",
+    input
+  );
+}
+
+export async function getDailyTxCount(
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerDailyStats> {
+  const input = parseInput(explorerGetDailyStatsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerDailyStats>(runtime, "explorer_get_daily_tx_count", input);
+}
+
+export async function getDailyGasUsed(
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerDailyStats> {
+  const input = parseInput(explorerGetDailyStatsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerDailyStats>(runtime, "explorer_get_daily_gas_used", input);
+}
+
+export async function getDailyNewAddresses(
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerDailyStats> {
+  const input = parseInput(explorerGetDailyStatsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerDailyStats>(
+    runtime,
+    "explorer_get_daily_new_addresses",
+    input
+  );
+}
+
+export async function getDailyBlockRewards(
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerDailyStats> {
+  const input = parseInput(explorerGetDailyStatsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerDailyStats>(
+    runtime,
+    "explorer_get_daily_block_rewards",
+    input
+  );
+}
+
+export async function getNetworkUtilization(
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerDailyStats> {
+  const input = parseInput(explorerGetDailyStatsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerDailyStats>(
+    runtime,
+    "explorer_get_network_utilization",
+    input
+  );
+}
+
+export async function getNativePrice(
+  params: { chainId: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerNativePrice> {
+  const input = parseInput(explorerGetNativePriceSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerNativePrice>(runtime, "explorer_get_native_price", input);
+}
+
+export async function getHistoricalPrice(
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerHistoricalPrice> {
+  const input = parseInput(explorerGetHistoricalPriceSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerHistoricalPrice>(
+    runtime,
+    "explorer_get_historical_price",
+    input
+  );
+}
+
+export async function getNativeSupply(
+  params: { chainId: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerNativeSupply> {
+  const input = parseInput(explorerGetNativeSupplySchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerNativeSupply>(runtime, "explorer_get_native_supply", input);
 }

@@ -5,6 +5,7 @@ import {
   explorerBaseSchema,
   explorerBlockSchema,
   explorerContractSchema,
+  explorerDateRangeSchema,
   explorerPaginatedSchema,
   explorerTimeRangeSchema,
   explorerTxHashSchema,
@@ -115,3 +116,35 @@ export const explorerGetBlocksByValidatorSchema =
 export const explorerGetContractCreatorSchema = explorerContractSchema;
 
 export const explorerGetContractCodeSchema = explorerContractSchema;
+
+// --- Event Logs ---
+
+export const explorerGetEventLogsSchema = explorerAddressSchema
+  .merge(explorerTimeRangeSchema)
+  .extend({
+    topic0: z.string().optional().describe("First topic (event signature hash)"),
+    topic1: z.string().optional().describe("Second topic"),
+    topic2: z.string().optional().describe("Third topic"),
+    topic3: z.string().optional().describe("Fourth topic"),
+  });
+
+export const explorerGetEventLogsByTopicsSchema = explorerBaseSchema
+  .merge(explorerTimeRangeSchema)
+  .extend({
+    topic0: z.string().describe("First topic (event signature hash) — required"),
+    topic1: z.string().optional().describe("Second topic"),
+    topic2: z.string().optional().describe("Third topic"),
+    topic3: z.string().optional().describe("Fourth topic"),
+  });
+
+// --- Network Statistics ---
+
+export const explorerGetDailyStatsSchema = explorerDateRangeSchema;
+
+// --- Price & Supply ---
+
+export const explorerGetNativePriceSchema = explorerBaseSchema;
+
+export const explorerGetHistoricalPriceSchema = explorerDateRangeSchema;
+
+export const explorerGetNativeSupplySchema = explorerBaseSchema;
