@@ -26,6 +26,7 @@ export const explorerTokenHoldingSchema = z.object({
 export const explorerTokensByAddressSchema = z.object({
   address: z.string().describe("Queried address"),
   tokens: z.array(explorerTokenHoldingSchema).describe("Token holdings"),
+  hasMore: z.boolean().optional().describe("Whether more pages are available"),
 });
 
 // --- Transactions ---

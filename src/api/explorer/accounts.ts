@@ -35,10 +35,12 @@ export function normalizeBlockscoutAddress(raw: BlockscoutAddress): ExplorerAddr
 
 export function normalizeBlockscoutTokens(
   address: string,
-  tokens: BlockscoutToken[]
+  tokens: BlockscoutToken[],
+  hasMore?: boolean
 ): ExplorerTokensByAddress {
   return {
     address,
+    hasMore,
     tokens: tokens.map((raw) => {
       const decimals = raw.decimals != null ? Number.parseInt(raw.decimals, 10) : undefined;
       const type = raw.type as "ERC-20" | "ERC-721" | "ERC-1155";

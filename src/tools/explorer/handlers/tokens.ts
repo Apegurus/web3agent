@@ -119,7 +119,10 @@ export function getTokenToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
         async (input: NftInventoryInput) => {
           return withFallback(deps, input.chainId, "tokens", async (backend) => {
             if (backend === "blockscout") {
-              const raw = await blockscout.getAddressNfts(input.chainId, input.address);
+              const raw = await blockscout.getAddressNfts(input.chainId, input.address, {
+                page: input.page,
+                pageSize: input.pageSize,
+              });
               return normalizeBlockscoutNfts(input.address, raw);
             }
             throw new Error(

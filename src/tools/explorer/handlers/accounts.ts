@@ -65,8 +65,15 @@ export function getAccountToolDefinitions(deps: ExplorerDeps): ToolDefinition[] 
         async (input: TokensByAddressInput) => {
           return withFallback(deps, input.chainId, "tokens", async (backend) => {
             if (backend === "blockscout") {
-              const raw = await blockscout.getAddressTokens(input.chainId, input.address);
-              return normalizeBlockscoutTokens(input.address, raw.items);
+              const raw = await blockscout.getAddressTokens(input.chainId, input.address, {
+                page: input.page,
+                pageSize: input.pageSize,
+              });
+              return normalizeBlockscoutTokens(
+                input.address,
+                raw.items,
+                raw.next_page_params != null
+              );
             }
             // Etherscan has no equivalent endpoint for listing all token holdings
             throw new Error(

@@ -45,11 +45,16 @@ export class BlockscoutClient {
     return this.fetch<BlockscoutAddress>(`${base}/api/v2/addresses/${encodeURIComponent(address)}`);
   }
 
-  async getAddressTokens(chainId: number, address: string): Promise<BlockscoutTokenList> {
+  async getAddressTokens(
+    chainId: number,
+    address: string,
+    params?: { page?: number; pageSize?: number }
+  ): Promise<BlockscoutTokenList> {
     const base = this.getBaseUrl(chainId);
-    return this.fetch<BlockscoutTokenList>(
-      `${base}/api/v2/addresses/${encodeURIComponent(address)}/tokens`
-    );
+    const url = new URL(`${base}/api/v2/addresses/${encodeURIComponent(address)}/tokens`);
+    if (params?.page) url.searchParams.set("page", String(params.page));
+    if (params?.pageSize) url.searchParams.set("limit", String(params.pageSize));
+    return this.fetch<BlockscoutTokenList>(url.toString());
   }
 
   async getAddressTransactions(
@@ -82,11 +87,16 @@ export class BlockscoutClient {
     return this.fetch<BlockscoutTokenTransferList>(url.toString());
   }
 
-  async getAddressNfts(chainId: number, address: string): Promise<BlockscoutNftList> {
+  async getAddressNfts(
+    chainId: number,
+    address: string,
+    params?: { page?: number; pageSize?: number }
+  ): Promise<BlockscoutNftList> {
     const base = this.getBaseUrl(chainId);
-    return this.fetch<BlockscoutNftList>(
-      `${base}/api/v2/addresses/${encodeURIComponent(address)}/nft`
-    );
+    const url = new URL(`${base}/api/v2/addresses/${encodeURIComponent(address)}/nft`);
+    if (params?.page) url.searchParams.set("page", String(params.page));
+    if (params?.pageSize) url.searchParams.set("limit", String(params.pageSize));
+    return this.fetch<BlockscoutNftList>(url.toString());
   }
 
   async getSmartContract(chainId: number, address: string): Promise<BlockscoutSmartContract> {

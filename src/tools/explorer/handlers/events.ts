@@ -44,6 +44,7 @@ export function getEventToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
           if (input.topic3) {
             params.topic3 = input.topic3;
             if (input.topic0) params.topic0_3_opr = "and";
+            if (input.topic1) params.topic1_3_opr = "and";
             if (input.topic2) params.topic2_3_opr = "and";
           }
           const raw = await eth.call<EtherscanEventLog[]>(input.chainId, "logs", "getLogs", params);
@@ -83,6 +84,7 @@ export function getEventToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
           if (input.topic3) {
             params.topic3 = input.topic3;
             params.topic0_3_opr = "and";
+            if (input.topic1) params.topic1_3_opr = "and";
             if (input.topic2) params.topic2_3_opr = "and";
           }
           const raw = await eth.call<EtherscanEventLog[]>(input.chainId, "logs", "getLogs", params);

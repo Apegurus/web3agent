@@ -106,7 +106,6 @@ export async function getTransactionHistory(
     endBlock?: number;
     page?: number;
     pageSize?: number;
-    method?: string;
   },
   options?: RuntimeBoundOptions
 ): Promise<ExplorerTxHistory> {
@@ -186,7 +185,7 @@ export async function getContractSource(
 }
 
 export async function getBlock(
-  params: { chainId: number; blockNumber: number; includeTxs?: boolean },
+  params: { chainId: number; blockNumber: number },
   options?: RuntimeBoundOptions
 ): Promise<ExplorerBlockInfo> {
   const input = parseInput(explorerGetBlockSchema, params);
