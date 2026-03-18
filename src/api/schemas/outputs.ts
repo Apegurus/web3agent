@@ -241,7 +241,7 @@ export const topProtocolEntrySchema = z.object({
   name: z.string().describe("Protocol name"),
   tvl: z.number().describe("Total value locked in USD"),
   tvlChange1d: z.number().describe("TVL change over 1 day (%)"),
-  chain: z.string().describe("Primary chain"),
+  chain: z.string().describe("First listed chain (not necessarily primary by TVL)"),
   category: z.string().describe("Protocol category"),
   slug: z.string().describe("Protocol slug identifier"),
 });

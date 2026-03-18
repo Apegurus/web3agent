@@ -51,6 +51,9 @@ export async function getContractSecurity(input: {
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
     const res = await resilientFetch(url, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG);
+    if (!res.ok) {
+      throw new Error(`GoPlus API returned ${res.status}`);
+    }
     return (await res.json()) as { result: Record<string, GoPlusContractData> };
   });
 
@@ -260,6 +263,9 @@ export async function getTokenHolders(input: {
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
     const res = await resilientFetch(url, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG);
+    if (!res.ok) {
+      throw new Error(`GoPlus API returned ${res.status}`);
+    }
     return (await res.json()) as {
       result: Record<string, { holders?: GoPlusHolder[] }>;
     };

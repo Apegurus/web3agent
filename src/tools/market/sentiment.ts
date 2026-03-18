@@ -15,6 +15,9 @@ export async function getSentiment(input: { days?: number }): Promise<SentimentR
   const url = `https://api.alternative.me/fng/?limit=${days}`;
   const data = await ttlCache(url, SENTIMENT_TTL, async () => {
     const res = await resilientFetch(url, undefined, { label: "fear-greed" });
+    if (!res.ok) {
+      throw new Error(`Fear & Greed API returned ${res.status}`);
+    }
     return (await res.json()) as { data: FearGreedEntry[] };
   });
   const entries = data.data.map((d) => ({

@@ -4,6 +4,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
+const pending = new Map<string, Promise<unknown>>();
 
 const MAX_CACHE_SIZE = 500;
 
@@ -33,11 +34,27 @@ export async function ttlCache<T>(
   if (cached && Date.now() < cached.expiry) {
     return cached.data as T;
   }
-  const data = await fetcher();
-  cache.set(key, { data, expiry: Date.now() + ttlMs });
-  return data;
+
+  // Deduplicate in-flight requests for the same key
+  const inflight = pending.get(key);
+  if (inflight) return inflight as Promise<T>;
+
+  const promise = fetcher()
+    .then((data) => {
+      cache.set(key, { data, expiry: Date.now() + ttlMs });
+      pending.delete(key);
+      return data;
+    })
+    .catch((err: unknown) => {
+      pending.delete(key);
+      throw err;
+    });
+
+  pending.set(key, promise);
+  return promise;
 }
 
 export function clearCache(): void {
   cache.clear();
+  pending.clear();
 }

@@ -161,6 +161,9 @@ export async function getTopTokens(input: {
 
   const data = await ttlCache(url, CG_TTL, async () => {
     const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
+    if (!res.ok) {
+      throw new Error(`CoinGecko API returned ${res.status}`);
+    }
     return (await res.json()) as CoinGeckoMarket[];
   });
 
@@ -196,6 +199,9 @@ export async function searchToken(input: { query: string }): Promise<SearchToken
 
   const data = await ttlCache(url, CG_TTL, async () => {
     const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
+    if (!res.ok) {
+      throw new Error(`CoinGecko API returned ${res.status}`);
+    }
     return (await res.json()) as { coins: CoinGeckoSearchCoin[] };
   });
 
@@ -234,6 +240,9 @@ export async function getCategories(input: {
 
   const data = await ttlCache(url, CG_TTL, async () => {
     const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
+    if (!res.ok) {
+      throw new Error(`CoinGecko API returned ${res.status}`);
+    }
     return (await res.json()) as CoinGeckoCategoryRaw[];
   });
 

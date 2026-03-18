@@ -13,12 +13,6 @@ import { ttlCache } from "../shared/cache.js";
 const TTL_SHORT = 60_000;
 const TTL_LONG = 300_000;
 
-// ── Types ─────────────────────────────────────────────────────────
-
-// Re-export with local aliases for backward compatibility within this module
-type HackHistoryEntry = HackEntry;
-type GovernanceEntry = GovernanceProposalEntry;
-
 // ── Handlers ──────────────────────────────────────────────────────
 
 export async function getTokenUnlocks(input: {
@@ -55,7 +49,7 @@ export async function getTokenUnlocks(input: {
 export async function getHackHistory(input: {
   protocol?: string;
   limit?: number;
-}): Promise<HackHistoryEntry[]> {
+}): Promise<HackEntry[]> {
   const { protocol, limit = 20 } = input;
   const rawData = await ttlCache("defillama:hacks", TTL_LONG, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/hacks", undefined, {
@@ -169,7 +163,7 @@ export async function getGovernance(input: {
   protocol?: string;
   status?: string;
   limit?: number;
-}): Promise<GovernanceEntry[]> {
+}): Promise<GovernanceProposalEntry[]> {
   const { protocol, status, limit = 20 } = input;
   const rawData = await ttlCache("defillama:governance", TTL_LONG, async () => {
     const response = await resilientFetch("https://feed-api.llama.fi/governance", undefined, {
