@@ -62,6 +62,20 @@ import type {
 } from "./types.js";
 import { parseInput } from "./validation.js";
 
+/** Factory for daily stats SDK functions — all share the same schema and tool-name pattern */
+function makeDailyStatsSDK(
+  toolName: string
+): (
+  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
+  options?: RuntimeBoundOptions
+) => Promise<ExplorerDailyStats> {
+  return async (params, options) => {
+    const input = parseInput(explorerGetDailyStatsSchema, params);
+    const runtime = await getRuntime(options);
+    return invokeAndRequireData<ExplorerDailyStats>(runtime, toolName, input);
+  };
+}
+
 export async function getAddressInfo(
   params: { chainId: number; address: string },
   options?: RuntimeBoundOptions
@@ -397,62 +411,11 @@ export async function getEventLogsByTopics(
   );
 }
 
-export async function getDailyTxCount(
-  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
-  options?: RuntimeBoundOptions
-): Promise<ExplorerDailyStats> {
-  const input = parseInput(explorerGetDailyStatsSchema, params);
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ExplorerDailyStats>(runtime, "explorer_get_daily_tx_count", input);
-}
-
-export async function getDailyGasUsed(
-  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
-  options?: RuntimeBoundOptions
-): Promise<ExplorerDailyStats> {
-  const input = parseInput(explorerGetDailyStatsSchema, params);
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ExplorerDailyStats>(runtime, "explorer_get_daily_gas_used", input);
-}
-
-export async function getDailyNewAddresses(
-  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
-  options?: RuntimeBoundOptions
-): Promise<ExplorerDailyStats> {
-  const input = parseInput(explorerGetDailyStatsSchema, params);
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ExplorerDailyStats>(
-    runtime,
-    "explorer_get_daily_new_addresses",
-    input
-  );
-}
-
-export async function getDailyBlockRewards(
-  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
-  options?: RuntimeBoundOptions
-): Promise<ExplorerDailyStats> {
-  const input = parseInput(explorerGetDailyStatsSchema, params);
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ExplorerDailyStats>(
-    runtime,
-    "explorer_get_daily_block_rewards",
-    input
-  );
-}
-
-export async function getNetworkUtilization(
-  params: { chainId: number; startDate: string; endDate: string; sort?: "asc" | "desc" },
-  options?: RuntimeBoundOptions
-): Promise<ExplorerDailyStats> {
-  const input = parseInput(explorerGetDailyStatsSchema, params);
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ExplorerDailyStats>(
-    runtime,
-    "explorer_get_network_utilization",
-    input
-  );
-}
+export const getDailyTxCount = makeDailyStatsSDK("explorer_get_daily_tx_count");
+export const getDailyGasUsed = makeDailyStatsSDK("explorer_get_daily_gas_used");
+export const getDailyNewAddresses = makeDailyStatsSDK("explorer_get_daily_new_addresses");
+export const getDailyBlockRewards = makeDailyStatsSDK("explorer_get_daily_block_rewards");
+export const getNetworkUtilization = makeDailyStatsSDK("explorer_get_network_utilization");
 
 export async function getNativePrice(
   params: { chainId: number },
