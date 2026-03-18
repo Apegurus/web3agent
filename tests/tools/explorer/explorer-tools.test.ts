@@ -33,8 +33,8 @@ describe("explorer tools", () => {
     tools = getExplorerToolDefinitions(createMockDeps());
   });
 
-  it("registers 16 tools", () => {
-    expect(tools).toHaveLength(16);
+  it("registers 25 tools", () => {
+    expect(tools).toHaveLength(25);
   });
 
   it("all tools have category explorer", () => {
@@ -117,6 +117,60 @@ describe("explorer tools", () => {
 
   it("explorer_get_nft_transfers rejects invalid input", async () => {
     const tool = findTool("explorer_get_nft_transfers", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_token_info rejects invalid input", async () => {
+    const tool = findTool("explorer_get_token_info", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_token_supply rejects invalid input", async () => {
+    const tool = findTool("explorer_get_token_supply", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_token_holders rejects invalid input", async () => {
+    const tool = findTool("explorer_get_token_holders", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_top_token_holders rejects invalid input", async () => {
+    const tool = findTool("explorer_get_top_token_holders", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_block_by_timestamp rejects invalid input", async () => {
+    const tool = findTool("explorer_get_block_by_timestamp", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_block_rewards rejects invalid input", async () => {
+    const tool = findTool("explorer_get_block_rewards", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_blocks_by_validator rejects invalid input", async () => {
+    const tool = findTool("explorer_get_blocks_by_validator", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_contract_creator rejects invalid input", async () => {
+    const tool = findTool("explorer_get_contract_creator", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_contract_code rejects invalid input", async () => {
+    const tool = findTool("explorer_get_contract_code", tools);
     const result = await tool.handler({});
     expect(result.isError).toBe(true);
   });

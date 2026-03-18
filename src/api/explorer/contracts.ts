@@ -1,6 +1,10 @@
-import type { ExplorerContractAbi, ExplorerContractSource } from "../types.js";
+import type {
+  ExplorerContractAbi,
+  ExplorerContractCreator,
+  ExplorerContractSource,
+} from "../types.js";
 import type { BlockscoutSmartContract } from "./blockscout/types.js";
-import type { EtherscanContractSource } from "./etherscan/types.js";
+import type { EtherscanContractCreator, EtherscanContractSource } from "./etherscan/types.js";
 
 export function normalizeBlockscoutContractAbi(
   contractAddress: string,
@@ -106,4 +110,14 @@ export function normalizeEtherscanContractSource(
   }
 
   return result;
+}
+
+export function normalizeEtherscanContractCreator(
+  raw: EtherscanContractCreator
+): ExplorerContractCreator {
+  return {
+    contractAddress: raw.contractAddress,
+    creatorAddress: raw.contractCreator,
+    txHash: raw.txHash,
+  };
 }

@@ -1,16 +1,25 @@
 import {
   explorerGetAddressFundedBySchema,
   explorerGetAddressInfoSchema,
+  explorerGetBlockByTimestampSchema,
+  explorerGetBlockRewardsSchema,
   explorerGetBlockSchema,
+  explorerGetBlocksByValidatorSchema,
   explorerGetContractAbiSchema,
+  explorerGetContractCodeSchema,
+  explorerGetContractCreatorSchema,
   explorerGetContractSourceSchema,
   explorerGetHistoricalBalanceSchema,
   explorerGetHistoricalTokenBalanceSchema,
   explorerGetInternalTxsSchema,
   explorerGetNftInventorySchema,
   explorerGetNftTransfersSchema,
+  explorerGetTokenHoldersSchema,
+  explorerGetTokenInfoSchema,
+  explorerGetTokenSupplySchema,
   explorerGetTokenTransfersSchema,
   explorerGetTokensByAddressSchema,
+  explorerGetTopTokenHoldersSchema,
   explorerGetTxDetailsSchema,
   explorerGetTxExecutionStatusSchema,
   explorerGetTxHistorySchema,
@@ -19,12 +28,19 @@ import {
 import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
   ExplorerAddressInfo,
+  ExplorerBlockByTimestamp,
   ExplorerBlockInfo,
+  ExplorerBlockRewards,
   ExplorerContractAbi,
+  ExplorerContractCode,
+  ExplorerContractCreator,
   ExplorerContractSource,
   ExplorerHistoricalBalance,
   ExplorerInternalTxs,
   ExplorerNftInventory,
+  ExplorerTokenHolders,
+  ExplorerTokenInfo,
+  ExplorerTokenSupply,
   ExplorerTokenTransfers,
   ExplorerTokensByAddress,
   ExplorerTxDetails,
@@ -232,4 +248,101 @@ export async function getNftTransfers(
   const input = parseInput(explorerGetNftTransfersSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData<ExplorerTokenTransfers>(runtime, "explorer_get_nft_transfers", input);
+}
+
+export async function getTokenInfo(
+  params: { chainId: number; contractAddress: string },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTokenInfo> {
+  const input = parseInput(explorerGetTokenInfoSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTokenInfo>(runtime, "explorer_get_token_info", input);
+}
+
+export async function getTokenSupply(
+  params: { chainId: number; contractAddress: string; blockNumber?: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTokenSupply> {
+  const input = parseInput(explorerGetTokenSupplySchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTokenSupply>(runtime, "explorer_get_token_supply", input);
+}
+
+export async function getTokenHolders(
+  params: { chainId: number; contractAddress: string; page?: number; pageSize?: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTokenHolders> {
+  const input = parseInput(explorerGetTokenHoldersSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTokenHolders>(runtime, "explorer_get_token_holders", input);
+}
+
+export async function getTopTokenHolders(
+  params: { chainId: number; contractAddress: string; count?: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTokenHolders> {
+  const input = parseInput(explorerGetTopTokenHoldersSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTokenHolders>(
+    runtime,
+    "explorer_get_top_token_holders",
+    input
+  );
+}
+
+export async function getBlockByTimestamp(
+  params: { chainId: number; timestamp: number; closest: "before" | "after" },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerBlockByTimestamp> {
+  const input = parseInput(explorerGetBlockByTimestampSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerBlockByTimestamp>(
+    runtime,
+    "explorer_get_block_by_timestamp",
+    input
+  );
+}
+
+export async function getBlockRewards(
+  params: { chainId: number; blockNumber: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerBlockRewards> {
+  const input = parseInput(explorerGetBlockRewardsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerBlockRewards>(runtime, "explorer_get_block_rewards", input);
+}
+
+export async function getBlocksByValidator(
+  params: { chainId: number; address: string; page?: number; pageSize?: number },
+  options?: RuntimeBoundOptions
+): Promise<{ blocks: ExplorerBlockInfo[]; hasMore: boolean }> {
+  const input = parseInput(explorerGetBlocksByValidatorSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<{ blocks: ExplorerBlockInfo[]; hasMore: boolean }>(
+    runtime,
+    "explorer_get_blocks_by_validator",
+    input
+  );
+}
+
+export async function getContractCreator(
+  params: { chainId: number; contractAddress: string },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerContractCreator> {
+  const input = parseInput(explorerGetContractCreatorSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerContractCreator>(
+    runtime,
+    "explorer_get_contract_creator",
+    input
+  );
+}
+
+export async function getContractCode(
+  params: { chainId: number; contractAddress: string },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerContractCode> {
+  const input = parseInput(explorerGetContractCodeSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerContractCode>(runtime, "explorer_get_contract_code", input);
 }

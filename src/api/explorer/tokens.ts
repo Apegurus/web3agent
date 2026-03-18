@@ -1,6 +1,16 @@
-import type { ExplorerNftInventory, ExplorerTokenTransfers } from "../types.js";
+import type {
+  ExplorerNftInventory,
+  ExplorerTokenHolders,
+  ExplorerTokenInfo,
+  ExplorerTokenTransfers,
+} from "../types.js";
 import type { BlockscoutNftList, BlockscoutTokenTransferList } from "./blockscout/types.js";
-import type { EtherscanNftTransfer, EtherscanTokenTransfer } from "./etherscan/types.js";
+import type {
+  EtherscanNftTransfer,
+  EtherscanTokenHolder,
+  EtherscanTokenInfo,
+  EtherscanTokenTransfer,
+} from "./etherscan/types.js";
 
 function parseDecimals(raw: string | null): number | undefined {
   if (raw == null) return undefined;
@@ -95,5 +105,49 @@ export function normalizeBlockscoutNfts(
       };
     }),
     hasMore: raw.next_page_params != null,
+  };
+}
+
+export function normalizeEtherscanTokenInfo(raw: EtherscanTokenInfo): ExplorerTokenInfo {
+  const decimals = Number.parseInt(raw.divisor, 10);
+  const socialProfiles: Record<string, string> = {};
+  if (raw.twitter) socialProfiles.twitter = raw.twitter;
+  if (raw.discord) socialProfiles.discord = raw.discord;
+  if (raw.telegram) socialProfiles.telegram = raw.telegram;
+  if (raw.github) socialProfiles.github = raw.github;
+  if (raw.reddit) socialProfiles.reddit = raw.reddit;
+  if (raw.linkedin) socialProfiles.linkedin = raw.linkedin;
+  if (raw.facebook) socialProfiles.facebook = raw.facebook;
+  if (raw.slack) socialProfiles.slack = raw.slack;
+  if (raw.wechat) socialProfiles.wechat = raw.wechat;
+  if (raw.bitcointalk) socialProfiles.bitcointalk = raw.bitcointalk;
+  if (raw.blog) socialProfiles.blog = raw.blog;
+
+  const result: ExplorerTokenInfo = {
+    contractAddress: raw.contractAddress,
+    name: raw.tokenName,
+    symbol: raw.symbol,
+    decimals: Number.isNaN(decimals) ? 0 : decimals,
+    totalSupply: raw.totalSupply,
+    tokenType: raw.tokenType,
+  };
+
+  if (raw.website) result.website = raw.website;
+  if (raw.description) result.description = raw.description;
+  if (Object.keys(socialProfiles).length > 0) result.socialProfiles = socialProfiles;
+
+  return result;
+}
+
+export function normalizeEtherscanTokenHolders(
+  raw: EtherscanTokenHolder[],
+  pageSize?: number
+): ExplorerTokenHolders {
+  return {
+    holders: raw.map((h) => ({
+      address: h.TokenHolderAddress,
+      balance: h.TokenHolderQuantity,
+    })),
+    hasMore: pageSize != null ? raw.length === pageSize : undefined,
   };
 }

@@ -1,5 +1,6 @@
-import type { ExplorerBlockInfo } from "../types.js";
+import type { ExplorerBlockInfo, ExplorerBlockRewards } from "../types.js";
 import type { BlockscoutBlock } from "./blockscout/types.js";
+import type { EtherscanBlock } from "./etherscan/types.js";
 
 export function normalizeBlockscoutBlock(raw: BlockscoutBlock): ExplorerBlockInfo {
   const result: ExplorerBlockInfo = {
@@ -25,4 +26,18 @@ export function normalizeBlockscoutBlock(raw: BlockscoutBlock): ExplorerBlockInf
   }
 
   return result;
+}
+
+export function normalizeEtherscanBlockRewards(raw: EtherscanBlock): ExplorerBlockRewards {
+  return {
+    blockNumber: Number(raw.blockNumber),
+    miner: raw.blockMiner,
+    blockReward: raw.blockReward,
+    uncleInclusionReward: raw.uncleInclusionReward,
+    uncles: raw.uncles.map((u) => ({
+      miner: u.miner,
+      unclePosition: Number(u.unclePosition),
+      blockreward: u.blockreward,
+    })),
+  };
 }

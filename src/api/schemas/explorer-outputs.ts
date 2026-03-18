@@ -180,6 +180,70 @@ export const explorerTxExecutionStatusSchema = z.object({
   errDescription: z.string().optional().describe("Error description if execution failed"),
 });
 
+// --- Token Info ---
+export const explorerTokenInfoSchema = z.object({
+  contractAddress: z.string().describe("Token contract address"),
+  name: z.string().describe("Token name"),
+  symbol: z.string().describe("Token symbol"),
+  decimals: z.number().describe("Token decimals (derived from divisor)"),
+  totalSupply: z.string().describe("Total token supply in smallest units"),
+  tokenType: z.string().describe("Token standard (e.g. ERC-20, ERC-721)"),
+  website: z.string().optional().describe("Project website URL"),
+  description: z.string().optional().describe("Token description"),
+  socialProfiles: z
+    .record(z.string())
+    .optional()
+    .describe("Social media links (twitter, discord, telegram, github, etc.)"),
+});
+
+export const explorerTokenSupplySchema = z.object({
+  contractAddress: z.string().describe("Token contract address"),
+  totalSupply: z.string().describe("Total token supply in smallest units"),
+  decimals: z.number().optional().describe("Token decimals (derived from divisor)"),
+});
+
+export const explorerTokenHolderSchema = z.object({
+  address: z.string().describe("Token holder address"),
+  balance: z.string().describe("Token balance in smallest units"),
+  share: z.number().optional().describe("Percentage share of total supply"),
+});
+
+export const explorerTokenHoldersSchema = z.object({
+  holders: z.array(explorerTokenHolderSchema).describe("Token holders list"),
+  hasMore: z.boolean().optional().describe("Whether more pages are available"),
+});
+
+// --- Block Timestamp / Rewards ---
+export const explorerBlockByTimestampSchema = z.object({
+  blockNumber: z.number().describe("Block number closest to the given timestamp"),
+});
+
+export const explorerBlockRewardUncleSchema = z.object({
+  miner: z.string().describe("Uncle block miner address"),
+  unclePosition: z.number().describe("Uncle position in the block"),
+  blockreward: z.string().describe("Uncle block reward in wei"),
+});
+
+export const explorerBlockRewardsSchema = z.object({
+  blockNumber: z.number().describe("Block number"),
+  miner: z.string().describe("Block miner/validator address"),
+  blockReward: z.string().describe("Block reward in wei"),
+  uncleInclusionReward: z.string().describe("Uncle inclusion reward in wei"),
+  uncles: z.array(explorerBlockRewardUncleSchema).describe("Uncle blocks included in this block"),
+});
+
+// --- Contract Creator / Bytecode ---
+export const explorerContractCreatorSchema = z.object({
+  contractAddress: z.string().describe("Contract address"),
+  creatorAddress: z.string().describe("Address that deployed the contract"),
+  txHash: z.string().describe("Contract creation transaction hash"),
+});
+
+export const explorerContractCodeSchema = z.object({
+  contractAddress: z.string().describe("Contract address"),
+  bytecode: z.string().describe("Deployed bytecode (hex-encoded)"),
+});
+
 // --- Blocks ---
 export const explorerBlockInfoSchema = z.object({
   number: z.number().describe("Block number"),

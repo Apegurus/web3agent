@@ -5,19 +5,27 @@ import {
   normalizeBlockscoutTokens,
   normalizeEtherscanAddress,
 } from "../../api/explorer/accounts.js";
-import { normalizeBlockscoutBlock } from "../../api/explorer/blocks.js";
+import {
+  normalizeBlockscoutBlock,
+  normalizeEtherscanBlockRewards,
+} from "../../api/explorer/blocks.js";
 import type { BlockscoutClient } from "../../api/explorer/blockscout/client.js";
 import {
   normalizeBlockscoutContractAbi,
   normalizeBlockscoutContractSource,
   normalizeEtherscanContractAbi,
+  normalizeEtherscanContractCreator,
   normalizeEtherscanContractSource,
 } from "../../api/explorer/contracts.js";
 import type { EtherscanClient } from "../../api/explorer/etherscan/client.js";
 import type {
+  EtherscanBlock,
+  EtherscanContractCreator,
   EtherscanContractSource,
   EtherscanInternalTx,
   EtherscanNftTransfer,
+  EtherscanTokenHolder,
+  EtherscanTokenInfo,
   EtherscanTokenTransfer,
   EtherscanTransaction,
   EtherscanTxStatus,
@@ -27,6 +35,8 @@ import {
   normalizeBlockscoutNfts,
   normalizeBlockscoutTokenTransfers,
   normalizeEtherscanNftTransfers,
+  normalizeEtherscanTokenHolders,
+  normalizeEtherscanTokenInfo,
   normalizeEtherscanTokenTransfers,
 } from "../../api/explorer/tokens.js";
 import {
@@ -41,16 +51,25 @@ import { createToolHandler } from "../shared/handler-factory.js";
 import {
   explorerGetAddressFundedBySchema,
   explorerGetAddressInfoSchema,
+  explorerGetBlockByTimestampSchema,
+  explorerGetBlockRewardsSchema,
   explorerGetBlockSchema,
+  explorerGetBlocksByValidatorSchema,
   explorerGetContractAbiSchema,
+  explorerGetContractCodeSchema,
+  explorerGetContractCreatorSchema,
   explorerGetContractSourceSchema,
   explorerGetHistoricalBalanceSchema,
   explorerGetHistoricalTokenBalanceSchema,
   explorerGetInternalTxsSchema,
   explorerGetNftInventorySchema,
   explorerGetNftTransfersSchema,
+  explorerGetTokenHoldersSchema,
+  explorerGetTokenInfoSchema,
+  explorerGetTokenSupplySchema,
   explorerGetTokenTransfersSchema,
   explorerGetTokensByAddressSchema,
+  explorerGetTopTokenHoldersSchema,
   explorerGetTxDetailsSchema,
   explorerGetTxExecutionStatusSchema,
   explorerGetTxHistorySchema,
@@ -72,6 +91,15 @@ type FundedByInput = z.infer<typeof explorerGetAddressFundedBySchema>;
 type InternalTxsInput = z.infer<typeof explorerGetInternalTxsSchema>;
 type TxExecutionStatusInput = z.infer<typeof explorerGetTxExecutionStatusSchema>;
 type NftTransfersInput = z.infer<typeof explorerGetNftTransfersSchema>;
+type TokenInfoInput = z.infer<typeof explorerGetTokenInfoSchema>;
+type TokenSupplyInput = z.infer<typeof explorerGetTokenSupplySchema>;
+type TokenHoldersInput = z.infer<typeof explorerGetTokenHoldersSchema>;
+type TopTokenHoldersInput = z.infer<typeof explorerGetTopTokenHoldersSchema>;
+type BlockByTimestampInput = z.infer<typeof explorerGetBlockByTimestampSchema>;
+type BlockRewardsInput = z.infer<typeof explorerGetBlockRewardsSchema>;
+type BlocksByValidatorInput = z.infer<typeof explorerGetBlocksByValidatorSchema>;
+type ContractCreatorInput = z.infer<typeof explorerGetContractCreatorSchema>;
+type ContractCodeInput = z.infer<typeof explorerGetContractCodeSchema>;
 
 export interface ExplorerDeps {
   router: ExplorerRouter;
@@ -637,6 +665,235 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
           return normalizeEtherscanNftTransfers(erc721, erc1155);
         },
         "EXPLORER_NFT_TRANSFERS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 2: Token Info, Supply, Holders ---
+    {
+      name: "explorer_get_token_info",
+      category: "explorer",
+      description:
+        "Get token metadata including name, symbol, decimals, total supply, and social profiles.",
+      inputSchema: zodToJsonSchema(explorerGetTokenInfoSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetTokenInfoSchema,
+        async (input: TokenInfoInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanTokenInfo>(input.chainId, "token", "tokeninfo", {
+            contractaddress: input.contractAddress,
+          });
+          return normalizeEtherscanTokenInfo(raw);
+        },
+        "EXPLORER_TOKEN_INFO_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_token_supply",
+      category: "explorer",
+      description:
+        "Get the total supply of a token, optionally at a specific historical block number.",
+      inputSchema: zodToJsonSchema(explorerGetTokenSupplySchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetTokenSupplySchema,
+        async (input: TokenSupplyInput) => {
+          const eth = requireEtherscan();
+          if (input.blockNumber != null) {
+            const supply = await eth.call<string>(input.chainId, "token", "tokensupplyhistory", {
+              contractaddress: input.contractAddress,
+              blockno: String(input.blockNumber),
+            });
+            return {
+              contractAddress: input.contractAddress,
+              totalSupply: supply,
+            };
+          }
+          const supply = await eth.call<string>(input.chainId, "token", "tokensupply", {
+            contractaddress: input.contractAddress,
+          });
+          return {
+            contractAddress: input.contractAddress,
+            totalSupply: supply,
+          };
+        },
+        "EXPLORER_TOKEN_SUPPLY_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_token_holders",
+      category: "explorer",
+      description: "Get a paginated list of token holders for a given token contract.",
+      inputSchema: zodToJsonSchema(explorerGetTokenHoldersSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetTokenHoldersSchema,
+        async (input: TokenHoldersInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            contractaddress: input.contractAddress,
+          };
+          if (input.page) params.page = String(input.page);
+          if (input.pageSize) params.offset = String(input.pageSize);
+          const raw = await eth.call<EtherscanTokenHolder[]>(
+            input.chainId,
+            "token",
+            "tokenholderlist",
+            params
+          );
+          return normalizeEtherscanTokenHolders(raw, input.pageSize);
+        },
+        "EXPLORER_TOKEN_HOLDERS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_top_token_holders",
+      category: "explorer",
+      description: "Get the top N token holders by balance for a given token contract.",
+      inputSchema: zodToJsonSchema(explorerGetTopTokenHoldersSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetTopTokenHoldersSchema,
+        async (input: TopTokenHoldersInput) => {
+          const eth = requireEtherscan();
+          const count = input.count ?? 10;
+          const raw = await eth.call<EtherscanTokenHolder[]>(
+            input.chainId,
+            "token",
+            "toptokenholders",
+            {
+              contractaddress: input.contractAddress,
+              page: "1",
+              offset: String(count),
+            }
+          );
+          return normalizeEtherscanTokenHolders(raw);
+        },
+        "EXPLORER_TOP_TOKEN_HOLDERS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 2: Block Timestamp, Rewards, Validator ---
+    {
+      name: "explorer_get_block_by_timestamp",
+      category: "explorer",
+      description: "Find the block number closest to a given Unix timestamp (before or after).",
+      inputSchema: zodToJsonSchema(explorerGetBlockByTimestampSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetBlockByTimestampSchema,
+        async (input: BlockByTimestampInput) => {
+          const eth = requireEtherscan();
+          const blockNo = await eth.call<string>(input.chainId, "block", "getblocknobytime", {
+            timestamp: String(input.timestamp),
+            closest: input.closest,
+          });
+          return {
+            blockNumber: Number(blockNo),
+          };
+        },
+        "EXPLORER_BLOCK_BY_TIMESTAMP_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_block_rewards",
+      category: "explorer",
+      description:
+        "Get block reward details including miner reward, uncle inclusion reward, and uncle blocks.",
+      inputSchema: zodToJsonSchema(explorerGetBlockRewardsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetBlockRewardsSchema,
+        async (input: BlockRewardsInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanBlock>(input.chainId, "block", "getblockreward", {
+            blockno: String(input.blockNumber),
+          });
+          return normalizeEtherscanBlockRewards(raw);
+        },
+        "EXPLORER_BLOCK_REWARDS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_blocks_by_validator",
+      category: "explorer",
+      description: "Get blocks mined/validated by a specific address.",
+      inputSchema: zodToJsonSchema(explorerGetBlocksByValidatorSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetBlocksByValidatorSchema,
+        async (input: BlocksByValidatorInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            address: input.address,
+            blocktype: "blocks",
+          };
+          if (input.page) params.page = String(input.page);
+          if (input.pageSize) params.offset = String(input.pageSize);
+          const raw = await eth.call<
+            Array<{ blockNumber: string; timeStamp: string; blockReward: string }>
+          >(input.chainId, "account", "getminedblocks", params);
+          return {
+            blocks: raw.map((b) => ({
+              number: Number(b.blockNumber),
+              hash: "",
+              timestamp: new Date(Number(b.timeStamp) * 1000).toISOString(),
+              parentHash: "",
+              miner: input.address,
+              gasUsed: "0",
+              gasLimit: "0",
+              txCount: 0,
+              reward: b.blockReward,
+            })),
+            hasMore: raw.length === (input.pageSize ?? 10000),
+          };
+        },
+        "EXPLORER_BLOCKS_BY_VALIDATOR_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 2: Contract Creator + Bytecode ---
+    {
+      name: "explorer_get_contract_creator",
+      category: "explorer",
+      description: "Find who deployed a contract and the creation transaction hash.",
+      inputSchema: zodToJsonSchema(explorerGetContractCreatorSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetContractCreatorSchema,
+        async (input: ContractCreatorInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanContractCreator[]>(
+            input.chainId,
+            "contract",
+            "getcontractcreation",
+            { contractaddresses: input.contractAddress }
+          );
+          if (!raw || raw.length === 0) {
+            throw new Error("Contract creation info not found");
+          }
+          return normalizeEtherscanContractCreator(raw[0]);
+        },
+        "EXPLORER_CONTRACT_CREATOR_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_contract_code",
+      category: "explorer",
+      description: "Get the deployed bytecode of a contract at a given address.",
+      inputSchema: zodToJsonSchema(explorerGetContractCodeSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetContractCodeSchema,
+        async (input: ContractCodeInput) => {
+          const eth = requireEtherscan();
+          const bytecode = await eth.call<string>(input.chainId, "proxy", "eth_getCode", {
+            address: input.contractAddress,
+            tag: "latest",
+          });
+          return {
+            contractAddress: input.contractAddress,
+            bytecode,
+          };
+        },
+        "EXPLORER_CONTRACT_CODE_ERROR"
       ),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

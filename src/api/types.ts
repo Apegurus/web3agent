@@ -57,15 +57,24 @@ import type {
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
 import {
   explorerAddressInfoSchema,
+  explorerBlockByTimestampSchema,
   explorerBlockInfoSchema,
+  explorerBlockRewardUncleSchema,
+  explorerBlockRewardsSchema,
   explorerContractAbiSchema,
+  explorerContractCodeSchema,
+  explorerContractCreatorSchema,
   explorerContractSourceSchema,
   explorerHistoricalBalanceSchema,
   explorerInternalTxSchema,
   explorerInternalTxsSchema,
   explorerNftInventorySchema,
   explorerNftItemSchema,
+  explorerTokenHolderSchema,
+  explorerTokenHoldersSchema,
   explorerTokenHoldingSchema,
+  explorerTokenInfoSchema,
+  explorerTokenSupplySchema,
   explorerTokenTransferSchema,
   explorerTokenTransfersSchema,
   explorerTokensByAddressSchema,
@@ -350,6 +359,15 @@ export type ExplorerHistoricalBalance = z.infer<typeof explorerHistoricalBalance
 export type ExplorerInternalTx = z.infer<typeof explorerInternalTxSchema>;
 export type ExplorerInternalTxs = z.infer<typeof explorerInternalTxsSchema>;
 export type ExplorerTxExecutionStatus = z.infer<typeof explorerTxExecutionStatusSchema>;
+export type ExplorerTokenInfo = z.infer<typeof explorerTokenInfoSchema>;
+export type ExplorerTokenSupply = z.infer<typeof explorerTokenSupplySchema>;
+export type ExplorerTokenHolder = z.infer<typeof explorerTokenHolderSchema>;
+export type ExplorerTokenHolders = z.infer<typeof explorerTokenHoldersSchema>;
+export type ExplorerBlockByTimestamp = z.infer<typeof explorerBlockByTimestampSchema>;
+export type ExplorerBlockRewardUncle = z.infer<typeof explorerBlockRewardUncleSchema>;
+export type ExplorerBlockRewards = z.infer<typeof explorerBlockRewardsSchema>;
+export type ExplorerContractCreator = z.infer<typeof explorerContractCreatorSchema>;
+export type ExplorerContractCode = z.infer<typeof explorerContractCodeSchema>;
 
 export type {
   CallToolResult,

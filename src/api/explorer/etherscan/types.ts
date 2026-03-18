@@ -137,6 +137,40 @@ export interface EtherscanNftTransfer {
   gasUsed: string;
 }
 
+/** Phase 2: used by explorer_get_token_info */
+export interface EtherscanTokenInfo {
+  contractAddress: string;
+  tokenName: string;
+  symbol: string;
+  divisor: string;
+  tokenType: string;
+  totalSupply: string;
+  blueCheckmark: string;
+  description: string;
+  website: string;
+  email: string;
+  blog: string;
+  reddit: string;
+  slack: string;
+  facebook: string;
+  twitter: string;
+  bitcointalk: string;
+  github: string;
+  telegram: string;
+  wechat: string;
+  linkedin: string;
+  discord: string;
+  whitepaper: string;
+  tokenPriceUSD: string;
+  tokenPriceETH: string;
+}
+
+/** Phase 2: used by explorer_get_token_holders */
+export interface EtherscanTokenHolder {
+  TokenHolderAddress: string;
+  TokenHolderQuantity: string;
+}
+
 /** Phase 2: used by explorer_get_historical_balance */
 export interface EtherscanBalance {
   account: string;

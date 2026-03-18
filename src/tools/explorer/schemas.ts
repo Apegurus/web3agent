@@ -2,6 +2,7 @@ import { z } from "zod";
 import { addressSchema } from "../../api/schemas/common.js";
 import {
   explorerAddressSchema,
+  explorerBaseSchema,
   explorerBlockSchema,
   explorerContractSchema,
   explorerPaginatedSchema,
@@ -72,6 +73,45 @@ export const explorerGetContractAbiSchema = explorerContractSchema;
 
 export const explorerGetContractSourceSchema = explorerContractSchema;
 
+// --- Token Info / Supply / Holders ---
+
+export const explorerGetTokenInfoSchema = explorerContractSchema;
+
+export const explorerGetTokenSupplySchema = explorerContractSchema.extend({
+  blockNumber: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Block number for historical supply (omit for latest)"),
+});
+
+export const explorerGetTokenHoldersSchema = explorerContractSchema.merge(explorerPaginatedSchema);
+
+export const explorerGetTopTokenHoldersSchema = explorerContractSchema.extend({
+  count: z.number().optional().describe("Number of top holders (default 10)"),
+});
+
 // --- Blocks ---
 
 export const explorerGetBlockSchema = explorerBlockSchema;
+
+// --- Block Timestamp / Rewards / Validator ---
+
+export const explorerGetBlockByTimestampSchema = explorerBaseSchema.extend({
+  timestamp: z.number().describe("Unix timestamp"),
+  closest: z.enum(["before", "after"]).describe("Find block before or after timestamp"),
+});
+
+export const explorerGetBlockRewardsSchema = explorerBaseSchema.extend({
+  blockNumber: z.number().int().nonnegative().describe("Block number"),
+});
+
+export const explorerGetBlocksByValidatorSchema =
+  explorerAddressSchema.merge(explorerPaginatedSchema);
+
+// --- Contract Creator / Bytecode ---
+
+export const explorerGetContractCreatorSchema = explorerContractSchema;
+
+export const explorerGetContractCodeSchema = explorerContractSchema;
