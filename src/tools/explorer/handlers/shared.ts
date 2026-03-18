@@ -6,8 +6,10 @@ import type {
   ExplorerRouter,
 } from "../../../api/explorer/router.js";
 
-/** Default page size used by Etherscan for paginated endpoints (e.g. tx history) */
-export const ETHERSCAN_DEFAULT_PAGE_SIZE = 10000;
+/** Default page size sent to Etherscan when user doesn't specify.
+ * Etherscan allows up to 10000, but returning that many results would consume
+ * excessive AI context window. 100 balances speed vs. context usage. */
+export const ETHERSCAN_DEFAULT_PAGE_SIZE = 100;
 
 /** Maximum number of event log entries Etherscan returns in a single response */
 export const ETHERSCAN_MAX_LOG_RESULTS = 1000;

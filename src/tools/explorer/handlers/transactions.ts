@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type {
   EtherscanInternalTx,
+  EtherscanProxyReceipt,
   EtherscanTransaction,
   EtherscanTxStatus,
 } from "../../../api/explorer/etherscan/types.js";
@@ -61,7 +62,7 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
             if (input.startBlock) params.startblock = String(input.startBlock);
             if (input.endBlock) params.endblock = String(input.endBlock);
             if (input.page) params.page = String(input.page);
-            if (input.pageSize) params.offset = String(input.pageSize);
+            params.offset = String(input.pageSize ?? ETHERSCAN_DEFAULT_PAGE_SIZE);
             const raw = await eth.call<EtherscanTransaction[]>(
               input.chainId,
               "account",
@@ -98,12 +99,9 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
               eth.call<Record<string, string>>(input.chainId, "proxy", "eth_getTransactionByHash", {
                 txhash: input.txHash,
               }),
-              eth.call<Record<string, string>>(
-                input.chainId,
-                "proxy",
-                "eth_getTransactionReceipt",
-                { txhash: input.txHash }
-              ),
+              eth.call<EtherscanProxyReceipt>(input.chainId, "proxy", "eth_getTransactionReceipt", {
+                txhash: input.txHash,
+              }),
             ]);
             // Get block timestamp from the block the tx is in
             let timestamp = "";
@@ -163,7 +161,7 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
               return normalizeBlockscoutTxReceipt(raw);
             }
             const eth = requireEtherscan(etherscan);
-            const raw = await eth.call<Record<string, string>>(
+            const raw = await eth.call<EtherscanProxyReceipt>(
               input.chainId,
               "proxy",
               "eth_getTransactionReceipt",
@@ -183,7 +181,7 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
                 ? BigInt(raw.cumulativeGasUsed).toString()
                 : undefined,
               contractAddress: raw.contractAddress || undefined,
-              logsCount: raw.logs ? (raw.logs as unknown as unknown[]).length : undefined,
+              logsCount: raw.logs ? raw.logs.length : undefined,
             };
           });
         },

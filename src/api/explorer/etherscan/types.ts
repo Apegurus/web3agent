@@ -16,6 +16,17 @@ export type EtherscanApiResponse<T = unknown> =
   | EtherscanStandardResponse<T>
   | EtherscanProxyResponse<T>;
 
+/** Typed proxy response for eth_getTransactionReceipt */
+export interface EtherscanProxyReceipt {
+  blockNumber: string;
+  status: string;
+  gasUsed: string;
+  effectiveGasPrice?: string;
+  cumulativeGasUsed?: string;
+  contractAddress?: string;
+  logs: Array<Record<string, unknown>>;
+}
+
 export interface EtherscanTransaction {
   blockNumber: string;
   timeStamp: string;

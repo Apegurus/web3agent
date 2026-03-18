@@ -68,8 +68,10 @@ export function getAccountToolDefinitions(deps: ExplorerDeps): ToolDefinition[] 
               const raw = await blockscout.getAddressTokens(input.chainId, input.address);
               return normalizeBlockscoutTokens(input.address, raw.items);
             }
-            // Etherscan doesn't have a direct "list all tokens" endpoint
-            throw new Error("Token listing not available via Etherscan for this chain");
+            // Etherscan has no equivalent endpoint for listing all token holdings
+            throw new Error(
+              "Token listing requires Blockscout — not available on Etherscan-only chains (e.g., BSC)"
+            );
           });
         },
         "EXPLORER_TOKENS_ERROR"

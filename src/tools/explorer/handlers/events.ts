@@ -28,22 +28,22 @@ export function getEventToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
           const eth = requireEtherscan(etherscan);
           const params: Record<string, string> = {
             address: input.address,
+            fromBlock: input.startBlock != null ? String(input.startBlock) : "0",
+            toBlock: input.endBlock != null ? String(input.endBlock) : "latest",
           };
-          if (input.startBlock != null) params.fromBlock = String(input.startBlock);
-          if (input.endBlock != null) params.toBlock = String(input.endBlock);
           if (input.topic0) params.topic0 = input.topic0;
           if (input.topic1) {
             params.topic1 = input.topic1;
-            params.topic0_1_opr = "and";
+            if (input.topic0) params.topic0_1_opr = "and";
           }
           if (input.topic2) {
             params.topic2 = input.topic2;
-            params.topic0_2_opr = "and";
+            if (input.topic0) params.topic0_2_opr = "and";
             if (input.topic1) params.topic1_2_opr = "and";
           }
           if (input.topic3) {
             params.topic3 = input.topic3;
-            params.topic0_3_opr = "and";
+            if (input.topic0) params.topic0_3_opr = "and";
             if (input.topic2) params.topic2_3_opr = "and";
           }
           const raw = await eth.call<EtherscanEventLog[]>(input.chainId, "logs", "getLogs", params);
@@ -68,9 +68,9 @@ export function getEventToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
           const eth = requireEtherscan(etherscan);
           const params: Record<string, string> = {
             topic0: input.topic0,
+            fromBlock: input.startBlock != null ? String(input.startBlock) : "0",
+            toBlock: input.endBlock != null ? String(input.endBlock) : "latest",
           };
-          if (input.startBlock != null) params.fromBlock = String(input.startBlock);
-          if (input.endBlock != null) params.toBlock = String(input.endBlock);
           if (input.topic1) {
             params.topic1 = input.topic1;
             params.topic0_1_opr = "and";
