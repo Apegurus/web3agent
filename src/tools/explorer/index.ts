@@ -16,32 +16,43 @@ import {
 import type { EtherscanClient } from "../../api/explorer/etherscan/client.js";
 import type {
   EtherscanContractSource,
+  EtherscanInternalTx,
+  EtherscanNftTransfer,
   EtherscanTokenTransfer,
   EtherscanTransaction,
+  EtherscanTxStatus,
 } from "../../api/explorer/etherscan/types.js";
 import type { BackendId, ExplorerCapability, ExplorerRouter } from "../../api/explorer/router.js";
 import {
   normalizeBlockscoutNfts,
   normalizeBlockscoutTokenTransfers,
+  normalizeEtherscanNftTransfers,
   normalizeEtherscanTokenTransfers,
 } from "../../api/explorer/tokens.js";
 import {
   normalizeBlockscoutTransaction,
   normalizeBlockscoutTxDetails,
   normalizeBlockscoutTxReceipt,
+  normalizeEtherscanInternalTxs,
   normalizeEtherscanTransaction,
 } from "../../api/explorer/transactions.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
+  explorerGetAddressFundedBySchema,
   explorerGetAddressInfoSchema,
   explorerGetBlockSchema,
   explorerGetContractAbiSchema,
   explorerGetContractSourceSchema,
+  explorerGetHistoricalBalanceSchema,
+  explorerGetHistoricalTokenBalanceSchema,
+  explorerGetInternalTxsSchema,
   explorerGetNftInventorySchema,
+  explorerGetNftTransfersSchema,
   explorerGetTokenTransfersSchema,
   explorerGetTokensByAddressSchema,
   explorerGetTxDetailsSchema,
+  explorerGetTxExecutionStatusSchema,
   explorerGetTxHistorySchema,
   explorerGetTxReceiptSchema,
 } from "./schemas.js";
@@ -55,6 +66,12 @@ type TokenTransfersInput = z.infer<typeof explorerGetTokenTransfersSchema>;
 type NftInventoryInput = z.infer<typeof explorerGetNftInventorySchema>;
 type ContractInput = z.infer<typeof explorerGetContractAbiSchema>;
 type BlockInput = z.infer<typeof explorerGetBlockSchema>;
+type HistoricalBalanceInput = z.infer<typeof explorerGetHistoricalBalanceSchema>;
+type HistoricalTokenBalanceInput = z.infer<typeof explorerGetHistoricalTokenBalanceSchema>;
+type FundedByInput = z.infer<typeof explorerGetAddressFundedBySchema>;
+type InternalTxsInput = z.infer<typeof explorerGetInternalTxsSchema>;
+type TxExecutionStatusInput = z.infer<typeof explorerGetTxExecutionStatusSchema>;
+type NftTransfersInput = z.infer<typeof explorerGetNftTransfersSchema>;
 
 export interface ExplorerDeps {
   router: ExplorerRouter;
@@ -451,6 +468,175 @@ export function getExplorerToolDefinitions(deps: ExplorerDeps): ToolDefinition[]
           });
         },
         "EXPLORER_BLOCK_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 2: Historical Balance + Funded-By ---
+    {
+      name: "explorer_get_historical_balance",
+      category: "explorer",
+      description:
+        "Get the native token balance of an address at a specific historical block number.",
+      inputSchema: zodToJsonSchema(explorerGetHistoricalBalanceSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetHistoricalBalanceSchema,
+        async (input: HistoricalBalanceInput) => {
+          const eth = requireEtherscan();
+          const balance = await eth.call<string>(input.chainId, "account", "balance", {
+            address: input.address,
+            tag: `0x${input.blockNumber.toString(16)}`,
+          });
+          return {
+            address: input.address,
+            balance,
+            blockNumber: input.blockNumber,
+            chainId: input.chainId,
+          };
+        },
+        "EXPLORER_HISTORICAL_BALANCE_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_historical_token_balance",
+      category: "explorer",
+      description:
+        "Get the ERC-20 token balance of an address at a specific historical block number.",
+      inputSchema: zodToJsonSchema(explorerGetHistoricalTokenBalanceSchema) as Record<
+        string,
+        unknown
+      >,
+      handler: createToolHandler(
+        explorerGetHistoricalTokenBalanceSchema,
+        async (input: HistoricalTokenBalanceInput) => {
+          const eth = requireEtherscan();
+          const balance = await eth.call<string>(input.chainId, "account", "tokenbalance", {
+            address: input.address,
+            contractaddress: input.contractAddress,
+            tag: `0x${input.blockNumber.toString(16)}`,
+          });
+          return {
+            address: input.address,
+            balance,
+            blockNumber: input.blockNumber,
+            chainId: input.chainId,
+          };
+        },
+        "EXPLORER_HISTORICAL_TOKEN_BALANCE_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_address_funded_by",
+      category: "explorer",
+      description:
+        "Find the first incoming transaction to an address, revealing who initially funded it.",
+      inputSchema: zodToJsonSchema(explorerGetAddressFundedBySchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetAddressFundedBySchema,
+        async (input: FundedByInput) => {
+          const eth = requireEtherscan();
+          const txs = await eth.call<EtherscanTransaction[]>(input.chainId, "account", "txlist", {
+            address: input.address,
+            sort: "asc",
+            page: "1",
+            offset: "1",
+          });
+          if (txs.length === 0) {
+            return {
+              transactions: [],
+              hasMore: false,
+            };
+          }
+          return {
+            transactions: txs.map(normalizeEtherscanTransaction),
+            hasMore: false,
+          };
+        },
+        "EXPLORER_FUNDED_BY_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 2: Internal Transactions + Execution Status ---
+    {
+      name: "explorer_get_internal_txs",
+      category: "explorer",
+      description:
+        "Get internal (trace) transactions for an address, including contract-to-contract calls.",
+      inputSchema: zodToJsonSchema(explorerGetInternalTxsSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetInternalTxsSchema,
+        async (input: InternalTxsInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            address: input.address,
+            sort: "desc",
+          };
+          if (input.startBlock) params.startblock = String(input.startBlock);
+          if (input.endBlock) params.endblock = String(input.endBlock);
+          if (input.page) params.page = String(input.page);
+          if (input.pageSize) params.offset = String(input.pageSize);
+          const raw = await eth.call<EtherscanInternalTx[]>(
+            input.chainId,
+            "account",
+            "txlistinternal",
+            params
+          );
+          return normalizeEtherscanInternalTxs(raw, input.pageSize);
+        },
+        "EXPLORER_INTERNAL_TXS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    {
+      name: "explorer_get_tx_execution_status",
+      category: "explorer",
+      description:
+        "Check the execution status of a transaction (whether it errored during execution).",
+      inputSchema: zodToJsonSchema(explorerGetTxExecutionStatusSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetTxExecutionStatusSchema,
+        async (input: TxExecutionStatusInput) => {
+          const eth = requireEtherscan();
+          const raw = await eth.call<EtherscanTxStatus>(input.chainId, "transaction", "getstatus", {
+            txhash: input.txHash,
+          });
+          return {
+            isError: raw.isError === "1",
+            errDescription: raw.errDescription || undefined,
+          };
+        },
+        "EXPLORER_TX_EXECUTION_STATUS_ERROR"
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    // --- Phase 2: NFT Transfers ---
+    {
+      name: "explorer_get_nft_transfers",
+      category: "explorer",
+      description:
+        "Get NFT transfer history (ERC-721 and ERC-1155) for an address, merged and sorted by time.",
+      inputSchema: zodToJsonSchema(explorerGetNftTransfersSchema) as Record<string, unknown>,
+      handler: createToolHandler(
+        explorerGetNftTransfersSchema,
+        async (input: NftTransfersInput) => {
+          const eth = requireEtherscan();
+          const params: Record<string, string> = {
+            address: input.address,
+            sort: "desc",
+          };
+          if (input.tokenContract) params.contractaddress = input.tokenContract;
+          if (input.startBlock) params.startblock = String(input.startBlock);
+          if (input.endBlock) params.endblock = String(input.endBlock);
+          if (input.page) params.page = String(input.page);
+          if (input.pageSize) params.offset = String(input.pageSize);
+          const [erc721, erc1155] = await Promise.all([
+            eth.call<EtherscanNftTransfer[]>(input.chainId, "account", "tokennfttx", params),
+            eth.call<EtherscanNftTransfer[]>(input.chainId, "account", "token1155tx", params),
+          ]);
+          return normalizeEtherscanNftTransfers(erc721, erc1155);
+        },
+        "EXPLORER_NFT_TRANSFERS_ERROR"
       ),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

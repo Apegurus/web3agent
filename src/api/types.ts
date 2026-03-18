@@ -60,6 +60,9 @@ import {
   explorerBlockInfoSchema,
   explorerContractAbiSchema,
   explorerContractSourceSchema,
+  explorerHistoricalBalanceSchema,
+  explorerInternalTxSchema,
+  explorerInternalTxsSchema,
   explorerNftInventorySchema,
   explorerNftItemSchema,
   explorerTokenHoldingSchema,
@@ -68,6 +71,7 @@ import {
   explorerTokensByAddressSchema,
   explorerTransactionSchema,
   explorerTxDetailsSchema,
+  explorerTxExecutionStatusSchema,
   explorerTxHistorySchema,
   explorerTxReceiptSchema,
 } from "./schemas/explorer-outputs.js";
@@ -342,6 +346,10 @@ export type ExplorerNftInventory = z.infer<typeof explorerNftInventorySchema>;
 export type ExplorerContractAbi = z.infer<typeof explorerContractAbiSchema>;
 export type ExplorerContractSource = z.infer<typeof explorerContractSourceSchema>;
 export type ExplorerBlockInfo = z.infer<typeof explorerBlockInfoSchema>;
+export type ExplorerHistoricalBalance = z.infer<typeof explorerHistoricalBalanceSchema>;
+export type ExplorerInternalTx = z.infer<typeof explorerInternalTxSchema>;
+export type ExplorerInternalTxs = z.infer<typeof explorerInternalTxsSchema>;
+export type ExplorerTxExecutionStatus = z.infer<typeof explorerTxExecutionStatusSchema>;
 
 export type {
   CallToolResult,

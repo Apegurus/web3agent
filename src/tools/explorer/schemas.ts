@@ -16,6 +16,19 @@ export const explorerGetAddressInfoSchema = explorerAddressSchema;
 export const explorerGetTokensByAddressSchema =
   explorerAddressSchema.merge(explorerPaginatedSchema);
 
+// --- Historical Balance ---
+
+export const explorerGetHistoricalBalanceSchema = explorerAddressSchema.extend({
+  blockNumber: z.number().int().nonnegative().describe("Block number for historical query"),
+});
+
+export const explorerGetHistoricalTokenBalanceSchema = explorerAddressSchema.extend({
+  blockNumber: z.number().int().nonnegative().describe("Block number for historical query"),
+  contractAddress: addressSchema.describe("Token contract address"),
+});
+
+export const explorerGetAddressFundedBySchema = explorerAddressSchema;
+
 // --- Transactions ---
 
 export const explorerGetTxHistorySchema = explorerAddressSchema
@@ -24,6 +37,12 @@ export const explorerGetTxHistorySchema = explorerAddressSchema
   .extend({
     method: z.string().optional().describe("Filter by method name"),
   });
+
+export const explorerGetInternalTxsSchema = explorerAddressSchema
+  .merge(explorerTimeRangeSchema)
+  .merge(explorerPaginatedSchema);
+
+export const explorerGetTxExecutionStatusSchema = explorerTxHashSchema;
 
 export const explorerGetTxDetailsSchema = explorerTxHashSchema;
 
@@ -36,6 +55,13 @@ export const explorerGetTokenTransfersSchema = explorerAddressSchema
   .merge(explorerPaginatedSchema)
   .extend({
     tokenContract: addressSchema.optional().describe("Filter by token contract address"),
+  });
+
+export const explorerGetNftTransfersSchema = explorerAddressSchema
+  .merge(explorerTimeRangeSchema)
+  .merge(explorerPaginatedSchema)
+  .extend({
+    tokenContract: addressSchema.optional().describe("Filter by NFT contract address"),
   });
 
 export const explorerGetNftInventorySchema = explorerAddressSchema.merge(explorerPaginatedSchema);

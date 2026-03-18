@@ -3,10 +3,14 @@ import type {
   BlockscoutNftList,
   BlockscoutTokenTransferList,
 } from "../../../src/api/explorer/blockscout/types.js";
-import type { EtherscanTokenTransfer } from "../../../src/api/explorer/etherscan/types.js";
+import type {
+  EtherscanNftTransfer,
+  EtherscanTokenTransfer,
+} from "../../../src/api/explorer/etherscan/types.js";
 import {
   normalizeBlockscoutNfts,
   normalizeBlockscoutTokenTransfers,
+  normalizeEtherscanNftTransfers,
   normalizeEtherscanTokenTransfers,
 } from "../../../src/api/explorer/tokens.js";
 
@@ -239,5 +243,101 @@ describe("normalizeBlockscoutNfts", () => {
     const list: BlockscoutNftList = { ...nftList, next_page_params: { page: "2" } };
     const result = normalizeBlockscoutNfts("0xowner", list);
     expect(result.hasMore).toBe(true);
+  });
+});
+
+const erc721Transfer: EtherscanNftTransfer = {
+  blockNumber: "18000000",
+  timeStamp: "1705316700",
+  hash: "0xnfttx1",
+  nonce: "1",
+  from: "0xseller",
+  to: "0xbuyer",
+  contractAddress: "0xnftcontract",
+  tokenName: "CryptoPunks",
+  tokenSymbol: "PUNK",
+  tokenDecimal: "0",
+  tokenID: "1234",
+  value: "1",
+  transactionIndex: "0",
+  gas: "100000",
+  gasPrice: "20000000000",
+  gasUsed: "80000",
+};
+
+const erc1155Transfer: EtherscanNftTransfer = {
+  blockNumber: "18000001",
+  timeStamp: "1705316600",
+  hash: "0xnfttx2",
+  nonce: "2",
+  from: "0xminter",
+  to: "0xcollector",
+  contractAddress: "0x1155contract",
+  tokenName: "GameItems",
+  tokenSymbol: "ITEM",
+  tokenDecimal: "0",
+  tokenID: "42",
+  value: "5",
+  transactionIndex: "1",
+  gas: "150000",
+  gasPrice: "15000000000",
+  gasUsed: "120000",
+};
+
+describe("normalizeEtherscanNftTransfers", () => {
+  it("merges ERC-721 and ERC-1155 transfers", () => {
+    const result = normalizeEtherscanNftTransfers([erc721Transfer], [erc1155Transfer]);
+    expect(result.transfers).toHaveLength(2);
+  });
+
+  it("sorts by timestamp descending", () => {
+    const result = normalizeEtherscanNftTransfers([erc721Transfer], [erc1155Transfer]);
+    // erc721 has timeStamp 1705316700 (later), erc1155 has 1705316600 (earlier)
+    expect(result.transfers[0].hash).toBe("0xnfttx1");
+    expect(result.transfers[1].hash).toBe("0xnfttx2");
+  });
+
+  it("assigns correct type labels", () => {
+    const result = normalizeEtherscanNftTransfers([erc721Transfer], [erc1155Transfer]);
+    expect(result.transfers[0].type).toBe("ERC-721");
+    expect(result.transfers[1].type).toBe("ERC-1155");
+  });
+
+  it("maps tokenID as value", () => {
+    const result = normalizeEtherscanNftTransfers([erc721Transfer], []);
+    expect(result.transfers[0].value).toBe("1234");
+  });
+
+  it("maps from, to, token fields", () => {
+    const result = normalizeEtherscanNftTransfers([erc721Transfer], []);
+    expect(result.transfers[0]).toMatchObject({
+      from: "0xseller",
+      to: "0xbuyer",
+      token: "0xnftcontract",
+      symbol: "PUNK",
+    });
+  });
+
+  it("handles empty arrays", () => {
+    const result = normalizeEtherscanNftTransfers([], []);
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("handles ERC-721 only", () => {
+    const result = normalizeEtherscanNftTransfers([erc721Transfer], []);
+    expect(result.transfers).toHaveLength(1);
+    expect(result.transfers[0].type).toBe("ERC-721");
+  });
+
+  it("handles ERC-1155 only", () => {
+    const result = normalizeEtherscanNftTransfers([], [erc1155Transfer]);
+    expect(result.transfers).toHaveLength(1);
+    expect(result.transfers[0].type).toBe("ERC-1155");
+  });
+
+  it("omits symbol when empty", () => {
+    const noSymbol: EtherscanNftTransfer = { ...erc721Transfer, tokenSymbol: "" };
+    const result = normalizeEtherscanNftTransfers([noSymbol], []);
+    expect(result.transfers[0].symbol).toBeUndefined();
   });
 });

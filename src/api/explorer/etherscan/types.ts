@@ -99,6 +99,44 @@ export interface EtherscanContractCreator {
   txHash: string;
 }
 
+/** Phase 2: used by explorer_get_internal_txs */
+export interface EtherscanInternalTx {
+  blockNumber: string;
+  timeStamp: string;
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  gas: string;
+  gasUsed: string;
+  isError: "0" | "1";
+  type: string;
+  traceId: string;
+  errCode: string;
+  contractAddress: string;
+  input: string;
+}
+
+/** Phase 2: used by explorer_get_nft_transfers */
+export interface EtherscanNftTransfer {
+  blockNumber: string;
+  timeStamp: string;
+  hash: string;
+  nonce: string;
+  from: string;
+  to: string;
+  contractAddress: string;
+  tokenName: string;
+  tokenSymbol: string;
+  tokenDecimal: string;
+  tokenID: string;
+  value: string;
+  transactionIndex: string;
+  gas: string;
+  gasPrice: string;
+  gasUsed: string;
+}
+
 /** Phase 2: used by explorer_get_historical_balance */
 export interface EtherscanBalance {
   account: string;

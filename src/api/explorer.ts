@@ -1,12 +1,18 @@
 import {
+  explorerGetAddressFundedBySchema,
   explorerGetAddressInfoSchema,
   explorerGetBlockSchema,
   explorerGetContractAbiSchema,
   explorerGetContractSourceSchema,
+  explorerGetHistoricalBalanceSchema,
+  explorerGetHistoricalTokenBalanceSchema,
+  explorerGetInternalTxsSchema,
   explorerGetNftInventorySchema,
+  explorerGetNftTransfersSchema,
   explorerGetTokenTransfersSchema,
   explorerGetTokensByAddressSchema,
   explorerGetTxDetailsSchema,
+  explorerGetTxExecutionStatusSchema,
   explorerGetTxHistorySchema,
   explorerGetTxReceiptSchema,
 } from "../tools/explorer/schemas.js";
@@ -16,10 +22,13 @@ import type {
   ExplorerBlockInfo,
   ExplorerContractAbi,
   ExplorerContractSource,
+  ExplorerHistoricalBalance,
+  ExplorerInternalTxs,
   ExplorerNftInventory,
   ExplorerTokenTransfers,
   ExplorerTokensByAddress,
   ExplorerTxDetails,
+  ExplorerTxExecutionStatus,
   ExplorerTxHistory,
   ExplorerTxReceipt,
   RuntimeBoundOptions,
@@ -142,4 +151,85 @@ export async function getBlock(
   const input = parseInput(explorerGetBlockSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData<ExplorerBlockInfo>(runtime, "explorer_get_block", input);
+}
+
+export async function getHistoricalBalance(
+  params: { chainId: number; address: string; blockNumber: number },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerHistoricalBalance> {
+  const input = parseInput(explorerGetHistoricalBalanceSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerHistoricalBalance>(
+    runtime,
+    "explorer_get_historical_balance",
+    input
+  );
+}
+
+export async function getHistoricalTokenBalance(
+  params: { chainId: number; address: string; blockNumber: number; contractAddress: string },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerHistoricalBalance> {
+  const input = parseInput(explorerGetHistoricalTokenBalanceSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerHistoricalBalance>(
+    runtime,
+    "explorer_get_historical_token_balance",
+    input
+  );
+}
+
+export async function getAddressFundedBy(
+  params: { chainId: number; address: string },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTxHistory> {
+  const input = parseInput(explorerGetAddressFundedBySchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTxHistory>(runtime, "explorer_get_address_funded_by", input);
+}
+
+export async function getInternalTransactions(
+  params: {
+    chainId: number;
+    address: string;
+    startBlock?: number;
+    endBlock?: number;
+    page?: number;
+    pageSize?: number;
+  },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerInternalTxs> {
+  const input = parseInput(explorerGetInternalTxsSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerInternalTxs>(runtime, "explorer_get_internal_txs", input);
+}
+
+export async function getTransactionExecutionStatus(
+  params: { chainId: number; txHash: string },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTxExecutionStatus> {
+  const input = parseInput(explorerGetTxExecutionStatusSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTxExecutionStatus>(
+    runtime,
+    "explorer_get_tx_execution_status",
+    input
+  );
+}
+
+export async function getNftTransfers(
+  params: {
+    chainId: number;
+    address: string;
+    tokenContract?: string;
+    startBlock?: number;
+    endBlock?: number;
+    page?: number;
+    pageSize?: number;
+  },
+  options?: RuntimeBoundOptions
+): Promise<ExplorerTokenTransfers> {
+  const input = parseInput(explorerGetNftTransfersSchema, params);
+  const runtime = await getRuntime(options);
+  return invokeAndRequireData<ExplorerTokenTransfers>(runtime, "explorer_get_nft_transfers", input);
 }

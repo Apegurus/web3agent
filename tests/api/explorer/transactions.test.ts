@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { BlockscoutTransaction } from "../../../src/api/explorer/blockscout/types.js";
-import type { EtherscanTransaction } from "../../../src/api/explorer/etherscan/types.js";
+import type {
+  EtherscanInternalTx,
+  EtherscanTransaction,
+} from "../../../src/api/explorer/etherscan/types.js";
 import {
   normalizeBlockscoutTransaction,
   normalizeBlockscoutTxDetails,
   normalizeBlockscoutTxReceipt,
+  normalizeEtherscanInternalTx,
+  normalizeEtherscanInternalTxs,
   normalizeEtherscanTransaction,
 } from "../../../src/api/explorer/transactions.js";
 
@@ -253,5 +258,94 @@ describe("normalizeEtherscanTransaction", () => {
     const raw: EtherscanTransaction = { ...baseEsTx, to: "" };
     const result = normalizeEtherscanTransaction(raw);
     expect(result.to).toBeUndefined();
+  });
+});
+
+const baseInternalTx: EtherscanInternalTx = {
+  blockNumber: "18000000",
+  timeStamp: "1705316600",
+  hash: "0xinternalhash",
+  from: "0xcontract1",
+  to: "0xcontract2",
+  value: "500000000000000000",
+  gas: "100000",
+  gasUsed: "50000",
+  isError: "0",
+  type: "call",
+  traceId: "0_1",
+  errCode: "",
+  contractAddress: "",
+  input: "0x",
+};
+
+describe("normalizeEtherscanInternalTx", () => {
+  it("maps hash, blockNumber, timestamp", () => {
+    const result = normalizeEtherscanInternalTx(baseInternalTx);
+    expect(result.hash).toBe("0xinternalhash");
+    expect(result.blockNumber).toBe(18000000);
+    expect(result.timestamp).toBe(new Date(1705316600 * 1000).toISOString());
+  });
+
+  it("maps from and to", () => {
+    const result = normalizeEtherscanInternalTx(baseInternalTx);
+    expect(result.from).toBe("0xcontract1");
+    expect(result.to).toBe("0xcontract2");
+  });
+
+  it("maps value and gasUsed", () => {
+    const result = normalizeEtherscanInternalTx(baseInternalTx);
+    expect(result.value).toBe("500000000000000000");
+    expect(result.gasUsed).toBe("50000");
+  });
+
+  it("maps type and traceId", () => {
+    const result = normalizeEtherscanInternalTx(baseInternalTx);
+    expect(result.type).toBe("call");
+    expect(result.traceId).toBe("0_1");
+  });
+
+  it("maps isError=0 to false", () => {
+    const result = normalizeEtherscanInternalTx(baseInternalTx);
+    expect(result.isError).toBe(false);
+  });
+
+  it("maps isError=1 to true", () => {
+    const raw: EtherscanInternalTx = { ...baseInternalTx, isError: "1", errCode: "bad jump" };
+    const result = normalizeEtherscanInternalTx(raw);
+    expect(result.isError).toBe(true);
+    expect(result.errCode).toBe("bad jump");
+  });
+
+  it("omits errCode when empty", () => {
+    const result = normalizeEtherscanInternalTx(baseInternalTx);
+    expect(result.errCode).toBeUndefined();
+  });
+});
+
+describe("normalizeEtherscanInternalTxs", () => {
+  it("wraps array in transactions field", () => {
+    const result = normalizeEtherscanInternalTxs([baseInternalTx]);
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0].hash).toBe("0xinternalhash");
+  });
+
+  it("returns empty transactions for empty input", () => {
+    const result = normalizeEtherscanInternalTxs([]);
+    expect(result.transactions).toEqual([]);
+  });
+
+  it("sets hasMore based on pageSize", () => {
+    const result = normalizeEtherscanInternalTxs([baseInternalTx], 1);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it("sets hasMore false when less than pageSize", () => {
+    const result = normalizeEtherscanInternalTxs([baseInternalTx], 10);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("sets hasMore undefined when pageSize not provided", () => {
+    const result = normalizeEtherscanInternalTxs([baseInternalTx]);
+    expect(result.hasMore).toBeUndefined();
   });
 });

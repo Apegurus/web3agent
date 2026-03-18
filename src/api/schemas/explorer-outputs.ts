@@ -146,6 +146,40 @@ export const explorerContractSourceSchema = z.object({
   constructorArgs: z.string().optional().describe("Constructor arguments (hex-encoded)"),
 });
 
+// --- Historical Balance ---
+export const explorerHistoricalBalanceSchema = z.object({
+  address: z.string().describe("Address hash"),
+  balance: z.string().describe("Balance in wei at the given block"),
+  blockNumber: z.number().describe("Block number queried"),
+  chainId: z.number().describe("Chain ID"),
+});
+
+// --- Internal Transactions ---
+export const explorerInternalTxSchema = z.object({
+  hash: z.string().describe("Parent transaction hash"),
+  blockNumber: z.number().describe("Block number"),
+  timestamp: z.string().describe("ISO 8601 timestamp"),
+  from: z.string().describe("Sender address"),
+  to: z.string().describe("Recipient address"),
+  value: z.string().describe("Value transferred in wei"),
+  gasUsed: z.string().describe("Gas used by internal call"),
+  type: z.string().describe("Internal transaction type (e.g. call, create, delegatecall)"),
+  traceId: z.string().describe("Trace ID within the transaction"),
+  errCode: z.string().optional().describe("Error code if the internal tx failed"),
+  isError: z.boolean().describe("Whether the internal transaction failed"),
+});
+
+export const explorerInternalTxsSchema = z.object({
+  transactions: z.array(explorerInternalTxSchema).describe("Internal transaction list"),
+  hasMore: z.boolean().optional().describe("Whether more pages are available"),
+});
+
+// --- Execution Status ---
+export const explorerTxExecutionStatusSchema = z.object({
+  isError: z.boolean().describe("Whether the transaction execution failed"),
+  errDescription: z.string().optional().describe("Error description if execution failed"),
+});
+
 // --- Blocks ---
 export const explorerBlockInfoSchema = z.object({
   number: z.number().describe("Block number"),

@@ -33,8 +33,8 @@ describe("explorer tools", () => {
     tools = getExplorerToolDefinitions(createMockDeps());
   });
 
-  it("registers 10 tools", () => {
-    expect(tools).toHaveLength(10);
+  it("registers 16 tools", () => {
+    expect(tools).toHaveLength(16);
   });
 
   it("all tools have category explorer", () => {
@@ -83,5 +83,41 @@ describe("explorer tools", () => {
     for (const tool of tools) {
       expect(tool.name).toMatch(/^explorer_/);
     }
+  });
+
+  it("explorer_get_historical_balance rejects invalid input", async () => {
+    const tool = findTool("explorer_get_historical_balance", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_historical_token_balance rejects invalid input", async () => {
+    const tool = findTool("explorer_get_historical_token_balance", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_address_funded_by rejects invalid input", async () => {
+    const tool = findTool("explorer_get_address_funded_by", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_internal_txs rejects invalid input", async () => {
+    const tool = findTool("explorer_get_internal_txs", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_tx_execution_status rejects invalid input", async () => {
+    const tool = findTool("explorer_get_tx_execution_status", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
+  });
+
+  it("explorer_get_nft_transfers rejects invalid input", async () => {
+    const tool = findTool("explorer_get_nft_transfers", tools);
+    const result = await tool.handler({});
+    expect(result.isError).toBe(true);
   });
 });

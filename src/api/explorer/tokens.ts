@@ -1,6 +1,6 @@
 import type { ExplorerNftInventory, ExplorerTokenTransfers } from "../types.js";
 import type { BlockscoutNftList, BlockscoutTokenTransferList } from "./blockscout/types.js";
-import type { EtherscanTokenTransfer } from "./etherscan/types.js";
+import type { EtherscanNftTransfer, EtherscanTokenTransfer } from "./etherscan/types.js";
 
 function parseDecimals(raw: string | null): number | undefined {
   if (raw == null) return undefined;
@@ -43,6 +43,34 @@ export function normalizeEtherscanTokenTransfers(
         symbol: t.tokenSymbol || undefined,
         decimals: parseDecimals(t.tokenDecimal),
         value: t.value,
+      };
+    }),
+  };
+}
+
+export function normalizeEtherscanNftTransfers(
+  erc721: EtherscanNftTransfer[],
+  erc1155: EtherscanNftTransfer[]
+): ExplorerTokenTransfers {
+  const all = [
+    ...erc721.map((t) => ({ ...t, _type: "ERC-721" as const })),
+    ...erc1155.map((t) => ({ ...t, _type: "ERC-1155" as const })),
+  ].sort((a, b) => Number(b.timeStamp) - Number(a.timeStamp));
+
+  return {
+    transfers: all.map((t) => {
+      const decimals = parseDecimals(t.tokenDecimal);
+      return {
+        hash: t.hash,
+        blockNumber: Number(t.blockNumber),
+        timestamp: new Date(Number(t.timeStamp) * 1000).toISOString(),
+        from: t.from,
+        to: t.to,
+        token: t.contractAddress,
+        symbol: t.tokenSymbol || undefined,
+        decimals,
+        value: t.tokenID,
+        type: t._type,
       };
     }),
   };

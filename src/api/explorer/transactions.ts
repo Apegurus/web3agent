@@ -1,6 +1,12 @@
-import type { ExplorerTransaction, ExplorerTxDetails, ExplorerTxReceipt } from "../types.js";
+import type {
+  ExplorerInternalTx,
+  ExplorerInternalTxs,
+  ExplorerTransaction,
+  ExplorerTxDetails,
+  ExplorerTxReceipt,
+} from "../types.js";
 import type { BlockscoutTransaction } from "./blockscout/types.js";
-import type { EtherscanTransaction } from "./etherscan/types.js";
+import type { EtherscanInternalTx, EtherscanTransaction } from "./etherscan/types.js";
 
 function blockscoutStatus(raw: BlockscoutTransaction): "success" | "failed" | "pending" {
   if (raw.status === "ok") return "success";
@@ -126,4 +132,35 @@ export function normalizeEtherscanTransaction(raw: EtherscanTransaction): Explor
   result.nonce = Number(raw.nonce);
 
   return result;
+}
+
+export function normalizeEtherscanInternalTx(raw: EtherscanInternalTx): ExplorerInternalTx {
+  const result: ExplorerInternalTx = {
+    hash: raw.hash,
+    blockNumber: Number(raw.blockNumber),
+    timestamp: new Date(Number(raw.timeStamp) * 1000).toISOString(),
+    from: raw.from,
+    to: raw.to,
+    value: raw.value,
+    gasUsed: raw.gasUsed,
+    type: raw.type,
+    traceId: raw.traceId,
+    isError: raw.isError === "1",
+  };
+
+  if (raw.errCode) {
+    result.errCode = raw.errCode;
+  }
+
+  return result;
+}
+
+export function normalizeEtherscanInternalTxs(
+  raw: EtherscanInternalTx[],
+  pageSize?: number
+): ExplorerInternalTxs {
+  return {
+    transactions: raw.map(normalizeEtherscanInternalTx),
+    hasMore: pageSize != null ? raw.length === pageSize : undefined,
+  };
 }
