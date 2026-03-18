@@ -5,7 +5,7 @@ vi.mock("../../../src/utils/resilient-fetch.js", () => ({
   resilientFetch: mockResilientFetch,
 }));
 
-vi.mock("../../../src/tools/market/cache.js", () => ({
+vi.mock("../../../src/tools/shared/cache.js", () => ({
   ttlCache: vi.fn((_key: string, _ttl: number, fetcher: () => Promise<unknown>) => fetcher()),
 }));
 

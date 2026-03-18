@@ -1,11 +1,8 @@
-import type { z } from "zod";
-import type { sentimentResultSchema } from "../../api/schemas/outputs.js";
+import type { SentimentResult } from "../../api/types.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
-import { ttlCache } from "./cache.js";
+import { ttlCache } from "../shared/cache.js";
 
 const SENTIMENT_TTL = 300_000;
-
-type SentimentResult = z.infer<typeof sentimentResultSchema>;
 
 interface FearGreedEntry {
   value: string;
@@ -25,6 +22,9 @@ export async function getSentiment(input: { days?: number }): Promise<SentimentR
     value: Number(d.value),
     classification: d.value_classification,
   }));
+  if (entries.length === 0) {
+    throw new Error("Fear & Greed Index returned no data");
+  }
   return {
     current: entries[0],
     history: entries,

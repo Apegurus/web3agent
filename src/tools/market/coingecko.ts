@@ -7,7 +7,7 @@ import type {
   trendingResultSchema,
 } from "../../api/schemas/outputs.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
-import { ttlCache } from "./cache.js";
+import { ttlCache } from "../shared/cache.js";
 
 // ── Shared helpers ───────────────────────────────────────────────
 
@@ -285,26 +285,28 @@ export async function getTokenHistory(input: {
     `/coins/${encodeURIComponent(input.token)}/market_chart?vs_currency=usd&days=${days}`
   );
 
-  const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
+  return ttlCache(`coingecko:history:${input.token}:${period}`, CG_TTL, async () => {
+    const res = await resilientFetch(url, { headers: coingeckoHeaders() }, CG_FETCH_CONFIG);
 
-  if (!res.ok) {
-    throw new Error(
-      `CoinGecko returned ${res.status} for token '${input.token}'. Try using chain:address format (e.g., 'ethereum:0x...') for DefiLlama fallback.`
-    );
-  }
+    if (!res.ok) {
+      throw new Error(
+        `CoinGecko returned ${res.status} for token '${input.token}'. Try using chain:address format (e.g., 'ethereum:0x...') for DefiLlama fallback.`
+      );
+    }
 
-  const data = (await res.json()) as {
-    prices: [number, number][];
-    market_caps: [number, number][];
-    total_volumes: [number, number][];
-  };
+    const data = (await res.json()) as {
+      prices: [number, number][];
+      market_caps: [number, number][];
+      total_volumes: [number, number][];
+    };
 
-  return data.prices.map(([ts, price], i) => ({
-    timestamp: new Date(ts).toISOString(),
-    price,
-    marketCap: data.market_caps[i]?.[1],
-    volume: data.total_volumes[i]?.[1],
-  }));
+    return data.prices.map(([ts, price], i) => ({
+      timestamp: new Date(ts).toISOString(),
+      price,
+      marketCap: data.market_caps[i]?.[1],
+      volume: data.total_volumes[i]?.[1],
+    }));
+  });
 }
 
 async function fetchFromDefiLlama(
@@ -318,26 +320,28 @@ async function fetchFromDefiLlama(
 
   const url = `https://coins.llama.fi/chart/${token}?start=${start}&span=${span}&period=${resolution}`;
 
-  const res = await resilientFetch(url, undefined, {
-    label: "defillama",
-    retry: { baseDelayMs: 1000 },
+  return ttlCache(`defillama:history:${token}:${days}:${resolution}`, CG_TTL, async () => {
+    const res = await resilientFetch(url, undefined, {
+      label: "defillama",
+      retry: { baseDelayMs: 1000 },
+    });
+
+    if (!res.ok) {
+      throw new Error(`DefiLlama returned ${res.status} for token "${token}"`);
+    }
+
+    const data = (await res.json()) as {
+      coins: Record<string, { prices: Array<{ timestamp: number; price: number }> }>;
+    };
+
+    const coinData = data.coins[token];
+    if (!coinData) {
+      throw new Error(`No price data found for token "${token}"`);
+    }
+
+    return coinData.prices.map((entry) => ({
+      timestamp: new Date(entry.timestamp * 1000).toISOString(),
+      price: entry.price,
+    }));
   });
-
-  if (!res.ok) {
-    throw new Error(`DefiLlama returned ${res.status} for token "${token}"`);
-  }
-
-  const data = (await res.json()) as {
-    coins: Record<string, { prices: Array<{ timestamp: number; price: number }> }>;
-  };
-
-  const coinData = data.coins[token];
-  if (!coinData) {
-    throw new Error(`No price data found for token "${token}"`);
-  }
-
-  return coinData.prices.map((entry) => ({
-    timestamp: new Date(entry.timestamp * 1000).toISOString(),
-    price: entry.price,
-  }));
 }

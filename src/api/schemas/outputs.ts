@@ -233,8 +233,8 @@ export const protocolTvlResultSchema = z.object({
   tvlChange7d: z.number().optional().describe("TVL change over 7 days (%)"),
   tvlChange30d: z.number().optional().describe("TVL change over 30 days (%)"),
   chainTvls: z.record(z.number()).describe("TVL broken down by chain"),
-  category: z.string().describe("Protocol category"),
-  url: z.string().describe("Protocol website URL"),
+  category: z.string().nullable().describe("Protocol category"),
+  url: z.string().nullable().describe("Protocol website URL"),
 });
 
 export const topProtocolEntrySchema = z.object({
@@ -435,7 +435,7 @@ export const contractSecurityResultSchema = z.object({
   isProxy: z.boolean().describe("Whether the contract is a proxy"),
   ownerAddress: z.string().nullable().describe("Contract owner address, if available"),
   canMint: z.boolean().describe("Whether the contract can mint new tokens"),
-  canPause: z.boolean().describe("Whether the owner can pause transfers"),
+  canChangeBalance: z.boolean().describe("Whether the owner can change token balances"),
   canBlacklist: z.boolean().describe("Whether addresses can be blacklisted"),
   isHoneypot: z.boolean().describe("Whether the contract is flagged as a honeypot"),
   maliciousFlags: z.array(z.string()).describe("List of detected malicious flags"),

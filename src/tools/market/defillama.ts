@@ -1,18 +1,17 @@
-import type { z } from "zod";
 import type {
-  cexFundFlowEntrySchema,
-  chainTvlEntrySchema,
-  dexVolumeResultSchema,
-  exchangeRankingEntrySchema,
-  gainersLosersResultSchema,
-  globalStatsResultSchema,
-  protocolTvlResultSchema,
-  stablecoinEntrySchema,
-  tokenPriceResultSchema,
-  topProtocolEntrySchema,
-} from "../../api/schemas/outputs.js";
+  CexFundFlowEntry,
+  ChainTvlEntry,
+  DexVolumeResult,
+  ExchangeRankingEntry,
+  GainersLosersResult,
+  GlobalStatsResult,
+  ProtocolTvlResult,
+  StablecoinEntry,
+  TokenPriceResult,
+  TopProtocolEntry,
+} from "../../api/types.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
-import { ttlCache } from "./cache.js";
+import { ttlCache } from "../shared/cache.js";
 
 const TTL_PROTOCOL = 300_000;
 const TTL_PRICE = 60_000;
@@ -20,20 +19,10 @@ const TTL_FEED = 60_000;
 
 // ── Types ────────────────────────────────────────────────────────
 
-export type ProtocolTvlResult = z.infer<typeof protocolTvlResultSchema>;
-export type TopProtocolEntry = z.infer<typeof topProtocolEntrySchema>;
-export type ChainTvlEntry = z.infer<typeof chainTvlEntrySchema>;
-export type TokenPriceResult = z.infer<typeof tokenPriceResultSchema>;
 // GainerLoserEntry is an element of the arrays inside GainersLosersResult
-export type GainersLosersResult = z.infer<typeof gainersLosersResultSchema>;
 export type GainerLoserEntry = GainersLosersResult["gainers"][number];
 // DexProtocolEntry is an element of DexVolumeResult.protocols
-export type DexVolumeResult = z.infer<typeof dexVolumeResultSchema>;
 export type DexProtocolEntry = DexVolumeResult["protocols"][number];
-export type StablecoinEntry = z.infer<typeof stablecoinEntrySchema>;
-export type GlobalStatsResult = z.infer<typeof globalStatsResultSchema>;
-export type CexFundFlowEntry = z.infer<typeof cexFundFlowEntrySchema>;
-export type ExchangeRankingEntry = z.infer<typeof exchangeRankingEntrySchema>;
 
 // ── Handlers ─────────────────────────────────────────────────────
 
@@ -42,9 +31,14 @@ export async function getProtocolTvl(input: {
 }): Promise<ProtocolTvlResult> {
   const { protocol } = input;
   return ttlCache(`defillama:protocol:${protocol}`, TTL_PROTOCOL, async () => {
-    const response = await resilientFetch(`https://api.llama.fi/protocol/${protocol}`, undefined, {
-      label: "defillama-protocol",
-    });
+    const response = await resilientFetch(
+      `https://api.llama.fi/protocol/${encodeURIComponent(protocol)}`,
+      undefined,
+      { label: "defillama-protocol" }
+    );
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     const data = (await response.json()) as {
       name: string;
       tvl: number;
@@ -52,8 +46,8 @@ export async function getProtocolTvl(input: {
       change_7d?: number;
       change_1m?: number;
       chainTvls: Record<string, number>;
-      category: string;
-      url: string;
+      category?: string | null;
+      url?: string | null;
     };
 
     return {
@@ -63,8 +57,8 @@ export async function getProtocolTvl(input: {
       tvlChange7d: data.change_7d,
       tvlChange30d: data.change_1m,
       chainTvls: data.chainTvls,
-      category: data.category,
-      url: data.url,
+      category: data.category ?? null,
+      url: data.url ?? null,
     };
   });
 }
@@ -75,11 +69,13 @@ export async function getTopProtocols(input: {
   limit?: number;
 }): Promise<TopProtocolEntry[]> {
   const { chain, category, limit = 20 } = input;
-  const cacheKey = `defillama:protocols:${chain ?? ""}:${category ?? ""}`;
-  const rawData = await ttlCache(cacheKey, TTL_PROTOCOL, async () => {
+  const rawData = await ttlCache("defillama:protocols", TTL_PROTOCOL, async () => {
     const response = await resilientFetch("https://api.llama.fi/protocols", undefined, {
       label: "defillama-protocols",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return response.json() as Promise<
       Array<{
         name: string;
@@ -118,10 +114,13 @@ export async function getChainTvl(input: { chain: string }): Promise<ChainTvlEnt
   const { chain } = input;
   return ttlCache(`defillama:chain-tvl:${chain}`, TTL_PROTOCOL, async () => {
     const response = await resilientFetch(
-      `https://api.llama.fi/v2/historicalChainTvl/${chain}`,
+      `https://api.llama.fi/v2/historicalChainTvl/${encodeURIComponent(chain)}`,
       undefined,
       { label: "defillama-chain-tvl" }
     );
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     const data = (await response.json()) as Array<{ date: number; tvl: number }>;
 
     return data.map((entry) => ({
@@ -143,6 +142,9 @@ export async function getTokenPrice(input: {
 
   return ttlCache(`defillama:prices:${joined}:${searchWidth ?? ""}`, TTL_PRICE, async () => {
     const response = await resilientFetch(url, undefined, { label: "defillama-prices" });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return response.json() as Promise<TokenPriceResult>;
   });
 }
@@ -154,10 +156,13 @@ export async function getGainersLosers(input: {
   const { period = "24h", limit = 10 } = input;
   const data = await ttlCache(`defillama:gainers-losers:${period}`, TTL_PRICE, async () => {
     const response = await resilientFetch(
-      `https://coins.llama.fi/percentage/${period}`,
+      `https://coins.llama.fi/percentage/${encodeURIComponent(period)}`,
       undefined,
       { label: "defillama-percentage" }
     );
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as { coins: Record<string, number> };
   });
 
@@ -182,34 +187,44 @@ export async function getDexVolume(input: {
 }): Promise<DexVolumeResult> {
   const { chain, protocol } = input;
   const url = chain
-    ? `https://api.llama.fi/overview/dexs/${chain}`
+    ? `https://api.llama.fi/overview/dexs/${encodeURIComponent(chain)}`
     : "https://api.llama.fi/overview/dexs";
 
-  return ttlCache(`defillama:dex-volume:${chain ?? "all"}`, TTL_PROTOCOL, async () => {
-    const response = await resilientFetch(url, undefined, { label: "defillama-dexs" });
-    const data = (await response.json()) as {
-      total24h: number;
-      total7d?: number;
-      protocols: Array<{ name: string; total24h: number; change_1d: number }>;
-    };
+  const cached = await ttlCache(
+    `defillama:dex-volume:${chain ?? "all"}`,
+    TTL_PROTOCOL,
+    async () => {
+      const response = await resilientFetch(url, undefined, { label: "defillama-dexs" });
+      if (!response.ok) {
+        throw new Error(`DefiLlama API returned ${response.status}`);
+      }
+      const data = (await response.json()) as {
+        total24h: number;
+        total7d?: number;
+        protocols: Array<{ name: string; total24h: number; change_1d: number }>;
+      };
 
-    let protocols = (data.protocols ?? []).map((p) => ({
-      name: p.name,
-      volume24h: p.total24h,
-      change1d: p.change_1d,
-    }));
-
-    if (protocol) {
-      const lowerProtocol = protocol.toLowerCase();
-      protocols = protocols.filter((p) => p.name.toLowerCase().includes(lowerProtocol));
+      return {
+        totalVolume24h: data.total24h,
+        totalVolume7d: data.total7d ?? null,
+        protocols: (data.protocols ?? []).map((p) => ({
+          name: p.name,
+          volume24h: p.total24h,
+          change1d: p.change_1d,
+        })),
+      };
     }
+  );
 
+  if (protocol) {
+    const lowerProtocol = protocol.toLowerCase();
     return {
-      totalVolume24h: data.total24h,
-      totalVolume7d: data.total7d ?? null,
-      protocols,
+      ...cached,
+      protocols: cached.protocols.filter((p) => p.name.toLowerCase().includes(lowerProtocol)),
     };
-  });
+  }
+
+  return cached;
 }
 
 export async function getStablecoinStats(input: {
@@ -222,6 +237,9 @@ export async function getStablecoinStats(input: {
       undefined,
       { label: "defillama-stablecoins" }
     );
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     const data = (await response.json()) as {
       peggedAssets: Array<{
         name: string;
@@ -258,6 +276,9 @@ export async function getGlobalStats(_input: Record<string, never>): Promise<Glo
     const response = await resilientFetch("https://fe-cache.llama.fi/cg_market_data", undefined, {
       label: "defillama-global",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     const raw = (await response.json()) as {
       data: {
         total_market_cap: { usd: number };
@@ -293,6 +314,9 @@ export async function getCexFundFlows(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/flows", undefined, {
       label: "defillama-flows",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as Array<{
       symbol: string;
       deposit_count: number;
@@ -322,6 +346,9 @@ export async function getExchangeRankings(input: {
     const response = await resilientFetch("https://fe-cache.llama.fi/exchanges", undefined, {
       label: "defillama-exchanges",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as {
       data: Array<{
         name: string;

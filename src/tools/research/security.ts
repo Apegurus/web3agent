@@ -1,12 +1,12 @@
-import type { z } from "zod";
 import type {
-  contractSecurityResultSchema,
-  tokenDueDiligenceResultSchema,
-  tokenHolderEntrySchema,
-} from "../../api/schemas/outputs.js";
+  ContractSecurityResult,
+  TokenDueDiligenceResult,
+  TokenHolderEntry,
+} from "../../api/types.js";
 import { resolveToken } from "../../tokens/resolver.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
-import { ttlCache } from "../market/cache.js";
+import { ttlCache } from "../shared/cache.js";
+import { resolveToolChainId } from "../shared/chain-context.js";
 
 const GOPLUS_TTL = 60_000;
 const GOPLUS_FETCH_CONFIG = {
@@ -18,10 +18,6 @@ const GOPLUS_FETCH_CONFIG = {
 
 function parseFlag(value: string | undefined): boolean {
   return value === "1";
-}
-
-function resolveChainId(chainId?: number): number {
-  return chainId ?? (process.env.CHAIN_ID ? Number(process.env.CHAIN_ID) : 1);
 }
 
 function goplusHeaders(): Record<string, string> {
@@ -46,13 +42,11 @@ interface GoPlusContractData {
   external_call?: string;
 }
 
-export type ContractSecurityResult = z.infer<typeof contractSecurityResultSchema>;
-
 export async function getContractSecurity(input: {
   address: string;
   chainId?: number;
 }): Promise<ContractSecurityResult> {
-  const chainId = resolveChainId(input.chainId);
+  const chainId = resolveToolChainId(input.chainId);
   const url = `https://api.gopluslabs.io/api/v1/contract_security/${chainId}?contract_addresses=${input.address}`;
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
@@ -74,7 +68,7 @@ export async function getContractSecurity(input: {
   const ownerAddress = contractData.owner_address ?? null;
   const canMint =
     parseFlag(contractData.is_mintable) || parseFlag(contractData.can_take_back_ownership);
-  const canPause = parseFlag(contractData.owner_change_balance);
+  const canChangeBalance = parseFlag(contractData.owner_change_balance);
   const canBlacklist = parseFlag(contractData.is_blacklisted);
   const isHoneypot = parseFlag(contractData.is_honeypot);
 
@@ -89,7 +83,7 @@ export async function getContractSecurity(input: {
     isProxy,
     ownerAddress,
     canMint,
-    canPause,
+    canChangeBalance,
     canBlacklist,
     isHoneypot,
     maliciousFlags,
@@ -126,13 +120,11 @@ interface DexScreenerPair {
   fdv?: number;
 }
 
-export type TokenDueDiligenceResult = z.infer<typeof tokenDueDiligenceResultSchema>;
-
 export async function getTokenDueDiligence(input: {
   token: string;
   chainId?: number;
 }): Promise<TokenDueDiligenceResult> {
-  const chainId = resolveChainId(input.chainId);
+  const chainId = resolveToolChainId(input.chainId);
 
   // Step 1: Resolve token symbol to address if needed
   let address: string;
@@ -257,14 +249,12 @@ interface GoPlusHolder {
   tag?: string;
 }
 
-export type TokenHolder = z.infer<typeof tokenHolderEntrySchema>;
-
 export async function getTokenHolders(input: {
   token: string;
   chainId?: number;
   limit?: number;
-}): Promise<TokenHolder[]> {
-  const chainId = resolveChainId(input.chainId);
+}): Promise<TokenHolderEntry[]> {
+  const chainId = resolveToolChainId(input.chainId);
   const limit = input.limit ?? 10;
   const url = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${input.token}`;
 

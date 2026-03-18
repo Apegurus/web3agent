@@ -1,28 +1,23 @@
-import type { z } from "zod";
 import type {
-  airdropEntrySchema,
-  fundRaiseEntrySchema,
-  governanceProposalEntrySchema,
-  hackEntrySchema,
-  newsEntrySchema,
-  tokenUnlockEntrySchema,
-  whaleTransferEntrySchema,
-} from "../../api/schemas/outputs.js";
+  AirdropEntry,
+  FundRaiseEntry,
+  GovernanceProposalEntry,
+  HackEntry,
+  NewsEntry,
+  TokenUnlockEntry,
+  WhaleTransferEntry,
+} from "../../api/types.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
-import { ttlCache } from "../market/cache.js";
+import { ttlCache } from "../shared/cache.js";
 
 const TTL_SHORT = 60_000;
 const TTL_LONG = 300_000;
 
 // ── Types ─────────────────────────────────────────────────────────
 
-export type TokenUnlockEntry = z.infer<typeof tokenUnlockEntrySchema>;
-export type HackHistoryEntry = z.infer<typeof hackEntrySchema>;
-export type FundRaiseEntry = z.infer<typeof fundRaiseEntrySchema>;
-export type WhaleTransferEntry = z.infer<typeof whaleTransferEntrySchema>;
-export type GovernanceEntry = z.infer<typeof governanceProposalEntrySchema>;
-export type NewsEntry = z.infer<typeof newsEntrySchema>;
-export type AirdropEntry = z.infer<typeof airdropEntrySchema>;
+// Re-export with local aliases for backward compatibility within this module
+type HackHistoryEntry = HackEntry;
+type GovernanceEntry = GovernanceProposalEntry;
 
 // ── Handlers ──────────────────────────────────────────────────────
 
@@ -34,6 +29,9 @@ export async function getTokenUnlocks(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/unlocks", undefined, {
       label: "defillama-unlocks",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as Array<{
       name: string;
       symbol: string;
@@ -63,6 +61,9 @@ export async function getHackHistory(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/hacks", undefined, {
       label: "defillama-hacks",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return response.json() as Promise<
       Array<{
         name: string;
@@ -98,6 +99,9 @@ export async function getFundRaises(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/raises", undefined, {
       label: "defillama-raises",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as Array<{
       name: string;
       timestamp: number;
@@ -127,6 +131,9 @@ export async function getWhaleTransfers(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/transfers", undefined, {
       label: "defillama-transfers",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return response.json() as Promise<
       Array<{
         transaction_hash: string;
@@ -168,6 +175,9 @@ export async function getGovernance(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/governance", undefined, {
       label: "defillama-governance",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return response.json() as Promise<
       Array<{
         org_name: string;
@@ -217,6 +227,9 @@ export async function getNews(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/news", undefined, {
       label: "defillama-news",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as Array<{
       title: string;
       content: string;
@@ -245,6 +258,9 @@ export async function getAirdrops(input: {
     const response = await resilientFetch("https://feed-api.llama.fi/airdrops", undefined, {
       label: "defillama-airdrops",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as Array<{
       name: string;
       symbol: string;

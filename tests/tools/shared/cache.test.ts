@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearCache, ttlCache } from "../../../src/tools/market/cache.js";
+import { clearCache, ttlCache } from "../../../src/tools/shared/cache.js";
 
 describe("ttlCache", () => {
   beforeEach(() => {

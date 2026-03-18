@@ -5,7 +5,7 @@ vi.mock("../../../src/utils/resilient-fetch.js", () => ({
   resilientFetch: mockResilientFetch,
 }));
 
-vi.mock("../../../src/tools/market/cache.js", () => ({
+vi.mock("../../../src/tools/shared/cache.js", () => ({
   ttlCache: vi.fn((_key: string, _ttl: number, fetcher: () => Promise<unknown>) => fetcher()),
 }));
 
@@ -134,5 +134,13 @@ describe("getSentiment", () => {
     const result = await getSentiment({});
 
     expect(result.current.date).toBe(new Date(1710547200 * 1000).toISOString());
+  });
+
+  it("throws when API returns empty data array", async () => {
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: [] }), { status: 200 })
+    );
+
+    await expect(getSentiment({})).rejects.toThrow("Fear & Greed Index returned no data");
   });
 });

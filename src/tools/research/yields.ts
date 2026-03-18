@@ -1,17 +1,16 @@
-import type { z } from "zod";
-import type {
-  protocolInfoResultSchema,
-  yieldComparisonEntrySchema,
-  yieldPoolEntrySchema,
-} from "../../api/schemas/outputs.js";
+import type { ProtocolInfoResult, YieldComparisonEntry, YieldPoolEntry } from "../../api/types.js";
 import { getChainById } from "../../chains/registry.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
-import { ttlCache } from "../market/cache.js";
 import { coingeckoHeaders, coingeckoUrl } from "../market/coingecko.js";
+import { ttlCache } from "../shared/cache.js";
 
 const TTL = 300_000;
 
 // ── Types ────────────────────────────────────────────────────────
+
+// Local aliases for use as function return types
+type YieldOpportunity = YieldPoolEntry;
+type CompareYieldEntry = YieldComparisonEntry;
 
 interface RawPool {
   pool: string;
@@ -26,10 +25,6 @@ interface RawPool {
   rewardTokens: string[];
 }
 
-export type YieldOpportunity = z.infer<typeof yieldPoolEntrySchema>;
-export type CompareYieldEntry = z.infer<typeof yieldComparisonEntrySchema>;
-export type ProtocolInfoResult = z.infer<typeof protocolInfoResultSchema>;
-
 // ── Shared fetcher ───────────────────────────────────────────────
 
 async function fetchPools(): Promise<RawPool[]> {
@@ -37,6 +32,9 @@ async function fetchPools(): Promise<RawPool[]> {
     const response = await resilientFetch("https://yields.llama.fi/pools", undefined, {
       label: "defillama-yields",
     });
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     const data = (await response.json()) as { data: RawPool[] };
     return data.data;
   });
@@ -130,9 +128,14 @@ export async function getProtocolInfo(input: {
   const { protocol } = input;
 
   const rawData = await ttlCache(`yields:protocol-info:${protocol}`, TTL, async () => {
-    const response = await resilientFetch(`https://api.llama.fi/protocol/${protocol}`, undefined, {
-      label: "defillama-protocol-info",
-    });
+    const response = await resilientFetch(
+      `https://api.llama.fi/protocol/${encodeURIComponent(protocol)}`,
+      undefined,
+      { label: "defillama-protocol-info" }
+    );
+    if (!response.ok) {
+      throw new Error(`DefiLlama API returned ${response.status}`);
+    }
     return (await response.json()) as {
       name: string;
       description?: string;

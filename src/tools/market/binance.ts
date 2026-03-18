@@ -20,7 +20,7 @@ function checkGeoRestriction(res: Response): void {
 export type BinanceTicker = z.infer<typeof tickerResultSchema>;
 
 export async function getTicker(input: { symbol: string }): Promise<BinanceTicker> {
-  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${input.symbol}`;
+  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${encodeURIComponent(input.symbol)}`;
   const res = await resilientFetch(url, undefined, { label: "binance-ticker" });
   checkGeoRestriction(res);
   if (!res.ok) {
@@ -66,7 +66,7 @@ export async function getKlines(input: {
   limit?: number;
 }): Promise<BinanceKline[]> {
   const limit = input.limit ?? 100;
-  const url = `https://api.binance.com/api/v3/klines?symbol=${input.symbol}&interval=${input.interval}&limit=${limit}`;
+  const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(input.symbol)}&interval=${encodeURIComponent(input.interval)}&limit=${limit}`;
   const res = await resilientFetch(url, undefined, { label: "binance-klines" });
   checkGeoRestriction(res);
   if (!res.ok) {
@@ -100,7 +100,7 @@ export async function getOrderBook(input: {
   limit?: string;
 }): Promise<BinanceOrderBook> {
   const limit = input.limit ?? "20";
-  const url = `https://api.binance.com/api/v3/depth?symbol=${input.symbol}&limit=${limit}`;
+  const url = `https://api.binance.com/api/v3/depth?symbol=${encodeURIComponent(input.symbol)}&limit=${limit}`;
   const res = await resilientFetch(url, undefined, { label: "binance-orderbook" });
   checkGeoRestriction(res);
   if (!res.ok) {
@@ -130,7 +130,7 @@ export async function getFundingRates(input: {
   limit?: number;
 }): Promise<BinanceFundingRate[]> {
   const limit = input.limit ?? 10;
-  const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${input.symbol}&limit=${limit}`;
+  const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${encodeURIComponent(input.symbol)}&limit=${limit}`;
   const res = await resilientFetch(url, undefined, { label: "binance-funding" });
   checkGeoRestriction(res);
   if (!res.ok) {

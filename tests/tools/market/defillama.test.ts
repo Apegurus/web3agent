@@ -16,7 +16,7 @@ vi.mock("../../../src/utils/resilient-fetch.js", () => ({
   resilientFetch: vi.fn(),
 }));
 
-vi.mock("../../../src/tools/market/cache.js", () => ({
+vi.mock("../../../src/tools/shared/cache.js", () => ({
   ttlCache: vi.fn((_key: string, _ttl: number, fetcher: () => Promise<unknown>) => fetcher()),
 }));
 
@@ -24,8 +24,10 @@ import { resilientFetch } from "../../../src/utils/resilient-fetch.js";
 
 const mockFetch = vi.mocked(resilientFetch);
 
-function mockResponse(data: unknown): Response {
+function mockResponse(data: unknown, ok = true): Response {
   return {
+    ok,
+    status: ok ? 200 : 500,
     json: () => Promise.resolve(data),
   } as unknown as Response;
 }
