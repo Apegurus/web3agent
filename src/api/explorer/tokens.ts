@@ -93,6 +93,7 @@ export function normalizeBlockscoutNfts(
   return {
     address,
     nfts: raw.items.map((n) => {
+      // Blockscout NFT endpoints return ERC-721 or ERC-1155; unknown types caught by output schema
       const tokenType = n.token.type as "ERC-721" | "ERC-1155";
       return {
         contractAddress: n.token.address,

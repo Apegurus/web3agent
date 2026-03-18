@@ -95,6 +95,7 @@ export const chainIdOptionalSchema = z
 
 export const chainIdRequiredSchema = z
   .number()
+  .int()
   .describe("Chain ID for the target network (required — no default for indexed data)");
 
 export const tokenPairSchema = z.object({

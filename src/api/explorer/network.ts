@@ -59,8 +59,9 @@ export function normalizeEtherscanHistoricalPrice(
 export function normalizeEtherscanNativeSupply(raw: EtherscanSupply): ExplorerNativeSupply {
   return {
     totalSupply: raw.EthSupply,
-    stakedAmount: raw.Eth2Staking || undefined,
-    burnedFees: raw.BurntFees || undefined,
-    withdrawnTotal: raw.WithdrawnTotal || undefined,
+    // Etherscan returns "" for absent data — treat empty strings as undefined, but preserve "0"
+    stakedAmount: raw.Eth2Staking !== "" ? raw.Eth2Staking : undefined,
+    burnedFees: raw.BurntFees !== "" ? raw.BurntFees : undefined,
+    withdrawnTotal: raw.WithdrawnTotal !== "" ? raw.WithdrawnTotal : undefined,
   };
 }

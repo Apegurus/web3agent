@@ -73,7 +73,7 @@ export function normalizeEtherscanContractAbi(
   try {
     abi = JSON.parse(abiJson) as Record<string, unknown>[];
   } catch (e: unknown) {
-    throw new Error("Contract ABI not available (source not verified or invalid response)");
+    throw new Error(`Contract ABI not available: ${e instanceof Error ? e.message : String(e)}`);
   }
   if (!Array.isArray(abi)) {
     throw new Error("Contract ABI not available (source not verified or invalid response)");

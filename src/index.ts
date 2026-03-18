@@ -217,6 +217,7 @@ export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.
 export {
   addressSchema,
   chainIdOptionalSchema,
+  chainIdRequiredSchema,
   hexSchema,
   operationActionResultSchema,
   operationActionResultsMapSchema,
