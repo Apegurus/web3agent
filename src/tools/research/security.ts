@@ -20,6 +20,7 @@ function parseFlag(value: string | undefined): boolean {
   return value === "1";
 }
 
+/** GoPlus API key for higher rate limits. Pass the raw key — no "Bearer " prefix needed. */
 function goplusHeaders(): Record<string, string> {
   const key = process.env.GOPLUS_API_KEY;
   return key ? { Authorization: key } : {};
@@ -47,7 +48,7 @@ export async function getContractSecurity(input: {
   chainId?: number;
 }): Promise<ContractSecurityResult> {
   const chainId = resolveToolChainId(input.chainId);
-  const url = `https://api.gopluslabs.io/api/v1/contract_security/${chainId}?contract_addresses=${input.address}`;
+  const url = `https://api.gopluslabs.io/api/v1/contract_security/${chainId}?contract_addresses=${encodeURIComponent(input.address)}`;
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
     const res = await resilientFetch(url, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG);
@@ -142,8 +143,8 @@ export async function getTokenDueDiligence(input: {
   }
 
   // Step 2: Fetch from all sources in parallel
-  const goplusUrl = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${address}`;
-  const dexscreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
+  const goplusUrl = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${encodeURIComponent(address)}`;
+  const dexscreenerUrl = `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(address)}`;
 
   const [goplusSettled, dexscreenerSettled] = await Promise.allSettled([
     resilientFetch(goplusUrl, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG).then((res) => {
@@ -263,7 +264,7 @@ export async function getTokenHolders(input: {
 }): Promise<TokenHolderEntry[]> {
   const chainId = resolveToolChainId(input.chainId);
   const limit = input.limit ?? 10;
-  const url = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${input.token}`;
+  const url = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${encodeURIComponent(input.token)}`;
 
   const data = await ttlCache(url, GOPLUS_TTL, async () => {
     const res = await resilientFetch(url, { headers: goplusHeaders() }, GOPLUS_FETCH_CONFIG);

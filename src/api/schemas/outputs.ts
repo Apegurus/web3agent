@@ -291,7 +291,11 @@ export const stablecoinEntrySchema = z.object({
   symbol: z.string().describe("Stablecoin symbol"),
   totalCirculating: z.number().describe("Total circulating supply in USD"),
   pegDeviation: z.number().describe("Current deviation from peg (%)"),
-  dominance: z.number().describe("Share of total stablecoin market (%)"),
+  dominance: z
+    .number()
+    .describe(
+      "Share of total stablecoin market (%). When filtered by chain, represents share within that chain only."
+    ),
 });
 
 export const globalStatsResultSchema = z.object({

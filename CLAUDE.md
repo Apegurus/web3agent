@@ -79,6 +79,7 @@ Never duplicate utility functions. Canonical locations:
 | `executeWrite` | `src/utils/write.ts` |
 | Chain registry | `src/chains/registry.ts` |
 | Wallet state | `src/wallet/persistence.ts` |
+| `ttlCache`, `clearCache` | `src/tools/shared/cache.ts` |
 
 ## Testing
 

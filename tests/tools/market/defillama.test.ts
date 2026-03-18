@@ -90,6 +90,25 @@ describe("getProtocolTvl", () => {
   });
 });
 
+describe("DefiLlama error handling", () => {
+  it("throws on non-ok response from getProtocolTvl", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({}, false));
+    await expect(getProtocolTvl({ protocol: "aave" })).rejects.toThrow(
+      "DefiLlama API returned 500"
+    );
+  });
+
+  it("throws on non-ok response from getTopProtocols", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({}, false));
+    await expect(getTopProtocols({})).rejects.toThrow("DefiLlama API returned 500");
+  });
+
+  it("throws on non-ok response from getGlobalStats", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({}, false));
+    await expect(getGlobalStats({})).rejects.toThrow("DefiLlama API returned 500");
+  });
+});
+
 describe("getTopProtocols", () => {
   const rawProtocols = [
     {
