@@ -40,6 +40,7 @@ This package serves **two audiences** and every feature must work for both:
 | Chains | `src/api/chains.ts` | Direct + runtime | `getChain()`, `listSupportedChains()` |
 | Tokens | `src/api/tokens.ts` | Direct | `resolveToken()`, `listChainTokens()` |
 | Simulation | `src/api/simulation.ts` | Direct | `simulateTransaction()` |
+| Explorer | `src/api/explorer.ts` | Runtime → tool invocation | `getAddressInfo()`, `getTransactionHistory()` |
 
 **When adding or removing tools, you must update both layers:**
 - Add/remove the MCP tool handler in `src/tools/<group>/index.ts`

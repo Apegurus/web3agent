@@ -56,6 +56,44 @@ import type {
 } from "./schemas.js";
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
 import {
+  explorerAddressInfoSchema,
+  explorerBlockByTimestampSchema,
+  explorerBlockInfoSchema,
+  explorerBlockRewardUncleSchema,
+  explorerBlockRewardsSchema,
+  explorerContractAbiSchema,
+  explorerContractCodeSchema,
+  explorerContractCreatorSchema,
+  explorerContractSourceSchema,
+  explorerDailyStatSchema,
+  explorerDailyStatsSchema,
+  explorerEventLogSchema,
+  explorerEventLogsSchema,
+  explorerHistoricalBalanceSchema,
+  explorerHistoricalPriceEntrySchema,
+  explorerHistoricalPriceSchema,
+  explorerInternalTxSchema,
+  explorerInternalTxsSchema,
+  explorerNativePriceSchema,
+  explorerNativeSupplySchema,
+  explorerNftInventorySchema,
+  explorerNftItemSchema,
+  explorerTokenHolderSchema,
+  explorerTokenHoldersSchema,
+  explorerTokenHoldingSchema,
+  explorerTokenInfoSchema,
+  explorerTokenSupplySchema,
+  explorerTokenTransferSchema,
+  explorerTokenTransfersSchema,
+  explorerTokensByAddressSchema,
+  explorerTransactionSchema,
+  explorerTxDetailsSchema,
+  explorerTxExecutionStatusSchema,
+  explorerTxHistorySchema,
+  explorerTxReceiptSchema,
+} from "./schemas/explorer-outputs.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
   approvalStepSchema,
   balanceChangeSchema,
   bridgeIntentSchema,
@@ -310,6 +348,42 @@ export interface ListOrdersResult {
 }
 
 export type RootResolveTokenResult = ResolvedToken;
+
+export type ExplorerAddressInfo = z.infer<typeof explorerAddressInfoSchema>;
+export type ExplorerTokenHolding = z.infer<typeof explorerTokenHoldingSchema>;
+export type ExplorerTokensByAddress = z.infer<typeof explorerTokensByAddressSchema>;
+export type ExplorerTransaction = z.infer<typeof explorerTransactionSchema>;
+export type ExplorerTxHistory = z.infer<typeof explorerTxHistorySchema>;
+export type ExplorerTxDetails = z.infer<typeof explorerTxDetailsSchema>;
+export type ExplorerTxReceipt = z.infer<typeof explorerTxReceiptSchema>;
+export type ExplorerTokenTransfer = z.infer<typeof explorerTokenTransferSchema>;
+export type ExplorerTokenTransfers = z.infer<typeof explorerTokenTransfersSchema>;
+export type ExplorerNftItem = z.infer<typeof explorerNftItemSchema>;
+export type ExplorerNftInventory = z.infer<typeof explorerNftInventorySchema>;
+export type ExplorerContractAbi = z.infer<typeof explorerContractAbiSchema>;
+export type ExplorerContractSource = z.infer<typeof explorerContractSourceSchema>;
+export type ExplorerBlockInfo = z.infer<typeof explorerBlockInfoSchema>;
+export type ExplorerHistoricalBalance = z.infer<typeof explorerHistoricalBalanceSchema>;
+export type ExplorerInternalTx = z.infer<typeof explorerInternalTxSchema>;
+export type ExplorerInternalTxs = z.infer<typeof explorerInternalTxsSchema>;
+export type ExplorerTxExecutionStatus = z.infer<typeof explorerTxExecutionStatusSchema>;
+export type ExplorerTokenInfo = z.infer<typeof explorerTokenInfoSchema>;
+export type ExplorerTokenSupply = z.infer<typeof explorerTokenSupplySchema>;
+export type ExplorerTokenHolder = z.infer<typeof explorerTokenHolderSchema>;
+export type ExplorerTokenHolders = z.infer<typeof explorerTokenHoldersSchema>;
+export type ExplorerBlockByTimestamp = z.infer<typeof explorerBlockByTimestampSchema>;
+export type ExplorerBlockRewardUncle = z.infer<typeof explorerBlockRewardUncleSchema>;
+export type ExplorerBlockRewards = z.infer<typeof explorerBlockRewardsSchema>;
+export type ExplorerContractCreator = z.infer<typeof explorerContractCreatorSchema>;
+export type ExplorerContractCode = z.infer<typeof explorerContractCodeSchema>;
+export type ExplorerEventLog = z.infer<typeof explorerEventLogSchema>;
+export type ExplorerEventLogs = z.infer<typeof explorerEventLogsSchema>;
+export type ExplorerDailyStat = z.infer<typeof explorerDailyStatSchema>;
+export type ExplorerDailyStats = z.infer<typeof explorerDailyStatsSchema>;
+export type ExplorerNativePrice = z.infer<typeof explorerNativePriceSchema>;
+export type ExplorerHistoricalPriceEntry = z.infer<typeof explorerHistoricalPriceEntrySchema>;
+export type ExplorerHistoricalPrice = z.infer<typeof explorerHistoricalPriceSchema>;
+export type ExplorerNativeSupply = z.infer<typeof explorerNativeSupplySchema>;
 
 export type {
   CallToolResult,

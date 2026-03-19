@@ -1,4 +1,7 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
+import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
+import { ExplorerRouter } from "../api/explorer/router.js";
 import { ValidationError, parseEnv, withConfig } from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
@@ -22,6 +25,7 @@ import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/ac
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
+import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
@@ -132,6 +136,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
 
 function summarizeBackends(health: HealthStatus): RuntimeHealth["backends"] {
   return {
+    explorer: { ...health.explorer },
     blockscout: { ...health.blockscout },
     etherscan: { ...health.etherscan },
     evm: { ...health.evm },
@@ -158,6 +163,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly erc8004Tools: ToolDefinition[];
   private readonly evmTools: ToolDefinition[];
   private readonly policyTools: ToolDefinition[];
+  private readonly explorerDeps: ExplorerDeps;
+  private explorerToolCount = 0;
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -170,9 +177,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
     private readonly blockscoutAdapter: BlockscoutAdapter,
     private readonly etherscanAdapter: EtherscanAdapter,
     goatProvider: GoatProvider,
+    explorerDeps: ExplorerDeps,
     pendingOpsRestored: number
   ) {
     this.goatProvider = goatProvider;
+    this.explorerDeps = explorerDeps;
     this.pendingOpsRestored = pendingOpsRestored;
     this.frameworkTools = [
       ...getWalletToolDefinitions(),
@@ -421,6 +430,29 @@ export class ManagedRuntime implements Web3AgentRuntime {
   }
 
   private refreshHealthStatus(): void {
+    // Unified explorer health (tool count cached from registration)
+    const explorerToolCount = this.explorerToolCount;
+    const bsChainCount = this.explorerDeps.blockscout.getSupportedChainIds().length;
+    const esChainCount = this.explorerDeps.etherscan?.getSupportedChainIds().length ?? 0;
+    const esConfigured = this.explorerDeps.etherscan != null;
+    const bsStatus = bsChainCount > 0 ? "ok" : "degraded";
+    const esStatus = esConfigured ? (esChainCount > 0 ? "ok" : "degraded") : "not_configured";
+    const overallStatus = bsChainCount > 0 || esChainCount > 0 ? "ok" : "unavailable";
+    this.health.explorer = {
+      name: "block-explorer",
+      status: overallStatus,
+      toolCount: explorerToolCount,
+      message: `${explorerToolCount} tools, ${bsChainCount + esChainCount} chains`,
+      backends: {
+        blockscout: { status: bsStatus, chainCount: bsChainCount },
+        etherscan: {
+          status: esStatus,
+          chainCount: esChainCount,
+          message: esConfigured ? undefined : "No API key provided",
+        },
+      },
+    };
+    // Legacy adapter health (kept until adapter removal)
     this.health.blockscout = this.blockscoutAdapter.getHealth();
     this.health.etherscan = this.etherscanAdapter.getHealth();
     this.health.evm = {
@@ -539,6 +571,15 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
 
+    const explorerTools = getExplorerToolDefinitions(this.explorerDeps);
+    this.explorerToolCount = explorerTools.length;
+    for (const tool of explorerTools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "explorer"),
+        handler: (args) => tool.handler(args),
+      });
+    }
+
     for (const tool of this.evmTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "evm"),
@@ -615,11 +656,26 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
   const runtimeGoatProvider = new GoatProvider();
   await runtimeGoatProvider.initialize(config);
 
+  const explorerBlockscout = new ExplorerBlockscoutClient();
+  const explorerEtherscan = config.etherscanApiKey
+    ? new ExplorerEtherscanClient(config.etherscanApiKey, config.etherscanApiUrl)
+    : undefined;
+  const explorerRouter = new ExplorerRouter(
+    explorerBlockscout.getSupportedChainIds(),
+    explorerEtherscan?.getSupportedChainIds() ?? []
+  );
+  const explorerDeps: ExplorerDeps = {
+    router: explorerRouter,
+    blockscout: explorerBlockscout,
+    etherscan: explorerEtherscan,
+  };
+
   const runtime = new ManagedRuntime(
     config,
     blockscoutAdapter,
     etherscanAdapter,
     runtimeGoatProvider,
+    explorerDeps,
     pendingOpsRestored
   );
   runtime.initialize();

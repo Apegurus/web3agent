@@ -1,7 +1,7 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { RiskLevel } from "../policy/types.js";
 import type { RuntimeConfig } from "../types/config.js";
-import type { BackendStatus, HealthStatus } from "../types/health.js";
+import type { BackendStatus, ExplorerHealth, HealthStatus } from "../types/health.js";
 import type { WalletMode } from "../types/wallet.js";
 
 export type ToolSource =
@@ -19,7 +19,8 @@ export type ToolSource =
   | "x402"
   | "acp"
   | "agdp"
-  | "erc8004";
+  | "erc8004"
+  | "explorer";
 
 export type ToolCategory =
   | "wallet"
@@ -69,6 +70,7 @@ export interface RuntimeHealth {
   confirmWrites: boolean;
   toolCount: number;
   backends: {
+    explorer: ExplorerHealth;
     blockscout: BackendStatus;
     etherscan: BackendStatus;
     evm: BackendStatus;
@@ -91,6 +93,7 @@ export function toHealthStatus(health: RuntimeHealth): HealthStatus {
   );
   return {
     core: isDegraded ? "degraded" : "ok",
+    explorer: health.backends.explorer,
     blockscout: health.backends.blockscout,
     etherscan: health.backends.etherscan,
     evm: health.backends.evm,
