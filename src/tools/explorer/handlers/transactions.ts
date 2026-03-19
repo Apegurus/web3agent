@@ -59,9 +59,9 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
               address: input.address,
               sort: "desc",
             };
-            if (input.startBlock) params.startblock = String(input.startBlock);
-            if (input.endBlock) params.endblock = String(input.endBlock);
-            if (input.page) params.page = String(input.page);
+            if (input.startBlock != null) params.startblock = String(input.startBlock);
+            if (input.endBlock != null) params.endblock = String(input.endBlock);
+            if (input.page != null) params.page = String(input.page);
             params.offset = String(input.pageSize ?? ETHERSCAN_DEFAULT_PAGE_SIZE);
             const raw = await eth.call<EtherscanTransaction[]>(
               input.chainId,
@@ -206,10 +206,10 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
             address: input.address,
             sort: "desc",
           };
-          if (input.startBlock) params.startblock = String(input.startBlock);
-          if (input.endBlock) params.endblock = String(input.endBlock);
-          if (input.page) params.page = String(input.page);
-          if (input.pageSize) params.offset = String(input.pageSize);
+          if (input.startBlock != null) params.startblock = String(input.startBlock);
+          if (input.endBlock != null) params.endblock = String(input.endBlock);
+          if (input.page != null) params.page = String(input.page);
+          if (input.pageSize != null) params.offset = String(input.pageSize);
           const raw = await eth.call<EtherscanInternalTx[]>(
             input.chainId,
             "account",

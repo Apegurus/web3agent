@@ -24,10 +24,10 @@ export class EtherscanClient {
     }
 
     // Preserve base path (e.g., Routescan URLs include /v2/.../etherscan)
+    // Guard against double /api if override already includes it
     const parsed = new URL(baseUrl);
-    const apiPath = parsed.pathname.endsWith("/")
-      ? `${parsed.pathname}api`
-      : `${parsed.pathname}/api`;
+    const basePath = parsed.pathname.replace(/\/api\/?$/, "");
+    const apiPath = basePath.endsWith("/") ? `${basePath}api` : `${basePath}/api`;
     const url = new URL(apiPath, parsed.origin);
     url.searchParams.set("module", module);
     url.searchParams.set("action", action);

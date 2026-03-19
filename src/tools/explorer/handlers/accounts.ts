@@ -143,7 +143,7 @@ export function getAccountToolDefinitions(deps: ExplorerDeps): ToolDefinition[] 
       name: "explorer_get_address_funded_by",
       category: "explorer",
       description:
-        "Find the first incoming transaction to an address, revealing who initially funded it.",
+        "Get the earliest transaction for an address — useful for identifying initial funding or activity.",
       inputSchema: zodToJsonSchema(explorerGetAddressFundedBySchema) as Record<string, unknown>,
       handler: createToolHandler(
         explorerGetAddressFundedBySchema,

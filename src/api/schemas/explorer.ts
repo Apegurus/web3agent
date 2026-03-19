@@ -10,13 +10,18 @@ export const explorerAddressSchema = explorerBaseSchema.extend({
 });
 
 export const explorerPaginatedSchema = z.object({
-  page: z.number().optional().describe("Page number (starts at 1)"),
-  pageSize: z.number().optional().describe("Results per page (default varies by endpoint)"),
+  page: z.number().int().min(1).optional().describe("Page number (starts at 1)"),
+  pageSize: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Results per page (default varies by endpoint)"),
 });
 
 export const explorerTimeRangeSchema = z.object({
-  startBlock: z.number().optional().describe("Start block number"),
-  endBlock: z.number().optional().describe("End block number"),
+  startBlock: z.number().int().nonnegative().optional().describe("Start block number"),
+  endBlock: z.number().int().nonnegative().optional().describe("End block number"),
 });
 
 export const explorerTxHashSchema = explorerBaseSchema.extend({

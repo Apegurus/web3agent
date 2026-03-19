@@ -43,8 +43,7 @@ export function normalizeBlockscoutTokens(
     hasMore,
     tokens: tokens.map((raw) => {
       const decimals = raw.decimals != null ? Number.parseInt(raw.decimals, 10) : undefined;
-      // Blockscout returns standard token types; unknown types (e.g. ERC-404) pass through
-      // and are caught by output schema validation in createToolHandler
+      // Blockscout returns standard token types; unknown types (e.g. ERC-404) will pass through as-is
       const type = raw.type as "ERC-20" | "ERC-721" | "ERC-1155";
 
       return {

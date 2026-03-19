@@ -63,10 +63,10 @@ export function getTokenToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
               sort: "desc",
             };
             if (input.tokenContract) params.contractaddress = input.tokenContract;
-            if (input.startBlock) params.startblock = String(input.startBlock);
-            if (input.endBlock) params.endblock = String(input.endBlock);
-            if (input.page) params.page = String(input.page);
-            if (input.pageSize) params.offset = String(input.pageSize);
+            if (input.startBlock != null) params.startblock = String(input.startBlock);
+            if (input.endBlock != null) params.endblock = String(input.endBlock);
+            if (input.page != null) params.page = String(input.page);
+            if (input.pageSize != null) params.offset = String(input.pageSize);
             const raw = await eth.call<EtherscanTokenTransfer[]>(
               input.chainId,
               "account",
@@ -95,10 +95,10 @@ export function getTokenToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
             sort: "desc",
           };
           if (input.tokenContract) params.contractaddress = input.tokenContract;
-          if (input.startBlock) params.startblock = String(input.startBlock);
-          if (input.endBlock) params.endblock = String(input.endBlock);
-          if (input.page) params.page = String(input.page);
-          if (input.pageSize) params.offset = String(input.pageSize);
+          if (input.startBlock != null) params.startblock = String(input.startBlock);
+          if (input.endBlock != null) params.endblock = String(input.endBlock);
+          if (input.page != null) params.page = String(input.page);
+          if (input.pageSize != null) params.offset = String(input.pageSize);
           const [erc721, erc1155] = await Promise.all([
             eth.call<EtherscanNftTransfer[]>(input.chainId, "account", "tokennfttx", params),
             eth.call<EtherscanNftTransfer[]>(input.chainId, "account", "token1155tx", params),
@@ -197,8 +197,8 @@ export function getTokenToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
           const params: Record<string, string> = {
             contractaddress: input.contractAddress,
           };
-          if (input.page) params.page = String(input.page);
-          if (input.pageSize) params.offset = String(input.pageSize);
+          if (input.page != null) params.page = String(input.page);
+          if (input.pageSize != null) params.offset = String(input.pageSize);
           const raw = await eth.call<EtherscanTokenHolder[]>(
             input.chainId,
             "token",

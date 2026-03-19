@@ -94,7 +94,7 @@ export const explorerTokenTransferSchema = z.object({
   token: z.string().describe("Token contract address"),
   symbol: z.string().optional().describe("Token symbol"),
   decimals: z.number().optional().describe("Token decimals"),
-  value: z.string().describe("Transfer amount in smallest units"),
+  value: z.string().describe("Transfer amount in smallest units (or token ID for NFTs)"),
   type: z.string().optional().describe("Token type (ERC-20, ERC-721, ERC-1155)"),
 });
 

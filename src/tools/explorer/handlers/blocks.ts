@@ -123,8 +123,8 @@ export function getBlockToolDefinitions(deps: ExplorerDeps): ToolDefinition[] {
             address: input.address,
             blocktype: "blocks",
           };
-          if (input.page) params.page = String(input.page);
-          if (input.pageSize) params.offset = String(input.pageSize);
+          if (input.page != null) params.page = String(input.page);
+          params.offset = String(input.pageSize ?? ETHERSCAN_DEFAULT_PAGE_SIZE);
           const raw = await eth.call<
             Array<{ blockNumber: string; timeStamp: string; blockReward: string }>
           >(input.chainId, "account", "getminedblocks", params);
