@@ -14,8 +14,8 @@ import {
   getHackHistory,
   getNews,
   getProtocolInfo,
+  getResearchTokenHolders,
   getTokenDueDiligence,
-  getTokenHolders,
   getTokenUnlocks,
   getWhaleTransfers,
   getYieldOpportunities,
@@ -47,8 +47,8 @@ describe("research SDK functions", () => {
     });
   });
 
-  it("getTokenHolders invokes correct tool", async () => {
-    await getTokenHolders({ token: "0xtoken", chainId: 1, limit: 10 });
+  it("getResearchTokenHolders invokes correct tool", async () => {
+    await getResearchTokenHolders({ token: "0xtoken", chainId: 1, limit: 10 });
     expect(invokeAndRequireData).toHaveBeenCalledWith(mockRuntime, "research_token_holders", {
       token: "0xtoken",
       chainId: 1,

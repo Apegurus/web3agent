@@ -53,7 +53,7 @@ export async function getTokenDueDiligence(
   );
 }
 
-export async function getTokenHolders(
+export async function getResearchTokenHolders(
   params: GetTokenHoldersInput,
   options?: RuntimeBoundOptions
 ): Promise<TokenHolderEntry[]> {

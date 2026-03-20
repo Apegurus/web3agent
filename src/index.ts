@@ -292,7 +292,7 @@ export {
 export {
   getContractSecurity,
   getTokenDueDiligence,
-  getTokenHolders,
+  getResearchTokenHolders,
   getYieldOpportunities,
   getCompareYields,
   getProtocolInfo,
