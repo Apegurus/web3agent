@@ -71,6 +71,42 @@ export {
   resolveToken,
   resolveTokenSync,
 } from "./api/tokens.js";
+export {
+  acpClaimRefund,
+  acpCompleteJob,
+  acpCreateJob,
+  acpFundJob,
+  acpGetJob,
+  acpRejectJob,
+  acpSetBudget,
+  acpSubmitJob,
+} from "./api/acp.js";
+export {
+  erc8183ClaimRefund,
+  erc8183CompleteJob,
+  erc8183CreateJob,
+  erc8183FundJob,
+  erc8183GetJob,
+  erc8183RejectJob,
+  erc8183SetBudget,
+  erc8183SubmitJob,
+} from "./api/erc8183.js";
+export {
+  agdpCreateOffering,
+  agdpGetMyJobs,
+  agdpGetOffering,
+  agdpGetOfferings,
+  agdpHireAgent,
+} from "./api/agdp.js";
+export {
+  erc8004GetAgent,
+  erc8004GetFeedback,
+  erc8004RegisterAgent,
+  erc8004SubmitFeedback,
+  erc8004UpdateAgent,
+} from "./api/erc8004.js";
+export { x402CheckRequirements, x402Fetch } from "./api/x402.js";
+export { policyGet } from "./api/policy.js";
 export type {
   ApprovalStep,
   BalanceChange,
