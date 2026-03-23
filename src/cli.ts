@@ -4,15 +4,15 @@ const args = process.argv.slice(2);
 
 if (args[0] === "init") {
   import("./cli/init.js").then(({ runInit }) => {
-    runInit(args.slice(1)).catch((e: Error) => {
-      process.stderr.write(`Error: ${e.message}\n`);
+    runInit(args.slice(1)).catch((e: unknown) => {
+      process.stderr.write(`Error: ${e instanceof Error ? e.message : String(e)}\n`);
       process.exit(1);
     });
   });
 } else if (args[0] === "policy") {
   import("./cli/policy.js").then(({ runPolicy }) => {
-    runPolicy(args.slice(1)).catch((e: Error) => {
-      process.stderr.write(`Error: ${e.message}\n`);
+    runPolicy(args.slice(1)).catch((e: unknown) => {
+      process.stderr.write(`Error: ${e instanceof Error ? e.message : String(e)}\n`);
       process.exit(1);
     });
   });
@@ -37,8 +37,8 @@ if (args[0] === "init") {
   process.exit(0);
 } else {
   import("./runtime/startup.js").then(({ startServer }) => {
-    startServer().catch((e: Error) => {
-      process.stderr.write(`Fatal: ${e.message}\n`);
+    startServer().catch((e: unknown) => {
+      process.stderr.write(`Fatal: ${e instanceof Error ? e.message : String(e)}\n`);
       process.exit(1);
     });
   });

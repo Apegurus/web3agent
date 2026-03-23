@@ -296,13 +296,13 @@ export async function getPersistedKeyForSubprocess(): Promise<string | null> {
 }
 
 export async function deactivateWallet(): Promise<void> {
-  const walletPath = getWalletPath();
-  if (existsSync(walletPath)) {
-    await unlink(walletPath);
-  }
-
   const ephemeral = resolveEphemeral(getConfiguredChainId());
   currentAccount = ephemeral.account;
   currentState = ephemeral.state;
   walletEvents.emit("wallet-changed", currentState);
+
+  const walletPath = getWalletPath();
+  if (existsSync(walletPath)) {
+    await unlink(walletPath);
+  }
 }

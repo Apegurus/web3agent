@@ -28,7 +28,11 @@ export async function startServer(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     process.stderr.write("[web3agent] Shutting down...\n");
-    await server.shutdown();
+    await server.shutdown().catch((e: unknown) => {
+      process.stderr.write(
+        `[web3agent] Shutdown error: ${e instanceof Error ? e.message : String(e)}\n`
+      );
+    });
     process.exit(0);
   };
 
