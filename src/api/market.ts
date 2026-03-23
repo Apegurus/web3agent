@@ -1,4 +1,4 @@
-import { getRuntime, invokeAndRequireData } from "./shared.js";
+import { createSDKInvoker } from "./shared.js";
 import type {
   CategoryEntry,
   CexFundFlowEntry,
@@ -30,7 +30,6 @@ import type {
   KlineEntry,
   OrderBookResult,
   ProtocolTvlResult,
-  RuntimeBoundOptions,
   SearchTokenInput,
   SentimentResult,
   StablecoinEntry,
@@ -43,166 +42,60 @@ import type {
   TrendingResult,
 } from "./types.js";
 
-export async function getProtocolTvl(
-  params: GetProtocolTvlInput,
-  options?: RuntimeBoundOptions
-): Promise<ProtocolTvlResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ProtocolTvlResult>(runtime, "market_get_protocol_tvl", params);
-}
-
-export async function getTopProtocols(
-  params: GetTopProtocolsInput,
-  options?: RuntimeBoundOptions
-): Promise<TopProtocolEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TopProtocolEntry[]>(runtime, "market_get_top_protocols", params);
-}
-
-export async function getChainTvl(
-  params: GetChainTvlInput,
-  options?: RuntimeBoundOptions
-): Promise<ChainTvlEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ChainTvlEntry[]>(runtime, "market_get_chain_tvl", params);
-}
-
-export async function getTokenPrice(
-  params: GetTokenPriceInput,
-  options?: RuntimeBoundOptions
-): Promise<TokenPriceResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TokenPriceResult>(runtime, "market_get_token_price", params);
-}
-
-export async function getTokenHistory(
-  params: GetTokenHistoryInput,
-  options?: RuntimeBoundOptions
-): Promise<TokenHistoryEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TokenHistoryEntry[]>(runtime, "market_get_token_history", params);
-}
-
-export async function getGainersLosers(
-  params: GetGainersLosersInput,
-  options?: RuntimeBoundOptions
-): Promise<GainersLosersResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<GainersLosersResult>(runtime, "market_get_gainers_losers", params);
-}
-
-export async function getDexVolume(
-  params: GetDexVolumeInput,
-  options?: RuntimeBoundOptions
-): Promise<DexVolumeResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<DexVolumeResult>(runtime, "market_get_dex_volume", params);
-}
-
-export async function getStablecoinStats(
-  params: GetStablecoinStatsInput,
-  options?: RuntimeBoundOptions
-): Promise<StablecoinEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<StablecoinEntry[]>(runtime, "market_get_stablecoin_stats", params);
-}
-
-export async function getGlobalStats(
-  params: GetGlobalStatsInput,
-  options?: RuntimeBoundOptions
-): Promise<GlobalStatsResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<GlobalStatsResult>(runtime, "market_get_global_stats", params);
-}
-
-export async function getCexFundFlows(
-  params: GetCexFundFlowsInput,
-  options?: RuntimeBoundOptions
-): Promise<CexFundFlowEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<CexFundFlowEntry[]>(runtime, "market_get_cex_fund_flows", params);
-}
-
-export async function getExchangeRankings(
-  params: GetExchangeRankingsInput,
-  options?: RuntimeBoundOptions
-): Promise<ExchangeRankingEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<ExchangeRankingEntry[]>(
-    runtime,
-    "market_get_exchange_rankings",
-    params
-  );
-}
-
-export async function getSentiment(
-  params: GetSentimentInput,
-  options?: RuntimeBoundOptions
-): Promise<SentimentResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<SentimentResult>(runtime, "market_get_sentiment", params);
-}
-
-export async function getTrending(
-  params: GetTrendingInput,
-  options?: RuntimeBoundOptions
-): Promise<TrendingResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TrendingResult>(runtime, "market_get_trending", params);
-}
-
-export async function getTopTokens(
-  params: GetTopTokensInput,
-  options?: RuntimeBoundOptions
-): Promise<TopTokenEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TopTokenEntry[]>(runtime, "market_get_top_tokens", params);
-}
-
-export async function searchToken(
-  params: SearchTokenInput,
-  options?: RuntimeBoundOptions
-): Promise<TokenSearchResultEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TokenSearchResultEntry[]>(runtime, "market_search_token", params);
-}
-
-export async function getCategories(
-  params: GetCategoriesInput,
-  options?: RuntimeBoundOptions
-): Promise<CategoryEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<CategoryEntry[]>(runtime, "market_get_categories", params);
-}
-
-export async function getTicker(
-  params: GetTickerInput,
-  options?: RuntimeBoundOptions
-): Promise<TickerResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<TickerResult>(runtime, "market_get_ticker", params);
-}
-
-export async function getKlines(
-  params: GetKlinesInput,
-  options?: RuntimeBoundOptions
-): Promise<KlineEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<KlineEntry[]>(runtime, "market_get_klines", params);
-}
-
-export async function getOrderBook(
-  params: GetOrderBookInput,
-  options?: RuntimeBoundOptions
-): Promise<OrderBookResult> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<OrderBookResult>(runtime, "market_get_order_book", params);
-}
-
-export async function getFundingRates(
-  params: GetFundingRatesInput,
-  options?: RuntimeBoundOptions
-): Promise<FundingRateEntry[]> {
-  const runtime = await getRuntime(options);
-  return invokeAndRequireData<FundingRateEntry[]>(runtime, "market_get_funding_rates", params);
-}
+export const getProtocolTvl = createSDKInvoker<GetProtocolTvlInput, ProtocolTvlResult>(
+  "market_get_protocol_tvl"
+);
+export const getTopProtocols = createSDKInvoker<GetTopProtocolsInput, TopProtocolEntry[]>(
+  "market_get_top_protocols"
+);
+export const getChainTvl = createSDKInvoker<GetChainTvlInput, ChainTvlEntry[]>(
+  "market_get_chain_tvl"
+);
+export const getTokenPrice = createSDKInvoker<GetTokenPriceInput, TokenPriceResult>(
+  "market_get_token_price"
+);
+export const getTokenHistory = createSDKInvoker<GetTokenHistoryInput, TokenHistoryEntry[]>(
+  "market_get_token_history"
+);
+export const getGainersLosers = createSDKInvoker<GetGainersLosersInput, GainersLosersResult>(
+  "market_get_gainers_losers"
+);
+export const getDexVolume = createSDKInvoker<GetDexVolumeInput, DexVolumeResult>(
+  "market_get_dex_volume"
+);
+export const getStablecoinStats = createSDKInvoker<GetStablecoinStatsInput, StablecoinEntry[]>(
+  "market_get_stablecoin_stats"
+);
+export const getGlobalStats = createSDKInvoker<GetGlobalStatsInput, GlobalStatsResult>(
+  "market_get_global_stats"
+);
+export const getCexFundFlows = createSDKInvoker<GetCexFundFlowsInput, CexFundFlowEntry[]>(
+  "market_get_cex_fund_flows"
+);
+export const getExchangeRankings = createSDKInvoker<
+  GetExchangeRankingsInput,
+  ExchangeRankingEntry[]
+>("market_get_exchange_rankings");
+export const getSentiment = createSDKInvoker<GetSentimentInput, SentimentResult>(
+  "market_get_sentiment"
+);
+export const getTrending = createSDKInvoker<GetTrendingInput, TrendingResult>(
+  "market_get_trending"
+);
+export const getTopTokens = createSDKInvoker<GetTopTokensInput, TopTokenEntry[]>(
+  "market_get_top_tokens"
+);
+export const searchToken = createSDKInvoker<SearchTokenInput, TokenSearchResultEntry[]>(
+  "market_search_token"
+);
+export const getCategories = createSDKInvoker<GetCategoriesInput, CategoryEntry[]>(
+  "market_get_categories"
+);
+export const getTicker = createSDKInvoker<GetTickerInput, TickerResult>("market_get_ticker");
+export const getKlines = createSDKInvoker<GetKlinesInput, KlineEntry[]>("market_get_klines");
+export const getOrderBook = createSDKInvoker<GetOrderBookInput, OrderBookResult>(
+  "market_get_order_book"
+);
+export const getFundingRates = createSDKInvoker<GetFundingRatesInput, FundingRateEntry[]>(
+  "market_get_funding_rates"
+);

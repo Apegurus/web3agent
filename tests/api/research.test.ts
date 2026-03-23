@@ -1,8 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockGetRuntime, mockInvokeAndRequireData } = vi.hoisted(() => ({
+  mockGetRuntime: vi.fn(),
+  mockInvokeAndRequireData: vi.fn(),
+}));
+
 vi.mock("../../src/api/shared.js", () => ({
-  getRuntime: vi.fn(),
-  invokeAndRequireData: vi.fn(),
+  getRuntime: mockGetRuntime,
+  invokeAndRequireData: mockInvokeAndRequireData,
+  createSDKInvoker(toolName: string) {
+    return async (params: unknown, options?: unknown) => {
+      const runtime = await mockGetRuntime(options);
+      return mockInvokeAndRequireData(runtime, toolName, params);
+    };
+  },
 }));
 
 import {

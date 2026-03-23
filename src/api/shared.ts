@@ -26,3 +26,12 @@ export async function invokeAndRequireData<T>(
   }
   return payload.data as T;
 }
+
+export function createSDKInvoker<TInput, TOutput>(
+  toolName: string
+): (params: TInput, options?: RuntimeBoundOptions) => Promise<TOutput> {
+  return async (params: TInput, options?: RuntimeBoundOptions): Promise<TOutput> => {
+    const runtime = await getRuntime(options);
+    return invokeAndRequireData<TOutput>(runtime, toolName, params as Record<string, unknown>);
+  };
+}
