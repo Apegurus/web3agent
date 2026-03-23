@@ -15,7 +15,13 @@ import {
 import { resolvePolicy } from "../policy/config.js";
 import { evaluatePolicy } from "../policy/engine.js";
 import { extractEstimatedUsd } from "../policy/extract-usd.js";
-import { loadSpendLog, recordSpend } from "../policy/spend-tracker.js";
+import {
+  commitReservation,
+  loadSpendLog,
+  recordSpend,
+  releaseReservation,
+  reserveSpend,
+} from "../policy/spend-tracker.js";
 import type { RiskLevel } from "../policy/types.js";
 import {
   getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
@@ -236,6 +242,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
   }
 
   initialize(): void {
+    if (!this.config.etherscanApiKey) {
+      process.stderr.write(
+        "[web3agent] ETHERSCAN_API_KEY not set — Etherscan-backed explorer tools will be unavailable\n"
+      );
+    }
     this.rebuildToolRegistry();
     this.refreshHealthStatus();
     this.walletChangeHandler = () => {
@@ -310,28 +321,18 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
     const isFinancial = tool.riskLevel === "financial";
     const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
+    const estimatedUsd = rawEstimatedUsd ?? 0;
+    let reservationId: number | null = null;
 
     if (isFinancial) {
       if (rawEstimatedUsd === 0) {
-        // Token fields were present but estimation failed (price feed down, unknown token)
         process.stderr.write(
           `[web3agent] Denied financial tool "${name}" — USD estimation failed for spend-limit enforcement\n`
         );
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({
-                ok: false,
-                error: {
-                  code: "SPEND_LIMIT_ERROR",
-                  message: `Cannot execute financial tool "${name}" without a USD estimate. Ensure the token is recognized and price feeds are available.`,
-                },
-              }),
-            },
-          ],
-          isError: true,
-        };
+        return formatToolError(
+          "SPEND_LIMIT_ERROR",
+          `Cannot execute financial tool "${name}" without a USD estimate. Ensure the token is recognized and price feeds are available.`
+        );
       }
 
       const wallet = getWalletState();
@@ -342,19 +343,24 @@ export class ManagedRuntime implements Web3AgentRuntime {
         walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
       }
       if (rawEstimatedUsd === null) {
-        // Gas-only tool (cancel, approve, generic write) — no token fields to estimate
         process.stderr.write(
           `[web3agent] Allowing gas-only financial tool "${name}" — no token amount fields to estimate\n`
         );
       }
+
+      if (estimatedUsd > 0) {
+        reservationId = reserveSpend(name, estimatedUsd, wallet.address);
+      }
+
       const decision = evaluatePolicy(resolvePolicy(this.config), {
         toolName: name,
         riskLevel: tool.riskLevel,
-        estimatedUsd: rawEstimatedUsd ?? 0,
+        estimatedUsd,
         walletBalanceUsd,
       });
 
       if (decision.action === "deny") {
+        if (reservationId !== null) releaseReservation(reservationId);
         return formatToolError("POLICY_DENIED", decision.message, {
           reasonCode: decision.reasonCode,
           currentSpend: decision.currentSpend,
@@ -380,12 +386,21 @@ export class ManagedRuntime implements Web3AgentRuntime {
           payload.status === "pending_confirmation";
 
         if (!isPendingConfirmation) {
-          recordSpend(name, rawEstimatedUsd ?? 0, getWalletState().address);
+          if (reservationId !== null) {
+            commitReservation(reservationId);
+          } else {
+            recordSpend(name, estimatedUsd, getWalletState().address);
+          }
+        } else if (reservationId !== null) {
+          releaseReservation(reservationId);
         }
+      } else if (reservationId !== null) {
+        releaseReservation(reservationId);
       }
 
       return normalized;
     } catch (e: unknown) {
+      if (reservationId !== null) releaseReservation(reservationId);
       return formatToolError("TOOL_INVOCATION_FAILED", e instanceof Error ? e.message : String(e));
     }
   }

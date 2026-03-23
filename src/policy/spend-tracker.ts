@@ -17,6 +17,37 @@ let persistChain: Promise<void> = Promise.resolve();
 let persistScheduled = false;
 let persistNeeded = false;
 
+let nextReservationId = 0;
+const pendingReservations = new Map<number, SpendRecord>();
+
+export function reserveSpend(
+  toolName: string,
+  estimatedUsd: number,
+  walletAddress?: string
+): number {
+  const id = nextReservationId++;
+  pendingReservations.set(id, {
+    timestamp: new Date().toISOString(),
+    toolName,
+    estimatedUsd,
+    walletAddress,
+  });
+  return id;
+}
+
+export function commitReservation(id: number): void {
+  const record = pendingReservations.get(id);
+  if (!record) return;
+  pendingReservations.delete(id);
+  records.push(record);
+  pruneOldRecords();
+  schedulePersist();
+}
+
+export function releaseReservation(id: number): void {
+  pendingReservations.delete(id);
+}
+
 function schedulePersist(): void {
   persistNeeded = true;
   if (persistScheduled) return;
@@ -68,6 +99,13 @@ export function getSpendWindow(): SpendWindow {
       hourlyUsd += record.estimatedUsd;
       hourlyCount++;
     }
+  }
+
+  for (const record of pendingReservations.values()) {
+    hourlyUsd += record.estimatedUsd;
+    dailyUsd += record.estimatedUsd;
+    hourlyCount++;
+    dailyCount++;
   }
 
   return { hourlyUsd, dailyUsd, hourlyCount, dailyCount };

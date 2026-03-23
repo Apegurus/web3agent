@@ -128,6 +128,9 @@ vi.mock("../../src/policy/extract-usd.js", () => ({
 vi.mock("../../src/policy/spend-tracker.js", () => ({
   loadSpendLog: (...args: unknown[]) => policyMocks.loadSpendLog(...args),
   recordSpend: (...args: unknown[]) => policyMocks.recordSpend(...args),
+  reserveSpend: vi.fn().mockReturnValue(0),
+  commitReservation: vi.fn(),
+  releaseReservation: vi.fn(),
 }));
 
 vi.mock("../../src/policy/balance-cache.js", () => ({
