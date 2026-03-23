@@ -92,6 +92,14 @@ describe("getTicker", () => {
 
     await expect(getTicker({ symbol: "INVALID" })).rejects.toThrow();
   });
+
+  it("throws when a 200 ticker response is missing required fields", async () => {
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ lastPrice: "65000.00" }), { status: 200 })
+    );
+
+    await expect(getTicker({ symbol: "BTCUSDT" })).rejects.toThrow();
+  });
 });
 
 // ── getKlines ────────────────────────────────────────────────────
@@ -269,6 +277,14 @@ describe("getOrderBook", () => {
 
     await expect(getOrderBook({ symbol: "INVALID" })).rejects.toThrow();
   });
+
+  it("throws when a 200 order book response has invalid levels", async () => {
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ lastUpdateId: 123, bids: "oops", asks: [] }), { status: 200 })
+    );
+
+    await expect(getOrderBook({ symbol: "BTCUSDT" })).rejects.toThrow();
+  });
 });
 
 // ── getFundingRates ──────────────────────────────────────────────
@@ -353,5 +369,15 @@ describe("getFundingRates", () => {
     mockResilientFetch.mockResolvedValueOnce(new Response("Bad Request", { status: 400 }));
 
     await expect(getFundingRates({ symbol: "INVALID" })).rejects.toThrow();
+  });
+
+  it("throws when a 200 funding response is missing required fields", async () => {
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify([{ fundingTime: 1710547200000, markPrice: "65000.00" }]), {
+        status: 200,
+      })
+    );
+
+    await expect(getFundingRates({ symbol: "BTCUSDT" })).rejects.toThrow();
   });
 });

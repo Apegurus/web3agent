@@ -35,6 +35,26 @@ const mockState = vi.hoisted(() => {
   };
 });
 
+const registerToolMocks = vi.hoisted(() => ({
+  walletTools: [] as unknown[],
+  transactionTools: [] as unknown[],
+  utilityTools: [] as unknown[],
+}));
+
+const policyMocks = vi.hoisted(() => ({
+  resolvePolicy: vi.fn().mockImplementation((config: unknown) => config),
+  evaluatePolicy: vi.fn().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" }),
+  extractEstimatedUsd: vi.fn().mockResolvedValue(null),
+  recordSpend: vi.fn(),
+  loadSpendLog: vi.fn().mockResolvedValue(0),
+}));
+
+const balanceCacheMocks = vi.hoisted(() => ({
+  getCachedBalanceUsd: vi.fn().mockReturnValue(null),
+  refreshBalanceUsd: vi.fn().mockResolvedValue(null),
+  resetBalanceCache: vi.fn(),
+}));
+
 vi.mock("../../src/wallet/persistence.js", () => ({
   initializeWallet: (...args: unknown[]) => mockState.initializeWallet(...args),
   getWalletState: (...args: unknown[]) => mockState.getWalletState(...args),
@@ -64,9 +84,9 @@ vi.mock("../../src/tools/evm/index.js", () => ({
 }));
 
 vi.mock("../../src/tools/register.js", () => ({
-  getWalletToolDefinitions: vi.fn().mockReturnValue([]),
-  getTransactionToolDefinitions: vi.fn().mockReturnValue([]),
-  getUtilityToolDefinitions: vi.fn().mockReturnValue([]),
+  getWalletToolDefinitions: vi.fn(() => registerToolMocks.walletTools),
+  getTransactionToolDefinitions: vi.fn(() => registerToolMocks.transactionTools),
+  getUtilityToolDefinitions: vi.fn(() => registerToolMocks.utilityTools),
 }));
 
 vi.mock("../../src/tools/tokens/index.js", () => ({
@@ -91,6 +111,29 @@ vi.mock("../../src/tools/utility/index.js", () => ({
 
 vi.mock("../../src/lifi/config.js", () => ({
   initializeLifi: (...args: unknown[]) => mockState.initializeLifi(...args),
+}));
+
+vi.mock("../../src/policy/config.js", () => ({
+  resolvePolicy: (...args: unknown[]) => policyMocks.resolvePolicy(...args),
+}));
+
+vi.mock("../../src/policy/engine.js", () => ({
+  evaluatePolicy: (...args: unknown[]) => policyMocks.evaluatePolicy(...args),
+}));
+
+vi.mock("../../src/policy/extract-usd.js", () => ({
+  extractEstimatedUsd: (...args: unknown[]) => policyMocks.extractEstimatedUsd(...args),
+}));
+
+vi.mock("../../src/policy/spend-tracker.js", () => ({
+  loadSpendLog: (...args: unknown[]) => policyMocks.loadSpendLog(...args),
+  recordSpend: (...args: unknown[]) => policyMocks.recordSpend(...args),
+}));
+
+vi.mock("../../src/policy/balance-cache.js", () => ({
+  getCachedBalanceUsd: (...args: unknown[]) => balanceCacheMocks.getCachedBalanceUsd(...args),
+  refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
+  resetBalanceCache: (...args: unknown[]) => balanceCacheMocks.resetBalanceCache(...args),
 }));
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
@@ -235,6 +278,17 @@ describe("managed runtime", () => {
     mockState.listQueue.mockReset().mockReturnValue([]);
     mockState.blockscoutShutdown.mockClear();
     mockState.etherscanShutdown.mockClear();
+    registerToolMocks.walletTools = [];
+    registerToolMocks.transactionTools = [];
+    registerToolMocks.utilityTools = [];
+    policyMocks.resolvePolicy.mockImplementation((config: unknown) => config);
+    policyMocks.evaluatePolicy.mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
+    policyMocks.extractEstimatedUsd.mockResolvedValue(null);
+    policyMocks.recordSpend.mockReset();
+    policyMocks.loadSpendLog.mockResolvedValue(0);
+    balanceCacheMocks.getCachedBalanceUsd.mockReturnValue(null);
+    balanceCacheMocks.refreshBalanceUsd.mockResolvedValue(null);
+    balanceCacheMocks.resetBalanceCache.mockReset();
   });
 
   it("uses a runtime-local goat provider and config for goat dispatch", async () => {
@@ -339,6 +393,67 @@ describe("managed runtime", () => {
     expect(operationPrepareTool?.category).toBe("operation");
     expect(operationPrepareTool?.source).toBe("operation");
     expect(operationResumeTool?.category).toBe("operation");
+
+    await runtime.shutdown();
+  });
+
+  it("refreshes wallet balance for the requested chain before immediate financial policy evaluation", async () => {
+    registerToolMocks.utilityTools = [
+      {
+        name: "financial_test",
+        category: "utility",
+        description: "financial test",
+        inputSchema: { type: "object", properties: {} },
+        riskLevel: "financial",
+        handler: vi.fn().mockResolvedValue({
+          isError: false,
+          content: [{ type: "text", text: '{"ok":true}' }],
+        }),
+      },
+    ];
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(50);
+    balanceCacheMocks.getCachedBalanceUsd.mockReturnValueOnce(null);
+    balanceCacheMocks.refreshBalanceUsd.mockResolvedValueOnce(125);
+
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: true,
+        confirmTtlMinutes: 30,
+        blockscoutMcpUrl: "https://blockscout",
+        etherscanMcpUrl: "https://etherscan",
+        etherscanApiKey: undefined,
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    balanceCacheMocks.refreshBalanceUsd.mockClear();
+    balanceCacheMocks.refreshBalanceUsd.mockResolvedValueOnce(125);
+
+    const result = await runtime.invokeTool("financial_test", {
+      chainId: 8453,
+      fromToken: "0xabc",
+      fromAmount: "1000",
+    });
+
+    expect(result.isError).toBe(false);
+    expect(balanceCacheMocks.refreshBalanceUsd).toHaveBeenCalledWith("0xabc", 8453);
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        walletBalanceUsd: 125,
+      })
+    );
 
     await runtime.shutdown();
   });

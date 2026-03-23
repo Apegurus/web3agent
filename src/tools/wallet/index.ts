@@ -8,7 +8,7 @@ import {
 } from "viem/accounts";
 import { simulateTransaction } from "../../api/simulation.js";
 import { getConfig } from "../../config/env.js";
-import { getCachedBalanceUsd } from "../../policy/balance-cache.js";
+import { getCachedBalanceUsd, refreshBalanceUsd } from "../../policy/balance-cache.js";
 import { resolvePolicy } from "../../policy/config.js";
 import { evaluatePolicy } from "../../policy/engine.js";
 import { extractEstimatedUsd } from "../../policy/extract-usd.js";
@@ -243,13 +243,28 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     const estimatedUsd = rawEstimatedUsd ?? 0;
 
     if (opRiskLevel === "financial") {
+      if (rawEstimatedUsd === 0) {
+        return formatToolError(
+          "SPEND_LIMIT_ERROR",
+          `Cannot confirm financial operation "${result.operation.type}" without a USD estimate. Ensure the token is recognized and price feeds are available.`,
+          { note: "Policy re-evaluated at confirm time" }
+        );
+      }
+
+      const policyChainId =
+        typeof opParams.chainId === "number" ? (opParams.chainId as number) : walletState.chainId;
+      let walletBalanceUsd = getCachedBalanceUsd(walletState.address, policyChainId);
+      if (walletBalanceUsd === null && walletState.address) {
+        walletBalanceUsd = await refreshBalanceUsd(walletState.address, policyChainId);
+      }
+
       const config = getConfig();
       const policy = resolvePolicy(config);
       const policyDecision = evaluatePolicy(policy, {
         toolName: result.operation.type,
         riskLevel: opRiskLevel,
         estimatedUsd,
-        walletBalanceUsd: getCachedBalanceUsd(),
+        walletBalanceUsd,
       });
 
       if (policyDecision.action === "deny") {

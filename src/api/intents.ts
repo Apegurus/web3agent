@@ -1,6 +1,7 @@
 import type { Hex } from "viem";
 import { submitSpotOrder } from "../orbs/spot-client.js";
-import { getSpotApiUrl } from "../orbs/spot-config.js";
+import { getSpotApiUrl, isTrustedSpotSubmitUrl } from "../orbs/spot-config.js";
+import { twapParamsToSpotParams } from "../orbs/twap-compat.js";
 import { formatSpotSubmitError } from "../utils/errors.js";
 import { joinSignature, splitSignature } from "../utils/signature.js";
 import { Web3AgentError } from "./errors.js";
@@ -109,15 +110,18 @@ export async function prepareOrderIntent(
 }
 
 export async function prepareTwapIntent(params: PrepareTwapIntentInput): Promise<SpotOrderIntent> {
-  const totalAmount = BigInt(params.fromAmount);
-  const perChunkAmount = totalAmount / BigInt(params.chunks);
-
-  return prepareOrderIntent({
-    ...params,
-    fromAmount: perChunkAmount.toString(),
-    fromMaxAmount: params.fromAmount,
-    epoch: params.fillDelay,
-  });
+  try {
+    const spotParams = twapParamsToSpotParams(params);
+    return prepareOrderIntent({
+      ...params,
+      ...spotParams,
+    });
+  } catch (e: unknown) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: e instanceof Error ? e.message : "Invalid TWAP parameters",
+    });
+  }
 }
 
 export async function prepareLimitIntent(
@@ -138,10 +142,10 @@ export async function submitSignedOrder(params: {
   signature: Hex;
 }): Promise<{ status: string; response: unknown }> {
   const expectedBase = getSpotApiUrl();
-  if (!params.submitUrl.startsWith(expectedBase)) {
+  if (!isTrustedSpotSubmitUrl(params.submitUrl, expectedBase)) {
     throw new Web3AgentError({
       code: "INVALID_PARAMS",
-      message: `Submit URL must start with ${expectedBase}. Refusing to send signed order to untrusted endpoint.`,
+      message: `Submit URL must target the trusted Spot submit endpoint under ${expectedBase}. Refusing to send signed order to untrusted endpoint.`,
     });
   }
   const { r, s, v } = splitSignature(params.signature);

@@ -548,6 +548,24 @@ describe("submitSignedOrder", () => {
     }
   });
 
+  it("throws INVALID_PARAMS when submitUrl only matches the Spot API base by prefix", async () => {
+    const { submitSignedOrder } = await import("../../src/api/intents.js");
+    const signature =
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+      "1b";
+
+    await expect(
+      submitSignedOrder({
+        submitUrl: "https://test-api.example.com.evil.com/orders/new",
+        order: { maker: "0x123" },
+        signature: signature as `0x${string}`,
+      })
+    ).rejects.toThrow(Web3AgentError);
+
+    expect(spotClientMocks.submitSpotOrder).not.toHaveBeenCalled();
+  });
+
   it("throws ORBS_ORDER_ERROR when submit returns non-ok response", async () => {
     spotClientMocks.submitSpotOrder.mockResolvedValue({
       ok: false,
@@ -665,6 +683,22 @@ describe("prepareTwapIntent param conversion", () => {
         epoch: 60,
       })
     );
+  });
+
+  it("rejects TWAP amounts that are not evenly divisible by chunks", async () => {
+    const { prepareTwapIntent } = await import("../../src/api/intents.js");
+
+    await expect(
+      prepareTwapIntent({
+        fromToken: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        toToken: "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        fromAmount: "1000001",
+        chunks: 5,
+        fillDelay: 60,
+        account: "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        chainId: 1,
+      })
+    ).rejects.toThrow(Web3AgentError);
   });
 });
 

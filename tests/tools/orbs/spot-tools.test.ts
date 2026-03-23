@@ -323,6 +323,23 @@ describe("orbs_submit_signed_order", () => {
     const parsed = parseResult(result);
     expect(parsed.error).toBe("INVALID_PARAMS");
   });
+
+  it("rejects crafted-prefix submit URLs and never calls submitSpotOrder", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
+
+    const result = await tool.handler({
+      submitUrl: "https://agents-sink-dev.orbs.network.evil.com/orders/new",
+      order: { key: "value" },
+      signature: VALID_SIGNATURE,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("ORBS_ORDER_ERROR");
+    expect(mockSubmitSpotOrder).not.toHaveBeenCalled();
+  });
 });
 
 describe("orbs_query_orders", () => {
@@ -449,6 +466,25 @@ describe("orbs_place_twap", () => {
     const parsed = parseResult(result);
     expect(parsed.error).toBe("INVALID_PARAMS");
   });
+
+  it("rejects lossy TWAP conversions when amount is not divisible by chunks", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_twap") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000001",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("INVALID_PARAMS");
+  });
 });
 
 describe("orbs_prepare_twap_intent", () => {
@@ -471,6 +507,7 @@ describe("orbs_prepare_twap_intent", () => {
       fromAmount: "1000000",
       chunks: 5,
       fillDelay: 300,
+      slippageBps: 600,
     });
 
     expect(result.isError).toBe(false);
@@ -485,6 +522,7 @@ describe("orbs_prepare_twap_intent", () => {
         fromAmount: "200000", // 1000000 / 5
         fromMaxAmount: "1000000",
         epoch: 300,
+        slippage: 600,
       })
     );
   });
@@ -507,6 +545,26 @@ describe("orbs_prepare_twap_intent", () => {
     expect(result.isError).toBe(true);
     const parsed = parseResult(result);
     expect(parsed.error).toBe("CHAIN_NOT_SUPPORTED");
+  });
+
+  it("rejects lossy TWAP intent conversions when amount is not divisible by chunks", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_twap_intent") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000001",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("INVALID_PARAMS");
   });
 });
 

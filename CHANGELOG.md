@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Field names normalized to `from/to` convention** across all schemas:
   - Orbs: `inAmount` → `fromAmount`, `srcToken` → `fromToken`, `dstToken` → `toToken`, `srcAmount` → `fromAmount`, `dstMinAmount` → `toMinAmount`
   - LiFi: `fromTokenAddress` → `fromToken`, `toTokenAddress` → `toToken`
+- **Orbs slippage fields made explicit** — swap quote flows use `slippagePct`, while Spot/TWAP/limit order flows use `slippageBps`
 - **Spot Protocol replaces old TWAP/Limit SDK** — `prepareTwapIntent` and `prepareLimitIntent` now return `SpotOrderIntent` instead of `TwapIntent`/`LimitIntent`. Old types are deprecated and will be removed in v0.4.0. See migration notes below.
 - **`submitSignedTwapOrder` signature changed** — now an adapter wrapper accepting the old `{ order, signature: { v, r, s } }` shape but submitting via the new Spot API. Deprecated in favor of `submitSignedOrder`.
 - **EVM tool inputSchemas now generated from Zod** — all 24 EVM tools migrated from manual JSON

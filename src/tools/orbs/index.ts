@@ -23,8 +23,14 @@ import {
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
 import { querySpotOrders, submitSpotOrder } from "../../orbs/spot-client.js";
-import { REPERMIT_CANCEL_ABI, getSpotApiUrl, getSpotContracts } from "../../orbs/spot-config.js";
+import {
+  REPERMIT_CANCEL_ABI,
+  getSpotApiUrl,
+  getSpotContracts,
+  isTrustedSpotSubmitUrl,
+} from "../../orbs/spot-config.js";
 import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
+import { twapParamsToSpotParams } from "../../orbs/twap-compat.js";
 import { listOrders } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -60,7 +66,7 @@ import {
 async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(orbsGetQuoteSchema, params);
   if (!v.success) return v.error;
-  const { fromToken, toToken, fromAmount, slippage } = v.data;
+  const { fromToken, toToken, fromAmount, slippagePct } = v.data;
   const chainId = resolveToolChainId(v.data.chainId);
 
   if (!isLiquidityHubSupported(chainId)) {
@@ -72,7 +78,7 @@ async function orbsGetQuote(params: Record<string, unknown>): Promise<CallToolRe
       fromToken,
       toToken,
       inAmount: fromAmount,
-      slippage: slippage ?? 0.5,
+      slippage: slippagePct ?? 0.5,
     });
 
     return formatToolResponse(result);
@@ -95,7 +101,7 @@ async function executeOrbsSwapNow(params: Record<string, unknown>): Promise<Call
     });
 
     const sdk = getSdk(chainId);
-    const slippage = (params.slippage as number) ?? 0.5;
+    const slippage = (params.slippagePct as number) ?? 0.5;
     const toToken = params.toToken as string;
     const inAmount = params.fromAmount as string;
 
@@ -291,45 +297,54 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
     params.dstMinAmount = undefined;
   }
 
-  // Convert legacy TWAP semantics (chunks/fillDelay → fromMaxAmount/epoch)
-  if (
-    typeof params.chunks === "number" &&
-    params.chunks >= 1 &&
-    typeof params.fillDelay === "number" &&
-    typeof params.fromAmount === "string"
-  ) {
-    const spotParams = twapParamsToSpotParams({
-      fromAmount: params.fromAmount,
-      chunks: params.chunks,
-      fillDelay: params.fillDelay,
-      slippage: typeof params.slippage === "number" ? params.slippage : undefined,
-      exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
-    });
-    params.fromAmount = spotParams.fromAmount;
-    params.fromMaxAmount = spotParams.fromMaxAmount;
-    params.epoch = spotParams.epoch;
-    params.chunks = undefined;
-    params.fillDelay = undefined;
-  }
-
-  // Convert legacy limit semantics (toMinAmount/expiry → outputLimit/deadline)
-  if (typeof params.toMinAmount === "string" && !("outputLimit" in params)) {
-    const spotParams = limitParamsToSpotParams({
-      fromAmount: params.fromAmount as string,
-      toMinAmount: params.toMinAmount,
-      expiry: typeof params.expiry === "number" ? params.expiry : undefined,
-      slippage: typeof params.slippage === "number" ? params.slippage : undefined,
-      exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
-    });
-    params.outputLimit = spotParams.outputLimit;
-    if (spotParams.deadline !== undefined) params.deadline = spotParams.deadline;
-    params.toMinAmount = undefined;
-    params.expiry = undefined;
-  }
-
-  const chainId = resolveChainId(params);
-
   try {
+    // Convert legacy TWAP semantics (chunks/fillDelay → fromMaxAmount/epoch)
+    if (
+      typeof params.chunks === "number" &&
+      params.chunks >= 1 &&
+      typeof params.fillDelay === "number" &&
+      typeof params.fromAmount === "string"
+    ) {
+      const spotParams = twapParamsToSpotParams({
+        fromAmount: params.fromAmount,
+        chunks: params.chunks,
+        fillDelay: params.fillDelay,
+        slippageBps:
+          typeof params.slippageBps === "number"
+            ? params.slippageBps
+            : typeof params.slippage === "number"
+              ? params.slippage
+              : undefined,
+        exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
+      });
+      params.fromAmount = spotParams.fromAmount;
+      params.fromMaxAmount = spotParams.fromMaxAmount;
+      params.epoch = spotParams.epoch;
+      params.chunks = undefined;
+      params.fillDelay = undefined;
+    }
+
+    // Convert legacy limit semantics (toMinAmount/expiry → outputLimit/deadline)
+    if (typeof params.toMinAmount === "string" && !("outputLimit" in params)) {
+      const spotParams = limitParamsToSpotParams({
+        fromAmount: params.fromAmount as string,
+        toMinAmount: params.toMinAmount,
+        expiry: typeof params.expiry === "number" ? params.expiry : undefined,
+        slippageBps:
+          typeof params.slippageBps === "number"
+            ? params.slippageBps
+            : typeof params.slippage === "number"
+              ? params.slippage
+              : undefined,
+        exactApproval: typeof params.exactApproval === "boolean" ? params.exactApproval : undefined,
+      });
+      params.outputLimit = spotParams.outputLimit;
+      if (spotParams.deadline !== undefined) params.deadline = spotParams.deadline;
+      params.toMinAmount = undefined;
+      params.expiry = undefined;
+    }
+
+    const chainId = resolveChainId(params);
     const account = getActiveAccount();
 
     const prepared = prepareSpotOrder({
@@ -340,7 +355,8 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
       toToken: params.toToken as string,
       fromMaxAmount: params.fromMaxAmount as string | undefined,
       epoch: params.epoch as number | undefined,
-      slippage: params.slippage as number | undefined,
+      slippage:
+        (params.slippageBps as number | undefined) ?? (params.slippage as number | undefined),
       outputLimit: params.outputLimit as string | undefined,
       outputTriggerLower: params.outputTriggerLower as string | undefined,
       outputTriggerUpper: params.outputTriggerUpper as string | undefined,
@@ -458,7 +474,7 @@ async function orbsPrepareOrderIntent(params: Record<string, unknown>): Promise<
       toToken: v.data.toToken,
       fromMaxAmount: v.data.fromMaxAmount,
       epoch: v.data.epoch,
-      slippage: v.data.slippage,
+      slippage: v.data.slippageBps,
       outputLimit: v.data.outputLimit,
       outputTriggerLower: v.data.outputTriggerLower,
       outputTriggerUpper: v.data.outputTriggerUpper,
@@ -498,10 +514,10 @@ async function orbsSubmitSignedOrderHandler(
   if (!v.success) return v.error;
 
   const expectedBase = getSpotApiUrl();
-  if (!v.data.submitUrl.startsWith(expectedBase)) {
+  if (!isTrustedSpotSubmitUrl(v.data.submitUrl, expectedBase)) {
     return formatToolError(
       "ORBS_ORDER_ERROR",
-      `Submit URL must start with ${expectedBase}. Refusing to send signed order to untrusted endpoint.`
+      `Submit URL must target the trusted Spot submit endpoint under ${expectedBase}. Refusing to send signed order to untrusted endpoint.`
     );
   }
 
@@ -631,35 +647,11 @@ async function orbsCancelOrder(params: Record<string, unknown>): Promise<CallToo
 
 /* ---------- TWAP / Limit param mapping ---------- */
 
-function twapParamsToSpotParams(params: {
-  fromAmount: string;
-  chunks: number;
-  fillDelay: number;
-  slippage?: number;
-  exactApproval?: boolean;
-}): {
-  fromAmount: string;
-  fromMaxAmount: string;
-  epoch: number;
-  slippage?: number;
-  exactApproval?: boolean;
-} {
-  const totalAmount = BigInt(params.fromAmount);
-  const perChunkAmount = totalAmount / BigInt(params.chunks);
-  return {
-    fromAmount: perChunkAmount.toString(),
-    fromMaxAmount: params.fromAmount,
-    epoch: params.fillDelay,
-    slippage: params.slippage,
-    exactApproval: params.exactApproval,
-  };
-}
-
 function limitParamsToSpotParams(params: {
   fromAmount: string;
   toMinAmount: string;
   expiry?: number;
-  slippage?: number;
+  slippageBps?: number;
   exactApproval?: boolean;
 }): {
   fromAmount: string;
@@ -673,7 +665,7 @@ function limitParamsToSpotParams(params: {
     fromAmount: params.fromAmount,
     outputLimit: params.toMinAmount,
     deadline: Math.floor(Date.now() / 1000) + expiry,
-    slippage: params.slippage,
+    slippage: params.slippageBps,
     exactApproval: params.exactApproval,
   };
 }
@@ -689,7 +681,12 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
     return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
   }
 
-  const spotParams = twapParamsToSpotParams(v.data);
+  let spotParams;
+  try {
+    spotParams = twapParamsToSpotParams(v.data);
+  } catch (e: unknown) {
+    return formatToolError("INVALID_PARAMS", e instanceof Error ? e.message : "Invalid TWAP parameters");
+  }
 
   return executeWrite({
     toolName: "orbs_place_twap",
@@ -744,7 +741,7 @@ async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<C
       chainId,
     });
   } catch (e: unknown) {
-    return formatToolError("ORBS_TWAP_ERROR", String(e));
+    return formatToolError("INVALID_PARAMS", e instanceof Error ? e.message : String(e));
   }
 }
 

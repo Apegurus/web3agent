@@ -312,6 +312,13 @@ export class ManagedRuntime implements Web3AgentRuntime {
     const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
 
     if (isFinancial) {
+      const wallet = getWalletState();
+      const policyChainId = typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
+      let walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
+      if (walletBalanceUsd === null && wallet.address) {
+        walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
+      }
+
       if (rawEstimatedUsd === 0) {
         // Token fields were present but estimation failed (price feed down, unknown token)
         process.stderr.write(
@@ -343,7 +350,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
         toolName: name,
         riskLevel: tool.riskLevel,
         estimatedUsd: rawEstimatedUsd ?? 0,
-        walletBalanceUsd: getCachedBalanceUsd(),
+        walletBalanceUsd,
       });
 
       if (decision.action === "deny") {
