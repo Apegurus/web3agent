@@ -124,8 +124,19 @@ export async function resilientFetch(
         continue;
       }
 
-      cb.consecutiveFailures = 0;
-      cb.state = "closed";
+      if (response.ok) {
+        cb.consecutiveFailures = 0;
+        cb.state = "closed";
+      } else {
+        cb.consecutiveFailures++;
+        if (cb.consecutiveFailures >= failureThreshold) {
+          cb.state = "open";
+          cb.openUntil = Date.now() + cooldownMs;
+          process.stderr.write(
+            `[resilient-fetch] Circuit opened for "${label}" after ${cb.consecutiveFailures} consecutive HTTP failures — cooldown ${cooldownMs}ms\n`
+          );
+        }
+      }
       return response;
     } catch (error: unknown) {
       lastError = error;

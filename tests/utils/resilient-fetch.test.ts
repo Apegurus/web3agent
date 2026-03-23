@@ -206,5 +206,56 @@ describe("resilientFetch", () => {
 
       expect(vi.mocked(fetch).mock.calls.length).toBe(callsAfterOpen);
     });
+
+    it("opens after persistent HTTP 5xx failures exhaust retries", async () => {
+      // All responses are 500, retries exhausted each call
+      vi.mocked(fetch).mockResolvedValue(makeResponse(500));
+
+      const config = {
+        label: "cb-http-5xx",
+        retry: { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 10 },
+        circuitBreaker: { failureThreshold: 3, cooldownMs: 60_000 },
+      };
+
+      // Each call returns 500 and increments the failure counter
+      for (let i = 0; i < 3; i++) {
+        const res = await resilientFetch("https://example.com", undefined, config);
+        expect(res.status).toBe(500);
+      }
+
+      // 4th call should be rejected by open circuit
+      await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow(
+        /Circuit open/
+      );
+
+      // fetch was only called 3 times (circuit blocked the 4th)
+      expect(vi.mocked(fetch).mock.calls.length).toBe(3);
+    });
+
+    it("resets failure count on successful response", async () => {
+      const config = {
+        label: "cb-reset",
+        retry: { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 10 },
+        circuitBreaker: { failureThreshold: 3, cooldownMs: 60_000 },
+      };
+
+      // 2 failures, then a success, then 2 more failures — should NOT open
+      vi.mocked(fetch)
+        .mockRejectedValueOnce(new Error("fail1"))
+        .mockRejectedValueOnce(new Error("fail2"))
+        .mockResolvedValueOnce(makeResponse(200))
+        .mockRejectedValueOnce(new Error("fail3"))
+        .mockRejectedValueOnce(new Error("fail4"));
+
+      await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow();
+      await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow();
+      const res = await resilientFetch("https://example.com", undefined, config);
+      expect(res.status).toBe(200);
+      await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow();
+      await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow();
+
+      // Should NOT have opened — 2 consecutive failures, reset, 2 more (never hit 3)
+      expect(vi.mocked(fetch).mock.calls.length).toBe(5);
+    });
   });
 });
