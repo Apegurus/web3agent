@@ -20,7 +20,9 @@ export type ToolSource =
   | "acp"
   | "agdp"
   | "erc8004"
-  | "explorer";
+  | "explorer"
+  | "market"
+  | "research";
 
 export type ToolCategory =
   | "wallet"
@@ -32,7 +34,9 @@ export type ToolCategory =
   | "orders"
   | "onchain"
   | "explorer"
-  | "agenticEconomy";
+  | "agenticEconomy"
+  | "market"
+  | "research";
 
 export interface ToolCatalogEntry {
   name: string;

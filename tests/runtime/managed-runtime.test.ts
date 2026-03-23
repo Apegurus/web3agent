@@ -73,6 +73,18 @@ vi.mock("../../src/tools/tokens/index.js", () => ({
   getTokenToolDefinitions: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock("../../src/tools/explorer/index.js", () => ({
+  getExplorerToolDefinitions: () => [],
+}));
+
+vi.mock("../../src/tools/market/index.js", () => ({
+  getMarketToolDefinitions: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("../../src/tools/research/index.js", () => ({
+  getResearchToolDefinitions: () => [],
+}));
+
 vi.mock("../../src/tools/utility/index.js", () => ({
   setHealthStatus: (...args: unknown[]) => mockState.setHealthStatus(...args),
 }));

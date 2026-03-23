@@ -27,6 +27,7 @@ import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/er
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
 import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
+import { getMarketToolDefinitions } from "../tools/market/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
 import { getPolicyToolDefinitions } from "../tools/policy/index.js";
@@ -36,6 +37,7 @@ import {
   getUtilityToolDefinitions,
   getWalletToolDefinitions,
 } from "../tools/register.js";
+import { getResearchToolDefinitions } from "../tools/research/index.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
 import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
@@ -165,6 +167,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly policyTools: ToolDefinition[];
   private readonly explorerDeps: ExplorerDeps;
   private explorerToolCount = 0;
+  private readonly marketTools = getMarketToolDefinitions();
+  private readonly researchTools = getResearchToolDefinitions();
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -545,6 +549,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
       ["acp", this.acpVirtualsTools],
       ["agdp", this.agdpTools],
       ["erc8004", this.erc8004Tools],
+      ["market", this.marketTools],
+      ["research", this.researchTools],
     ];
     for (const [source, tools] of toolGroups) {
       for (const tool of tools) {
