@@ -80,7 +80,7 @@ export class EtherscanClient {
       const msg = typeof standard.result === "string" ? standard.result : standard.message;
       // "No transactions/records found" is a normal empty result, not an error
       if (/no (?:transactions|records|token|data) found/i.test(msg)) {
-        return standard.result;
+        return [] as unknown as T;
       }
       if (/rate limit/i.test(msg)) {
         throw new Error(`Etherscan rate limited: ${msg}`);

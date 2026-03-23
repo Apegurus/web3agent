@@ -7,7 +7,7 @@ export function normalizeEtherscanEventLog(raw: EtherscanEventLog): ExplorerEven
     topics: raw.topics,
     data: raw.data,
     blockNumber: Number.parseInt(raw.blockNumber, 16),
-    timestamp: new Date(Number.parseInt(raw.timeStamp, 16) * 1000).toISOString(),
+    timestamp: new Date(Number.parseInt(raw.timeStamp, 10) * 1000).toISOString(),
     txHash: raw.transactionHash,
     logIndex: Number.parseInt(raw.logIndex, 16),
   };
