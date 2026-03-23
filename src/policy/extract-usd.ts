@@ -36,6 +36,7 @@ export async function extractEstimatedUsd(args: Record<string, unknown>): Promis
       const usd = await estimateTokenUsd(fromToken, chainId, fromAmount, decimals);
       return usd ?? 0;
     }
+    return 0;
   }
 
   // 3. Check inside resumeState.state for operation_resume calls

@@ -84,6 +84,17 @@ describe("extractEstimatedUsd", () => {
     expect(result).toBeNull();
   });
 
+  it("returns 0 when token fields present but decimals unknown", async () => {
+    mockRegistry.lookupTokenByAddress.mockReturnValue(undefined);
+    const result = await extractEstimatedUsd({
+      fromToken: "0xunknown",
+      fromAmount: "1000000",
+      chainId: 1,
+    });
+    expect(result).toBe(0);
+    expect(mockPricing.estimateTokenUsd).not.toHaveBeenCalled();
+  });
+
   it("ignores negative and NaN explicit values", async () => {
     expect(await extractEstimatedUsd({ amountUsd: -5 })).toBeNull();
     expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBeNull();
