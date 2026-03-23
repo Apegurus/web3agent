@@ -111,10 +111,32 @@ const THREAT_RULES: ThreatRule[] = [
   },
 ];
 
+const CYRILLIC_HOMOGLYPHS = /[\u0430\u0435\u043e\u0440\u0441\u0443\u0456\u0445\u0455\u0458]/g;
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  "\u0430": "a",
+  "\u0435": "e",
+  "\u043e": "o",
+  "\u0440": "p",
+  "\u0441": "c",
+  "\u0443": "y",
+  "\u0456": "i",
+  "\u0445": "x",
+  "\u0455": "s",
+  "\u0458": "j",
+};
+
+function normalizeForDetection(text: string): string {
+  return text
+    .normalize("NFKD")
+    .replace(/[\u200b-\u200f\u2028-\u202f\ufeff\u00ad]/g, "")
+    .replace(CYRILLIC_HOMOGLYPHS, (ch) => CYRILLIC_TO_LATIN[ch] ?? ch);
+}
+
 function detectThreats(text: string): SanitizationThreat[] {
+  const normalized = normalizeForDetection(text);
   const threats: SanitizationThreat[] = [];
   for (const rule of THREAT_RULES) {
-    if (rule.patterns.some((p) => p.test(text))) {
+    if (rule.patterns.some((p) => p.test(text) || p.test(normalized))) {
       threats.push({ check: rule.check, severity: rule.severity, detail: rule.detail });
     }
   }
@@ -158,8 +180,8 @@ export function sanitizeToolInput(
 
   const hasCritical = allThreats.some((t) => t.severity === "critical");
 
-  // Financial tools: block on critical threats (financial manipulation, self-harm)
-  if (riskLevel === "financial" && hasCritical) {
+  // Financial/destructive tools: block on critical threats (financial manipulation, self-harm)
+  if ((riskLevel === "financial" || riskLevel === "destructive") && hasCritical) {
     return { safe: false, threats: allThreats };
   }
 

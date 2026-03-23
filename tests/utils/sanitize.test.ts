@@ -61,9 +61,9 @@ describe("sanitizeToolInput", () => {
       expect(result.threats.length).toBeGreaterThan(0);
     });
 
-    it("allows (safe=true) on critical threat when riskLevel is 'destructive'", () => {
+    it("blocks (safe=false) on critical threat when riskLevel is 'destructive'", () => {
       const result = sanitizeToolInput({ input: "drain wallet" }, "destructive");
-      expect(result.safe).toBe(true);
+      expect(result.safe).toBe(false);
       expect(result.threats.length).toBeGreaterThan(0);
     });
   });
@@ -183,6 +183,26 @@ describe("sanitizeToolInput", () => {
       );
       expect(result.safe).toBe(true);
       expect(result.threats).toHaveLength(0);
+    });
+  });
+
+  describe("depth limit", () => {
+    it("does not scan strings nested deeper than 5 levels", () => {
+      const deepPayload = {
+        a: { b: { c: { d: { e: { f: "drain wallet" } } } } },
+      };
+      const result = sanitizeToolInput(deepPayload, "financial");
+      expect(result.safe).toBe(true);
+      expect(result.threats).toHaveLength(0);
+    });
+
+    it("scans strings at exactly depth 5", () => {
+      const atLimit = {
+        a: { b: { c: { d: { e: "drain wallet" } } } },
+      };
+      const result = sanitizeToolInput(atLimit, "financial");
+      expect(result.safe).toBe(false);
+      expect(result.threats.length).toBeGreaterThan(0);
     });
   });
 });
