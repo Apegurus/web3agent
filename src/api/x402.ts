@@ -1,9 +1,13 @@
 import { createSDKInvoker } from "./shared.js";
+import type {
+  X402CheckRequirementsInput,
+  X402CheckRequirementsOutput,
+  X402FetchInput,
+  X402FetchOutput,
+} from "./types.js";
 
 export const x402CheckRequirements = createSDKInvoker<
-  Record<string, unknown>,
-  Record<string, unknown>
+  X402CheckRequirementsInput,
+  X402CheckRequirementsOutput
 >("x402_check_requirements");
-export const x402Fetch = createSDKInvoker<Record<string, unknown>, Record<string, unknown>>(
-  "x402_fetch"
-);
+export const x402Fetch = createSDKInvoker<X402FetchInput, X402FetchOutput>("x402_fetch");

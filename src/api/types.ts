@@ -15,6 +15,48 @@ import type {
   Web3AgentRuntime,
 } from "../runtime/types.js";
 import type { ResolvedToken } from "../tokens/resolver.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  acpVClaimRefundSchema,
+  acpVCompleteJobSchema,
+  acpVCreateJobSchema,
+  acpVFundJobSchema,
+  acpVGetJobSchema,
+  acpVRejectJobSchema,
+  acpVSetBudgetSchema,
+  acpVSubmitJobSchema,
+} from "../tools/acp-virtuals/schemas.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  erc8183ClaimRefundSchema,
+  erc8183CompleteJobSchema,
+  erc8183CreateJobSchema,
+  erc8183FundJobSchema,
+  erc8183GetJobSchema,
+  erc8183RejectJobSchema,
+  erc8183SetBudgetSchema,
+  erc8183SubmitJobSchema,
+} from "../tools/acp/schemas.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  agdpCreateOfferingSchema,
+  agdpGetMyJobsSchema,
+  agdpGetOfferingSchema,
+  agdpGetOfferingsSchema,
+  agdpHireAgentSchema,
+} from "../tools/agdp/schemas.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  erc8004GetAgentSchema,
+  erc8004GetFeedbackSchema,
+  erc8004RegisterSchema,
+  erc8004SubmitFeedbackSchema,
+  erc8004UpdateAgentSchema,
+} from "../tools/erc8004/schemas.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import { policyGetSchema } from "../tools/policy/schemas.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import { x402CheckRequirementsSchema, x402FetchSchema } from "../tools/x402/schemas.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { WalletState } from "../types/wallet.js";
 import type {
@@ -177,6 +219,38 @@ import {
   yieldComparisonEntrySchema,
   yieldPoolEntrySchema,
 } from "./schemas/outputs.js";
+// biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
+import {
+  acpClaimRefundOutputSchema,
+  acpCompleteJobOutputSchema,
+  acpCreateJobOutputSchema,
+  acpFundJobOutputSchema,
+  acpGetJobOutputSchema,
+  acpRejectJobOutputSchema,
+  acpSetBudgetOutputSchema,
+  acpSubmitJobOutputSchema,
+  agdpCreateOfferingOutputSchema,
+  agdpGetMyJobsOutputSchema,
+  agdpGetOfferingOutputSchema,
+  agdpGetOfferingsOutputSchema,
+  agdpHireAgentOutputSchema,
+  erc8004GetAgentOutputSchema,
+  erc8004GetFeedbackOutputSchema,
+  erc8004RegisterAgentOutputSchema,
+  erc8004SubmitFeedbackOutputSchema,
+  erc8004UpdateAgentOutputSchema,
+  erc8183ClaimRefundOutputSchema,
+  erc8183CompleteJobOutputSchema,
+  erc8183CreateJobOutputSchema,
+  erc8183FundJobOutputSchema,
+  erc8183GetJobOutputSchema,
+  erc8183RejectJobOutputSchema,
+  erc8183SetBudgetOutputSchema,
+  erc8183SubmitJobOutputSchema,
+  policyGetOutputSchema,
+  x402CheckRequirementsOutputSchema,
+  x402FetchOutputSchema,
+} from "./schemas/sdk-outputs.js";
 
 export type ResolveTokenInput = z.infer<typeof resolveTokenSchema>;
 export type ListChainTokensInput = z.infer<typeof listChainTokensSchema>;
@@ -206,6 +280,75 @@ export type WalletDeriveAddressesInput = z.infer<typeof walletDeriveAddressesSch
 export type TransactionConfirmInput = z.infer<typeof transactionConfirmSchema>;
 export type TransactionDenyInput = z.infer<typeof transactionDenySchema>;
 export type SimulateTransactionInput = z.infer<typeof transactionSimulateSchema>;
+
+export type AcpCreateJobInput = z.infer<typeof acpVCreateJobSchema>;
+export type AcpSetBudgetInput = z.infer<typeof acpVSetBudgetSchema>;
+export type AcpFundJobInput = z.infer<typeof acpVFundJobSchema>;
+export type AcpSubmitJobInput = z.infer<typeof acpVSubmitJobSchema>;
+export type AcpCompleteJobInput = z.infer<typeof acpVCompleteJobSchema>;
+export type AcpRejectJobInput = z.infer<typeof acpVRejectJobSchema>;
+export type AcpClaimRefundInput = z.infer<typeof acpVClaimRefundSchema>;
+export type AcpGetJobInput = z.infer<typeof acpVGetJobSchema>;
+
+export type AcpCreateJobOutput = z.infer<typeof acpCreateJobOutputSchema>;
+export type AcpSetBudgetOutput = z.infer<typeof acpSetBudgetOutputSchema>;
+export type AcpFundJobOutput = z.infer<typeof acpFundJobOutputSchema>;
+export type AcpSubmitJobOutput = z.infer<typeof acpSubmitJobOutputSchema>;
+export type AcpCompleteJobOutput = z.infer<typeof acpCompleteJobOutputSchema>;
+export type AcpRejectJobOutput = z.infer<typeof acpRejectJobOutputSchema>;
+export type AcpClaimRefundOutput = z.infer<typeof acpClaimRefundOutputSchema>;
+export type AcpGetJobOutput = z.infer<typeof acpGetJobOutputSchema>;
+
+export type Erc8183CreateJobInput = z.infer<typeof erc8183CreateJobSchema>;
+export type Erc8183SetBudgetInput = z.infer<typeof erc8183SetBudgetSchema>;
+export type Erc8183FundJobInput = z.infer<typeof erc8183FundJobSchema>;
+export type Erc8183SubmitJobInput = z.infer<typeof erc8183SubmitJobSchema>;
+export type Erc8183CompleteJobInput = z.infer<typeof erc8183CompleteJobSchema>;
+export type Erc8183RejectJobInput = z.infer<typeof erc8183RejectJobSchema>;
+export type Erc8183ClaimRefundInput = z.infer<typeof erc8183ClaimRefundSchema>;
+export type Erc8183GetJobInput = z.infer<typeof erc8183GetJobSchema>;
+
+export type Erc8183CreateJobOutput = z.infer<typeof erc8183CreateJobOutputSchema>;
+export type Erc8183SetBudgetOutput = z.infer<typeof erc8183SetBudgetOutputSchema>;
+export type Erc8183FundJobOutput = z.infer<typeof erc8183FundJobOutputSchema>;
+export type Erc8183SubmitJobOutput = z.infer<typeof erc8183SubmitJobOutputSchema>;
+export type Erc8183CompleteJobOutput = z.infer<typeof erc8183CompleteJobOutputSchema>;
+export type Erc8183RejectJobOutput = z.infer<typeof erc8183RejectJobOutputSchema>;
+export type Erc8183ClaimRefundOutput = z.infer<typeof erc8183ClaimRefundOutputSchema>;
+export type Erc8183GetJobOutput = z.infer<typeof erc8183GetJobOutputSchema>;
+
+export type AgdpGetOfferingsInput = z.infer<typeof agdpGetOfferingsSchema>;
+export type AgdpGetOfferingInput = z.infer<typeof agdpGetOfferingSchema>;
+export type AgdpGetMyJobsInput = z.infer<typeof agdpGetMyJobsSchema>;
+export type AgdpHireAgentInput = z.infer<typeof agdpHireAgentSchema>;
+export type AgdpCreateOfferingInput = z.infer<typeof agdpCreateOfferingSchema>;
+
+export type AgdpGetOfferingsOutput = z.infer<typeof agdpGetOfferingsOutputSchema>;
+export type AgdpGetOfferingOutput = z.infer<typeof agdpGetOfferingOutputSchema>;
+export type AgdpGetMyJobsOutput = z.infer<typeof agdpGetMyJobsOutputSchema>;
+export type AgdpHireAgentOutput = z.infer<typeof agdpHireAgentOutputSchema>;
+export type AgdpCreateOfferingOutput = z.infer<typeof agdpCreateOfferingOutputSchema>;
+
+export type Erc8004RegisterAgentInput = z.infer<typeof erc8004RegisterSchema>;
+export type Erc8004GetAgentInput = z.infer<typeof erc8004GetAgentSchema>;
+export type Erc8004UpdateAgentInput = z.infer<typeof erc8004UpdateAgentSchema>;
+export type Erc8004SubmitFeedbackInput = z.infer<typeof erc8004SubmitFeedbackSchema>;
+export type Erc8004GetFeedbackInput = z.infer<typeof erc8004GetFeedbackSchema>;
+
+export type Erc8004RegisterAgentOutput = z.infer<typeof erc8004RegisterAgentOutputSchema>;
+export type Erc8004GetAgentOutput = z.infer<typeof erc8004GetAgentOutputSchema>;
+export type Erc8004UpdateAgentOutput = z.infer<typeof erc8004UpdateAgentOutputSchema>;
+export type Erc8004SubmitFeedbackOutput = z.infer<typeof erc8004SubmitFeedbackOutputSchema>;
+export type Erc8004GetFeedbackOutput = z.infer<typeof erc8004GetFeedbackOutputSchema>;
+
+export type X402CheckRequirementsInput = z.infer<typeof x402CheckRequirementsSchema>;
+export type X402FetchInput = z.infer<typeof x402FetchSchema>;
+
+export type X402CheckRequirementsOutput = z.infer<typeof x402CheckRequirementsOutputSchema>;
+export type X402FetchOutput = z.infer<typeof x402FetchOutputSchema>;
+
+export type PolicyGetInput = z.infer<typeof policyGetSchema>;
+export type PolicyGetOutput = z.infer<typeof policyGetOutputSchema>;
 
 export interface RuntimeBoundOptions {
   runtime?: Web3AgentRuntime;
