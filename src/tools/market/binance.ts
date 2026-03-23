@@ -1,5 +1,5 @@
-import type { z } from "zod";
-import type {
+import { z } from "zod";
+import {
   fundingRateEntrySchema,
   klineEntrySchema,
   orderBookResultSchema,
@@ -27,7 +27,7 @@ export async function getTicker(input: { symbol: string }): Promise<BinanceTicke
     throw new Error(`Binance ticker request failed: ${res.status} ${res.statusText}`);
   }
   const data = (await res.json()) as BinanceTicker;
-  return {
+  return tickerResultSchema.parse({
     symbol: data.symbol,
     lastPrice: data.lastPrice,
     priceChange: data.priceChange,
@@ -38,7 +38,7 @@ export async function getTicker(input: { symbol: string }): Promise<BinanceTicke
     quoteVolume: data.quoteVolume,
     bidPrice: data.bidPrice,
     askPrice: data.askPrice,
-  };
+  });
 }
 
 // ── getKlines ─────────────────────────────────────────────────────
@@ -73,27 +73,31 @@ export async function getKlines(input: {
     throw new Error(`Binance klines request failed: ${res.status} ${res.statusText}`);
   }
   const data = (await res.json()) as BinanceKlineRaw[];
-  return data.map((k) => ({
-    openTime: k[0],
-    open: k[1],
-    high: k[2],
-    low: k[3],
-    close: k[4],
-    volume: k[5],
-    quoteVolume: k[7],
-    trades: k[8],
-  }));
+  return z.array(klineEntrySchema).parse(
+    data.map((k) => ({
+      openTime: k[0],
+      open: k[1],
+      high: k[2],
+      low: k[3],
+      close: k[4],
+      volume: k[5],
+      quoteVolume: k[7],
+      trades: k[8],
+    }))
+  );
 }
 
 // ── getOrderBook ──────────────────────────────────────────────────
 
 export type BinanceOrderBook = z.infer<typeof orderBookResultSchema>;
 
-interface BinanceDepthRaw {
-  lastUpdateId: number;
-  bids: [string, string][];
-  asks: [string, string][];
-}
+const binanceDepthRawSchema = z.object({
+  lastUpdateId: z.number(),
+  bids: z.array(z.tuple([z.string(), z.string()])),
+  asks: z.array(z.tuple([z.string(), z.string()])),
+});
+
+type BinanceDepthRaw = z.infer<typeof binanceDepthRawSchema>;
 
 export async function getOrderBook(input: {
   symbol: string;
@@ -106,12 +110,12 @@ export async function getOrderBook(input: {
   if (!res.ok) {
     throw new Error(`Binance order book request failed: ${res.status} ${res.statusText}`);
   }
-  const data = (await res.json()) as BinanceDepthRaw;
-  return {
+  const data = binanceDepthRawSchema.parse(await res.json());
+  return orderBookResultSchema.parse({
     lastUpdateId: data.lastUpdateId,
     bids: data.bids.map(([price, quantity]) => ({ price, quantity })),
     asks: data.asks.map(([price, quantity]) => ({ price, quantity })),
-  };
+  });
 }
 
 // ── getFundingRates ───────────────────────────────────────────────
@@ -137,9 +141,11 @@ export async function getFundingRates(input: {
     throw new Error(`Binance funding rates request failed: ${res.status} ${res.statusText}`);
   }
   const data = (await res.json()) as BinanceFundingRateRaw[];
-  return data.map((d) => ({
-    fundingTime: d.fundingTime,
-    fundingRate: d.fundingRate,
-    markPrice: d.markPrice,
-  }));
+  return z.array(fundingRateEntrySchema).parse(
+    data.map((d) => ({
+      fundingTime: d.fundingTime,
+      fundingRate: d.fundingRate,
+      markPrice: d.markPrice,
+    }))
+  );
 }

@@ -77,6 +77,7 @@ describe("Orbs quote tools", () => {
       fromToken: "0xTokenA",
       toToken: "0xTokenB",
       fromAmount: "1000000000000000000",
+      slippagePct: 0.5,
     });
 
     expect(result.isError).toBe(false);

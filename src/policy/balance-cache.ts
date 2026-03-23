@@ -4,13 +4,34 @@ import { getChainById } from "../chains/registry.js";
 import { getTransportForChain } from "../config/wallet-factory.js";
 import { resilientFetch } from "../utils/resilient-fetch.js";
 
-let cachedBalanceUsd: number | null = null;
+export const BALANCE_CACHE_TTL_MS = 60_000;
 
-export function getCachedBalanceUsd(): number | null {
-  return cachedBalanceUsd;
+interface BalanceCacheEntry {
+  usd: number;
+  updatedAt: number;
+}
+
+const cachedBalances = new Map<string, BalanceCacheEntry>();
+
+function balanceCacheKey(address: string, chainId: number): string {
+  return `${address.toLowerCase()}:${chainId}`;
+}
+
+export function getCachedBalanceUsd(address?: string, chainId?: number): number | null {
+  if (!address || chainId === undefined) return null;
+
+  const key = balanceCacheKey(address, chainId);
+  const entry = cachedBalances.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > BALANCE_CACHE_TTL_MS) {
+    cachedBalances.delete(key);
+    return null;
+  }
+  return entry.usd;
 }
 
 export async function refreshBalanceUsd(address: string, chainId: number): Promise<number | null> {
+  const key = balanceCacheKey(address, chainId);
   try {
     const chain = getChainById(chainId);
     if (!chain) return null;
@@ -22,22 +43,23 @@ export async function refreshBalanceUsd(address: string, chainId: number): Promi
     const balanceNative = Number(formatUnits(balanceWei, decimals));
 
     if (balanceNative === 0) {
-      cachedBalanceUsd = 0;
+      cachedBalances.set(key, { usd: 0, updatedAt: Date.now() });
       return 0;
     }
 
     const nativeSymbol = chain.nativeCurrency?.symbol?.toLowerCase() ?? "eth";
     const priceUsd = await fetchNativeTokenPrice(nativeSymbol);
     if (priceUsd === null) {
-      cachedBalanceUsd = null;
+      cachedBalances.delete(key);
       return null;
     }
 
-    cachedBalanceUsd = balanceNative * priceUsd;
-    return cachedBalanceUsd;
+    const usd = balanceNative * priceUsd;
+    cachedBalances.set(key, { usd, updatedAt: Date.now() });
+    return usd;
   } catch (e: unknown) {
     process.stderr.write(`[policy] Failed to refresh wallet balance: ${e}\n`);
-    cachedBalanceUsd = null;
+    cachedBalances.delete(key);
     return null;
   }
 }
@@ -71,5 +93,5 @@ async function fetchNativeTokenPrice(symbol: string): Promise<number | null> {
 }
 
 export function resetBalanceCache(): void {
-  cachedBalanceUsd = null;
+  cachedBalances.clear();
 }

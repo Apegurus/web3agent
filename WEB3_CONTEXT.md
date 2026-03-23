@@ -51,6 +51,7 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `orbs_get_quote` — Liquidity Hub aggregated swap quote (chains: 137, 56, 8453, 59144, 81457, 42161)
 - `orbs_swap` — execute swap (write, confirmation-gated)
 - `orbs_prepare_swap_intent` — prepare swap quote + EIP-712 payload for an external wallet (read-only)
+- Slippage naming is explicit: quote/swap flows use `slippagePct`; Spot/TWAP/limit order flows use `slippageBps`
 - `orbs_get_required_approvals` — check wrap / Permit2 approval steps before signing (read-only)
 - `orbs_swap_status` — check status of a pending Liquidity Hub swap (takes chainId, sessionId, user)
 - `orbs_place_twap` — place dTWAP order (write, confirmation-gated)

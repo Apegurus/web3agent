@@ -24,6 +24,17 @@ const simulationMocks = vi.hoisted(() => ({
   simulateTransaction: vi.fn(),
 }));
 
+const policyMocks = vi.hoisted(() => ({
+  evaluatePolicy: vi.fn().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" }),
+  extractEstimatedUsd: vi.fn().mockResolvedValue(null),
+  recordSpend: vi.fn(),
+}));
+
+const balanceCacheMocks = vi.hoisted(() => ({
+  getCachedBalanceUsd: vi.fn().mockReturnValue(null),
+  refreshBalanceUsd: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("../../src/wallet/persistence.js", () => mockPersistence);
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
@@ -51,20 +62,29 @@ vi.mock("../../src/policy/config.js", () => ({
 }));
 
 vi.mock("../../src/policy/engine.js", () => ({
-  evaluatePolicy: vi.fn().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" }),
+  evaluatePolicy: (...args: unknown[]) => policyMocks.evaluatePolicy(...args),
 }));
 
 vi.mock("../../src/policy/extract-usd.js", () => ({
-  extractEstimatedUsd: vi.fn().mockResolvedValue(0),
+  extractEstimatedUsd: (...args: unknown[]) => policyMocks.extractEstimatedUsd(...args),
 }));
 
 vi.mock("../../src/policy/spend-tracker.js", () => ({
-  recordSpend: vi.fn(),
+  recordSpend: (...args: unknown[]) => policyMocks.recordSpend(...args),
+}));
+
+vi.mock("../../src/policy/balance-cache.js", () => ({
+  getCachedBalanceUsd: (...args: unknown[]) => balanceCacheMocks.getCachedBalanceUsd(...args),
+  refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
 }));
 
 describe("transaction_confirm tool handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    policyMocks.evaluatePolicy.mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
+    policyMocks.extractEstimatedUsd.mockResolvedValue(null);
+    balanceCacheMocks.getCachedBalanceUsd.mockReturnValue(null);
+    balanceCacheMocks.refreshBalanceUsd.mockResolvedValue(null);
   });
 
   it("rejects missing id param", async () => {
@@ -134,6 +154,100 @@ describe("transaction_confirm tool handler", () => {
     expect(result.isError).toBe(true);
     const payload = JSON.parse(result.content[0].text as string);
     expect(payload.error).toBe("OPERATION_EXPIRED");
+  });
+
+  it("denies financial operations when USD estimation fails at confirm time", async () => {
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(0);
+    const executor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({ confirmed: true }) }],
+    });
+    mockQueue.queue.confirm.mockReturnValueOnce({
+      operation: {
+        id: "op-price-fail",
+        type: "swap",
+        description: "Swap with unavailable price feed",
+        params: { fromToken: "0xabc", fromAmount: "1000" },
+        createdAt: new Date(),
+        ttlMs: 30 * 60 * 1000,
+        riskLevel: "financial",
+        executor,
+      },
+      stale: false,
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "op-price-fail" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.error).toBe("SPEND_LIMIT_ERROR");
+    expect(executor).not.toHaveBeenCalled();
+    expect(policyMocks.evaluatePolicy).not.toHaveBeenCalled();
+  });
+
+  it("allows gas-only financial operations to continue when no USD estimate is available", async () => {
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(null);
+    const executorResult = {
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({ confirmed: true, txHash: "0xabc" }) }],
+    };
+    const executor = vi.fn().mockResolvedValue(executorResult);
+    mockQueue.queue.confirm.mockReturnValueOnce({
+      operation: {
+        id: "op-gas-only",
+        type: "orbs_cancel_order",
+        description: "Cancel a pending order",
+        params: { chainId: 1, digest: "0x123" },
+        createdAt: new Date(),
+        ttlMs: 30 * 60 * 1000,
+        riskLevel: "financial",
+        executor,
+      },
+      stale: false,
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "op-gas-only" });
+
+    expect(result.isError).toBe(false);
+    expect(executor).toHaveBeenCalledOnce();
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes wallet balance for the operation chain before confirm-time policy evaluation", async () => {
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(50);
+    balanceCacheMocks.getCachedBalanceUsd.mockReturnValueOnce(null);
+    balanceCacheMocks.refreshBalanceUsd.mockResolvedValueOnce(125);
+    const executor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({ confirmed: true }) }],
+    });
+    mockQueue.queue.confirm.mockReturnValueOnce({
+      operation: {
+        id: "op-refresh-balance",
+        type: "swap",
+        description: "Swap on a non-default chain",
+        params: { chainId: 8453, fromToken: "0xabc", fromAmount: "1000" },
+        createdAt: new Date(),
+        ttlMs: 30 * 60 * 1000,
+        riskLevel: "financial",
+        executor,
+      },
+      stale: false,
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "op-refresh-balance" });
+
+    expect(result.isError).toBe(false);
+    expect(balanceCacheMocks.refreshBalanceUsd).toHaveBeenCalledWith("0x0", 8453);
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        walletBalanceUsd: 125,
+      })
+    );
   });
 });
 

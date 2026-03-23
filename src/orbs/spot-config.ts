@@ -25,6 +25,11 @@ const SPOT_CHAIN_ADAPTERS: Record<number, { name: string; adapter: Hex }> = {
 
 const SPOT_API_URL = process.env.SPOT_API_URL ?? "https://agents-sink-dev.orbs.network";
 
+function normalizeSpotBasePath(pathname: string): string {
+  if (pathname === "/" || pathname === "") return "";
+  return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
+
 export function getSpotContracts(): typeof SPOT_CONTRACTS {
   return SPOT_CONTRACTS;
 }
@@ -50,6 +55,20 @@ export function getSupportedSpotChainIds(): number[] {
 
 export function getSpotApiUrl(): string {
   return SPOT_API_URL;
+}
+
+export function isTrustedSpotSubmitUrl(submitUrl: string, expectedBase = getSpotApiUrl()): boolean {
+  try {
+    const base = new URL(expectedBase);
+    const candidate = new URL(submitUrl);
+    if (candidate.origin !== base.origin) return false;
+
+    const basePath = normalizeSpotBasePath(base.pathname);
+    const expectedPath = `${basePath}/orders/new`;
+    return candidate.pathname === expectedPath;
+  } catch {
+    return false;
+  }
 }
 
 /* ---------- RePermit cancel ABI ---------- */

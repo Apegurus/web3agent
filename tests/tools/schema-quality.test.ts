@@ -1,5 +1,3 @@
-import { readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ZodObject, ZodTypeAny } from "zod";
 
@@ -54,38 +52,13 @@ function findFieldsMissingDescribe(schema: ZodTypeAny, path = ""): string[] {
   return missing;
 }
 
-/**
- * Recursively find all schema files under src/.
- * Matches: *\/schemas.ts, *\/schemas/*.ts
- */
-function findSchemaFiles(dir: string, root: string): string[] {
-  const results: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const rel = relative(root, full);
-    if (statSync(full).isDirectory()) {
-      // Skip node_modules, dist, .git, etc.
-      if (entry.startsWith(".") || entry === "node_modules" || entry === "dist") continue;
-      results.push(...findSchemaFiles(full, root));
-    } else if (
-      entry.endsWith(".ts") &&
-      !entry.endsWith(".test.ts") &&
-      !entry.endsWith(".d.ts") &&
-      (entry === "schemas.ts" || rel.includes("/schemas/"))
-    ) {
-      results.push(full);
-    }
-  }
-  return results;
-}
+const schemaFileModules = {
+  ...import.meta.glob("../../src/**/schemas.ts", { eager: true }),
+  ...import.meta.glob("../../src/**/schemas/*.ts", { eager: true }),
+};
 
-const ROOT = join(import.meta.dirname, "../../src");
-const schemaFiles = findSchemaFiles(ROOT, ROOT);
-
-// Dynamic import all discovered schema files
-const schemaModules = await Promise.all(
-  schemaFiles.map((f) => import(/* @vite-ignore */ f.replace(/\.ts$/, ".js")))
-);
+const schemaFiles = Object.keys(schemaFileModules).sort();
+const schemaModules = Object.values(schemaFileModules);
 
 // Internal schemas that are not user-facing — skip .describe() checks
 const INTERNAL_SCHEMAS = new Set([

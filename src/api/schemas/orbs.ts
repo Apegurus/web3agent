@@ -3,7 +3,7 @@ import { addressSchema, chainIdOptionalSchema, hexSchema, tokenAmountSchema } fr
 
 export const orbsGetQuoteSchema = tokenAmountSchema.extend({
   chainId: chainIdOptionalSchema,
-  slippage: z.number().optional().describe("Slippage percentage (0.5 = 0.5%, default 0.5)"),
+  slippagePct: z.number().optional().describe("Slippage percentage (0.5 = 0.5%, default 0.5)"),
 });
 
 export const orbsSwapSchema = orbsGetQuoteSchema;
@@ -63,7 +63,7 @@ export const orbsPlaceOrderSchema = tokenAmountSchema.extend({
     .number()
     .optional()
     .describe("Seconds between chunk fills (0 for single, 60 default for chunked)"),
-  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  slippageBps: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
   outputLimit: z
     .string()
     .optional()
@@ -101,7 +101,7 @@ export const orbsPlaceTwapSchema = tokenAmountSchema.extend({
   fillDelay: z
     .number({ required_error: "fillDelay is required" })
     .describe("Delay between chunk fills in seconds"),
-  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  slippageBps: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
   exactApproval: z
     .boolean()
     .optional()
@@ -118,7 +118,7 @@ export const orbsPlaceLimitSchema = tokenAmountSchema.extend({
     .string({ required_error: "toMinAmount is required" })
     .describe("Minimum output amount in smallest token units"),
   expiry: z.number().optional().describe("Order expiry in seconds from now (default 86400 = 24h)"),
-  slippage: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
+  slippageBps: z.number().optional().describe("Slippage tolerance in BPS (default 500 = 5%)"),
   exactApproval: z
     .boolean()
     .optional()

@@ -171,7 +171,7 @@ export async function prepareSwapOperation(
       fromToken: resolveSwapQuoteFromToken(chainId, input.fromToken),
       toToken: input.toToken,
       inAmount: input.fromAmount,
-      slippage: input.slippage,
+      slippage: input.slippagePct,
       account: input.account,
     })) as RawOrbsQuote;
 
@@ -295,7 +295,7 @@ export async function prepareOrderOperation(
       toToken: input.toToken,
       fromMaxAmount: input.fromMaxAmount,
       epoch: input.epoch,
-      slippage: input.slippage,
+      slippage: input.slippageBps,
       outputLimit: input.outputLimit,
       outputTriggerLower: input.outputTriggerLower,
       outputTriggerUpper: input.outputTriggerUpper,

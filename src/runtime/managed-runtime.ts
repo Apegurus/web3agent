@@ -333,6 +333,13 @@ export class ManagedRuntime implements Web3AgentRuntime {
           isError: true,
         };
       }
+
+      const wallet = getWalletState();
+      const policyChainId = typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
+      let walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
+      if (walletBalanceUsd === null && wallet.address) {
+        walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
+      }
       if (rawEstimatedUsd === null) {
         // Gas-only tool (cancel, approve, generic write) — no token fields to estimate
         process.stderr.write(
@@ -343,7 +350,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
         toolName: name,
         riskLevel: tool.riskLevel,
         estimatedUsd: rawEstimatedUsd ?? 0,
-        walletBalanceUsd: getCachedBalanceUsd(),
+        walletBalanceUsd,
       });
 
       if (decision.action === "deny") {
