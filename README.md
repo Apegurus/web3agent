@@ -10,6 +10,8 @@ npx web3agent init
 
 Detects your AI agent host and configures it automatically.
 
+For a step-by-step install guide for both humans and coding agents, see [docs/guides/universal-access.md](./docs/guides/universal-access.md).
+
 ## Usage
 
 ```bash

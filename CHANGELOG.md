@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-23
+
+### Breaking
+
+- **Slippage field names disambiguated** across Orbs schemas:
+  - Liquidity Hub (percentage): `slippage` → `slippagePct` (0.5 = 0.5%)
+  - Spot orders (basis points): `slippage` → `slippageBps` (500 = 5%)
+  - Prevents agents from confusing units — the old `slippage` field is removed
+
+### Added
+
+- **Unified Block Explorer** — 36 native tools replacing the RemoteMcpAdapter pattern. Multi-source router selects Blockscout or Etherscan per chain, with automatic fallback.
+  - Accounts: `explorer_address_info`, `explorer_address_balance`, `explorer_address_tokens`, `explorer_address_nfts`, `explorer_address_transactions`
+  - Blocks: `explorer_block_info`, `explorer_block_transactions`, `explorer_latest_block`, `explorer_block_count`
+  - Contracts: `explorer_contract_abi`, `explorer_contract_source`, `explorer_is_verified`, `explorer_contract_creation`
+  - Tokens: `explorer_token_info`, `explorer_token_holders`, `explorer_token_transfers`, `explorer_token_supply`, `explorer_token_balance`, `explorer_nft_metadata`, `explorer_nft_owner`
+  - Transactions: `explorer_transaction_info`, `explorer_transaction_receipt`, `explorer_internal_transactions`, `explorer_transaction_logs`, `explorer_transaction_status`
+  - Network: `explorer_gas_price`, `explorer_gas_oracle`, `explorer_chain_stats`, `explorer_latest_transactions`, `explorer_pending_transactions`, `explorer_search`, `explorer_supported_chains`, `explorer_health`, `explorer_ens_lookup`
+  - Events: `explorer_contract_events`, `explorer_address_events`
+- **Market Data Tools** — 20 tools for real-time and historical market data:
+  - Price: `market_price`, `market_price_history`, `market_ohlcv`, `market_multi_price`
+  - Discovery: `market_trending`, `market_top_by_market_cap`, `market_recently_listed`, `market_gainers_losers`
+  - Token details: `market_token_info`, `market_token_markets`, `market_search`
+  - DEX: `market_dex_pairs`, `market_dex_trades`, `market_pool_info`, `market_pool_ohlcv`
+  - Categories & exchanges: `market_categories`, `market_exchanges`, `market_exchange_volume`, `market_global_stats`, `market_dominance`
+- **Research Tools** — 13 tools for DeFi analytics and security research:
+  - DeFi: `research_protocol_tvl`, `research_chain_tvl`, `research_yields`, `research_yield_history`, `research_stablecoin_info`, `research_stablecoin_history`
+  - Security: `research_hack_history`, `research_hack_detail`
+  - Protocol: `research_protocol_info`, `research_protocol_fees`, `research_dex_volume`
+  - On-chain: `research_gas_history`, `research_bridge_volume`
+- **SDK API layer** for all new tool groups: `src/api/explorer.ts`, `src/api/market.ts`, `src/api/research.ts` with full programmatic access.
+- **TTL cache utility** (`src/tools/shared/cache.ts`) — shared caching for market and research data with configurable TTL.
+- **1,373 tests** (up from 794) across 108 test files.
+
+### Fixed
+
+- **Circuit breaker never opened on persistent HTTP 5xx** — `resilientFetch` now increments failure count on non-2xx responses instead of resetting. Prevents infinite retries against dead upstreams.
+- **`extractEstimatedUsd` bypassed spend limits for unrecognized tokens** — when token fields were present but decimals were unknown, returned `null` (gas-only) instead of `0` (estimation failed). Financial tools with unknown tokens now correctly require policy approval.
+- **Atomic write left `.tmp` files on failure** — `atomicWriteJson` now cleans up temp files when `writeFile`, `sync`, or `rename` throws.
+- **TWAP integer division** — `prepareTwapIntent` now validates that `fromAmount` is evenly divisible by `chunks` and that per-chunk amount is non-zero, instead of silently truncating.
+- **`submitUrl` validation bypass** — replaced `startsWith()` string check with proper `URL.origin` comparison to prevent subdomain spoofing attacks.
+- **Confirm-time policy gap** — `transactionConfirm` now denies financial operations when USD estimation fails (matching the `invokeTool` path).
+- **Slippage unit confusion** — renamed ambiguous `slippage` field to `slippagePct` (Liquidity Hub) and `slippageBps` (Spot orders).
+
+### Changed
+
+- **Schema auto-discovery** uses `import.meta.glob` instead of manual `findSchemaFiles` — cross-platform compatible, no Windows path separator issues.
+- **Explorer architecture** — Blockscout and Etherscan adapters no longer use RemoteMcpAdapter. Each has a typed client in `src/api/explorer/` with a router that selects the best source per chain.
+
 ## [0.3.0] - 2026-03-17
 
 ### Breaking
@@ -13,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Orbs: `inAmount` → `fromAmount`, `srcToken` → `fromToken`, `dstToken` → `toToken`, `srcAmount` → `fromAmount`, `dstMinAmount` → `toMinAmount`
   - LiFi: `fromTokenAddress` → `fromToken`, `toTokenAddress` → `toToken`
 - **Orbs slippage fields made explicit** — swap quote flows use `slippagePct`, while Spot/TWAP/limit order flows use `slippageBps`
-- **Spot Protocol replaces old TWAP/Limit SDK** — `prepareTwapIntent` and `prepareLimitIntent` now return `SpotOrderIntent` instead of `TwapIntent`/`LimitIntent`. Old types are deprecated and will be removed in v0.4.0. See migration notes below.
+- **Spot Protocol replaces old TWAP/Limit SDK** — `prepareTwapIntent` and `prepareLimitIntent` now return `SpotOrderIntent` instead of `TwapIntent`/`LimitIntent`. Old types are deprecated and will be removed in v0.5.0. See migration notes below.
 - **`submitSignedTwapOrder` signature changed** — now an adapter wrapper accepting the old `{ order, signature: { v, r, s } }` shape but submitting via the new Spot API. Deprecated in favor of `submitSignedOrder`.
 - **EVM tool inputSchemas now generated from Zod** — all 24 EVM tools migrated from manual JSON
 
