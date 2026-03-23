@@ -109,12 +109,24 @@ export async function resilientFetch(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const fetchInit = config?.timeoutMs
-        ? { ...init, signal: AbortSignal.timeout(config.timeoutMs) }
-        : init;
+      const timeoutSignal = config?.timeoutMs ? AbortSignal.timeout(config.timeoutMs) : undefined;
+      const fetchInit =
+        timeoutSignal && init?.signal
+          ? { ...init, signal: AbortSignal.any([init.signal, timeoutSignal]) }
+          : timeoutSignal
+            ? { ...init, signal: timeoutSignal }
+            : init;
       const response = await fetch(input, fetchInit);
 
       if (isRetryableStatus(response.status) && attempt < maxRetries) {
+        cb.consecutiveFailures++;
+        if (cb.consecutiveFailures >= failureThreshold) {
+          cb.state = "open";
+          cb.openUntil = Date.now() + cooldownMs;
+          process.stderr.write(
+            `[resilient-fetch] Circuit opened for "${label}" after ${cb.consecutiveFailures} consecutive HTTP failures — cooldown ${cooldownMs}ms\n`
+          );
+        }
         const retryAfter = extractRetryAfterMs(response);
         const delay = retryAfter ?? jitteredDelay(baseDelayMs, attempt, maxDelayMs);
         process.stderr.write(

@@ -232,6 +232,36 @@ describe("resilientFetch", () => {
       expect(vi.mocked(fetch).mock.calls.length).toBe(3);
     });
 
+    it("allows a probe request in half-open state after cooldown expires", async () => {
+      vi.useFakeTimers();
+      try {
+        vi.mocked(fetch).mockRejectedValue(new Error("fail"));
+
+        const config = {
+          label: "cb-half-open",
+          retry: { maxRetries: 0, baseDelayMs: 1, maxDelayMs: 10 },
+          circuitBreaker: { failureThreshold: 1, cooldownMs: 100 },
+        };
+
+        await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow();
+
+        await expect(resilientFetch("https://example.com", undefined, config)).rejects.toThrow(
+          /Circuit open/
+        );
+        const callsWhileOpen = vi.mocked(fetch).mock.calls.length;
+        expect(callsWhileOpen).toBe(1);
+
+        vi.advanceTimersByTime(150);
+
+        vi.mocked(fetch).mockResolvedValueOnce(makeResponse(200));
+        const res = await resilientFetch("https://example.com", undefined, config);
+        expect(res.status).toBe(200);
+        expect(vi.mocked(fetch).mock.calls.length).toBe(callsWhileOpen + 1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("resets failure count on successful response", async () => {
       const config = {
         label: "cb-reset",
