@@ -7,11 +7,9 @@ export interface SpotSubmitParams {
   signature: { r: string; s: string; v: string };
 }
 
-export interface SpotSubmitResult {
-  ok: boolean;
-  status: number;
-  response: unknown;
-}
+export type SpotSubmitResult =
+  | { ok: true; status: number; response: unknown }
+  | { ok: false; status: number; response: unknown };
 
 export interface SpotQueryParams {
   swapper?: string;

@@ -31,8 +31,9 @@ import {
 } from "./schemas.js";
 
 export async function executeSpotOrderNow(
-  params: Record<string, unknown>
+  rawParams: Record<string, unknown>
 ): Promise<CallToolResult> {
+  const params = { ...rawParams };
   if ("srcToken" in params && !("fromToken" in params)) {
     params.fromToken = params.srcToken;
     params.srcToken = undefined;
@@ -264,6 +265,7 @@ export async function orbsQueryOrders(params: Record<string, unknown>): Promise<
     if (spotResult.ok) {
       return formatToolResponse({
         source: "spot",
+        count: spotResult.orders.length,
         orders: spotResult.orders,
       });
     }
