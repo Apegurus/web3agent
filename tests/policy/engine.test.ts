@@ -60,6 +60,7 @@ describe("evaluatePolicy — financial tool within limits", () => {
       toolName: "transfer_token",
       riskLevel: "financial",
       estimatedUsd: 50,
+      walletBalanceUsd: 1000,
     });
     expect(decision.action).toBe("allow");
     expect(decision.reasonCode).toBe("ALLOWED");
@@ -70,6 +71,7 @@ describe("evaluatePolicy — financial tool within limits", () => {
       toolName: "transfer_token",
       riskLevel: "financial",
       estimatedUsd: 50,
+      walletBalanceUsd: 1000,
     });
     expect(decision.currentSpend).toBeDefined();
     expect(decision.currentSpend.hourlyUsd).toBeGreaterThanOrEqual(0);
@@ -171,6 +173,7 @@ describe("evaluatePolicy — x402 limit", () => {
       toolName: "x402_pay",
       riskLevel: "financial",
       estimatedUsd: 3,
+      walletBalanceUsd: 1000,
     });
     expect(decision.action).toBe("allow");
   });
@@ -226,14 +229,15 @@ describe("evaluatePolicy — min reserve", () => {
     expect(decision.reasonCode).toBe("MIN_RESERVE");
   });
 
-  it("allows when wallet balance is unknown (null)", () => {
+  it("denies when wallet balance is unknown and minReserveUsd > 0", () => {
     const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
       toolName: "transfer_token",
       riskLevel: "financial",
       estimatedUsd: 50,
       walletBalanceUsd: null,
     });
-    expect(decision.action).toBe("allow");
+    expect(decision.action).toBe("deny");
+    expect(decision.reasonCode).toBe("BALANCE_UNKNOWN");
   });
 
   it("allows when projected balance stays above reserve", () => {

@@ -73,7 +73,16 @@ export function evaluateMinReserve(
   walletBalanceUsd: number | null,
   toolName: string
 ): RuleResult | null {
-  if (walletBalanceUsd === null) return null;
+  if (walletBalanceUsd === null) {
+    if (policy.minReserveUsd > 0) {
+      return {
+        action: "deny",
+        reasonCode: "BALANCE_UNKNOWN",
+        message: `${toolName}: wallet balance unknown — cannot verify minimum reserve of $${policy.minReserveUsd.toFixed(2)}`,
+      };
+    }
+    return null;
+  }
   const projectedBalance = walletBalanceUsd - estimatedUsd;
   if (projectedBalance >= policy.minReserveUsd) return null;
 

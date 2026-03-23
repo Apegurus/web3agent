@@ -154,9 +154,11 @@ describe("evaluateX402Limit", () => {
 });
 
 describe("evaluateMinReserve", () => {
-  it("returns null when wallet balance is null (unknown)", () => {
+  it("denies when wallet balance is null and minReserveUsd > 0", () => {
     const result = evaluateMinReserve(basePolicy, 50, null, "transfer");
-    expect(result).toBeNull();
+    expect(result).toEqual(
+      expect.objectContaining({ action: "deny", reasonCode: "BALANCE_UNKNOWN" })
+    );
   });
 
   it("returns null when projected balance is above reserve", () => {

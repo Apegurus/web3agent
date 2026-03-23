@@ -68,6 +68,17 @@ export function evaluatePolicy(
     );
   }
 
+  if (request.estimatedUsd === 0) {
+    return buildDecision(
+      "deny",
+      "USD_ESTIMATION_FAILED",
+      `${request.toolName}: USD estimation failed — cannot verify spend limits for ${request.riskLevel} tool`,
+      request,
+      spend,
+      policy
+    );
+  }
+
   const rules = [
     () => evaluateX402Limit(policy, request.estimatedUsd, request.toolName),
     () => evaluateSingleTransactionLimit(policy, request.estimatedUsd, request.toolName),
