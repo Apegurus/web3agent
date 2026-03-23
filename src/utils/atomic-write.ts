@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, open, rename } from "node:fs/promises";
+import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
@@ -13,8 +13,16 @@ export async function atomicWriteJson(filePath: string, data: unknown): Promise<
   try {
     await fd.writeFile(JSON.stringify(data, null, 2));
     await fd.sync();
-  } finally {
+  } catch (writeError: unknown) {
     await fd.close();
+    await unlink(tmpPath).catch(() => {});
+    throw writeError;
   }
-  await rename(tmpPath, filePath);
+  await fd.close();
+  try {
+    await rename(tmpPath, filePath);
+  } catch (renameError: unknown) {
+    await unlink(tmpPath).catch(() => {});
+    throw renameError;
+  }
 }

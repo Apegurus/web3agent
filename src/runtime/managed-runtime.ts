@@ -335,7 +335,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
       }
 
       const wallet = getWalletState();
-      const policyChainId = typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
+      const policyChainId =
+        typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
       let walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
       if (walletBalanceUsd === null && wallet.address) {
         walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);

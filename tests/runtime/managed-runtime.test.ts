@@ -282,7 +282,9 @@ describe("managed runtime", () => {
     registerToolMocks.transactionTools = [];
     registerToolMocks.utilityTools = [];
     policyMocks.resolvePolicy.mockReset().mockImplementation((config: unknown) => config);
-    policyMocks.evaluatePolicy.mockReset().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
+    policyMocks.evaluatePolicy
+      .mockReset()
+      .mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
     policyMocks.extractEstimatedUsd.mockReset().mockResolvedValue(null);
     policyMocks.recordSpend.mockReset();
     policyMocks.loadSpendLog.mockResolvedValue(0);

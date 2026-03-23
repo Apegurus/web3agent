@@ -30,7 +30,7 @@ import {
   isTrustedSpotSubmitUrl,
 } from "../../orbs/spot-config.js";
 import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
-import { twapParamsToSpotParams } from "../../orbs/twap-compat.js";
+import { type TwapToSpotParamsResult, twapParamsToSpotParams } from "../../orbs/twap-compat.js";
 import { listOrders } from "../../orbs/twap.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -685,11 +685,14 @@ async function orbsPlaceTwap(params: Record<string, unknown>): Promise<CallToolR
     return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
   }
 
-  let spotParams;
+  let spotParams: TwapToSpotParamsResult;
   try {
     spotParams = twapParamsToSpotParams(v.data);
   } catch (e: unknown) {
-    return formatToolError("INVALID_PARAMS", e instanceof Error ? e.message : "Invalid TWAP parameters");
+    return formatToolError(
+      "INVALID_PARAMS",
+      e instanceof Error ? e.message : "Invalid TWAP parameters"
+    );
   }
 
   return executeWrite({
@@ -714,7 +717,7 @@ async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<C
     return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
   }
 
-  let spotParams;
+  let spotParams: TwapToSpotParamsResult;
   try {
     spotParams = twapParamsToSpotParams(v.data);
   } catch (e: unknown) {

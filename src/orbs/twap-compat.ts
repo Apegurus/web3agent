@@ -14,9 +14,7 @@ export interface TwapToSpotParamsResult {
   exactApproval?: boolean;
 }
 
-export function twapParamsToSpotParams(
-  params: TwapToSpotParamsInput
-): TwapToSpotParamsResult {
+export function twapParamsToSpotParams(params: TwapToSpotParamsInput): TwapToSpotParamsResult {
   const totalAmount = BigInt(params.fromAmount);
   const chunkCount = BigInt(params.chunks);
   if (totalAmount < chunkCount) {
