@@ -28,5 +28,5 @@ export function buildWriteContext(chainId: number): WriteContext | CallToolResul
 }
 
 export function isWriteContext(value: WriteContext | CallToolResult): value is WriteContext {
-  return "chain" in value && !("isError" in value);
+  return "chain" in value && "account" in value && !("content" in value);
 }

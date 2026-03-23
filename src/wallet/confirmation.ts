@@ -105,19 +105,23 @@ export class ConfirmationQueueManager {
     };
   }
 
+  private executing = new Set<string>();
+
   confirm(id: string): { operation: PendingOperation; stale: boolean } | null {
     const operation = this.queue.get(id);
     if (!operation) return null;
+    if (this.executing.has(id)) return null;
+
+    this.executing.add(id);
 
     const elapsed = Date.now() - operation.createdAt.getTime();
     const stale = elapsed > operation.ttlMs;
 
-    // Remove from queue only after caller has the reference.
-    // Caller must call complete(id) after successful execution.
     return { operation, stale };
   }
 
   complete(id: string): void {
+    this.executing.delete(id);
     const op = this.queue.get(id);
     this.queue.delete(id);
     this.schedulePersist();
@@ -125,6 +129,7 @@ export class ConfirmationQueueManager {
   }
 
   deny(id: string): boolean {
+    this.executing.delete(id);
     const op = this.queue.get(id);
     const removed = this.queue.delete(id);
     if (removed) {
@@ -158,6 +163,7 @@ export class ConfirmationQueueManager {
   flushAll(): number {
     const count = this.queue.size;
     this.queue.clear();
+    this.executing.clear();
     this.schedulePersist();
     return count;
   }

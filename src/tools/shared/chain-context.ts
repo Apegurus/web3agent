@@ -21,5 +21,5 @@ export function resolveToolChain(
 export function isChainResolved(
   value: { chain: Chain; chainId: number } | CallToolResult
 ): value is { chain: Chain; chainId: number } {
-  return "chain" in value && !("isError" in value);
+  return "chain" in value && "chainId" in value && !("content" in value);
 }
