@@ -1,15 +1,11 @@
 import { z } from "zod";
-
-export const evmChainIdParam = z
-  .number()
-  .optional()
-  .describe("Chain ID (defaults to configured chain)");
+import { chainIdOptionalSchema } from "../../api/schemas/common.js";
 
 export const evmGetBalanceSchema = z.object({
   address: z
     .string({ required_error: "address is required" })
     .describe("Wallet address or ENS name"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetTokenBalanceSchema = z.object({
@@ -19,7 +15,7 @@ export const evmGetTokenBalanceSchema = z.object({
   ownerAddress: z
     .string({ required_error: "ownerAddress is required" })
     .describe("Owner wallet address"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetAllowanceSchema = z.object({
@@ -33,23 +29,23 @@ export const evmGetAllowanceSchema = z.object({
   spenderAddress: z
     .string({ required_error: "spenderAddress is required" })
     .describe("Approved spender address"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetBlockSchema = z.object({
   blockIdentifier: z
     .string({ required_error: "blockIdentifier is required" })
     .describe("Block number (decimal string) or 0x-prefixed block hash"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetLatestBlockSchema = z.object({
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetTransactionSchema = z.object({
   txHash: z.string({ required_error: "txHash is required" }).describe("Transaction hash"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetTransactionReceiptSchema = evmGetTransactionSchema;
@@ -57,36 +53,36 @@ export const evmGetTransactionReceiptSchema = evmGetTransactionSchema;
 export const evmWaitForTransactionSchema = z.object({
   txHash: z.string({ required_error: "txHash is required" }).describe("Transaction hash"),
   confirmations: z.number().optional().describe("Required confirmation count"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetGasPriceSchema = z.object({
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetChainInfoSchema = z.object({
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmResolveEnsSchema = z.object({
   ensName: z
     .string({ required_error: "ensName is required" })
     .describe("ENS name (for example vitalik.eth)"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmLookupEnsSchema = z.object({
   address: z
     .string({ required_error: "address is required" })
     .describe("Address to reverse-resolve"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetContractAbiSchema = z.object({
   contractAddress: z
     .string({ required_error: "contractAddress is required" })
     .describe("Contract address"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmRegisterAbiSchema = z.object({
@@ -110,7 +106,7 @@ export const evmReadContractSchema = z.object({
   args: z.array(z.string()).optional().describe("Function arguments as strings"),
   abiJson: z.string().optional().describe("Optional ABI JSON string"),
   abiLabel: z.string().optional().describe("Label of a registered ABI (from evm_register_abi)"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmWriteContractSchema = z.object({
@@ -124,13 +120,13 @@ export const evmWriteContractSchema = z.object({
   value: z.string().optional().describe("Optional native amount in ether units"),
   abiJson: z.string().optional().describe("Optional ABI JSON string"),
   abiLabel: z.string().optional().describe("Label of a registered ABI (from evm_register_abi)"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmTransferNativeSchema = z.object({
   to: z.string({ required_error: "to is required" }).describe("Recipient address or ENS name"),
   amount: z.string({ required_error: "amount is required" }).describe("Amount in ether units"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmTransferErc20Schema = z.object({
@@ -141,7 +137,7 @@ export const evmTransferErc20Schema = z.object({
   amount: z
     .string({ required_error: "amount is required" })
     .describe("Token amount in smallest units (wei-equivalent)"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmApproveTokenSchema = z.object({
@@ -152,7 +148,7 @@ export const evmApproveTokenSchema = z.object({
     .string({ required_error: "spenderAddress is required" })
     .describe("Spender address or ENS name"),
   amount: z.string({ required_error: "amount is required" }).describe("Raw token allowance amount"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetNftInfoSchema = z.object({
@@ -160,7 +156,7 @@ export const evmGetNftInfoSchema = z.object({
     .string({ required_error: "tokenAddress is required" })
     .describe("ERC-721 contract address"),
   tokenId: z.string({ required_error: "tokenId is required" }).describe("Token ID as string"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmGetErc1155BalanceSchema = z.object({
@@ -171,7 +167,7 @@ export const evmGetErc1155BalanceSchema = z.object({
   ownerAddress: z
     .string({ required_error: "ownerAddress is required" })
     .describe("Owner wallet address"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const evmSignMessageSchema = z.object({
@@ -206,5 +202,5 @@ export const evmMulticallSchema = z.object({
     .array(multicallEntry, { required_error: "calls is required" })
     .describe("Contract calls to execute"),
   allowFailure: z.boolean().optional().describe("Continue if individual call fails"),
-  chainId: evmChainIdParam,
+  chainId: chainIdOptionalSchema,
 });

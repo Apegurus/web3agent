@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const chainIdParam = z.number().optional().describe("Chain ID (defaults to runtime config)");
+import { chainIdOptionalSchema } from "../../api/schemas/common.js";
 
 export const acpVCreateJobSchema = z.object({
   provider: z.string().describe("Provider wallet address"),
@@ -12,14 +11,14 @@ export const acpVCreateJobSchema = z.object({
     .string()
     .optional()
     .describe("Initial budget in token smallest units (default 0, set later via acp_set_budget)"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVSetBudgetSchema = z.object({
   jobId: z.number().describe("Job ID"),
   amount: z.string().describe("Budget amount in token smallest units"),
   paymentToken: z.string().optional().describe("Payment token address (defaults to USDC)"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVFundJobSchema = z.object({
@@ -29,34 +28,34 @@ export const acpVFundJobSchema = z.object({
     .number()
     .optional()
     .describe("Memo expiry as Unix timestamp (defaults to job expiry)"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVSubmitJobSchema = z.object({
   jobId: z.number().describe("Job ID"),
   deliverable: z.string().describe("Deliverable content (text, URL, or JSON)"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVCompleteJobSchema = z.object({
   jobId: z.number().describe("Job ID"),
   reason: z.string().optional().describe("Completion reason"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVRejectJobSchema = z.object({
   jobId: z.number().describe("Job ID"),
   reason: z.string().optional().describe("Rejection reason"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVClaimRefundSchema = z.object({
   jobId: z.number().describe("Job ID"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });
 
 export const acpVGetJobSchema = z.object({
   jobId: z.number().describe("Job ID"),
   memoLimit: z.number().optional().describe("Max memos to return (default 100)"),
-  chainId: chainIdParam,
+  chainId: chainIdOptionalSchema,
 });

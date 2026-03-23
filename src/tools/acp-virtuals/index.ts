@@ -14,10 +14,10 @@ import {
 import { getTransportForChain } from "../../config/wallet-factory.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
+import { requireActiveWallet } from "../../utils/tool-helpers.js";
 import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
-import { getWalletState } from "../../wallet/persistence.js";
 import type { ToolDefinition } from "../register.js";
 import { isChainResolved, resolveToolChain, resolveToolChainId } from "../shared/chain-context.js";
 import { buildWriteContext, isWriteContext } from "../shared/write-context.js";
@@ -38,17 +38,6 @@ function checkChainSupport(chainId: number): CallToolResult | null {
     return formatToolError(
       "UNSUPPORTED_CHAIN",
       `Virtuals ACP not deployed on chain ${chainId}. Use Base (8453) or Base Sepolia (84532).`
-    );
-  }
-  return null;
-}
-
-function ensureWritable(toolName: string): CallToolResult | null {
-  const walletState = getWalletState();
-  if (walletState.mode === "read-only") {
-    return formatToolError(
-      "WALLET_READ_ONLY",
-      `${toolName} requires an active wallet. Use wallet_generate or import a key first.`
     );
   }
   return null;
@@ -179,7 +168,7 @@ async function acpCreateJob(params: Record<string, unknown>): Promise<CallToolRe
 }
 
 async function executeCreateJob(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_create_job");
+  const walletErr = requireActiveWallet("acp_create_job");
   if (walletErr) return walletErr;
 
   try {
@@ -251,7 +240,7 @@ async function acpSetBudget(params: Record<string, unknown>): Promise<CallToolRe
 }
 
 async function executeSetBudget(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_set_budget");
+  const walletErr = requireActiveWallet("acp_set_budget");
   if (walletErr) return walletErr;
 
   try {
@@ -313,7 +302,7 @@ async function acpFundJob(params: Record<string, unknown>): Promise<CallToolResu
 }
 
 async function executeFundJob(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_fund_job");
+  const walletErr = requireActiveWallet("acp_fund_job");
   if (walletErr) return walletErr;
 
   try {
@@ -427,7 +416,7 @@ async function acpSubmitJob(params: Record<string, unknown>): Promise<CallToolRe
 }
 
 async function executeSubmitJob(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_submit_job");
+  const walletErr = requireActiveWallet("acp_submit_job");
   if (walletErr) return walletErr;
 
   try {
@@ -481,7 +470,7 @@ async function acpCompleteJob(params: Record<string, unknown>): Promise<CallTool
 }
 
 async function executeCompleteJob(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_complete_job");
+  const walletErr = requireActiveWallet("acp_complete_job");
   if (walletErr) return walletErr;
 
   try {
@@ -548,7 +537,7 @@ async function acpRejectJob(params: Record<string, unknown>): Promise<CallToolRe
 }
 
 async function executeRejectJob(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_reject_job");
+  const walletErr = requireActiveWallet("acp_reject_job");
   if (walletErr) return walletErr;
 
   try {
@@ -615,7 +604,7 @@ async function acpClaimRefund(params: Record<string, unknown>): Promise<CallTool
 }
 
 async function executeClaimRefund(params: Record<string, unknown>): Promise<CallToolResult> {
-  const walletErr = ensureWritable("acp_claim_refund");
+  const walletErr = requireActiveWallet("acp_claim_refund");
   if (walletErr) return walletErr;
 
   try {

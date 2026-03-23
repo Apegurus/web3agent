@@ -13,6 +13,7 @@ import { buildRegistrationJson, validateRegistrationJson } from "../../erc8004/r
 import type { ToolCategory } from "../../runtime/types.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { resilientFetch } from "../../utils/resilient-fetch.js";
+import { isCallToolResult } from "../../utils/tool-results.js";
 import { validateAddress, validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
@@ -48,10 +49,6 @@ function requireReputationAddress(chainId: number): { address: Hex } | CallToolR
     );
   }
   return { address };
-}
-
-function isCallToolResult(value: unknown): value is CallToolResult {
-  return typeof value === "object" && value !== null && "content" in value;
 }
 
 function toHttpUri(uri: string): string {

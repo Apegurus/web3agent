@@ -1,15 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { getConfig } from "../config/env.js";
 import { getWalletState } from "../wallet/persistence.js";
 import { formatToolError } from "./errors.js";
-
-export function resolveChainId(params: Record<string, unknown>): number {
-  return typeof params.chainId === "number" ? params.chainId : getConfig().chainId;
-}
-
-export function resolveChainIdFromData(data: { chainId?: number }): number {
-  return data.chainId ?? getConfig().chainId;
-}
 
 export function requireActiveWallet(toolName: string): CallToolResult | null {
   const state = getWalletState();

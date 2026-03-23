@@ -23,15 +23,12 @@ import {
 } from "../../evm/services.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { serializeBigInts } from "../../utils/serialize.js";
-import {
-  requireActiveWallet,
-  resolveChainIdFromData,
-  withToolErrorHandler,
-} from "../../utils/tool-helpers.js";
+import { requireActiveWallet, withToolErrorHandler } from "../../utils/tool-helpers.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
 import { registerExecutor } from "../../wallet/confirmation.js";
 import { getActiveAccount, getWalletState } from "../../wallet/persistence.js";
+import { resolveToolChainId } from "../shared/chain-context.js";
 import {
   evmApproveTokenSchema,
   evmGetAllowanceSchema,
@@ -68,7 +65,7 @@ function validatedRead<T extends { chainId?: number }>(
 ): ReadContext<T> | CallToolResult {
   const v = validateInput(schema, params);
   if (!v.success) return v.error;
-  const chainId = resolveChainIdFromData(v.data);
+  const chainId = resolveToolChainId(v.data.chainId);
   return { data: v.data, chainId, publicClient: getPublicClientCached(chainId) };
 }
 
@@ -76,27 +73,27 @@ function isValidated<T>(result: ReadContext<T> | CallToolResult): result is Read
   return "data" in result && "chainId" in result && "publicClient" in result;
 }
 
-interface WriteContext {
+interface EvmWriteContext {
   chainId: number;
   chain: Chain;
   account: ReturnType<typeof getActiveAccount>;
   walletClient: ReturnType<typeof createWalletClientForChain>;
 }
 
-function prepareWriteContext(
+function prepareEvmWriteContext(
   toolName: string,
   params: Record<string, unknown>
-): WriteContext | CallToolResult {
+): EvmWriteContext | CallToolResult {
   const walletError = requireActiveWallet(toolName);
   if (walletError) return walletError;
-  const chainId = resolveChainIdFromData(params as { chainId?: number });
+  const chainId = resolveToolChainId((params as { chainId?: number }).chainId);
   const chain = getRequiredChain(chainId);
   const account = getActiveAccount();
   const walletClient = createWalletClientForChain(account, chainId);
   return { chainId, chain, account, walletClient };
 }
 
-function isWriteContext(result: WriteContext | CallToolResult): result is WriteContext {
+function isEvmWriteContext(result: EvmWriteContext | CallToolResult): result is EvmWriteContext {
   return "chainId" in result && "chain" in result && "account" in result;
 }
 
@@ -720,8 +717,8 @@ export async function executeWriteContractNow(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_WRITE_CONTRACT_ERROR", async () => {
-    const wc = prepareWriteContext("evm_write_contract", params);
-    if (!isWriteContext(wc)) return wc;
+    const wc = prepareEvmWriteContext("evm_write_contract", params);
+    if (!isEvmWriteContext(wc)) return wc;
     const { chainId, chain, account, walletClient } = wc;
 
     const contractAddressInput = String(params.contractAddress);
@@ -788,8 +785,8 @@ export async function executeTransferNativeNow(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_TRANSFER_NATIVE_ERROR", async () => {
-    const wc = prepareWriteContext("evm_transfer_native", params);
-    if (!isWriteContext(wc)) return wc;
+    const wc = prepareEvmWriteContext("evm_transfer_native", params);
+    if (!isEvmWriteContext(wc)) return wc;
     const { chainId, chain, account, walletClient } = wc;
 
     const to = String(params.to);
@@ -828,8 +825,8 @@ export async function executeTransferErc20Now(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_TRANSFER_ERC20_ERROR", async () => {
-    const wc = prepareWriteContext("evm_transfer_erc20", params);
-    if (!isWriteContext(wc)) return wc;
+    const wc = prepareEvmWriteContext("evm_transfer_erc20", params);
+    if (!isEvmWriteContext(wc)) return wc;
     const { chainId, chain, account, walletClient } = wc;
 
     const tokenAddress = await resolveAddressOrEns(String(params.tokenAddress), chainId);
@@ -873,8 +870,8 @@ export async function executeApproveTokenSpendingNow(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_APPROVE_TOKEN_ERROR", async () => {
-    const wc = prepareWriteContext("evm_approve_token_spending", params);
-    if (!isWriteContext(wc)) return wc;
+    const wc = prepareEvmWriteContext("evm_approve_token_spending", params);
+    if (!isEvmWriteContext(wc)) return wc;
     const { chainId, chain, account, walletClient } = wc;
 
     const tokenAddress = await resolveAddressOrEns(String(params.tokenAddress), chainId);
@@ -916,8 +913,8 @@ export async function executeSignMessageNow(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_SIGN_MESSAGE_ERROR", async () => {
-    const wc = prepareWriteContext("evm_sign_message", { chainId: getWalletState().chainId });
-    if (!isWriteContext(wc)) return wc;
+    const wc = prepareEvmWriteContext("evm_sign_message", { chainId: getWalletState().chainId });
+    if (!isEvmWriteContext(wc)) return wc;
     const { chainId, account, walletClient } = wc;
 
     const message = String(params.message);
@@ -951,8 +948,8 @@ export async function executeSignTypedDataNow(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_SIGN_TYPED_DATA_ERROR", async () => {
-    const wc = prepareWriteContext("evm_sign_typed_data", { chainId: getWalletState().chainId });
-    if (!isWriteContext(wc)) return wc;
+    const wc = prepareEvmWriteContext("evm_sign_typed_data", { chainId: getWalletState().chainId });
+    if (!isEvmWriteContext(wc)) return wc;
     const { chainId, account, walletClient } = wc;
 
     const domain = parseJsonString(String(params.domainJson), "domainJson") as Record<

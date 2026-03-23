@@ -10,30 +10,29 @@ vi.mock("../../src/wallet/persistence.js", () => ({
 }));
 
 import { getConfig } from "../../src/config/env.js";
-import {
-  requireActiveWallet,
-  resolveChainId,
-  withToolErrorHandler,
-} from "../../src/utils/tool-helpers.js";
+import { resolveToolChainId } from "../../src/tools/shared/chain-context.js";
+import { requireActiveWallet, withToolErrorHandler } from "../../src/utils/tool-helpers.js";
 import { getWalletState } from "../../src/wallet/persistence.js";
 
-describe("resolveChainId", () => {
-  it("returns params.chainId when it is a number", () => {
-    expect(resolveChainId({ chainId: 137 })).toBe(137);
+describe("resolveToolChainId", () => {
+  it("returns provided chainId when defined", () => {
+    expect(resolveToolChainId(137)).toBe(137);
   });
 
-  it("falls back to config chainId when params.chainId is not a number", () => {
+  it("falls back to config chainId when undefined", () => {
     vi.mocked(getConfig).mockReturnValue({ chainId: 42161 } as ReturnType<typeof getConfig>);
-    expect(resolveChainId({ chainId: "not-a-number" })).toBe(42161);
-    expect(resolveChainId({})).toBe(42161);
+    expect(resolveToolChainId(undefined)).toBe(42161);
   });
 });
 
 describe("requireActiveWallet", () => {
   it("returns null when wallet is active", () => {
-    vi.mocked(getWalletState).mockReturnValue({ mode: "active" } as ReturnType<
-      typeof getWalletState
-    >);
+    vi.mocked(getWalletState).mockReturnValue({
+      mode: "private-key",
+      chainId: 8453,
+      accountIndex: 0,
+      addressIndex: 0,
+    } as ReturnType<typeof getWalletState>);
     expect(requireActiveWallet("send_transaction")).toBeNull();
   });
 
