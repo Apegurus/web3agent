@@ -34,7 +34,7 @@ export async function withFallback<T>(
     const fallback = deps.router.getFallback(chainId, capability);
     if (!fallback) throw e;
     process.stderr.write(
-      `[explorer] ${primary} failed for ${capability} on chain ${chainId}, falling back to ${fallback}: ${e}\n`
+      `[explorer] ${primary} failed for ${capability} on chain ${chainId}, falling back to ${fallback}: ${e instanceof Error ? e.message : String(e)}\n`
     );
     return primaryFn(fallback);
   }

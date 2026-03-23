@@ -145,10 +145,10 @@ export const preparedOperationSchema = z.object({
   actions: z.array(preparedActionSchema).describe("Actions for the caller to execute"),
   resumeState: z
     .object({
-      version: z.literal(1),
-      integration: z.enum(["orbs", "lifi", "goat"]),
-      kind: z.string(),
-      state: z.record(z.unknown()),
+      version: z.literal(1).describe("Resume state format version"),
+      integration: z.enum(["orbs", "lifi", "goat"]).describe("Integration provider for resume"),
+      kind: z.string().describe("Operation type identifier"),
+      state: z.record(z.unknown()).describe("Internal operation state"),
     })
     .describe("Opaque state to pass to resumeOperation"),
   meta: z.record(z.unknown()).optional().describe("Additional metadata"),

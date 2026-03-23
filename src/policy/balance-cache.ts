@@ -2,6 +2,7 @@ import { createPublicClient, formatUnits } from "viem";
 import type { Address } from "viem";
 import { getChainById } from "../chains/registry.js";
 import { getTransportForChain } from "../config/wallet-factory.js";
+import { getTokenPriceHeaders, getTokenPriceUrl } from "../tokens/coingecko.js";
 import { resilientFetch } from "../utils/resilient-fetch.js";
 
 export const BALANCE_CACHE_TTL_MS = 60_000;
@@ -79,8 +80,8 @@ async function fetchNativeTokenPrice(symbol: string): Promise<number | null> {
   const coinId = COINGECKO_SYMBOL_MAP[symbol] ?? symbol;
   try {
     const response = await resilientFetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`,
-      undefined,
+      `${getTokenPriceUrl()}/simple/price?ids=${coinId}&vs_currencies=usd`,
+      { headers: getTokenPriceHeaders() },
       { label: "coingecko-price", retry: { maxRetries: 1 } }
     );
     if (!response.ok) return null;
