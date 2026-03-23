@@ -9,7 +9,12 @@ function getPolicyFilePath(): string {
   return join(homedir(), ".web3agent", "policy.json");
 }
 
+let policyFileCache: { data: Partial<TreasuryPolicy>; expiry: number } | undefined;
+const POLICY_CACHE_TTL_MS = 5_000;
+
 function loadPolicyFile(): Partial<TreasuryPolicy> {
+  if (policyFileCache && Date.now() < policyFileCache.expiry) return policyFileCache.data;
+
   const filePath = getPolicyFilePath();
   if (!existsSync(filePath)) return {};
 
@@ -33,6 +38,7 @@ function loadPolicyFile(): Partial<TreasuryPolicy> {
       }
     }
 
+    policyFileCache = { data: result, expiry: Date.now() + POLICY_CACHE_TTL_MS };
     return result;
   } catch (e: unknown) {
     process.stderr.write(`[policy] Failed to load policy.json: ${e}\n`);
@@ -47,7 +53,7 @@ function loadPolicyFile(): Partial<TreasuryPolicy> {
 export function resolvePolicy(config: RuntimeConfig): TreasuryPolicy {
   const filePolicy = loadPolicyFile();
 
-  return {
+  const policy: TreasuryPolicy = {
     enabled: config.policyEnabled ?? filePolicy.enabled ?? DEFAULT_TREASURY_POLICY.enabled,
     maxSingleTransactionUsd:
       config.policyMaxSingleTransactionUsd ??
@@ -66,6 +72,15 @@ export function resolvePolicy(config: RuntimeConfig): TreasuryPolicy {
       filePolicy.maxX402PaymentUsd ??
       DEFAULT_TREASURY_POLICY.maxX402PaymentUsd,
   };
+
+  if (policy.maxHourlyUsd > policy.maxDailyUsd) {
+    process.stderr.write(
+      `[policy] maxHourlyUsd ($${policy.maxHourlyUsd}) exceeds maxDailyUsd ($${policy.maxDailyUsd}) — capping hourly to daily\n`
+    );
+    policy.maxHourlyUsd = policy.maxDailyUsd;
+  }
+
+  return policy;
 }
 
 export async function savePolicyFile(policy: Partial<TreasuryPolicy>): Promise<string> {

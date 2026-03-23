@@ -19,7 +19,7 @@ export class ValidationError extends Error {
   }
 }
 
-const FALSE_VALUES = new Set(["false", "0", "no"]);
+const FALSE_VALUES = new Set(["false", "0", "no", "off", "disabled"]);
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined || value === "") return fallback;
@@ -35,9 +35,18 @@ function parseIntStrict(field: string, value: string | undefined, fallback: numb
   return parsed;
 }
 
+const TRUE_VALUES = new Set(["true", "1", "yes", "on", "enabled"]);
+
 function parsePolicyBoolean(value: string | undefined): boolean | undefined {
   if (value === undefined || value === "") return undefined;
-  return !FALSE_VALUES.has(value.toLowerCase());
+  const lower = value.toLowerCase();
+  if (FALSE_VALUES.has(lower)) return false;
+  if (!TRUE_VALUES.has(lower)) {
+    process.stderr.write(
+      `[config] Unrecognized policy boolean "${value}" — treating as true. Use true/false/yes/no/on/off/enabled/disabled.\n`
+    );
+  }
+  return true;
 }
 
 function parsePositiveFloat(field: string, value: string | undefined): number | undefined {
