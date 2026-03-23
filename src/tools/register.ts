@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { emptyInputSchema } from "../api/schemas/common.js";
 import type { RiskLevel } from "../policy/types.js";
 import type { ToolCategory } from "../runtime/types.js";
 import { listSupportedChains, serverStatus } from "./utility/index.js";
@@ -50,7 +51,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Generate a new random Ethereum wallet. Returns address and private key once — never stored.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletGenerate(),
       annotations: { readOnlyHint: true },
     },
@@ -58,7 +59,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       name: "wallet_generate_mnemonic",
       category: "wallet",
       description: "Generate a new BIP-39 mnemonic phrase with its first derived address.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletGenerateMnemonic(),
       annotations: { readOnlyHint: true },
     },
@@ -85,7 +86,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Get the currently active wallet address, chain ID, and mode (private-key, mnemonic, or read-only).",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletGetActive(),
       annotations: { readOnlyHint: true },
     },
@@ -104,7 +105,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Deactivate the current wallet, delete persisted key file, and revert to read-only ephemeral mode.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletDeactivate(),
       riskLevel: "destructive",
       annotations: { destructiveHint: true },
@@ -145,7 +146,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       category: "transaction",
       description:
         "List all pending operations awaiting confirmation. Automatically prunes expired entries.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => transactionList(),
       annotations: { readOnlyHint: true },
     },
@@ -168,7 +169,7 @@ export function getUtilityToolDefinitions(): ToolDefinition[] {
       category: "status",
       description:
         "Get current server status including wallet mode, active chain, confirmation setting, and backend health.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => serverStatus(),
       annotations: { readOnlyHint: true },
     },
@@ -177,7 +178,7 @@ export function getUtilityToolDefinitions(): ToolDefinition[] {
       category: "status",
       description:
         "List all supported EVM chains with their chain IDs, names, and native currencies.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => listSupportedChains(),
       annotations: { readOnlyHint: true },
     },

@@ -2,6 +2,7 @@ import { type LiFiStep, convertQuoteToRoute, executeRoute, getChains, getQuote }
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { prepareBridgeIntent } from "../../api/intents.js";
+import { emptyInputSchema } from "../../api/schemas/common.js";
 import { ensureLifiInitialized } from "../../lifi/config.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -132,11 +133,7 @@ export function getLifiToolDefinitions(): ToolDefinition[] {
       name: "lifi_get_chains",
       category: "status",
       description: "Get list of chains supported by LI.FI for cross-chain bridging",
-      inputSchema: {
-        type: "object" as const,
-        properties: {},
-        required: [],
-      },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: lifiGetChains,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

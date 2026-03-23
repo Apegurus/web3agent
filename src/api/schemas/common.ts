@@ -1,13 +1,19 @@
 import { type Hex, isAddress, isHex } from "viem";
 import { z } from "zod";
 
-export const addressSchema = z.string().refine((value) => isAddress(value), {
-  message: "must be a valid EVM address",
-}) as z.ZodType<Hex>;
+export const addressSchema = z
+  .string()
+  .describe("Valid EVM address (0x-prefixed, checksummed)")
+  .refine((value) => isAddress(value), {
+    message: "must be a valid EVM address",
+  }) as z.ZodType<Hex>;
 
-export const hexSchema = z.string().refine((value) => isHex(value), {
-  message: "must be a valid 0x-prefixed hex string",
-}) as z.ZodType<Hex>;
+export const hexSchema = z
+  .string()
+  .describe("Hex-encoded data (0x-prefixed)")
+  .refine((value) => isHex(value), {
+    message: "must be a valid 0x-prefixed hex string",
+  }) as z.ZodType<Hex>;
 
 export const typedDataPayloadSchema = z.object({
   domain: z.record(z.unknown()).describe("EIP-712 domain object"),
@@ -115,6 +121,8 @@ export const tokenEstimateSchema = tokenPairSchema.extend({
   toAmount: z.string().describe("Output amount"),
   toAmountUSD: z.string().optional().describe("Output value in USD"),
 });
+
+export const emptyInputSchema = z.object({});
 
 export const resumeStateBaseSchema = z.object({
   summary: z.string().optional().describe("Operation summary"),

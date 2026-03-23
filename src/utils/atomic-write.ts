@@ -15,6 +15,7 @@ export async function atomicWriteJson(filePath: string, data: unknown): Promise<
     await fd.sync();
   } catch (writeError: unknown) {
     await fd.close();
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort temp file cleanup
     await unlink(tmpPath).catch(() => {});
     throw writeError;
   }
@@ -22,6 +23,7 @@ export async function atomicWriteJson(filePath: string, data: unknown): Promise<
   try {
     await rename(tmpPath, filePath);
   } catch (renameError: unknown) {
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort temp file cleanup
     await unlink(tmpPath).catch(() => {});
     throw renameError;
   }

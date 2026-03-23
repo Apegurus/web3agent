@@ -3,6 +3,12 @@ import { isAddress } from "viem";
 import type { ZodType } from "zod";
 import { formatToolError } from "./errors.js";
 
+/**
+ * Tool-layer validation that returns CallToolResult errors instead of throwing.
+ * The SDK layer uses Zod .parse() directly and throws on invalid input.
+ * Both paths exist because MCP tools must return structured errors while
+ * SDK consumers expect thrown exceptions.
+ */
 export type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: CallToolResult };

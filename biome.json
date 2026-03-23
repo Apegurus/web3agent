@@ -25,6 +25,6 @@
     }
   },
   "files": {
-    "ignore": ["dist/**", "node_modules/**", "*.lock", ".sisyphus/**", ".argus/**"]
+    "ignore": ["dist/**", "node_modules/**", "*.lock", ".sisyphus/**", ".argus/**", ".worktrees/**"]
   }
 }

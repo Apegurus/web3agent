@@ -1,4 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { emptyInputSchema } from "../../api/schemas/common.js";
 import type { ToolCategory } from "../../runtime/types.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import {
@@ -66,11 +67,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
       name: "evm_get_wallet_address",
       category: CATEGORY,
       description: "Get the currently active wallet address, mode, and chain context.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {},
-        required: [],
-      },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: evmGetWalletAddress,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -86,11 +83,7 @@ export function getEvmToolDefinitions(): ToolDefinition[] {
       name: "evm_get_supported_networks",
       category: CATEGORY,
       description: "List supported EVM networks available for EVM tool operations.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {},
-        required: [],
-      },
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: evmGetSupportedNetworks,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
