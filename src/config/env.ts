@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { isSupported } from "../chains/registry.js";
 import type { RuntimeConfig } from "../types/config.js";
 
@@ -115,6 +116,14 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
 
 let cached: RuntimeConfig | undefined;
 
+/**
+ * Per-request config scope using AsyncLocalStorage.
+ * withConfig() runs a handler inside a store so that concurrent
+ * MCP tool calls each read their own config without clobbering
+ * the module-level `cached` variable.
+ */
+const configStore = new AsyncLocalStorage<RuntimeConfig>();
+
 export function setConfig(config: RuntimeConfig): void {
   cached = config;
 }
@@ -124,6 +133,8 @@ export function resetConfig(): void {
 }
 
 export function getConfig(): RuntimeConfig {
+  const scoped = configStore.getStore();
+  if (scoped) return scoped;
   if (!cached) {
     throw new Error("Config not initialized — call setConfig() during startup");
   }
@@ -131,25 +142,13 @@ export function getConfig(): RuntimeConfig {
 }
 
 export function tryGetConfig(): RuntimeConfig | undefined {
-  return cached;
+  return configStore.getStore() ?? cached;
 }
 
 export async function withConfig<T>(config: RuntimeConfig, fn: () => Promise<T>): Promise<T> {
-  const previous = cached;
-  cached = config;
-  try {
-    return await fn();
-  } finally {
-    cached = previous;
-  }
+  return configStore.run(config, fn);
 }
 
 export function withConfigSync<T>(config: RuntimeConfig, fn: () => T): T {
-  const previous = cached;
-  cached = config;
-  try {
-    return fn();
-  } finally {
-    cached = previous;
-  }
+  return configStore.run(config, fn);
 }
