@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ZodError } from "zod";
 
 const mockResilientFetch = vi.hoisted(() => vi.fn());
 vi.mock("../../../src/utils/resilient-fetch.js", () => ({
@@ -283,7 +284,7 @@ describe("getOrderBook", () => {
       new Response(JSON.stringify({ lastUpdateId: 123, bids: "oops", asks: [] }), { status: 200 })
     );
 
-    await expect(getOrderBook({ symbol: "BTCUSDT" })).rejects.toThrow();
+    await expect(getOrderBook({ symbol: "BTCUSDT" })).rejects.toBeInstanceOf(ZodError);
   });
 });
 

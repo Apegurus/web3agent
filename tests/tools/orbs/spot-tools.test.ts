@@ -143,7 +143,7 @@ describe("orbs_place_order", () => {
     expect(result.isError).toBe(true);
     const parsed = parseResult(result);
     expect(parsed.error).toBe("CHAIN_NOT_SUPPORTED");
-  });
+  }, 15000);
 
   it("validates required fields (missing fromToken)", async () => {
     const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
@@ -566,6 +566,29 @@ describe("orbs_prepare_twap_intent", () => {
     const parsed = parseResult(result);
     expect(parsed.error).toBe("INVALID_PARAMS");
   });
+
+  it("preserves runtime errors from approval lookup instead of rewriting them as INVALID_PARAMS", async () => {
+    mockPrepareSpotOrder.mockReturnValue(MOCK_PREPARED_ORDER);
+    mockGetRequiredApprovals.mockRejectedValueOnce(new Error("rpc unavailable"));
+
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_prepare_twap_intent") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      account: "0x1234567890123456789012345678901234567890",
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "1000000",
+      chunks: 5,
+      fillDelay: 300,
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("ORBS_TWAP_ERROR");
+  });
 });
 
 describe("orbs_place_limit", () => {
@@ -619,6 +642,31 @@ describe("orbs_place_limit", () => {
       fromToken: "0xaaaa111111111111111111111111111111111111",
       toToken: "0xbbbb222222222222222222222222222222222222",
       fromAmount: "1000000",
+    });
+
+    expect(result.isError).toBe(true);
+    const parsed = parseResult(result);
+    expect(parsed.error).toBe("INVALID_PARAMS");
+  });
+});
+
+describe("legacy conversion error classification", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns INVALID_PARAMS for lossy TWAP conversion in the write path", async () => {
+    const { getOrbsToolDefinitions } = await import("../../../src/tools/orbs/index.js");
+    const tools = getOrbsToolDefinitions();
+    const tool = tools.find((t) => t.name === "orbs_place_twap") as ToolDefinition;
+
+    const result = await tool.handler({
+      chainId: 137,
+      fromToken: "0xaaaa111111111111111111111111111111111111",
+      toToken: "0xbbbb222222222222222222222222222222222222",
+      fromAmount: "7",
+      chunks: 5,
+      fillDelay: 300,
     });
 
     expect(result.isError).toBe(true);

@@ -91,11 +91,13 @@ export async function getKlines(input: {
 
 export type BinanceOrderBook = z.infer<typeof orderBookResultSchema>;
 
-interface BinanceDepthRaw {
-  lastUpdateId: number;
-  bids: [string, string][];
-  asks: [string, string][];
-}
+const binanceDepthRawSchema = z.object({
+  lastUpdateId: z.number(),
+  bids: z.array(z.tuple([z.string(), z.string()])),
+  asks: z.array(z.tuple([z.string(), z.string()])),
+});
+
+type BinanceDepthRaw = z.infer<typeof binanceDepthRawSchema>;
 
 export async function getOrderBook(input: {
   symbol: string;
@@ -108,7 +110,7 @@ export async function getOrderBook(input: {
   if (!res.ok) {
     throw new Error(`Binance order book request failed: ${res.status} ${res.statusText}`);
   }
-  const data = (await res.json()) as BinanceDepthRaw;
+  const data = binanceDepthRawSchema.parse(await res.json());
   return orderBookResultSchema.parse({
     lastUpdateId: data.lastUpdateId,
     bids: data.bids.map(([price, quantity]) => ({ price, quantity })),

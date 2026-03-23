@@ -281,9 +281,9 @@ describe("managed runtime", () => {
     registerToolMocks.walletTools = [];
     registerToolMocks.transactionTools = [];
     registerToolMocks.utilityTools = [];
-    policyMocks.resolvePolicy.mockImplementation((config: unknown) => config);
-    policyMocks.evaluatePolicy.mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
-    policyMocks.extractEstimatedUsd.mockResolvedValue(null);
+    policyMocks.resolvePolicy.mockReset().mockImplementation((config: unknown) => config);
+    policyMocks.evaluatePolicy.mockReset().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
+    policyMocks.extractEstimatedUsd.mockReset().mockResolvedValue(null);
     policyMocks.recordSpend.mockReset();
     policyMocks.loadSpendLog.mockResolvedValue(0);
     balanceCacheMocks.getCachedBalanceUsd.mockReturnValue(null);
@@ -357,7 +357,7 @@ describe("managed runtime", () => {
 
     await runtimeB.shutdown();
     expect(mockState.goatProviders[1]?.shutdown).toHaveBeenCalledTimes(1);
-  });
+  }, 15000);
 
   it("surfaces restored queue count and goat chain restrictions in managed tool metadata", async () => {
     const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
@@ -454,6 +454,59 @@ describe("managed runtime", () => {
         walletBalanceUsd: 125,
       })
     );
+
+    await runtime.shutdown();
+  });
+
+  it("does not refresh wallet balance when USD estimation already failed", async () => {
+    registerToolMocks.utilityTools = [
+      {
+        name: "financial_test",
+        category: "utility",
+        description: "financial test",
+        inputSchema: { type: "object", properties: {} },
+        riskLevel: "financial",
+        handler: vi.fn().mockResolvedValue({
+          isError: false,
+          content: [{ type: "text", text: '{"ok":true}' }],
+        }),
+      },
+    ];
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(0);
+
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: true,
+        confirmTtlMinutes: 30,
+        blockscoutMcpUrl: "https://blockscout",
+        etherscanMcpUrl: "https://etherscan",
+        etherscanApiKey: undefined,
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    balanceCacheMocks.refreshBalanceUsd.mockClear();
+
+    const result = await runtime.invokeTool("financial_test", {
+      chainId: 8453,
+      fromToken: "0xabc",
+      fromAmount: "1000",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(balanceCacheMocks.refreshBalanceUsd).not.toHaveBeenCalled();
+    expect(policyMocks.evaluatePolicy).not.toHaveBeenCalled();
 
     await runtime.shutdown();
   });

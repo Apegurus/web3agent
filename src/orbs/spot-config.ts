@@ -64,7 +64,7 @@ export function isTrustedSpotSubmitUrl(submitUrl: string, expectedBase = getSpot
     if (candidate.origin !== base.origin) return false;
 
     const basePath = normalizeSpotBasePath(base.pathname);
-    const expectedPath = `${basePath}/orders/new` || "/orders/new";
+    const expectedPath = `${basePath}/orders/new`;
     return candidate.pathname === expectedPath;
   } catch {
     return false;

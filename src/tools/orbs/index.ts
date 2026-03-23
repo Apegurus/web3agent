@@ -343,7 +343,11 @@ async function executeSpotOrderNow(params: Record<string, unknown>): Promise<Cal
       params.toMinAmount = undefined;
       params.expiry = undefined;
     }
+  } catch (e: unknown) {
+    return formatToolError("INVALID_PARAMS", e instanceof Error ? e.message : String(e));
+  }
 
+  try {
     const chainId = resolveChainId(params);
     const account = getActiveAccount();
 
@@ -710,9 +714,14 @@ async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<C
     return formatToolError("CHAIN_NOT_SUPPORTED", getSpotError(chainId));
   }
 
+  let spotParams;
   try {
-    const spotParams = twapParamsToSpotParams(v.data);
+    spotParams = twapParamsToSpotParams(v.data);
+  } catch (e: unknown) {
+    return formatToolError("INVALID_PARAMS", e instanceof Error ? e.message : String(e));
+  }
 
+  try {
     const prepared = prepareSpotOrder({
       chainId,
       swapper: v.data.account,
@@ -741,7 +750,7 @@ async function orbsPrepareTwapIntent(params: Record<string, unknown>): Promise<C
       chainId,
     });
   } catch (e: unknown) {
-    return formatToolError("INVALID_PARAMS", e instanceof Error ? e.message : String(e));
+    return formatToolError("ORBS_TWAP_ERROR", e instanceof Error ? e.message : String(e));
   }
 }
 
