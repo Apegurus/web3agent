@@ -84,9 +84,9 @@ describe("getProtocolTvl", () => {
 
     const result = await getProtocolTvl({ protocol: "someprotocol" });
 
-    expect(result.tvlChange1d).toBeUndefined();
-    expect(result.tvlChange7d).toBeUndefined();
-    expect(result.tvlChange30d).toBeUndefined();
+    expect(result.tvlChange1d).toBeNull();
+    expect(result.tvlChange7d).toBeNull();
+    expect(result.tvlChange30d).toBeNull();
   });
 });
 

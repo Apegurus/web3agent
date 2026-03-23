@@ -53,9 +53,9 @@ export async function getProtocolTvl(input: {
     return {
       name: data.name,
       tvl: data.tvl,
-      tvlChange1d: data.change_1d,
-      tvlChange7d: data.change_7d,
-      tvlChange30d: data.change_1m,
+      tvlChange1d: data.change_1d ?? null,
+      tvlChange7d: data.change_7d ?? null,
+      tvlChange30d: data.change_1m ?? null,
       chainTvls: data.chainTvls,
       category: data.category ?? null,
       url: data.url ?? null,
@@ -175,8 +175,10 @@ export async function getGainersLosers(input: {
 
   entries.sort((a, b) => b.priceChange - a.priceChange);
 
-  const gainers = entries.slice(0, limit);
-  const losers = entries.slice(-limit).reverse();
+  // Split entries so gainers and losers don't overlap when fewer than 2*limit
+  const midpoint = Math.ceil(entries.length / 2);
+  const gainers = entries.slice(0, Math.min(limit, midpoint));
+  const losers = entries.slice(Math.max(entries.length - limit, midpoint)).reverse();
 
   return { gainers, losers };
 }

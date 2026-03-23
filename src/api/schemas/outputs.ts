@@ -229,9 +229,9 @@ export const spotOrderIntentSchema = z.object({
 export const protocolTvlResultSchema = z.object({
   name: z.string().describe("Protocol name"),
   tvl: z.number().describe("Total value locked in USD"),
-  tvlChange1d: z.number().optional().describe("TVL change over 1 day (%)"),
-  tvlChange7d: z.number().optional().describe("TVL change over 7 days (%)"),
-  tvlChange30d: z.number().optional().describe("TVL change over 30 days (%)"),
+  tvlChange1d: z.number().nullable().describe("TVL change over 1 day (%)"),
+  tvlChange7d: z.number().nullable().describe("TVL change over 7 days (%)"),
+  tvlChange30d: z.number().nullable().describe("TVL change over 30 days (%)"),
   chainTvls: z.record(z.number()).describe("TVL broken down by chain"),
   category: z.string().nullable().describe("Protocol category"),
   url: z.string().nullable().describe("Protocol website URL"),

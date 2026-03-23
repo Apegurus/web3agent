@@ -53,6 +53,7 @@ export async function getTokenDueDiligence(
   );
 }
 
+/** Named getResearchTokenHolders (not getTokenHolders) to avoid collision with explorer's getTokenHolders */
 export async function getResearchTokenHolders(
   params: GetTokenHoldersInput,
   options?: RuntimeBoundOptions

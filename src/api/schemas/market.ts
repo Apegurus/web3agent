@@ -69,6 +69,7 @@ export const marketGetDexVolumeSchema = z.object({
   protocol: z.string().optional().describe("Filter by protocol name"),
 });
 
+// Uses chain name (string) instead of chainId because DefiLlama stablecoin API filters by chain name, not ID
 export const marketGetStablecoinStatsSchema = z.object({
   chain: z.string().optional().describe("Filter by chain name"),
 });

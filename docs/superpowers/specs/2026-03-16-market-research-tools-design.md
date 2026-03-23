@@ -215,7 +215,8 @@ annotations: {
 - **Input:** `token` (CoinGecko ID or `chain:address`), `period?` (1d/7d/30d/90d/1y, default 30d)
 - **Routing logic:** If the `token` input contains `:` (e.g., `ethereum:0x...`), it is a `chain:address` format — use DefiLlama directly (CoinGecko doesn't accept this format). Otherwise, treat it as a CoinGecko ID and try CoinGecko first.
 - **CoinGecko source:** `GET https://api.coingecko.com/api/v3/coins/{id}/market_chart?vs_currency=usd&days={days}` — returns price, market cap, and volume history in one call. More reliable and richer than DefiLlama charts.
-- **DefiLlama fallback:** On any non-2xx CoinGecko response (429, 404, etc.), falls back to `GET https://coins.llama.fi/chart/{token}?start={start}&span={span}&period={resolution}`. The handler computes `start` timestamp from the user-facing `period` input and selects an appropriate resolution (hourly for ≤7d, daily for >7d). Note: this fallback requires a `chain:address` format, so if the original input was a CoinGecko ID with no resolvable address, the fallback will fail and the tool returns an error suggesting the user provide a `chain:address`.
+- **DefiLlama path:** Used directly when input contains `:` (chain:address format). The handler computes `start` timestamp from the user-facing `period` input and selects an appropriate resolution (hourly for ≤7d, daily for >7d).
+- **CoinGecko failure for plain IDs:** When CoinGecko returns non-2xx for a plain CoinGecko ID, the handler throws with a clear error message suggesting the user provide a `chain:address` format for DefiLlama. An automatic fallback is not attempted because DefiLlama requires `chain:address` format which cannot be derived from a CoinGecko ID without additional resolution.
 - **Progressive:** With `COINGECKO_API_KEY`, uses pro endpoint with higher rate limits.
 - **Returns:** Array of `{ timestamp, price, marketCap?, volume? }` (marketCap and volume included when from CoinGecko)
 
@@ -315,7 +316,7 @@ CoinGecko's free API is rate-limited (10-30 req/min). Rate limit strategy:
 
 ### Binance Geo-Restrictions
 
-Binance public API endpoints return 451/403 in some jurisdictions (notably the US for futures endpoints). When `resilientFetch` receives a 451 or 403 from a Binance endpoint, the handler returns a clear error: `"Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."` The non-Binance market tools (DefiLlama, CoinGecko, Fear & Greed) are unaffected.
+Binance public API endpoints return 451 in some jurisdictions (notably the US for futures endpoints). When `resilientFetch` receives a 451 from a Binance endpoint, the handler returns a clear error: `"Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."` Only HTTP 451 (Unavailable For Legal Reasons) triggers this — 403 is ambiguous (could be rate limiting or IP ban) and falls through to the generic `!res.ok` error handler. The non-Binance market tools (DefiLlama, CoinGecko, Fear & Greed) are unaffected.
 
 ## Research Tool Group
 
