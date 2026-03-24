@@ -6,7 +6,6 @@ import { ValidationError, parseEnv, withConfig } from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
-import { initializeLifi } from "../lifi/config.js";
 import {
   getCachedBalanceUsd,
   refreshBalanceUsd,
@@ -127,7 +126,6 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerAgdpExecutors();
   registerErc8004Executors();
   registerEvmExecutors();
-  initializeLifi(config.lifiApiKey);
   await loadSpendLog();
 
   const wallet = getWalletState();

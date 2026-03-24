@@ -361,6 +361,34 @@ describe("managed runtime", () => {
     await runtime.shutdown();
   });
 
+  it("does not initialize LI.FI during runtime bootstrap", async () => {
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: true,
+        confirmTtlMinutes: 30,
+        etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
+        lifiApiKey: "lifi-key",
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    expect(mockState.initializeLifi).not.toHaveBeenCalled();
+
+    await runtime.shutdown();
+  });
+
   it("refreshes wallet balance for the requested chain before immediate financial policy evaluation", async () => {
     registerToolMocks.utilityTools = [
       {
