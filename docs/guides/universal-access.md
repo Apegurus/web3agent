@@ -137,6 +137,34 @@ After you add the config:
 2. Confirm it lists `web3agent`
 3. Verify with `server_status` and `list_supported_chains`
 
+### Universal CLI fallback
+
+When you want a host-independent install and verification path, use the CLI directly:
+
+```bash
+npx web3agent tools list --json
+npx web3agent tools describe resolve_token --json
+npx web3agent tool call server_status --input '{}' --json
+npx web3agent doctor --json
+```
+
+### Canonical safe write walkthrough
+
+The M1 parity flow is intentionally:
+
+1. `lifi_execute_bridge`
+2. `transaction_confirm`
+
+Example lifecycle:
+
+```bash
+npx web3agent tool call lifi_execute_bridge --input '{"fromChainId":1,"toChainId":8453,"fromToken":"0x0000000000000000000000000000000000000000","toToken":"0x0000000000000000000000000000000000000000","fromAmount":"1000000000000000000"}' --json
+
+npx web3agent tool call transaction_confirm --input '{"id":"<pending-operation-id>"}' --json
+```
+
+This is the same safe-write shape we expect across MCP, CLI, and SDK/runtime.
+
 ## For LLM Agents
 
 If you are a coding agent helping a user install `web3agent`, follow this procedure.
@@ -204,6 +232,7 @@ The OpenClaw agent should perform the setup in its own environment and then veri
 
 - `server_status`
 - `list_supported_chains`
+- `web3agent doctor --json` when the CLI is available
 
 ### Step 4: Use manual MCP fallback when the host is not first-class yet
 

@@ -65,6 +65,18 @@ describe("cli command routing", () => {
     expect(mockState.runToolsCommand).not.toHaveBeenCalled();
     expect(mockState.startServer).not.toHaveBeenCalled();
   });
+
+  it("routes `web3agent tool call ...` to the tools command module", async () => {
+    process.argv = ["node", "web3agent", "tool", "call", "resolve_token", "--json"];
+
+    await import("../../src/cli.ts");
+
+    await vi.waitFor(() => {
+      expect(mockState.runToolsCommand).toHaveBeenCalledWith(["call", "resolve_token", "--json"]);
+    });
+    expect(mockState.runDoctorCommand).not.toHaveBeenCalled();
+    expect(mockState.startServer).not.toHaveBeenCalled();
+  });
 });
 
 describe("runToolsCommand", () => {

@@ -19,6 +19,12 @@ async function runCli(args: string[]): Promise<void> {
     return;
   }
 
+  if (args[0] === "tool") {
+    const { runToolsCommand } = await import("./cli/commands/tools.js");
+    await runToolsCommand(args.slice(1));
+    return;
+  }
+
   if (args[0] === "doctor") {
     const { runDoctorCommand } = await import("./cli/commands/doctor.js");
     await runDoctorCommand(args.slice(1));
@@ -39,6 +45,9 @@ async function runCli(args: string[]): Promise<void> {
         "  web3agent               Start MCP proxy server (stdio)",
         "  web3agent init          Configure your AI agent host",
         "  web3agent policy        Show or update treasury spending limits",
+        "  web3agent tools         List or describe tools",
+        "  web3agent tool call     Invoke a tool with JSON input",
+        "  web3agent doctor        Show runtime health diagnostics",
         "",
         "Options:",
         "  --version        Print version",

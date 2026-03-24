@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { installContext } from "../hosts/context/index.js";
-import { HOSTS, type SupportedHost } from "../hosts/registry.js";
 import { assertSingleHost, detectHosts } from "../hosts/detect.js";
+import { HOSTS, type SupportedHost } from "../hosts/registry.js";
 import type { WriteMode } from "../hosts/writers/base.js";
 import { ClaudeWriter } from "../hosts/writers/claude.js";
 import { CodexWriter } from "../hosts/writers/codex.js";

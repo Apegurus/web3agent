@@ -1,6 +1,6 @@
+import { getToolResultPayload } from "../../utils/tool-results.js";
 import { failJson, writeJson } from "../output.js";
 import { withCliRuntime } from "../runtime.js";
-import { getToolResultPayload } from "../../utils/tool-results.js";
 
 function printHelp(): void {
   process.stderr.write(
@@ -55,7 +55,10 @@ export async function runToolsCommand(args: string[]): Promise<void> {
   if (subcommand === "call") {
     const toolName = rest.find((arg) => !arg.startsWith("--"));
     if (!toolName) {
-      failJson("MISSING_TOOL_NAME", "Usage: web3agent tools call <tool-name> --input '{...}' --json");
+      failJson(
+        "MISSING_TOOL_NAME",
+        "Usage: web3agent tools call <tool-name> --input '{...}' --json"
+      );
     }
 
     const inputFlagIndex = rest.indexOf("--input");
