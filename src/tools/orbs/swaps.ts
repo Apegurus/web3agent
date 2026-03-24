@@ -58,8 +58,15 @@ export async function executeOrbsSwapNow(params: Record<string, unknown>): Promi
       return formatToolError("WALLET_ERROR", "Active account does not support EIP-712 signing");
     }
 
-    const rawPrimaryType = quote.eip712?.primaryType ?? "PermitWitnessTransferFrom";
-    const rawMessage = quote.eip712?.message ?? quote.permitData;
+    if (!quote.eip712?.domain || !quote.eip712?.types) {
+      return formatToolError(
+        "ORBS_QUOTE_ERROR",
+        "Quote missing EIP-712 domain or types — cannot sign"
+      );
+    }
+
+    const rawPrimaryType = quote.eip712.primaryType ?? "PermitWitnessTransferFrom";
+    const rawMessage = quote.eip712.message ?? quote.permitData;
 
     const {
       domain: eip712Domain,
@@ -67,8 +74,8 @@ export async function executeOrbsSwapNow(params: Record<string, unknown>): Promi
       primaryType: eip712PrimaryType,
       message: eip712Message,
     } = normalizeEip712ForSigning(
-      quote.eip712?.domain,
-      quote.eip712?.types,
+      quote.eip712.domain,
+      quote.eip712.types,
       rawPrimaryType,
       rawMessage
     );

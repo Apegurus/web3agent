@@ -54,6 +54,19 @@ describe("evaluatePolicy — safe tools", () => {
   });
 });
 
+describe("evaluatePolicy — gas-only tools", () => {
+  it("allows gas-only financial tool when estimatedUsd is null", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "approve_token",
+      riskLevel: "financial",
+      estimatedUsd: null,
+      walletBalanceUsd: 1000,
+    });
+    expect(decision.action).toBe("allow");
+    expect(decision.reasonCode).toBe("GAS_ONLY");
+  });
+});
+
 describe("evaluatePolicy — financial tool within limits", () => {
   it("allows financial tool when all limits are satisfied", () => {
     const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {

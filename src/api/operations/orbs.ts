@@ -20,7 +20,7 @@ import {
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
 import { submitSpotOrder } from "../../orbs/spot-client.js";
-import { getSpotContracts } from "../../orbs/spot-config.js";
+import { getSpotContracts, isTrustedSpotSubmitUrl } from "../../orbs/spot-config.js";
 import { prepareSpotOrder } from "../../orbs/spot-prepare.js";
 import { formatSpotSubmitError } from "../../utils/errors.js";
 import { splitSignature } from "../../utils/signature.js";
@@ -383,6 +383,13 @@ export async function resumeSpotOrderOperation(
         actionResults
       ),
     };
+  }
+
+  if (!isTrustedSpotSubmitUrl(state.submitUrl)) {
+    throw new Web3AgentError({
+      code: "ORBS_ORDER_ERROR",
+      message: `Untrusted submit URL in resume state: ${state.submitUrl}`,
+    });
   }
 
   const { r, s, v } = splitSignature(signatureResult.signature);

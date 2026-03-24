@@ -317,7 +317,6 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
     const isFinancial = tool.riskLevel === "financial";
     const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
-    const estimatedUsd = rawEstimatedUsd ?? 0;
     let reservationId: number | null = null;
 
     if (isFinancial) {
@@ -338,20 +337,15 @@ export class ManagedRuntime implements Web3AgentRuntime {
       if (walletBalanceUsd === null && wallet.address) {
         walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
       }
-      if (rawEstimatedUsd === null) {
-        process.stderr.write(
-          `[web3agent] Allowing gas-only financial tool "${name}" — no token amount fields to estimate\n`
-        );
-      }
 
-      if (estimatedUsd > 0) {
-        reservationId = reserveSpend(name, estimatedUsd, wallet.address);
+      if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
+        reservationId = reserveSpend(name, rawEstimatedUsd, wallet.address);
       }
 
       const decision = evaluatePolicy(resolvePolicy(this.config), {
         toolName: name,
         riskLevel: tool.riskLevel,
-        estimatedUsd,
+        estimatedUsd: rawEstimatedUsd,
         walletBalanceUsd,
       });
 
@@ -384,8 +378,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
         if (!isPendingConfirmation) {
           if (reservationId !== null) {
             commitReservation(reservationId);
-          } else {
-            recordSpend(name, estimatedUsd, getWalletState().address);
+          } else if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
+            recordSpend(name, rawEstimatedUsd, getWalletState().address);
           }
         } else if (reservationId !== null) {
           releaseReservation(reservationId);

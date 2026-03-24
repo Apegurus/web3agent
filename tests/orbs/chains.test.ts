@@ -28,7 +28,7 @@ vi.mock("@orbs-network/twap-sdk", () => ({
 
 describe("orbs chain support utilities", () => {
   it("exports expected liquidity hub chain IDs", () => {
-    expect(LIQUIDITY_HUB_CHAINS).toEqual([137, 56, 8453, 59144, 81457, 42161]);
+    expect(LIQUIDITY_HUB_CHAINS).toEqual([137, 56, 146, 8453, 59144, 81457, 42161]);
   });
 
   it("returns true for known liquidity hub supported chains", () => {

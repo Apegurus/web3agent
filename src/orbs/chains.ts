@@ -7,6 +7,7 @@ import { getSupportedSpotChainIds, isSpotChainSupported } from "./spot-config.js
 export const LIQUIDITY_HUB_CHAINS = [
   137, // Polygon
   56, // BSC
+  146, // Sonic
   8453, // Base
   59144, // Linea
   81457, // Blast

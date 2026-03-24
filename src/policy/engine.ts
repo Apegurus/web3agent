@@ -17,7 +17,7 @@ import type {
 export interface PolicyEvaluationRequest {
   toolName: string;
   riskLevel: RiskLevel;
-  estimatedUsd: number;
+  estimatedUsd: number | null;
   walletBalanceUsd?: number | null;
 }
 
@@ -68,6 +68,17 @@ export function evaluatePolicy(
     );
   }
 
+  if (request.estimatedUsd === null) {
+    return buildDecision(
+      "allow",
+      "GAS_ONLY",
+      `${request.toolName}: gas-only operation — no token amount to enforce`,
+      request,
+      spend,
+      policy
+    );
+  }
+
   if (request.estimatedUsd === 0) {
     return buildDecision(
       "deny",
@@ -79,18 +90,15 @@ export function evaluatePolicy(
     );
   }
 
+  const estimatedUsd = request.estimatedUsd;
+
   const rules = [
-    () => evaluateX402Limit(policy, request.estimatedUsd, request.toolName),
-    () => evaluateSingleTransactionLimit(policy, request.estimatedUsd, request.toolName),
-    () => evaluateHourlyLimit(policy, request.estimatedUsd, spend, request.toolName),
-    () => evaluateDailyLimit(policy, request.estimatedUsd, spend, request.toolName),
+    () => evaluateX402Limit(policy, estimatedUsd, request.toolName),
+    () => evaluateSingleTransactionLimit(policy, estimatedUsd, request.toolName),
+    () => evaluateHourlyLimit(policy, estimatedUsd, spend, request.toolName),
+    () => evaluateDailyLimit(policy, estimatedUsd, spend, request.toolName),
     () =>
-      evaluateMinReserve(
-        policy,
-        request.estimatedUsd,
-        request.walletBalanceUsd ?? null,
-        request.toolName
-      ),
+      evaluateMinReserve(policy, estimatedUsd, request.walletBalanceUsd ?? null, request.toolName),
   ];
 
   for (const rule of rules) {

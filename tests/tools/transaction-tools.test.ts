@@ -71,6 +71,9 @@ vi.mock("../../src/policy/extract-usd.js", () => ({
 
 vi.mock("../../src/policy/spend-tracker.js", () => ({
   recordSpend: (...args: unknown[]) => policyMocks.recordSpend(...args),
+  reserveSpend: vi.fn().mockReturnValue(0),
+  commitReservation: vi.fn(),
+  releaseReservation: vi.fn(),
 }));
 
 vi.mock("../../src/policy/balance-cache.js", () => ({
@@ -158,6 +161,15 @@ describe("transaction_confirm tool handler", () => {
 
   it("denies financial operations when USD estimation fails at confirm time", async () => {
     policyMocks.extractEstimatedUsd.mockResolvedValueOnce(0);
+    policyMocks.evaluatePolicy.mockReturnValueOnce({
+      action: "deny",
+      reasonCode: "USD_ESTIMATION_FAILED",
+      message: "swap: USD estimation failed",
+      riskLevel: "financial",
+      toolName: "swap",
+      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
+      appliedPolicy: {},
+    });
     const executor = vi.fn().mockResolvedValue({
       isError: false,
       content: [{ type: "text", text: JSON.stringify({ confirmed: true }) }],
@@ -181,9 +193,8 @@ describe("transaction_confirm tool handler", () => {
 
     expect(result.isError).toBe(true);
     const payload = JSON.parse(result.content[0].text as string);
-    expect(payload.error).toBe("SPEND_LIMIT_ERROR");
+    expect(payload.error).toBe("POLICY_DENIED");
     expect(executor).not.toHaveBeenCalled();
-    expect(policyMocks.evaluatePolicy).not.toHaveBeenCalled();
   });
 
   it("allows gas-only financial operations to continue when no USD estimate is available", async () => {
@@ -245,6 +256,7 @@ describe("transaction_confirm tool handler", () => {
     expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
+        estimatedUsd: 50,
         walletBalanceUsd: 125,
       })
     );

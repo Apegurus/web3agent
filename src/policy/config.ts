@@ -89,5 +89,6 @@ export async function savePolicyFile(policy: Partial<TreasuryPolicy>): Promise<s
   const existing = loadPolicyFile();
   const merged = { ...existing, ...policy };
   await atomicWriteJson(filePath, merged);
+  policyFileCache = undefined;
   return filePath;
 }

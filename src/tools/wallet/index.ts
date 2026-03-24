@@ -12,7 +12,12 @@ import { getCachedBalanceUsd, refreshBalanceUsd } from "../../policy/balance-cac
 import { resolvePolicy } from "../../policy/config.js";
 import { evaluatePolicy } from "../../policy/engine.js";
 import { extractEstimatedUsd } from "../../policy/extract-usd.js";
-import { recordSpend } from "../../policy/spend-tracker.js";
+import {
+  commitReservation,
+  recordSpend,
+  releaseReservation,
+  reserveSpend,
+} from "../../policy/spend-tracker.js";
 import {
   formatToolError,
   formatToolErrorFromUnknown,
@@ -200,6 +205,9 @@ export async function walletSetConfirmation(
 }
 
 export async function transactionConfirm(params: Record<string, unknown>): Promise<CallToolResult> {
+  let reservationId: number | null = null;
+  let confirmedId: string | undefined;
+
   try {
     const walletState = getWalletState();
     if (walletState.mode === "read-only") {
@@ -217,9 +225,11 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     if (!result) {
       return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
     }
+    confirmedId = id;
 
     if (result.stale) {
       confirmationQueue.complete(id);
+      confirmedId = undefined;
       return formatToolError(
         "OPERATION_EXPIRED",
         `Operation ${id} was confirmed after TTL expiry and will not be executed.`
@@ -240,17 +250,8 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     const opRiskLevel = result.operation.riskLevel ?? "financial";
     const opParams = result.operation.params;
     const rawEstimatedUsd = opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
-    const estimatedUsd = rawEstimatedUsd ?? 0;
 
     if (opRiskLevel === "financial") {
-      if (rawEstimatedUsd === 0) {
-        return formatToolError(
-          "SPEND_LIMIT_ERROR",
-          `Cannot confirm financial operation "${result.operation.type}" without a USD estimate. Ensure the token is recognized and price feeds are available.`,
-          { note: "Policy re-evaluated at confirm time" }
-        );
-      }
-
       const policyChainId =
         typeof opParams.chainId === "number" ? (opParams.chainId as number) : walletState.chainId;
       let walletBalanceUsd = getCachedBalanceUsd(walletState.address, policyChainId);
@@ -258,16 +259,22 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
         walletBalanceUsd = await refreshBalanceUsd(walletState.address, policyChainId);
       }
 
+      if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
+        reservationId = reserveSpend(result.operation.type, rawEstimatedUsd, walletState.address);
+      }
+
       const config = getConfig();
       const policy = resolvePolicy(config);
       const policyDecision = evaluatePolicy(policy, {
         toolName: result.operation.type,
         riskLevel: opRiskLevel,
-        estimatedUsd,
+        estimatedUsd: rawEstimatedUsd,
         walletBalanceUsd,
       });
 
       if (policyDecision.action === "deny") {
+        if (reservationId !== null) releaseReservation(reservationId);
+        reservationId = null;
         return formatToolError("POLICY_DENIED", policyDecision.message, {
           reasonCode: policyDecision.reasonCode,
           currentSpend: policyDecision.currentSpend,
@@ -279,12 +286,22 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     const execResult = await result.operation.executor(opParams);
 
     if (opRiskLevel === "financial" && !execResult.isError) {
-      recordSpend(result.operation.type, estimatedUsd, walletState.address);
+      if (reservationId !== null) {
+        commitReservation(reservationId);
+      } else if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
+        recordSpend(result.operation.type, rawEstimatedUsd, walletState.address);
+      }
+    } else if (reservationId !== null) {
+      releaseReservation(reservationId);
     }
+    reservationId = null;
 
     confirmationQueue.complete(id);
+    confirmedId = undefined;
     return execResult;
   } catch (err: unknown) {
+    if (reservationId !== null) releaseReservation(reservationId);
+    if (confirmedId) confirmationQueue.complete(confirmedId);
     return formatToolError("CONFIRM_FAILED", err instanceof Error ? err.message : "Unknown error");
   }
 }
