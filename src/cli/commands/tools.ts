@@ -1,5 +1,6 @@
 import { failJson, writeJson } from "../output.js";
 import { withCliRuntime } from "../runtime.js";
+import { getToolResultPayload } from "../../utils/tool-results.js";
 
 function printHelp(): void {
   process.stderr.write(
@@ -9,6 +10,7 @@ function printHelp(): void {
       "Usage:",
       "  web3agent tools list --json",
       "  web3agent tools describe <tool-name> --json",
+      "  web3agent tools call <tool-name> --input '{...}' --json",
     ].join("\n")}\n`
   );
 }
@@ -46,6 +48,40 @@ export async function runToolsCommand(args: string[]): Promise<void> {
           tool,
         },
       });
+    });
+    return;
+  }
+
+  if (subcommand === "call") {
+    const toolName = rest.find((arg) => !arg.startsWith("--"));
+    if (!toolName) {
+      failJson("MISSING_TOOL_NAME", "Usage: web3agent tools call <tool-name> --input '{...}' --json");
+    }
+
+    const inputFlagIndex = rest.indexOf("--input");
+    const inputJson = inputFlagIndex === -1 ? "{}" : rest[inputFlagIndex + 1];
+    if (inputJson === undefined) {
+      failJson("MISSING_INPUT", "--input requires a JSON object string");
+    }
+
+    let input: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(inputJson);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        failJson("INVALID_INPUT", "--input must be a JSON object");
+      }
+      input = parsed as Record<string, unknown>;
+    } catch (error: unknown) {
+      failJson(
+        "INVALID_INPUT_JSON",
+        error instanceof Error ? error.message : "Failed to parse --input JSON"
+      );
+    }
+
+    await withCliRuntime(async (runtime) => {
+      const result = await runtime.invokeTool(toolName, input);
+      const payload = getToolResultPayload(result);
+      writeJson(payload.ok ? { ok: true, data: payload.data } : payload);
     });
     return;
   }

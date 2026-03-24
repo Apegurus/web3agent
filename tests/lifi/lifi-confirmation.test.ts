@@ -62,6 +62,14 @@ vi.mock("../../src/wallet/confirmation.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../../src/utils/atomic-write.js", () => ({
+  atomicWriteJson: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../src/wallet/audit.js", () => ({
+  appendAuditLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("lifi_execute_bridge — confirmation gating", () => {
   it("enqueues bridge operation instead of executing immediately", async () => {
     const tools = getLifiToolDefinitions();
