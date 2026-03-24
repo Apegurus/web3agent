@@ -10,6 +10,7 @@ function homePath(homeDir: string, ...segments: string[]): string {
 
 export const HOSTS = {
   claude: {
+    installMethod: "init",
     detectionPaths: ({ homeDir }: { projectDir: string; homeDir: string }) => [
       homePath(homeDir, ".claude"),
     ],
@@ -21,6 +22,7 @@ export const HOSTS = {
       projectPath(projectDir, "CLAUDE.md"),
   },
   cursor: {
+    installMethod: "init",
     detectionPaths: ({ projectDir }: { projectDir: string; homeDir: string }) => [
       projectPath(projectDir, ".cursor"),
     ],
@@ -31,6 +33,7 @@ export const HOSTS = {
       projectPath(projectDir, ".cursor", "rules", "web3agent.mdc"),
   },
   windsurf: {
+    installMethod: "init",
     detectionPaths: ({ projectDir, homeDir }: { projectDir: string; homeDir: string }) => [
       projectPath(projectDir, ".windsurf"),
       homePath(homeDir, ".codeium", "windsurf"),
@@ -42,6 +45,7 @@ export const HOSTS = {
       projectPath(projectDir, ".windsurf", "rules", "web3agent.md"),
   },
   opencode: {
+    installMethod: "init",
     detectionPaths: ({ projectDir }: { projectDir: string; homeDir: string }) => [
       projectPath(projectDir, ".opencode"),
     ],
@@ -53,6 +57,7 @@ export const HOSTS = {
       projectPath(projectDir, "AGENTS.md"),
   },
   codex: {
+    installMethod: "init",
     detectionPaths: ({ projectDir, homeDir }: { projectDir: string; homeDir: string }) => [
       projectPath(projectDir, ".codex"),
       homePath(homeDir, ".codex"),
@@ -65,6 +70,7 @@ export const HOSTS = {
       projectPath(projectDir, "AGENTS.md"),
   },
   openclaw: {
+    installMethod: "guide",
     detectionPaths: ({ homeDir }: { projectDir: string; homeDir: string }) => [
       homePath(homeDir, ".openclaw"),
     ],

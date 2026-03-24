@@ -1,9 +1,10 @@
 import { resolve } from "node:path";
 import { installContext } from "../hosts/context/index.js";
-import type { SupportedHost } from "../hosts/detect.js";
+import { HOSTS, type SupportedHost } from "../hosts/registry.js";
 import { assertSingleHost, detectHosts } from "../hosts/detect.js";
 import type { WriteMode } from "../hosts/writers/base.js";
 import { ClaudeWriter } from "../hosts/writers/claude.js";
+import { CodexWriter } from "../hosts/writers/codex.js";
 import { CursorWriter } from "../hosts/writers/cursor.js";
 import { OpenCodeWriter } from "../hosts/writers/opencode.js";
 import { WindsurfWriter } from "../hosts/writers/windsurf.js";
@@ -48,6 +49,10 @@ function getWriter(host: SupportedHost) {
       return new WindsurfWriter();
     case "opencode":
       return new OpenCodeWriter();
+    case "codex":
+      return new CodexWriter();
+    default:
+      throw new Error(`No init writer available for host: ${host}`);
   }
 }
 
@@ -61,6 +66,11 @@ export async function runInit(args: string[]): Promise<void> {
 
   const { detected } = await detectHosts(projectDir);
   const host = assertSingleHost(detected, options.host);
+  if (HOSTS[host].installMethod !== "init") {
+    throw new Error(
+      "OpenClaw installation is guide-driven, not supported through `web3agent init`. Use docs/guides/universal-access.md and let the OpenClaw agent follow that guide directly."
+    );
+  }
 
   process.stderr.write(`Configuring web3agent for ${host}...\n`);
 

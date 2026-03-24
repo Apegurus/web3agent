@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import type { SupportedHost } from "../detect.js";
+import { homedir } from "node:os";
+import { dirname } from "node:path";
+import { HOSTS, type SupportedHost } from "../registry.js";
 import type { WriteOptions, WriteResult } from "../writers/base.js";
 
 const MARKER_START = "<!-- web3agent:start -->";
@@ -21,16 +22,7 @@ alwaysApply: false
 ---`;
 
 function contextFilePath(host: SupportedHost, projectDir: string): string {
-  switch (host) {
-    case "claude":
-      return join(projectDir, "CLAUDE.md");
-    case "cursor":
-      return join(projectDir, ".cursor", "rules", "web3agent.mdc");
-    case "windsurf":
-      return join(projectDir, ".windsurf", "rules", "web3agent.md");
-    case "opencode":
-      return join(projectDir, "AGENTS.md");
-  }
+  return HOSTS[host].contextTarget({ projectDir, homeDir: homedir() });
 }
 
 function buildContent(host: SupportedHost): string {

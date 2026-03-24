@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const FIXTURES = join(process.cwd(), "tests/fixtures/hosts");
 const DIST_INDEX = join(process.cwd(), "dist/cli.js");
 
-const HOSTS = ["claude", "cursor", "windsurf", "opencode"] as const;
+const HOSTS = ["claude", "cursor", "windsurf", "opencode", "codex"] as const;
 const MODES = ["proxy", "multi-server"] as const;
 
 describe("host matrix tests", () => {
