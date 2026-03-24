@@ -30,8 +30,6 @@ const mockState = vi.hoisted(() => {
     loadQueue: vi.fn().mockResolvedValue(2),
     flushAll: vi.fn().mockReturnValue(0),
     listQueue: vi.fn().mockReturnValue([]),
-    blockscoutShutdown: vi.fn().mockResolvedValue(undefined),
-    etherscanShutdown: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -227,40 +225,6 @@ vi.mock("../../src/goat/provider.js", () => {
   };
 });
 
-vi.mock("../../src/upstream/blockscout/adapter.js", () => ({
-  BlockscoutAdapter: class {
-    async initialize(): Promise<void> {
-      return undefined;
-    }
-    getTools(): unknown[] {
-      return [];
-    }
-    getHealth() {
-      return { name: "blockscout", status: "ok", toolCount: 0 };
-    }
-    async shutdown(): Promise<void> {
-      await mockState.blockscoutShutdown();
-    }
-  },
-}));
-
-vi.mock("../../src/upstream/etherscan/adapter.js", () => ({
-  EtherscanAdapter: class {
-    async initialize(): Promise<void> {
-      return undefined;
-    }
-    getTools(): unknown[] {
-      return [];
-    }
-    getHealth() {
-      return { name: "etherscan", status: "ok", toolCount: 0 };
-    }
-    async shutdown(): Promise<void> {
-      await mockState.etherscanShutdown();
-    }
-  },
-}));
-
 describe("managed runtime", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -279,8 +243,6 @@ describe("managed runtime", () => {
     mockState.loadQueue.mockReset().mockResolvedValue(2);
     mockState.flushAll.mockReset().mockReturnValue(0);
     mockState.listQueue.mockReset().mockReturnValue([]);
-    mockState.blockscoutShutdown.mockClear();
-    mockState.etherscanShutdown.mockClear();
     registerToolMocks.walletTools = [];
     registerToolMocks.transactionTools = [];
     registerToolMocks.utilityTools = [];
@@ -310,9 +272,8 @@ describe("managed runtime", () => {
         chainRpcUrls: {},
         confirmWrites: true,
         confirmTtlMinutes: 30,
-        blockscoutMcpUrl: "https://blockscout-a",
-        etherscanMcpUrl: "https://etherscan-a",
         etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
         lifiApiKey: undefined,
         zeroxApiKey: undefined,
         coingeckoApiKey: undefined,
@@ -330,9 +291,8 @@ describe("managed runtime", () => {
         chainRpcUrls: {},
         confirmWrites: true,
         confirmTtlMinutes: 30,
-        blockscoutMcpUrl: "https://blockscout-b",
-        etherscanMcpUrl: "https://etherscan-b",
         etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
         lifiApiKey: undefined,
         zeroxApiKey: undefined,
         coingeckoApiKey: undefined,
@@ -378,9 +338,8 @@ describe("managed runtime", () => {
         chainRpcUrls: {},
         confirmWrites: true,
         confirmTtlMinutes: 30,
-        blockscoutMcpUrl: "https://blockscout",
-        etherscanMcpUrl: "https://etherscan",
         etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
         lifiApiKey: undefined,
         zeroxApiKey: undefined,
         coingeckoApiKey: undefined,
@@ -432,9 +391,8 @@ describe("managed runtime", () => {
         chainRpcUrls: {},
         confirmWrites: true,
         confirmTtlMinutes: 30,
-        blockscoutMcpUrl: "https://blockscout",
-        etherscanMcpUrl: "https://etherscan",
         etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
         lifiApiKey: undefined,
         zeroxApiKey: undefined,
         coingeckoApiKey: undefined,
@@ -491,9 +449,8 @@ describe("managed runtime", () => {
         chainRpcUrls: {},
         confirmWrites: true,
         confirmTtlMinutes: 30,
-        blockscoutMcpUrl: "https://blockscout",
-        etherscanMcpUrl: "https://etherscan",
         etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
         lifiApiKey: undefined,
         zeroxApiKey: undefined,
         coingeckoApiKey: undefined,

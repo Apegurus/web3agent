@@ -32,11 +32,6 @@ describe("runtime config parsing", () => {
     expect(config.confirmWrites).toBe(false);
   });
 
-  it("defaults blockscoutMcpUrl", () => {
-    const config = parseEnv({});
-    expect(config.blockscoutMcpUrl).toBe("https://mcp.blockscout.com/mcp");
-  });
-
   it("accepts PRIVATE_KEY", () => {
     const config = parseEnv({ PRIVATE_KEY: "0xdeadbeef" });
     expect(config.privateKey).toBe("0xdeadbeef");

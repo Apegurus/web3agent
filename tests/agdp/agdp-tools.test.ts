@@ -110,8 +110,6 @@ vi.mock("../../src/config/env.js", async (importOriginal) => {
       walletAccountIndex: 0,
       walletAddressIndex: 0,
       chainRpcUrls: {},
-      blockscoutMcpUrl: "https://mcp.blockscout.com/mcp",
-      etherscanMcpUrl: "https://mcp.etherscan.io/mcp",
     }),
   };
 });

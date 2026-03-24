@@ -49,8 +49,6 @@ import { setHealthStatus } from "../tools/utility/index.js";
 import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
-import { BlockscoutAdapter } from "../upstream/blockscout/adapter.js";
-import { EtherscanAdapter } from "../upstream/etherscan/adapter.js";
 import { formatToolError } from "../utils/errors.js";
 import { sanitizeToolInput } from "../utils/sanitize.js";
 import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
@@ -184,8 +182,6 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
   constructor(
     readonly config: RuntimeConfig,
-    private readonly blockscoutAdapter: BlockscoutAdapter,
-    private readonly etherscanAdapter: EtherscanAdapter,
     goatProvider: GoatProvider,
     explorerDeps: ExplorerDeps,
     pendingOpsRestored: number
@@ -433,9 +429,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.walletChangeHandler = undefined;
     }
     this.goatProvider.shutdown();
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort wait before adapter teardown
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort wait before provider teardown
     await this.goatProvider.waitForRebuild().catch(() => {});
-    await Promise.allSettled([this.blockscoutAdapter.shutdown(), this.etherscanAdapter.shutdown()]);
   }
 
   private async requireToolData<T = unknown>(
@@ -479,9 +474,20 @@ export class ManagedRuntime implements Web3AgentRuntime {
         },
       },
     };
-    // Legacy adapter health (kept until adapter removal)
-    this.health.blockscout = this.blockscoutAdapter.getHealth();
-    this.health.etherscan = this.etherscanAdapter.getHealth();
+    this.health.blockscout = {
+      name: "blockscout",
+      status: bsStatus,
+      toolCount: 0,
+      message: `${bsChainCount} chains in explorer router`,
+    };
+    this.health.etherscan = {
+      name: "etherscan",
+      status: esStatus,
+      toolCount: 0,
+      ...(esConfigured
+        ? { message: `${esChainCount} chains in explorer router` }
+        : { message: "No API key provided" }),
+    };
     this.health.evm = {
       name: "evm",
       status: "ok",
@@ -584,22 +590,6 @@ export class ManagedRuntime implements Web3AgentRuntime {
       }
     }
 
-    for (const tool of this.blockscoutAdapter.getTools()) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry({ ...tool, category: "explorer" }, "blockscout"),
-        handler: (args) =>
-          this.blockscoutAdapter.callTool(tool.name, args) as Promise<CallToolResult>,
-      });
-    }
-
-    for (const tool of this.etherscanAdapter.getTools()) {
-      this.toolRecords.set(tool.name, {
-        ...toCatalogEntry({ ...tool, category: "explorer" }, "etherscan"),
-        handler: (args) =>
-          this.etherscanAdapter.callTool(tool.name, args) as Promise<CallToolResult>,
-      });
-    }
-
     const explorerTools = getExplorerToolDefinitions(this.explorerDeps);
     this.explorerToolCount = explorerTools.length;
     for (const tool of explorerTools) {
@@ -667,21 +657,6 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
 
   const pendingOpsRestored = await bootstrapCoreState(config);
 
-  const blockscoutAdapter = new BlockscoutAdapter(config.blockscoutMcpUrl);
-  const etherscanAdapter = new EtherscanAdapter(config.etherscanMcpUrl, config.etherscanApiKey);
-
-  try {
-    await blockscoutAdapter.initialize();
-  } catch (error: unknown) {
-    process.stderr.write(`[web3agent] Blockscout degraded: ${String(error)}\n`);
-  }
-
-  try {
-    await etherscanAdapter.initialize();
-  } catch (error: unknown) {
-    process.stderr.write(`[web3agent] Etherscan degraded: ${String(error)}\n`);
-  }
-
   const runtimeGoatProvider = new GoatProvider();
   await runtimeGoatProvider.initialize(config);
 
@@ -699,14 +674,7 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     etherscan: explorerEtherscan,
   };
 
-  const runtime = new ManagedRuntime(
-    config,
-    blockscoutAdapter,
-    etherscanAdapter,
-    runtimeGoatProvider,
-    explorerDeps,
-    pendingOpsRestored
-  );
+  const runtime = new ManagedRuntime(config, runtimeGoatProvider, explorerDeps, pendingOpsRestored);
   runtime.initialize();
   return runtime;
 }

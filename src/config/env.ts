@@ -98,8 +98,6 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     chainRpcUrls: parseChainRpcUrls(env),
     confirmWrites: parseBoolean(env.CONFIRM_WRITES, true),
     confirmTtlMinutes: parseIntStrict("CONFIRM_TTL_MINUTES", env.CONFIRM_TTL_MINUTES, 30),
-    blockscoutMcpUrl: env.BLOCKSCOUT_MCP_URL || BLOCKSCOUT_DEFAULT_URL,
-    etherscanMcpUrl: env.ETHERSCAN_MCP_URL || ETHERSCAN_DEFAULT_URL,
     etherscanApiUrl: env.ETHERSCAN_API_URL || ETHERSCAN_DEFAULT_API_URL,
     etherscanApiKey: env.ETHERSCAN_API_KEY || undefined,
     lifiApiKey: env.LIFI_API_KEY || undefined,

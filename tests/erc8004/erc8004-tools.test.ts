@@ -60,8 +60,6 @@ const mockConfig = vi.hoisted(() => ({
   walletAccountIndex: 0,
   walletAddressIndex: 0,
   chainRpcUrls: {},
-  blockscoutMcpUrl: "https://mcp.blockscout.com/mcp",
-  etherscanMcpUrl: "https://mcp.etherscan.io/mcp",
 }));
 
 vi.mock("../../src/config/env.js", async (importOriginal) => {
