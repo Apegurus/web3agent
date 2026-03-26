@@ -1,6 +1,15 @@
 import { getChainById } from "../chains/registry.js";
+import type { RuntimeHealth } from "../runtime/types.js";
 import type { HealthStatus, StartupReport } from "../types/health.js";
 import { VERSION } from "../version.js";
+
+export interface DoctorIssue {
+  code: string;
+  backend: string;
+  status: string;
+  message: string;
+  fix: string;
+}
 
 function formatAdapterLine(name: string, status: { status: string; toolCount?: number }): string {
   const count = status.toolCount != null ? ` (${status.toolCount} tools)` : "";
@@ -99,4 +108,31 @@ export function markBackendDegraded(
   }
   health[backend].status = "degraded";
   health[backend].message = message;
+}
+
+function issueForBackend(name: string, backend: { status: string; message?: string }): DoctorIssue {
+  const normalizedName = name.replace(/([A-Z])/g, "_$1").toUpperCase();
+  const code = `${normalizedName}_${backend.status.toUpperCase()}`;
+  const message =
+    backend.message ??
+    (backend.status === "not_configured"
+      ? `${name} is not configured`
+      : `${name} is currently ${backend.status}`);
+
+  return {
+    code,
+    backend: name,
+    status: backend.status,
+    message,
+    fix:
+      backend.status === "not_configured"
+        ? `Configure the ${name} backend if you need its capabilities, or ignore this if it is optional for your workflow.`
+        : `Check the ${name} backend configuration, credentials, and upstream availability, then rerun \`web3agent doctor --json\`.`,
+  };
+}
+
+export function buildDoctorIssues(health: RuntimeHealth): DoctorIssue[] {
+  return Object.entries(health.backends)
+    .filter(([, backend]) => backend.status !== "ok")
+    .map(([name, backend]) => issueForBackend(name, backend));
 }

@@ -1,14 +1,20 @@
 # web3agent
 
-> Web3 MCP proxy server — gives AI agents (Claude Code, Cursor, Windsurf, OpenCode) complete Web3 capabilities through a single install.
+> Portable Web3 capability layer for AI agents — usable through MCP, CLI, and SDK/runtime.
 
 ## Install
+
+Use the canonical install guide when you want a self-install flow another agent can follow end to end:
+
+```text
+https://raw.githubusercontent.com/apegurus/web3agent/main/docs/guides/universal-access.md
+```
+
+Use `web3agent init` as the fast path for hosts with stable config contracts:
 
 ```bash
 npx web3agent init
 ```
-
-Detects your AI agent host and configures it automatically.
 
 For a step-by-step install guide for both humans and coding agents, see [docs/guides/universal-access.md](./docs/guides/universal-access.md).
 
@@ -18,6 +24,12 @@ For a step-by-step install guide for both humans and coding agents, see [docs/gu
 # Configure your AI agent host
 npx web3agent init
 
+# Universal CLI fallback
+npx web3agent tools list --json
+npx web3agent tools describe resolve_token --json
+npx web3agent tool call server_status --input '{}' --json
+npx web3agent doctor --json
+
 # Start the MCP server (stdio)
 npx web3agent
 
@@ -25,6 +37,25 @@ npx web3agent
 npx web3agent --help
 npx web3agent --version
 ```
+
+CLI is the universal fallback when a host cannot consume MCP directly or when you want explicit machine-readable tool calls.
+
+## First Safe Write Flow
+
+The canonical M1 parity flow is:
+
+1. `lifi_execute_bridge`
+2. `transaction_confirm`
+
+Example:
+
+```bash
+npx web3agent tool call lifi_execute_bridge --input '{"fromChainId":1,"toChainId":8453,"fromToken":"0x0000000000000000000000000000000000000000","toToken":"0x0000000000000000000000000000000000000000","fromAmount":"1000000000000000000"}' --json
+
+npx web3agent tool call transaction_confirm --input '{"id":"<pending-operation-id>"}' --json
+```
+
+This is intentionally the same lifecycle shape used across MCP, CLI, and the runtime API.
 
 ## Programmatic Usage
 
@@ -136,12 +167,14 @@ The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts
 
 ## Supported Hosts
 
-| Host | Config Location |
-|------|----------------|
-| Claude Code | `~/.claude/mcp.json` |
-| Cursor | `.cursor/mcp.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
-| OpenCode | `.opencode/config.json` |
+| Host | Install path |
+|------|--------------|
+| Claude Code | `web3agent init` fast path plus canonical guide |
+| Cursor | `web3agent init` fast path plus canonical guide |
+| Windsurf | `web3agent init` fast path plus canonical guide |
+| OpenCode | `web3agent init` fast path plus canonical guide |
+| Codex | `.codex/config.toml` via `web3agent init --host codex` plus canonical guide |
+| OpenClaw | canonical guide, agent-mediated self-install |
 
 ## Supported Chains
 

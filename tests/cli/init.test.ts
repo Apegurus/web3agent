@@ -7,6 +7,7 @@ const mockState = vi.hoisted(() => {
   const installContext = vi.fn();
 
   const claudeWrite = vi.fn();
+  const codexWrite = vi.fn();
   const cursorWrite = vi.fn();
   const windsurfWrite = vi.fn();
   const opencodeWrite = vi.fn();
@@ -21,6 +22,7 @@ const mockState = vi.hoisted(() => {
     assertSingleHost,
     installContext,
     claudeWrite,
+    codexWrite,
     cursorWrite,
     windsurfWrite,
     opencodeWrite,
@@ -59,6 +61,12 @@ vi.mock("../../src/hosts/writers/claude.js", () => ({
 vi.mock("../../src/hosts/writers/cursor.js", () => ({
   CursorWriter: class {
     write = mockState.cursorWrite;
+  },
+}));
+
+vi.mock("../../src/hosts/writers/codex.js", () => ({
+  CodexWriter: class {
+    write = mockState.codexWrite;
   },
 }));
 
@@ -112,8 +120,36 @@ describe("runInit", () => {
     expect(mockState.claudeWrite).not.toHaveBeenCalled();
     expect(mockState.windsurfWrite).not.toHaveBeenCalled();
     expect(mockState.opencodeWrite).not.toHaveBeenCalled();
+    expect(mockState.codexWrite).not.toHaveBeenCalled();
     expect(stderrWrite).toHaveBeenCalledWith("Configuring web3agent for cursor...\n");
     expect(stderrWrite).toHaveBeenCalledWith("\nDone. Restart cursor to activate web3agent.\n");
+  });
+
+  it("routes init to CodexWriter when --host codex is selected", async () => {
+    mockState.detectHosts.mockResolvedValue({ detected: ["codex"], projectDir: "/unused" });
+    mockState.assertSingleHost.mockReturnValue("codex");
+    mockState.codexWrite.mockResolvedValue({
+      configPath: "/repo/.codex/config.toml",
+      action: "created",
+    });
+    mockState.installContext.mockResolvedValue({
+      configPath: "/repo/AGENTS.md",
+      action: "created",
+    });
+
+    const { runInit } = await import("../../src/cli/init.js");
+    await runInit(["--host", "codex", "--project", "/repo"]);
+
+    expect(mockState.codexWrite).toHaveBeenCalledWith({
+      projectDir: "/repo",
+      mode: "proxy",
+      dryRun: false,
+    });
+    expect(mockState.installContext).toHaveBeenCalledWith("codex", {
+      projectDir: "/repo",
+      mode: "proxy",
+      dryRun: false,
+    });
   });
 
   it("uses resolved project directory and selected claude writer", async () => {
@@ -183,6 +219,18 @@ describe("runInit", () => {
 
     await expect(runInit([])).rejects.toThrow("host detection failed");
     expect(mockState.assertSingleHost).not.toHaveBeenCalled();
+    expect(mockState.cursorWrite).not.toHaveBeenCalled();
+    expect(mockState.installContext).not.toHaveBeenCalled();
+  });
+
+  it("tells users to use the guide-driven path for openclaw", async () => {
+    mockState.detectHosts.mockResolvedValue({ detected: ["openclaw"], projectDir: "/repo" });
+    mockState.assertSingleHost.mockReturnValue("openclaw");
+
+    const { runInit } = await import("../../src/cli/init.js");
+
+    await expect(runInit(["--host", "openclaw"])).rejects.toThrow("guide-driven");
+    expect(mockState.codexWrite).not.toHaveBeenCalled();
     expect(mockState.cursorWrite).not.toHaveBeenCalled();
     expect(mockState.installContext).not.toHaveBeenCalled();
   });

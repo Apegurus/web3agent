@@ -92,6 +92,38 @@ describe("config writers", () => {
     expect(content.mcp.web3agent.command).toEqual(["npx", "web3agent"]);
   });
 
+  it("codex writer creates .codex/config.toml", async () => {
+    await mkdir(join(TEST_DIR, ".codex"), { recursive: true });
+    const { CodexWriter } = await import("../../src/hosts/writers/codex.js");
+    const writer = new CodexWriter();
+    const result = await writer.write({ projectDir: TEST_DIR, mode: "proxy", dryRun: false });
+
+    expect(existsSync(join(TEST_DIR, ".codex/config.toml"))).toBe(true);
+    expect(result.action).toBe("created");
+
+    const content = await readFile(join(TEST_DIR, ".codex/config.toml"), "utf-8");
+    expect(content).toContain("[mcp_servers.web3agent]");
+    expect(content).toContain('command = "npx"');
+    expect(content).toContain('args = ["web3agent"]');
+  });
+
+  it("codex writer preserves unrelated config when updating", async () => {
+    await mkdir(join(TEST_DIR, ".codex"), { recursive: true });
+    await writeFile(
+      join(TEST_DIR, ".codex/config.toml"),
+      'model = "gpt-5.4"\n\n[mcp_servers.context7]\ncommand = "npx"\nargs = ["-y", "@upstash/context7-mcp"]\n'
+    );
+
+    const { CodexWriter } = await import("../../src/hosts/writers/codex.js");
+    const writer = new CodexWriter();
+    await writer.write({ projectDir: TEST_DIR, mode: "proxy", dryRun: false });
+
+    const content = await readFile(join(TEST_DIR, ".codex/config.toml"), "utf-8");
+    expect(content).toContain('model = "gpt-5.4"');
+    expect(content).toContain("[mcp_servers.context7]");
+    expect(content).toContain("[mcp_servers.web3agent]");
+  });
+
   it("idempotent: second write returns unchanged", async () => {
     const { CursorWriter } = await import("../../src/hosts/writers/cursor.js");
     const writer = new CursorWriter();

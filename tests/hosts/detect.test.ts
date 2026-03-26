@@ -10,23 +10,33 @@ describe("host detection", () => {
     expect(result.detected).toContain("claude");
   });
 
+  it("detects openclaw from .openclaw directory at home level", async () => {
+    const result = await detectHosts(FIXTURES, join(FIXTURES, "openclaw-project"));
+    expect(result.detected).toContain("openclaw");
+  });
+
   it("detects cursor from .cursor directory", async () => {
-    const result = await detectHosts(join(FIXTURES, "cursor-project"));
+    const result = await detectHosts(join(FIXTURES, "cursor-project"), "/nonexistent-home");
     expect(result.detected).toContain("cursor");
   });
 
+  it("detects codex from .codex directory", async () => {
+    const result = await detectHosts(join(FIXTURES, "codex-project"), "/nonexistent-home");
+    expect(result.detected).toContain("codex");
+  });
+
   it("detects windsurf from .windsurf directory", async () => {
-    const result = await detectHosts(join(FIXTURES, "windsurf-project"));
+    const result = await detectHosts(join(FIXTURES, "windsurf-project"), "/nonexistent-home");
     expect(result.detected).toContain("windsurf");
   });
 
   it("detects opencode from .opencode directory", async () => {
-    const result = await detectHosts(join(FIXTURES, "opencode-project"));
+    const result = await detectHosts(join(FIXTURES, "opencode-project"), "/nonexistent-home");
     expect(result.detected).toContain("opencode");
   });
 
   it("detects multiple hosts in multi-host-project", async () => {
-    const result = await detectHosts(join(FIXTURES, "multi-host-project"));
+    const result = await detectHosts(join(FIXTURES, "multi-host-project"), "/nonexistent-home");
     expect(result.detected.length).toBeGreaterThan(1);
     expect(result.detected).toContain("cursor");
     expect(result.detected).toContain("opencode");
@@ -45,6 +55,14 @@ describe("assertSingleHost", () => {
 
   it("throws on unsupported explicit host", () => {
     expect(() => assertSingleHost([], "vscode")).toThrow("Unsupported host");
+  });
+
+  it("returns openclaw when explicitly selected", () => {
+    expect(assertSingleHost([], "openclaw")).toBe("openclaw");
+  });
+
+  it("returns codex when explicitly selected", () => {
+    expect(assertSingleHost([], "codex")).toBe("codex");
   });
 
   it("returns single detected host", () => {

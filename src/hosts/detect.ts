@@ -1,20 +1,17 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
-
-export type SupportedHost = "claude" | "cursor" | "windsurf" | "opencode";
+import { HOSTS, SUPPORTED_HOSTS, type SupportedHost } from "./registry.js";
 
 export interface DetectionResult {
   detected: SupportedHost[];
   projectDir: string;
 }
 
-const SUPPORTED_HOSTS: SupportedHost[] = ["claude", "cursor", "windsurf", "opencode"];
-
 async function dirExists(p: string): Promise<boolean> {
   try {
     await access(p);
     return true;
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: access() throws ENOENT when path doesn't exist
   } catch {
     return false;
   }
@@ -23,11 +20,8 @@ async function dirExists(p: string): Promise<boolean> {
 /**
  * Detect agent host environments from filesystem markers.
  *
- * Detection signals:
- * - claude: ~/.claude/ directory (user-level)
- * - cursor: .cursor/ directory in projectDir
- * - windsurf: .windsurf/ in projectDir OR ~/.codeium/windsurf/ user-level
- * - opencode: .opencode/ directory in projectDir
+ * Detection signals are derived from the host registry in `./registry.ts`.
+ * Each host declares its own detection paths (project-level and/or user-level).
  *
  * @param projectDir - Project root to scan for project-level markers
  * @param homeDir - Override home directory for testing (defaults to os.homedir())
@@ -35,16 +29,10 @@ async function dirExists(p: string): Promise<boolean> {
 export async function detectHosts(projectDir: string, homeDir?: string): Promise<DetectionResult> {
   const home = homeDir ?? homedir();
   const detected: SupportedHost[] = [];
-
-  const checks: Array<{ host: SupportedHost; paths: string[] }> = [
-    { host: "claude", paths: [join(home, ".claude")] },
-    { host: "cursor", paths: [join(projectDir, ".cursor")] },
-    {
-      host: "windsurf",
-      paths: [join(projectDir, ".windsurf"), join(home, ".codeium", "windsurf")],
-    },
-    { host: "opencode", paths: [join(projectDir, ".opencode")] },
-  ];
+  const checks = SUPPORTED_HOSTS.map((host) => ({
+    host,
+    paths: HOSTS[host].detectionPaths({ projectDir, homeDir: home }),
+  }));
 
   await Promise.all(
     checks.map(async ({ host, paths }) => {

@@ -168,4 +168,21 @@ See: web3agent server_status, list_supported_chains for available capabilities.
       "utf-8"
     );
   });
+
+  it("uses AGENTS.md for codex context", async () => {
+    mockState.existsSync.mockReturnValue(false);
+
+    const { installContext } = await import("../../src/hosts/context/index.js");
+    await installContext("codex", {
+      projectDir: "/repo",
+      mode: "proxy",
+      dryRun: false,
+    });
+
+    expect(mockState.writeFile).toHaveBeenCalledWith(
+      join("/repo", "AGENTS.md"),
+      expect.any(String),
+      "utf-8"
+    );
+  });
 });
