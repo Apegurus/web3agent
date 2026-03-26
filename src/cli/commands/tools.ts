@@ -67,19 +67,20 @@ export async function runToolsCommand(args: string[]): Promise<void> {
       failJson("MISSING_INPUT", "--input requires a JSON object string");
     }
 
-    let input: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(inputJson);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        failJson("INVALID_INPUT", "--input must be a JSON object");
-      }
-      input = parsed as Record<string, unknown>;
+      parsed = JSON.parse(inputJson);
     } catch (error: unknown) {
       failJson(
         "INVALID_INPUT_JSON",
         error instanceof Error ? error.message : "Failed to parse --input JSON"
       );
     }
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      failJson("INVALID_INPUT", "--input must be a JSON object");
+    }
+    const input = parsed as Record<string, unknown>;
 
     await withCliRuntime(async (runtime) => {
       const result = await runtime.invokeTool(toolName, input);

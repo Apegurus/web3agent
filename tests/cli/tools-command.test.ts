@@ -157,3 +157,72 @@ describe("runToolsCommand", () => {
     expect(parsed.data.tool.inputSchema).toBeDefined();
   });
 });
+
+describe("runToolsCommand error paths", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("throws CliExitError with MISSING_TOOL_NAME for `tools describe` without a name", async () => {
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await expect(runToolsCommand(["describe"])).rejects.toMatchObject({
+      name: "CliExitError",
+      errorCode: "MISSING_TOOL_NAME",
+    });
+  });
+
+  it("throws CliExitError with UNKNOWN_TOOL for `tools describe` with nonexistent tool", async () => {
+    mockState.withCliRuntime.mockImplementation(async (run: (runtime: unknown) => Promise<void>) =>
+      run({ getTool: () => undefined })
+    );
+
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await expect(runToolsCommand(["describe", "nonexistent_tool"])).rejects.toMatchObject({
+      name: "CliExitError",
+      errorCode: "UNKNOWN_TOOL",
+    });
+  });
+
+  it("throws CliExitError with MISSING_TOOL_NAME for `tools call` without a name", async () => {
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await expect(runToolsCommand(["call"])).rejects.toMatchObject({
+      name: "CliExitError",
+      errorCode: "MISSING_TOOL_NAME",
+    });
+  });
+
+  it("throws CliExitError with MISSING_INPUT for `tools call` with bare --input flag", async () => {
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await expect(runToolsCommand(["call", "some_tool", "--input"])).rejects.toMatchObject({
+      name: "CliExitError",
+      errorCode: "MISSING_INPUT",
+    });
+  });
+
+  it("throws CliExitError with INVALID_INPUT_JSON for malformed JSON input", async () => {
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await expect(
+      runToolsCommand(["call", "some_tool", "--input", "{not valid json}"])
+    ).rejects.toMatchObject({
+      name: "CliExitError",
+      errorCode: "INVALID_INPUT_JSON",
+    });
+  });
+
+  it("throws CliExitError with INVALID_INPUT when input is not an object", async () => {
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await expect(
+      runToolsCommand(["call", "some_tool", "--input", '"a string"'])
+    ).rejects.toMatchObject({
+      name: "CliExitError",
+      errorCode: "INVALID_INPUT",
+    });
+  });
+});
