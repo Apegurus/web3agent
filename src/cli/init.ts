@@ -68,7 +68,7 @@ export async function runInit(args: string[]): Promise<void> {
   const host = assertSingleHost(detected, options.host);
   if (HOSTS[host].installMethod !== "init") {
     throw new Error(
-      "OpenClaw installation is guide-driven, not supported through `web3agent init`. Use docs/guides/universal-access.md and let the OpenClaw agent follow that guide directly."
+      `Installation for ${host} is guide-driven, not supported through \`web3agent init\`. Use docs/guides/universal-access.md and let the ${host} agent follow that guide directly.`
     );
   }
 
