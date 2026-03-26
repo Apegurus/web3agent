@@ -46,6 +46,7 @@ Priority hosts for M1:
 - Cursor
 - Windsurf
 - OpenCode
+- Codex
 
 ### Generic MCP Fallback Today
 
@@ -53,7 +54,6 @@ Use the manual path in this guide if your host can run a stdio MCP server but do
 
 Examples:
 
-- Codex
 - custom agent harnesses
 - local MCP-compatible wrappers
 
@@ -207,6 +207,7 @@ npx web3agent init --host claude
 npx web3agent init --host cursor
 npx web3agent init --host windsurf
 npx web3agent init --host opencode
+npx web3agent init --host codex
 ```
 
 Use `--dry-run` first if you want to preview changes:
