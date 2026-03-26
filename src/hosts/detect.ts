@@ -19,11 +19,8 @@ async function dirExists(p: string): Promise<boolean> {
 /**
  * Detect agent host environments from filesystem markers.
  *
- * Detection signals:
- * - claude: ~/.claude/ directory (user-level)
- * - cursor: .cursor/ directory in projectDir
- * - windsurf: .windsurf/ in projectDir OR ~/.codeium/windsurf/ user-level
- * - opencode: .opencode/ directory in projectDir
+ * Detection signals are derived from the host registry in `./registry.ts`.
+ * Each host declares its own detection paths (project-level and/or user-level).
  *
  * @param projectDir - Project root to scan for project-level markers
  * @param homeDir - Override home directory for testing (defaults to os.homedir())
