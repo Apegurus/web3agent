@@ -28,6 +28,7 @@ function encodeTomlSection(name: string, value: Record<string, unknown>): string
     if (Array.isArray(raw) && raw.every((item) => typeof item === "string")) {
       lines.push(`${key} = ${toTomlStringArray(raw as string[])}`);
     }
+    // Other value types (boolean, number, nested) are not encoded — add cases here if the schema evolves.
   }
 
   return lines;
