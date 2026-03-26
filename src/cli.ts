@@ -1,3 +1,4 @@
+import { CliExitError, writeJson } from "./cli/output.js";
 import { VERSION } from "./version.js";
 
 async function runCli(args: string[]): Promise<void> {
@@ -62,6 +63,10 @@ async function runCli(args: string[]): Promise<void> {
 }
 
 void runCli(process.argv.slice(2)).catch((e: unknown) => {
+  if (e instanceof CliExitError) {
+    writeJson({ ok: false, error: { code: e.errorCode, message: e.message } });
+    process.exit(e.exitCode);
+  }
   const prefix = process.argv.slice(2).length > 0 ? "Error" : "Fatal";
   process.stderr.write(`${prefix}: ${e instanceof Error ? e.message : String(e)}\n`);
   process.exit(1);
