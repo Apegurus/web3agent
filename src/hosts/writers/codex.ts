@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { BLOCKSCOUT_DEFAULT_URL, ETHERSCAN_DEFAULT_URL } from "../../config/env.js";
-import { type WriteOptions, type WriteResult, safeWriteConfig } from "./base.js";
+import { type HostWriter, type WriteOptions, type WriteResult, safeWriteConfig } from "./base.js";
 
 const MARKER_START = "# web3agent:start";
 const MARKER_END = "# web3agent:end";
@@ -118,7 +118,7 @@ function mergeManagedBlock(existing: string, managedBlock: string): string {
   return stripped.length > 0 ? `${stripped}\n\n${managedBlock}\n` : `${managedBlock}\n`;
 }
 
-export class CodexWriter {
+export class CodexWriter implements HostWriter {
   private getConfigPath(options: WriteOptions): string {
     const projectConfig = join(options.projectDir, ".codex", "config.toml");
     if (existsSync(projectConfig) || existsSync(join(options.projectDir, ".codex"))) {
