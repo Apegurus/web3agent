@@ -8,77 +8,67 @@ function homePath(homeDir: string, ...segments: string[]): string {
   return join(homeDir, ...segments);
 }
 
+export type HostPathContext = { projectDir: string; homeDir: string };
+
 export const HOSTS = {
   claude: {
     installMethod: "init",
-    detectionPaths: ({ homeDir }: { projectDir: string; homeDir: string }) => [
-      homePath(homeDir, ".claude"),
-    ],
-    configTargets: ({ projectDir, homeDir }: { projectDir: string; homeDir: string }) => ({
+    detectionPaths: ({ homeDir }: HostPathContext) => [homePath(homeDir, ".claude")],
+    configTargets: ({ projectDir, homeDir }: HostPathContext) => ({
       preferred: projectPath(projectDir, ".mcp.json"),
       fallback: homePath(homeDir, ".claude", "mcp.json"),
     }),
-    contextTarget: ({ projectDir }: { projectDir: string; homeDir: string }) =>
-      projectPath(projectDir, "CLAUDE.md"),
+    contextTarget: ({ projectDir }: HostPathContext) => projectPath(projectDir, "CLAUDE.md"),
   },
   cursor: {
     installMethod: "init",
-    detectionPaths: ({ projectDir }: { projectDir: string; homeDir: string }) => [
-      projectPath(projectDir, ".cursor"),
-    ],
-    configTargets: ({ projectDir }: { projectDir: string; homeDir: string }) => ({
+    detectionPaths: ({ projectDir }: HostPathContext) => [projectPath(projectDir, ".cursor")],
+    configTargets: ({ projectDir }: HostPathContext) => ({
       preferred: projectPath(projectDir, ".cursor", "mcp.json"),
     }),
-    contextTarget: ({ projectDir }: { projectDir: string; homeDir: string }) =>
+    contextTarget: ({ projectDir }: HostPathContext) =>
       projectPath(projectDir, ".cursor", "rules", "web3agent.mdc"),
   },
   windsurf: {
     installMethod: "init",
-    detectionPaths: ({ projectDir, homeDir }: { projectDir: string; homeDir: string }) => [
+    detectionPaths: ({ projectDir, homeDir }: HostPathContext) => [
       projectPath(projectDir, ".windsurf"),
       homePath(homeDir, ".codeium", "windsurf"),
     ],
-    configTargets: ({ homeDir }: { projectDir: string; homeDir: string }) => ({
+    configTargets: ({ homeDir }: HostPathContext) => ({
       preferred: homePath(homeDir, ".codeium", "windsurf", "mcp_config.json"),
     }),
-    contextTarget: ({ projectDir }: { projectDir: string; homeDir: string }) =>
+    contextTarget: ({ projectDir }: HostPathContext) =>
       projectPath(projectDir, ".windsurf", "rules", "web3agent.md"),
   },
   opencode: {
     installMethod: "init",
-    detectionPaths: ({ projectDir }: { projectDir: string; homeDir: string }) => [
-      projectPath(projectDir, ".opencode"),
-    ],
-    configTargets: ({ projectDir }: { projectDir: string; homeDir: string }) => ({
+    detectionPaths: ({ projectDir }: HostPathContext) => [projectPath(projectDir, ".opencode")],
+    configTargets: ({ projectDir }: HostPathContext) => ({
       preferred: projectPath(projectDir, ".opencode", "config.json"),
       fallback: projectPath(projectDir, "opencode.json"),
     }),
-    contextTarget: ({ projectDir }: { projectDir: string; homeDir: string }) =>
-      projectPath(projectDir, "AGENTS.md"),
+    contextTarget: ({ projectDir }: HostPathContext) => projectPath(projectDir, "AGENTS.md"),
   },
   codex: {
     installMethod: "init",
-    detectionPaths: ({ projectDir, homeDir }: { projectDir: string; homeDir: string }) => [
+    detectionPaths: ({ projectDir, homeDir }: HostPathContext) => [
       projectPath(projectDir, ".codex"),
       homePath(homeDir, ".codex"),
     ],
-    configTargets: ({ projectDir, homeDir }: { projectDir: string; homeDir: string }) => ({
+    configTargets: ({ projectDir, homeDir }: HostPathContext) => ({
       preferred: projectPath(projectDir, ".codex", "config.toml"),
       fallback: homePath(homeDir, ".codex", "config.toml"),
     }),
-    contextTarget: ({ projectDir }: { projectDir: string; homeDir: string }) =>
-      projectPath(projectDir, "AGENTS.md"),
+    contextTarget: ({ projectDir }: HostPathContext) => projectPath(projectDir, "AGENTS.md"),
   },
   openclaw: {
     installMethod: "guide",
-    detectionPaths: ({ homeDir }: { projectDir: string; homeDir: string }) => [
-      homePath(homeDir, ".openclaw"),
-    ],
-    configTargets: ({ homeDir }: { projectDir: string; homeDir: string }) => ({
+    detectionPaths: ({ homeDir }: HostPathContext) => [homePath(homeDir, ".openclaw")],
+    configTargets: ({ homeDir }: HostPathContext) => ({
       preferred: homePath(homeDir, ".openclaw", "openclaw.json"),
     }),
-    contextTarget: ({ projectDir }: { projectDir: string; homeDir: string }) =>
-      projectPath(projectDir, "AGENTS.md"),
+    contextTarget: ({ projectDir }: HostPathContext) => projectPath(projectDir, "AGENTS.md"),
   },
 } as const;
 
