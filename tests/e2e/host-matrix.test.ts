@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const FIXTURES = join(process.cwd(), "tests/fixtures/hosts");
 const DIST_INDEX = join(process.cwd(), "dist/cli.js");
@@ -11,13 +11,6 @@ const HOSTS = ["claude", "cursor", "windsurf", "opencode", "codex"] as const;
 const MODES = ["proxy", "multi-server"] as const;
 
 describe("host matrix tests", () => {
-  beforeAll(() => {
-    execSync("pnpm build", {
-      cwd: process.cwd(),
-      encoding: "utf-8",
-    });
-  });
-
   for (const host of HOSTS) {
     for (const mode of MODES) {
       it(`configures ${host} in ${mode} mode`, () => {

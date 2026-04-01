@@ -44,6 +44,9 @@ jobs:
       - name: Pack
         run: pnpm pack
 
+      - name: Pack create-web3agent
+        run: pnpm --filter create-web3agent pack
+
       - name: Verify tarball contents
         run: |
           TARBALL=$(ls web3agent-*.tgz)

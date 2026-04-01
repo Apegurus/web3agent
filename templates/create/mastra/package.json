@@ -1,0 +1,22 @@
+{
+  "name": "__PACKAGE_NAME__",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start",
+    "check": "tsx src/examples/smoke.ts",
+    "example:lifecycle": "tsx src/examples/lifecycle.ts"
+  },
+  "dependencies": {
+    "mastra": "^1.1.0",
+    "@mastra/core": "^1.1.0",
+    "web3agent": "__WEB3AGENT_VERSION__",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5.5.0"
+  }
+}

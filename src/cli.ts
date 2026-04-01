@@ -32,6 +32,12 @@ async function runCli(args: string[]): Promise<void> {
     return;
   }
 
+  if (args[0] === "create") {
+    const { runCreateCli } = await import("./create/cli.js");
+    await runCreateCli(args.slice(1));
+    return;
+  }
+
   if (args.includes("--version")) {
     process.stderr.write(`web3agent ${VERSION}\n`);
     process.exit(0);
@@ -49,6 +55,7 @@ async function runCli(args: string[]): Promise<void> {
         "  web3agent tools         List or describe tools",
         "  web3agent tool call     Invoke a tool with JSON input",
         "  web3agent doctor        Show runtime health diagnostics",
+        "  web3agent create        Scaffold a starter project",
         "",
         "Options:",
         "  --version        Print version",
