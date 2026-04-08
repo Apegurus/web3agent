@@ -140,4 +140,24 @@ describe("create-web3agent createProject", () => {
       process.chdir(previousCwd);
     }
   });
+
+  it("rejects targets that cannot produce a valid package name", async () => {
+    const root = mkdtempSync(join(tmpdir(), "create-web3agent-project-"));
+    const previousCwd = process.cwd();
+    process.chdir(root);
+
+    try {
+      await expect(
+        createProject({
+          targetDir: "---",
+          templateId: "vercel-ai-sdk",
+          yes: true,
+          skipInstall: true,
+          skipChecks: true,
+        })
+      ).rejects.toThrow('Could not derive a valid package name from target directory "---"');
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
 });

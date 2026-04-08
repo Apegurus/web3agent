@@ -17,12 +17,14 @@ const CREATE_PACKAGE = JSON.parse(
 };
 const ROOT_TARBALL = join(PACK_ROOT, `web3agent-${ROOT_PACKAGE.version}.tgz`);
 const CREATE_TARBALL = join(PACK_ROOT, `create-web3agent-${CREATE_PACKAGE.version}.tgz`);
+const EXEC_SYNC_MAX_BUFFER = 10 * 1024 * 1024;
 
 function run(command: string, cwd: string): string {
   return execSync(command, {
     cwd,
     encoding: "utf-8",
     stdio: "pipe",
+    maxBuffer: EXEC_SYNC_MAX_BUFFER,
   });
 }
 
@@ -45,13 +47,11 @@ describe("web3agent create packed CLI", () => {
     mkdirSync(PACK_ROOT, { recursive: true });
     execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
       cwd: ROOT,
-      encoding: "utf-8",
-      stdio: "pipe",
+      stdio: "inherit",
     });
     execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
       cwd: join(ROOT, "packages", "create-web3agent"),
-      encoding: "utf-8",
-      stdio: "pipe",
+      stdio: "inherit",
     });
   });
 

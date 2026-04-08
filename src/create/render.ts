@@ -15,17 +15,27 @@ function replaceTokens(input: string, tokens: Record<string, string>): string {
 }
 
 async function assertEmptyOrMissingDirectory(targetDir: string): Promise<void> {
+  let entries: string[];
   try {
-    const entries = await readdir(targetDir);
-    if (entries.length > 0) {
-      throw new Error("Target directory is not empty");
-    }
+    entries = await readdir(targetDir);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message === "Target directory is not empty") {
-      throw error;
+    const err = error as NodeJS.ErrnoException;
+    if (err && typeof err === "object" && "code" in err) {
+      if (err.code === "ENOENT") {
+        await mkdir(targetDir, { recursive: true });
+        return;
+      }
+      if (err.code === "ENOTDIR") {
+        throw new Error(`Target path exists and is not a directory: ${targetDir}`);
+      }
     }
-    await mkdir(targetDir, { recursive: true });
+
+    const message = err?.message ?? String(error);
+    throw new Error(`Unable to access target directory "${targetDir}": ${message}`);
+  }
+
+  if (entries.length > 0) {
+    throw new Error("Target directory is not empty");
   }
 }
 

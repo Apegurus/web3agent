@@ -69,4 +69,25 @@ describe("create-web3agent renderTemplate", () => {
       })
     ).rejects.toThrow("Target directory is not empty");
   });
+
+  it("rejects target paths that exist as files", async () => {
+    const sourceDir = mkdtempSync(join(tmpdir(), "create-web3agent-render-source-"));
+    const targetRoot = mkdtempSync(join(tmpdir(), "create-web3agent-render-target-"));
+    const targetPath = join(targetRoot, "target.txt");
+
+    writeFileSync(join(sourceDir, "README.md"), "hello\n");
+    writeFileSync(targetPath, "not a directory\n");
+
+    await expect(
+      renderTemplate({
+        sourceDir,
+        targetDir: targetPath,
+        tokens: {
+          PROJECT_NAME: "My Agent",
+          PACKAGE_NAME: "my-agent",
+          WEB3AGENT_VERSION: VERSION,
+        },
+      })
+    ).rejects.toThrow(`Target path exists and is not a directory: ${targetPath}`);
+  });
 });

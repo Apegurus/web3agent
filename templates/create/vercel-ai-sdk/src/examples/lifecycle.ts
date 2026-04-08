@@ -7,6 +7,9 @@ async function main() {
   process.stderr.write(
     "[starter] This example demonstrates the canonical queued write flow: lifi_execute_bridge -> transaction_confirm.\n"
   );
+  process.stderr.write(
+    "[starter] When the live flow queues an operation, confirm it with transaction_confirm using the exact returned id.\n"
+  );
 
   if (process.env.RUN_LIVE_FLOW !== "1") {
     process.stderr.write(
@@ -26,6 +29,9 @@ async function main() {
     });
 
     process.stdout.write(`${JSON.stringify(queued.structuredContent ?? queued, null, 2)}\n`);
+    process.stderr.write(
+      "[starter] Confirm the queued operation with transaction_confirm using the exact returned id.\n"
+    );
   } finally {
     await runtime.shutdown();
   }

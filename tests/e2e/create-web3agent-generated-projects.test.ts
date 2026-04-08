@@ -12,12 +12,14 @@ const ROOT_PACKAGE = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"
   version: string;
 };
 const ROOT_TARBALL = join(PACK_ROOT, `web3agent-${ROOT_PACKAGE.version}.tgz`);
+const EXEC_SYNC_MAX_BUFFER = 10 * 1024 * 1024;
 
 function run(command: string, cwd: string): string {
   return execSync(command, {
     cwd,
     encoding: "utf-8",
     stdio: "pipe",
+    maxBuffer: EXEC_SYNC_MAX_BUFFER,
   });
 }
 
@@ -39,8 +41,7 @@ describe("generated starter projects", () => {
   beforeAll(() => {
     execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
       cwd: ROOT,
-      encoding: "utf-8",
-      stdio: "pipe",
+      stdio: "inherit",
     });
   });
 
@@ -66,6 +67,19 @@ describe("generated starter projects", () => {
       const output = run("npm run check", projectDir);
 
       expect(output.trim().length).toBeGreaterThan(0);
+
+      if (templateId === "vercel-ai-sdk") {
+        const lifecycleOutput = run("npm exec -- tsx src/examples/lifecycle.ts 2>&1", projectDir);
+        expect(lifecycleOutput).toContain("canonical queued write flow");
+        expect(lifecycleOutput).toContain("transaction_confirm");
+        expect(lifecycleOutput).toContain("exact returned id");
+      }
+
+      if (templateId === "mastra") {
+        expect(() =>
+          run("RUN_LIVE_FLOW=1 npm exec -- tsx src/examples/lifecycle.ts", projectDir)
+        ).toThrow("FLOW_ACCOUNT");
+      }
 
       if (templateId === "mcp-host") {
         writeFileSync(join(projectDir, ".env"), "TEST_MCP_ENV=loaded\n", "utf-8");

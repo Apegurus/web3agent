@@ -7,6 +7,14 @@ function envNumber(name: string, fallback: number): number {
   return value ? Number(value) : fallback;
 }
 
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`[mastra-starter] ${name} is required when RUN_LIVE_FLOW=1.`);
+  }
+  return value;
+}
+
 async function main() {
   process.stderr.write(`[mastra-starter] Lifecycle: ${lifecycle}\n`);
 
@@ -17,6 +25,7 @@ async function main() {
     return;
   }
 
+  const flowAccount = requireEnv("FLOW_ACCOUNT");
   const prepared = await prepareOperation({
     integration: "lifi",
     kind: "bridge",
@@ -25,7 +34,7 @@ async function main() {
     fromToken: process.env.FLOW_FROM_TOKEN ?? "0x0000000000000000000000000000000000000000",
     toToken: process.env.FLOW_TO_TOKEN ?? "0x0000000000000000000000000000000000000000",
     fromAmount: process.env.FLOW_FROM_AMOUNT ?? "1000000000000000000",
-    account: process.env.FLOW_ACCOUNT ?? "",
+    account: flowAccount,
   });
 
   process.stdout.write(`${JSON.stringify({ prepared }, null, 2)}\n`);
@@ -44,7 +53,7 @@ async function main() {
 
   const simulation = await simulateTransaction({
     chainId: firstAction.tx.chainId,
-    from: process.env.FLOW_ACCOUNT ?? "",
+    from: flowAccount,
     to: firstAction.tx.to,
     ...(firstAction.tx.data ? { data: firstAction.tx.data } : {}),
     ...(firstAction.tx.value ? { value: firstAction.tx.value } : {}),

@@ -27,11 +27,21 @@ function toPackageName(targetDir: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function getValidatedPackageName(targetDir: string): string {
+  const packageName = toPackageName(targetDir);
+  if (!packageName) {
+    throw new Error(
+      `Could not derive a valid package name from target directory "${targetDir}". Please choose a directory name containing at least one letter or number.`
+    );
+  }
+  return packageName;
+}
+
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   const templateId = options.templateId ?? getDefaultTemplate().id;
   const template = resolveTemplate(templateId);
   const projectName = basename(resolve(options.targetDir));
-  const packageName = toPackageName(options.targetDir);
+  const packageName = getValidatedPackageName(options.targetDir);
 
   await renderTemplate({
     sourceDir: template.sourceDir,
