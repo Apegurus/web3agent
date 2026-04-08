@@ -1,3 +1,4 @@
+import "../load-env.js";
 import { createRuntime } from "web3agent/runtime";
 
 const flow = "lifi_execute_bridge -> transaction_confirm";

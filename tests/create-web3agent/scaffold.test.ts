@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createProject } from "../../src/create/create.js";
 import { VERSION } from "../../src/version.js";
@@ -94,5 +94,50 @@ describe("create-web3agent createProject", () => {
       "lifi_execute_bridge -> transaction_confirm"
     );
     expect(readFileSync(join(targetDir, "README.md"), "utf-8")).toContain("30-second path");
+  });
+
+  it("derives a valid package name when scaffolding into the current directory", async () => {
+    const root = mkdtempSync(join(tmpdir(), "create-web3agent-project-"));
+    const previousCwd = process.cwd();
+    process.chdir(root);
+
+    try {
+      const result = await createProject({
+        targetDir: ".",
+        templateId: "vercel-ai-sdk",
+        yes: true,
+        skipInstall: true,
+        skipChecks: true,
+      });
+
+      const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as {
+        name: string;
+      };
+
+      expect(packageJson.name).toBe(basename(root).toLowerCase());
+      expect(result.postinstall.nextSteps).toEqual(["npm run dev"]);
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
+
+  it("keeps nested relative target paths in the suggested next steps", async () => {
+    const root = mkdtempSync(join(tmpdir(), "create-web3agent-project-"));
+    const previousCwd = process.cwd();
+    process.chdir(root);
+
+    try {
+      const result = await createProject({
+        targetDir: "apps/my-agent",
+        templateId: "vercel-ai-sdk",
+        yes: true,
+        skipInstall: true,
+        skipChecks: true,
+      });
+
+      expect(result.postinstall.nextSteps[0]).toBe("cd apps/my-agent");
+    } finally {
+      process.chdir(previousCwd);
+    }
   });
 });

@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { VERSION } from "../version.js";
 import { renderTemplate } from "./render.js";
 import type { TemplateDefinition, TemplateId } from "./template-manifest.js";
@@ -20,7 +20,7 @@ export interface CreateProjectResult {
 }
 
 function toPackageName(targetDir: string): string {
-  return basename(targetDir)
+  return basename(resolve(targetDir))
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
@@ -30,7 +30,7 @@ function toPackageName(targetDir: string): string {
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   const templateId = options.templateId ?? getDefaultTemplate().id;
   const template = resolveTemplate(templateId);
-  const projectName = basename(options.targetDir);
+  const projectName = basename(resolve(options.targetDir));
   const packageName = toPackageName(options.targetDir);
 
   await renderTemplate({
@@ -47,7 +47,7 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     targetDir: options.targetDir,
     template: template.definition,
     postinstall: buildPostinstallPlan({
-      projectDir: projectName,
+      projectDir: options.targetDir,
       packageManager: "npm",
       skipInstall: options.skipInstall,
       skipChecks: options.skipChecks,

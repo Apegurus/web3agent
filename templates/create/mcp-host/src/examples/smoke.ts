@@ -1,3 +1,4 @@
+import "../load-env.js";
 import { startServer } from "web3agent/mcp";
 import { createRuntime } from "web3agent/runtime";
 

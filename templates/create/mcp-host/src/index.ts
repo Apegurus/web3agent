@@ -1,3 +1,4 @@
+import "./load-env.js";
 import { startServer } from "web3agent/mcp";
 
 void startServer().catch((error: unknown) => {

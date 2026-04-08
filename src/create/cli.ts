@@ -2,6 +2,7 @@ import * as readline from "node:readline/promises";
 import { parseArgs } from "./args.js";
 import { createProject } from "./create.js";
 import { type CommandRunner, runPostinstallCommands } from "./postinstall.js";
+import { VERSION } from "../version.js";
 import {
   type TemplateId,
   getAvailableTemplates,
@@ -41,13 +42,52 @@ export interface RunCreateCliOptions {
   commandRunner?: CommandRunner;
 }
 
+function writeHelp(): void {
+  const templates = getAvailableTemplates()
+    .map((template) => `  - ${template.id}: ${template.label}`)
+    .join("\n");
+
+  process.stderr.write(
+    `${[
+      "web3agent create — Scaffold a starter project",
+      "",
+      "Usage:",
+      "  web3agent create [target-dir] [options]",
+      "",
+      "Options:",
+      "  --template <id>  Select a bundled starter template",
+      "  --yes            Non-interactive; use the default template if omitted",
+      "  --skip-install   Skip automatic npm install",
+      "  --skip-checks    Skip automatic npm run check",
+      "  --version        Print version",
+      "  --help           Print this help",
+      "",
+      "If target-dir is omitted, the current directory is used.",
+      "",
+      "Available templates:",
+      templates,
+    ].join("\n")}\n`
+  );
+}
+
 export async function runCreateCli(
   argv: string[],
   options: RunCreateCliOptions = {}
 ): Promise<void> {
+  const parsed = parseArgs(argv);
+
+  if (parsed.version) {
+    process.stderr.write(`web3agent ${VERSION}\n`);
+    return;
+  }
+
+  if (parsed.help) {
+    writeHelp();
+    return;
+  }
+
   assertSupportedNodeVersion(process.version);
 
-  const parsed = parseArgs(argv);
   const templateId =
     parsed.templateId ??
     (parsed.yes || !process.stdin.isTTY ? getAvailableTemplates()[0]?.id : await selectTemplate());

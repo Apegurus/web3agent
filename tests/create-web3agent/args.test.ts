@@ -35,6 +35,40 @@ describe("create-web3agent args", () => {
       yes: true,
       skipInstall: true,
       skipChecks: true,
+      help: false,
+      version: false,
+    });
+  });
+
+  it("defaults to the current directory when no target is provided", () => {
+    expect(parseArgs(["--template", "mcp-host", "--yes"])).toEqual({
+      targetDir: ".",
+      templateId: "mcp-host",
+      yes: true,
+      skipInstall: false,
+      skipChecks: false,
+      help: false,
+      version: false,
+    });
+  });
+
+  it("recognizes help and version flags without treating them as target directories", () => {
+    expect(parseArgs(["--help"])).toEqual({
+      targetDir: ".",
+      yes: false,
+      skipInstall: false,
+      skipChecks: false,
+      help: true,
+      version: false,
+    });
+
+    expect(parseArgs(["--version"])).toEqual({
+      targetDir: ".",
+      yes: false,
+      skipInstall: false,
+      skipChecks: false,
+      help: false,
+      version: true,
     });
   });
 

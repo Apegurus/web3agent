@@ -38,4 +38,18 @@ describe("create-web3agent validate", () => {
       nextSteps: ["cd my-agent", "npm run dev"],
     });
   });
+
+  it("does not auto-run checks when install is skipped", () => {
+    expect(
+      buildPostinstallPlan({
+        projectDir: "my-agent",
+        packageManager: "npm",
+        skipInstall: true,
+        skipChecks: false,
+      })
+    ).toEqual({
+      commands: [],
+      nextSteps: ["cd my-agent", "npm install", "npm run check", "npm run dev"],
+    });
+  });
 });

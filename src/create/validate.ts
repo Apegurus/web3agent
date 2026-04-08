@@ -20,15 +20,18 @@ export function assertSupportedNodeVersion(version: string): void {
 
 export function buildPostinstallPlan(input: PostinstallPlanInput): PostinstallPlan {
   const commands: string[] = [];
-  const nextSteps = [`cd ${input.projectDir}`];
+  const nextSteps = input.projectDir === "." ? [] : [`cd ${input.projectDir}`];
 
   if (!input.skipInstall) {
     commands.push(`${input.packageManager} install`);
     nextSteps.push(`${input.packageManager} install`);
   }
 
-  if (!input.skipChecks) {
+  if (!input.skipChecks && !input.skipInstall) {
     commands.push(`${input.packageManager} run check`);
+    nextSteps.push(`${input.packageManager} run check`);
+  } else if (!input.skipChecks) {
+    nextSteps.push(`${input.packageManager} install`);
     nextSteps.push(`${input.packageManager} run check`);
   }
 

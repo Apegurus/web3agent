@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -66,6 +66,27 @@ describe("generated starter projects", () => {
       const output = run("npm run check", projectDir);
 
       expect(output.trim().length).toBeGreaterThan(0);
+
+      if (templateId === "mcp-host") {
+        writeFileSync(join(projectDir, ".env"), "TEST_MCP_ENV=loaded\n", "utf-8");
+
+        const printedConfig = JSON.parse(run("npm run --silent print:mcp-config", projectDir)) as {
+          web3agent: { command: string; args: string[] };
+        };
+        const loadedEnv = run(
+          'npm exec -- tsx -e "(async () => { await import(\'./src/load-env.ts\'); console.log(process.env.TEST_MCP_ENV ?? \'missing\'); })()"',
+          projectDir
+        );
+
+        expect(printedConfig.web3agent.command).toBe("npm");
+        expect(printedConfig.web3agent.args).toEqual([
+          "--prefix",
+          realpathSync(projectDir),
+          "run",
+          "dev",
+        ]);
+        expect(loadedEnv.trim()).toBe("loaded");
+      }
     }, 180000);
   }
 });

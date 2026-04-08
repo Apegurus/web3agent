@@ -2,7 +2,7 @@ const config = {
   web3agent: {
     type: "stdio",
     command: "npm",
-    args: ["run", "dev"],
+    args: ["--prefix", process.cwd(), "run", "dev"],
   },
 };
 
