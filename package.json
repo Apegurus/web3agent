@@ -50,7 +50,15 @@
   "bin": {
     "web3agent": "dist/cli.js"
   },
-  "files": ["dist", "examples", "templates/create", "WEB3_CONTEXT.md", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "examples/root-api-smoke.mjs",
+    "examples/runtime-smoke.mjs",
+    "templates/create",
+    "WEB3_CONTEXT.md",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22"
   },

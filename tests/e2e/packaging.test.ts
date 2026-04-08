@@ -114,5 +114,7 @@ describe("packaging tests", () => {
     expect(output).toContain("examples/runtime-smoke.mjs");
     expect(output).toContain("WEB3_CONTEXT.md");
     expect(output).toContain("README.md");
+    expect(output).not.toContain("examples/agent-playground/package.json");
+    expect(output).not.toContain("examples/agent-playground/node_modules/.bin/tsx");
   });
 });
