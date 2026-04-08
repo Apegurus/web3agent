@@ -56,10 +56,12 @@ describe("create-web3agent createProject", () => {
 
     const packageJson = JSON.parse(readFileSync(join(targetDir, "package.json"), "utf-8")) as {
       dependencies: Record<string, string>;
+      scripts: Record<string, string>;
     };
 
     expect(packageJson.dependencies.mastra).toBeDefined();
     expect(packageJson.dependencies.web3agent).toBe(VERSION);
+    expect(packageJson.scripts["example:lifecycle"]).toBe("tsx --env-file=.env src/examples/lifecycle.ts");
     expect(readFileSync(join(targetDir, "README.md"), "utf-8")).toContain("prepareOperation");
     expect(readFileSync(join(targetDir, "README.md"), "utf-8")).toContain(
       "quote -> simulate -> prepare -> confirm -> execute -> resume -> status"

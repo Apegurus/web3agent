@@ -7,7 +7,7 @@
     "build": "mastra build",
     "start": "mastra start",
     "check": "tsx src/examples/smoke.ts",
-    "example:lifecycle": "tsx src/examples/lifecycle.ts"
+    "example:lifecycle": "tsx --env-file=.env src/examples/lifecycle.ts"
   },
   "dependencies": {
     "mastra": "^1.1.0",
