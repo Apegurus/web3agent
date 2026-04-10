@@ -66,6 +66,24 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `orbs_cancel_order` — cancel a Spot order on-chain (write, confirmation-gated)
   Compatibility note: these remain supported, but `operation_prepare` / `operation_resume` are the generic-first browser-wallet flow
 
+### CCXT exchange tools (prefix: `ccxt_`)
+- `ccxt_list_exchanges` — discover CCXT-supported exchanges and which ones have configured accounts
+- `ccxt_describe_exchange` — inspect exchange capabilities, market types, timeframes, symbols, and supported invocation modes
+- `ccxt_list_accounts` — list configured exchange accounts from `CCXT_CONFIG_PATH` with secrets redacted
+- `ccxt_public_call` — invoke public CCXT unified or implicit methods like `fetchTicker`, `fetchOHLCV`, or `fetchOrderBook`
+- `ccxt_private_read` — invoke authenticated read-only CCXT methods like `fetchBalance`, `fetchOrders`, `fetchMyTrades`, or private implicit GET methods
+- `ccxt_private_write` — invoke authenticated mutating CCXT methods like `createOrder`, `cancelOrder`, `setLeverage`, `transfer`, or `withdraw`
+
+The `ccxt_*` family is the preferred exchange interface across MCP, CLI, and runtime usage.
+
+### Deprecated Binance market helpers
+- `market_get_ticker`
+- `market_get_klines`
+- `market_get_order_book`
+- `market_get_funding_rates`
+
+These remain available for compatibility, but new exchange integrations should use the `ccxt_*` tools instead.
+
 ### Browser-wallet limitation
 The browser-wallet tools are MCP-compatible, but generic MCP hosts cannot trigger browser wallet popups themselves. Use MCP to prepare, simulate, and resume operations; perform the actual wallet signing in the surrounding app or host integration.
 
@@ -162,6 +180,7 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `LIFI_API_KEY` | — | LI.Fi API key |
 | `ZEROX_API_KEY` | — | 0x API key (enables 0x plugin) |
 | `COINGECKO_API_KEY` | — | CoinGecko API key (enables CoinGecko plugin) |
+| `CCXT_CONFIG_PATH` | — | Path to a JSON file of named CCXT exchange accounts used by `ccxt_private_read` and `ccxt_private_write` |
 | `ACP_PAYMENT_TOKEN` | — | ERC-20 token address for ACP escrow (defaults to USDC on active chain) |
 | `PINATA_JWT` | — | Pinata JWT for auto-pinning ERC-8004 agent registration JSON to IPFS |
 | `ERC8004_AGENT_URI` | — | Advertised MCP endpoint URI for ERC-8004 agent registration |

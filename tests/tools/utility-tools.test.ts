@@ -44,6 +44,27 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 describe("utility tool handlers", () => {
+  const buildHealth = (overrides: Partial<Record<string, { name: string; status: string }>> = {}) => ({
+    core: "ok" as const,
+    explorer: {
+      name: "block-explorer",
+      status: "ok" as const,
+      backends: {
+        blockscout: { status: "ok" as const, chainCount: 1 },
+        etherscan: { status: "ok" as const, chainCount: 1 },
+      },
+    },
+    blockscout: { name: "blockscout", status: "ok" as const },
+    etherscan: { name: "etherscan", status: "ok" as const },
+    evm: { name: "evm", status: "ok" as const },
+    goat: { name: "goat", status: "ok" as const },
+    lifi: { name: "lifi", status: "ok" as const },
+    orbs: { name: "orbs", status: "ok" as const },
+    ccxt: { name: "ccxt", status: "ok" as const },
+    agenticEconomy: { name: "agentic-economy", status: "not_configured" as const },
+    ...overrides,
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     confirmationQueueMock.enabled = true;
@@ -66,16 +87,11 @@ describe("utility tool handlers", () => {
     const { serverStatus, setHealthStatus } = await import("../../src/tools/utility/index.js");
 
     setHealthStatus(
-      {
-        core: "ok",
-        blockscout: { name: "blockscout", status: "ok" },
+      buildHealth({
         etherscan: { name: "etherscan", status: "degraded" },
-        evm: { name: "evm", status: "ok" },
-        goat: { name: "goat", status: "ok" },
         lifi: { name: "lifi", status: "unavailable" },
         orbs: { name: "orbs", status: "not_configured" },
-        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
-      },
+      }),
       88
     );
 
@@ -94,25 +110,14 @@ describe("utility tool handlers", () => {
       goat: "ok",
       lifi: "unavailable",
       orbs: "not_configured",
+      ccxt: "ok",
       agenticEconomy: "not_configured",
     });
   });
 
   it("serverStatus returns not_initialized when health is not set", async () => {
     const { setHealthStatus } = await import("../../src/tools/utility/index.js");
-    setHealthStatus(
-      {
-        core: "ok",
-        blockscout: { name: "blockscout", status: "ok" },
-        etherscan: { name: "etherscan", status: "ok" },
-        evm: { name: "evm", status: "ok" },
-        goat: { name: "goat", status: "ok" },
-        lifi: { name: "lifi", status: "ok" },
-        orbs: { name: "orbs", status: "ok" },
-        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
-      },
-      1
-    );
+    setHealthStatus(buildHealth(), 1);
 
     const utilityModulePath = "../../src/tools/utility/index.js";
     vi.resetModules();
@@ -143,14 +148,11 @@ describe("utility tool handlers", () => {
 
     setHealthStatus(
       {
+        ...buildHealth({
+          blockscout: { name: "blockscout", status: "degraded" },
+          etherscan: { name: "etherscan", status: "degraded" },
+        }),
         core: "degraded",
-        blockscout: { name: "blockscout", status: "degraded" },
-        etherscan: { name: "etherscan", status: "degraded" },
-        evm: { name: "evm", status: "ok" },
-        goat: { name: "goat", status: "ok" },
-        lifi: { name: "lifi", status: "ok" },
-        orbs: { name: "orbs", status: "ok" },
-        agenticEconomy: { name: "agentic-economy", status: "not_configured" },
       },
       42
     );
