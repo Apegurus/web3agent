@@ -54,7 +54,9 @@ try {
     readFileSync(join(installRoot, "node_modules", "web3agent", "package.json"), "utf-8")
   );
   if (existsSync(join(installRoot, "node_modules", "web3agent", "examples", "agent-playground"))) {
-    throw new Error("Unexpected published example: examples/agent-playground should not ship in the tarball");
+    throw new Error(
+      "Unexpected published example: examples/agent-playground should not ship in the tarball"
+    );
   }
 
   const versionOutput = run("node", ["node_modules/.bin/web3agent", "--version"], installRoot);

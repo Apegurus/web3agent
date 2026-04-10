@@ -1,8 +1,8 @@
 import * as readline from "node:readline/promises";
+import { VERSION } from "../version.js";
 import { parseArgs } from "./args.js";
 import { createProject } from "./create.js";
 import { type CommandRunner, runPostinstallCommands } from "./postinstall.js";
-import { VERSION } from "../version.js";
 import {
   type TemplateId,
   getAvailableTemplates,

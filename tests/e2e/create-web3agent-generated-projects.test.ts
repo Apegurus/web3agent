@@ -88,7 +88,7 @@ describe("generated starter projects", () => {
           web3agent: { command: string; args: string[] };
         };
         const loadedEnv = run(
-          'npm exec -- tsx -e "(async () => { await import(\'./src/load-env.ts\'); console.log(process.env.TEST_MCP_ENV ?? \'missing\'); })()"',
+          "npm exec -- tsx -e \"(async () => { await import('./src/load-env.ts'); console.log(process.env.TEST_MCP_ENV ?? 'missing'); })()\"",
           projectDir
         );
 
