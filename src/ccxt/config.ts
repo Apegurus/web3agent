@@ -45,9 +45,12 @@ function normalizeAccount(value: unknown): CcxtAccountConfig | null {
     enableRateLimit: typeof value.enableRateLimit === "boolean" ? value.enableRateLimit : undefined,
     timeout: typeof value.timeout === "number" ? value.timeout : undefined,
     headers: isObject(value.headers)
-      ? Object.fromEntries(
-          Object.entries(value.headers).filter(([, headerValue]) => typeof headerValue === "string")
-        )
+      ? Object.entries(value.headers).reduce<Record<string, string>>((headers, [key, headerValue]) => {
+          if (typeof headerValue === "string") {
+            headers[key] = headerValue;
+          }
+          return headers;
+        }, {})
       : undefined,
     options: isObject(value.options) ? value.options : undefined,
   };

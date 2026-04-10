@@ -1,5 +1,12 @@
 import ccxt from "ccxt";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type {
+  CcxtPrivateReadInput,
+  CcxtPrivateWriteInput,
+  CcxtPublicCallInput,
+  DescribeCcxtExchangeInput,
+  ListCcxtExchangesInput,
+} from "../../api/types.js";
 import { listAccountSummaries, resolveExchangeIdFromAccount } from "../../ccxt/accounts.js";
 import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
 import { loadCcxtAccountRegistry } from "../../ccxt/config.js";
@@ -178,7 +185,7 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       inputSchema: zodToJsonSchema(ccxtListExchangesSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtListExchangesSchema,
-        async (input) => listExchanges(input),
+        async (input: ListCcxtExchangesInput) => listExchanges(input),
         "CCXT_LIST_EXCHANGES_ERROR"
       ),
       annotations: CCXT_READ_ANNOTATIONS,
@@ -192,7 +199,7 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       inputSchema: zodToJsonSchema(ccxtDescribeExchangeSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtDescribeExchangeSchema,
-        describeExchange,
+        async (input: DescribeCcxtExchangeInput) => describeExchange(input),
         "CCXT_DESCRIBE_EXCHANGE_ERROR"
       ),
       annotations: CCXT_READ_ANNOTATIONS,
@@ -220,7 +227,7 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       inputSchema: zodToJsonSchema(ccxtPublicCallSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtPublicCallSchema,
-        async (input) => invokeCcxtPublicCall(input, getCcxtRuntimeState().factory),
+        async (input: CcxtPublicCallInput) => invokeCcxtPublicCall(input, getCcxtRuntimeState().factory),
         "CCXT_PUBLIC_CALL_ERROR"
       ),
       annotations: CCXT_READ_ANNOTATIONS,
@@ -234,7 +241,8 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       inputSchema: zodToJsonSchema(ccxtPrivateReadSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtPrivateReadSchema,
-        async (input) => invokeCcxtPrivateRead(input, getCcxtRuntimeState().factory),
+        async (input: CcxtPrivateReadInput) =>
+          invokeCcxtPrivateRead(input, getCcxtRuntimeState().factory),
         "CCXT_PRIVATE_READ_ERROR"
       ),
       annotations: CCXT_READ_ANNOTATIONS,
@@ -248,7 +256,8 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       inputSchema: zodToJsonSchema(ccxtPrivateWriteSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtPrivateWriteSchema,
-        async (input) => invokeCcxtPrivateWrite(input, getCcxtRuntimeState().factory),
+        async (input: CcxtPrivateWriteInput) =>
+          invokeCcxtPrivateWrite(input, getCcxtRuntimeState().factory),
         "CCXT_PRIVATE_WRITE_ERROR"
       ),
       riskLevel: "financial",

@@ -268,6 +268,17 @@ export type {
   X402CheckRequirementsOutput,
   X402FetchInput,
   X402FetchOutput,
+  ListCcxtExchangesInput,
+  DescribeCcxtExchangeInput,
+  ListCcxtAccountsInput,
+  CcxtPublicCallInput,
+  CcxtPrivateReadInput,
+  CcxtPrivateWriteInput,
+  CcxtExchangeSummary,
+  CcxtExchangeDescription,
+  CcxtAccountSummary,
+  CcxtInvocationClassification,
+  CcxtInvocationResult,
   GetProtocolTvlInput,
   GetTopProtocolsInput,
   GetChainTvlInput,
@@ -361,6 +372,14 @@ export type {
   NewsEntry,
   AirdropEntry,
 } from "./api/types.js";
+export {
+  listCcxtExchanges,
+  describeCcxtExchange,
+  listCcxtAccounts,
+  ccxtPublicCall,
+  ccxtPrivateRead,
+  ccxtPrivateWrite,
+} from "./api/ccxt.js";
 export {
   getProtocolTvl,
   getTopProtocols,
