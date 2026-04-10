@@ -21,6 +21,7 @@ export type ToolSource =
   | "agdp"
   | "erc8004"
   | "explorer"
+  | "ccxt"
   | "market"
   | "research";
 
@@ -81,6 +82,7 @@ export interface RuntimeHealth {
     goat: BackendStatus;
     lifi: BackendStatus;
     orbs: BackendStatus;
+    ccxt: BackendStatus;
     agenticEconomy: BackendStatus;
   };
 }
@@ -104,6 +106,7 @@ export function toHealthStatus(health: RuntimeHealth): HealthStatus {
     goat: health.backends.goat,
     lifi: health.backends.lifi,
     orbs: health.backends.orbs,
+    ccxt: health.backends.ccxt,
     agenticEconomy: health.backends.agenticEconomy,
   };
 }
