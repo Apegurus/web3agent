@@ -18,6 +18,28 @@ npx web3agent init
 
 For a step-by-step install guide for both humans and coding agents, see [docs/guides/universal-access.md](./docs/guides/universal-access.md).
 
+## Starter Path
+
+Primary starter command:
+
+```bash
+npx web3agent create
+```
+
+Compatibility entrypoint, once `create-web3agent` is published:
+
+```bash
+npm create web3agent
+```
+
+Bundled starter templates:
+
+- Vercel AI SDK
+- Mastra
+- MCP-host
+
+These starters stay on the same `web3agent` lifecycle surfaces instead of introducing a parallel execution model.
+
 ## Usage
 
 ```bash

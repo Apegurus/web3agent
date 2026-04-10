@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -53,6 +53,12 @@ try {
   const installedPackage = JSON.parse(
     readFileSync(join(installRoot, "node_modules", "web3agent", "package.json"), "utf-8")
   );
+  if (existsSync(join(installRoot, "node_modules", "web3agent", "examples", "agent-playground"))) {
+    throw new Error(
+      "Unexpected published example: examples/agent-playground should not ship in the tarball"
+    );
+  }
+
   const versionOutput = run("node", ["node_modules/.bin/web3agent", "--version"], installRoot);
   if (!versionOutput.includes(`web3agent ${installedPackage.version}`)) {
     throw new Error(`Unexpected version output: ${versionOutput}`);

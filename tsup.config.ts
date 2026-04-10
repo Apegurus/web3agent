@@ -7,6 +7,7 @@ export default defineConfig([
   {
     entry: {
       index: "src/index.ts",
+      "create/index": "src/create/index.ts",
       "runtime/index": "src/runtime/index.ts",
       "mcp/index": "src/mcp/index.ts",
       "agdp/api": "src/agdp/api.ts",

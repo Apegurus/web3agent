@@ -1,0 +1,30 @@
+{
+  "name": "create-web3agent",
+  "version": "0.4.0",
+  "description": "Starter scaffolder for web3agent",
+  "license": "MIT",
+  "author": "Apeguru <hello@apeguru.dev>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apegurus/web3agent.git"
+  },
+  "keywords": ["web3agent", "create-web3agent", "web3", "ai-agent", "starter"],
+  "type": "module",
+  "dependencies": {
+    "web3agent": "0.4.0"
+  },
+  "bin": {
+    "create-web3agent": "dist/index.js"
+  },
+  "files": ["dist", "README.md"],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  }
+}

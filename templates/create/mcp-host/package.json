@@ -1,0 +1,18 @@
+{
+  "name": "__PACKAGE_NAME__",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "check": "tsx src/examples/smoke.ts",
+    "print:mcp-config": "tsx src/config-helper.ts",
+    "example:lifecycle": "tsx src/examples/lifecycle.ts"
+  },
+  "dependencies": {
+    "web3agent": "__WEB3AGENT_VERSION__"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5.5.0"
+  }
+}
