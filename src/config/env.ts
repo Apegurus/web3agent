@@ -103,6 +103,7 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     lifiApiKey: env.LIFI_API_KEY || undefined,
     zeroxApiKey: env.ZEROX_API_KEY || undefined,
     coingeckoApiKey: env.COINGECKO_API_KEY || undefined,
+    ccxtConfigPath: env.CCXT_CONFIG_PATH || undefined,
     orbsPartner: env.ORBS_PARTNER || undefined,
     acpContractAddress: env.ACP_CONTRACT_ADDRESS || undefined,
     acpPaymentToken: env.ACP_PAYMENT_TOKEN || undefined,
