@@ -261,6 +261,7 @@ export function getMarketToolDefinitions(): ToolDefinition[] {
       name: "market_get_ticker",
       category: "market",
       description:
+        "Deprecated: prefer ccxt_public_call and ccxt_describe_exchange for new integrations. " +
         "Fetch real-time 24-hour ticker statistics for a trading pair from Binance. " +
         "Returns last price, price change, high/low, volume, bid/ask, and quote volume for the specified symbol.",
       inputSchema: zodToJsonSchema(marketGetTickerSchema) as Record<string, unknown>,
@@ -271,6 +272,7 @@ export function getMarketToolDefinitions(): ToolDefinition[] {
       name: "market_get_klines",
       category: "market",
       description:
+        "Deprecated: prefer ccxt_public_call and ccxt_describe_exchange for new integrations. " +
         "Fetch candlestick (OHLCV) chart data for a trading pair from Binance at a specified interval. " +
         "Returns open, high, low, close price, volume, and timestamp for each candle in the requested range.",
       inputSchema: zodToJsonSchema(marketGetKlinesSchema) as Record<string, unknown>,
@@ -281,6 +283,7 @@ export function getMarketToolDefinitions(): ToolDefinition[] {
       name: "market_get_order_book",
       category: "market",
       description:
+        "Deprecated: prefer ccxt_public_call and ccxt_describe_exchange for new integrations. " +
         "Fetch the current order book depth for a trading pair from Binance. " +
         "Returns bid and ask price levels with their quantities up to the requested depth.",
       inputSchema: zodToJsonSchema(marketGetOrderBookSchema) as Record<string, unknown>,
@@ -291,6 +294,7 @@ export function getMarketToolDefinitions(): ToolDefinition[] {
       name: "market_get_funding_rates",
       category: "market",
       description:
+        "Deprecated: prefer ccxt_public_call and ccxt_describe_exchange for new integrations. " +
         "Fetch the current perpetual futures funding rates for one or all symbols from Binance. " +
         "Returns the funding rate, funding time, and mark price for each perpetual contract, " +
         "which is useful for tracking carry costs in leveraged positions.",
