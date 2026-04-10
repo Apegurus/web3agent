@@ -1,4 +1,5 @@
 export * from "./schemas/common.js";
+export * from "./schemas/ccxt.js";
 export * from "./schemas/lifi.js";
 export * from "./schemas/market.js";
 export * from "./schemas/operations.js";
