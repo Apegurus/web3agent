@@ -1,18 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import ccxt from "ccxt";
 import type { RuntimeConfig } from "../types/config.js";
+import { isPlainObject } from "../utils/type-guards.js";
 import type { CcxtAccountConfig, CcxtAccountRegistry } from "./types.js";
 
 interface RawCcxtConfigFile {
   accounts?: unknown;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function normalizeAccount(value: unknown): CcxtAccountConfig | null {
-  if (!isObject(value)) {
+  if (!isPlainObject(value)) {
     return null;
   }
 
@@ -44,7 +41,7 @@ function normalizeAccount(value: unknown): CcxtAccountConfig | null {
     sandbox: typeof value.sandbox === "boolean" ? value.sandbox : undefined,
     enableRateLimit: typeof value.enableRateLimit === "boolean" ? value.enableRateLimit : undefined,
     timeout: typeof value.timeout === "number" ? value.timeout : undefined,
-    headers: isObject(value.headers)
+    headers: isPlainObject(value.headers)
       ? Object.entries(value.headers).reduce<Record<string, string>>((headers, [key, headerValue]) => {
           if (typeof headerValue === "string") {
             headers[key] = headerValue;
@@ -52,7 +49,7 @@ function normalizeAccount(value: unknown): CcxtAccountConfig | null {
           return headers;
         }, {})
       : undefined,
-    options: isObject(value.options) ? value.options : undefined,
+    options: isPlainObject(value.options) ? value.options : undefined,
   };
 }
 

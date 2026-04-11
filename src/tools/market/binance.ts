@@ -3,6 +3,7 @@ import { loadCcxtAccountRegistry } from "../../ccxt/config.js";
 import { CcxtExchangeFactory } from "../../ccxt/factory.js";
 import { invokeCcxtPublicCall } from "../../ccxt/invoke.js";
 import { getConfig } from "../../config/env.js";
+import { isPlainObject } from "../../utils/type-guards.js";
 import {
   fundingRateEntrySchema,
   klineEntrySchema,
@@ -34,10 +35,6 @@ function stringifyValue(value: unknown, label: string): string {
   return String(value);
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 // ── getTicker ─────────────────────────────────────────────────────
 
 export type BinanceTicker = z.infer<typeof tickerResultSchema>;
@@ -52,7 +49,7 @@ export async function getTicker(input: { symbol: string }): Promise<BinanceTicke
     getBinanceFactory()
   );
   const data = response.result;
-  if (!isObject(data)) {
+  if (!isPlainObject(data)) {
     throw new Error("CCXT ticker response must be an object");
   }
 
@@ -130,7 +127,7 @@ export async function getOrderBook(input: {
     getBinanceFactory()
   );
   const data = response.result;
-  if (!isObject(data) || !Array.isArray(data.bids) || !Array.isArray(data.asks)) {
+  if (!isPlainObject(data) || !Array.isArray(data.bids) || !Array.isArray(data.asks)) {
     throw new Error("CCXT order book response must include bid and ask arrays");
   }
 
@@ -180,10 +177,10 @@ export async function getFundingRates(input: {
 
   return z.array(fundingRateEntrySchema).parse(
     response.result.map((entry) => {
-      if (!isObject(entry)) {
+      if (!isPlainObject(entry)) {
         throw new Error("CCXT funding-rate entry must be an object");
       }
-      const info = isObject(entry.info) ? entry.info : undefined;
+      const info = isPlainObject(entry.info) ? entry.info : undefined;
       return {
         fundingTime: Number(entry.timestamp ?? entry.fundingTime),
         fundingRate: stringifyValue(entry.fundingRate, "funding rate"),

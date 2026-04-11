@@ -17,6 +17,7 @@ import {
   invokeCcxtPublicCall,
 } from "../../ccxt/invoke.js";
 import { getConfig } from "../../config/env.js";
+import { isPlainObject } from "../../utils/type-guards.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
@@ -70,10 +71,6 @@ function getCcxtRuntimeState(): CcxtRuntimeState {
   return state;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function listExchanges(input: {
   configuredOnly?: boolean;
   hasAuth?: boolean;
@@ -120,7 +117,7 @@ function listExchanges(input: {
         exchangeId: exchange.id ?? exchangeId,
         name: exchange.name ?? exchangeId,
         countries: Array.isArray(exchange.countries) ? exchange.countries : undefined,
-        urls: isObject(exchange.urls) ? exchange.urls : undefined,
+        urls: isPlainObject(exchange.urls) ? exchange.urls : undefined,
         configuredAccounts,
         supportsPublic: true,
         supportsPrivate: hasConfiguredAuth,
