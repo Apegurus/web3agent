@@ -26,6 +26,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./create": {
+      "types": "./dist/create/index.d.ts",
+      "import": "./dist/create/index.js"
+    },
     "./runtime": {
       "types": "./dist/runtime/index.d.ts",
       "import": "./dist/runtime/index.js"
@@ -48,7 +52,9 @@
   },
   "files": [
     "dist",
-    "examples",
+    "examples/root-api-smoke.mjs",
+    "examples/runtime-smoke.mjs",
+    "templates/create",
     "WEB3_CONTEXT.md",
     "README.md",
     "LICENSE"
@@ -98,12 +104,14 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm run build:package && pnpm --filter create-web3agent build",
+    "build:package": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm run typecheck:package && pnpm --filter create-web3agent typecheck",
+    "typecheck:package": "tsc --noEmit",
     "pack:check": "node -e \"const { execFileSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join } = require('node:path'); const dir = mkdtempSync(join(tmpdir(), 'web3agent-pack-')); try { execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', dir], { stdio: 'inherit' }); } finally { rmSync(dir, { recursive: true, force: true }); }\""
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"

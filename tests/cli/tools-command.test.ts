@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockState = vi.hoisted(() => ({
   runToolsCommand: vi.fn(),
   runDoctorCommand: vi.fn(),
+  runCreateCli: vi.fn(),
   startServer: vi.fn(),
   withCliRuntime: vi.fn(),
 }));
@@ -33,12 +34,16 @@ describe("cli command routing", () => {
     vi.doMock("../../src/cli/commands/doctor.js", () => ({
       runDoctorCommand: (...args: unknown[]) => mockState.runDoctorCommand(...args),
     }));
+    vi.doMock("../../src/create/cli.js", () => ({
+      runCreateCli: (...args: unknown[]) => mockState.runCreateCli(...args),
+    }));
   });
 
   afterEach(() => {
     process.argv = [...originalArgv];
     vi.doUnmock("../../src/cli/commands/tools.js");
     vi.doUnmock("../../src/cli/commands/doctor.js");
+    vi.doUnmock("../../src/create/cli.js");
   });
 
   it("routes `web3agent tools list` to the tools command module", async () => {
@@ -74,6 +79,19 @@ describe("cli command routing", () => {
     await vi.waitFor(() => {
       expect(mockState.runToolsCommand).toHaveBeenCalledWith(["call", "resolve_token", "--json"]);
     });
+    expect(mockState.runDoctorCommand).not.toHaveBeenCalled();
+    expect(mockState.startServer).not.toHaveBeenCalled();
+  });
+
+  it("routes `web3agent create ...` to the create command module", async () => {
+    process.argv = ["node", "web3agent", "create", "starter-app", "--yes"];
+
+    await import("../../src/cli.ts");
+
+    await vi.waitFor(() => {
+      expect(mockState.runCreateCli).toHaveBeenCalledWith(["starter-app", "--yes"]);
+    });
+    expect(mockState.runToolsCommand).not.toHaveBeenCalled();
     expect(mockState.runDoctorCommand).not.toHaveBeenCalled();
     expect(mockState.startServer).not.toHaveBeenCalled();
   });

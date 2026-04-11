@@ -11,7 +11,6 @@ async function dirExists(p: string): Promise<boolean> {
   try {
     await access(p);
     return true;
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: access() throws ENOENT when path doesn't exist
   } catch {
     return false;
   }
