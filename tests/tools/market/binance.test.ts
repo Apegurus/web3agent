@@ -217,4 +217,84 @@ describe("deprecated Binance compatibility shims", () => {
       },
     ]);
   });
+
+  // ── Error-path tests ──────────────────────────────────────────
+
+  it("throws when getTicker receives a non-object CCXT response", async () => {
+    invokeMocks.invokeCcxtPublicCall.mockResolvedValueOnce({
+      exchangeId: "binance",
+      method: "fetchTicker",
+      classification: "public",
+      result: "not-an-object",
+    });
+
+    await expect(getTicker({ symbol: "BTCUSDT" })).rejects.toThrow(
+      "CCXT ticker response must be an object"
+    );
+  });
+
+  it("throws when getKlines receives a non-array CCXT response", async () => {
+    invokeMocks.invokeCcxtPublicCall.mockResolvedValueOnce({
+      exchangeId: "binance",
+      method: "fetchOHLCV",
+      classification: "public",
+      result: { unexpected: true },
+    });
+
+    await expect(getKlines({ symbol: "BTCUSDT", interval: "1h" })).rejects.toThrow(
+      "CCXT OHLCV response must be an array"
+    );
+  });
+
+  it("throws when getKlines receives a malformed OHLCV entry", async () => {
+    invokeMocks.invokeCcxtPublicCall.mockResolvedValueOnce({
+      exchangeId: "binance",
+      method: "fetchOHLCV",
+      classification: "public",
+      result: [[1710547200000, "64000"]],
+    });
+
+    await expect(getKlines({ symbol: "BTCUSDT", interval: "1h" })).rejects.toThrow(
+      "CCXT OHLCV entry must be an array with at least 6 values"
+    );
+  });
+
+  it("throws when getOrderBook receives a response without bid/ask arrays", async () => {
+    invokeMocks.invokeCcxtPublicCall.mockResolvedValueOnce({
+      exchangeId: "binance",
+      method: "fetchOrderBook",
+      classification: "public",
+      result: { bids: "not-an-array", asks: [] },
+    });
+
+    await expect(getOrderBook({ symbol: "BTCUSDT" })).rejects.toThrow(
+      "CCXT order book response must include bid and ask arrays"
+    );
+  });
+
+  it("throws when getFundingRates receives a non-array CCXT response", async () => {
+    invokeMocks.invokeCcxtPublicCall.mockResolvedValueOnce({
+      exchangeId: "binance",
+      method: "fetchFundingRateHistory",
+      classification: "public",
+      result: { unexpected: true },
+    });
+
+    await expect(getFundingRates({ symbol: "BTCUSDT" })).rejects.toThrow(
+      "CCXT funding-rate response must be an array"
+    );
+  });
+
+  it("throws when a funding-rate entry is not an object", async () => {
+    invokeMocks.invokeCcxtPublicCall.mockResolvedValueOnce({
+      exchangeId: "binance",
+      method: "fetchFundingRateHistory",
+      classification: "public",
+      result: ["not-an-object"],
+    });
+
+    await expect(getFundingRates({ symbol: "BTCUSDT" })).rejects.toThrow(
+      "CCXT funding-rate entry must be an object"
+    );
+  });
 });
