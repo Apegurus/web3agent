@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockState = vi.hoisted(() => ({
-  getConfig: vi.fn(),
-  loadCcxtAccountRegistry: vi.fn(),
   listAccountSummaries: vi.fn(),
   describeExchangeCapabilities: vi.fn(),
   invokeCcxtPublicCall: vi.fn(),
@@ -32,12 +30,35 @@ vi.mock("ccxt", () => ({
   },
 }));
 
-vi.mock("../../../src/config/env.js", () => ({
-  getConfig: (...args: unknown[]) => mockState.getConfig(...args),
+vi.mock("../../../src/ccxt/runtime-state.js", () => ({
+  getCcxtRuntimeState: () => ({
+    factory: {
+      getPublicExchange: vi.fn(async () => ({
+        id: "binance",
+        name: "Binance",
+        has: { spot: true },
+        loadMarkets: vi.fn(),
+      })),
+      getPrivateExchange: vi.fn(async () => ({
+        id: "binance",
+        name: "Binance",
+        has: { spot: true, swap: true },
+        loadMarkets: vi.fn(),
+      })),
+    },
+    registry: {
+      accounts: [{ name: "binance_main", exchangeId: "binance" }],
+      warnings: [],
+    },
+  }),
 }));
 
-vi.mock("../../../src/ccxt/config.js", () => ({
-  loadCcxtAccountRegistry: (...args: unknown[]) => mockState.loadCcxtAccountRegistry(...args),
+vi.mock("../../../src/wallet/confirmation.js", () => ({
+  confirmationQueue: {
+    enabled: false,
+    enqueue: vi.fn(() => ({ queued: false, id: null, summary: "bypassed" })),
+  },
+  registerExecutor: vi.fn(),
 }));
 
 vi.mock("../../../src/ccxt/accounts.js", () => ({
@@ -47,25 +68,8 @@ vi.mock("../../../src/ccxt/accounts.js", () => ({
 }));
 
 vi.mock("../../../src/ccxt/capabilities.js", () => ({
-  describeExchangeCapabilities: (...args: unknown[]) => mockState.describeExchangeCapabilities(...args),
-}));
-
-vi.mock("../../../src/ccxt/factory.js", () => ({
-  CcxtExchangeFactory: class {
-    getPublicExchange = vi.fn(async () => ({
-      id: "binance",
-      name: "Binance",
-      has: { spot: true },
-      loadMarkets: vi.fn(),
-    }));
-
-    getPrivateExchange = vi.fn(async () => ({
-      id: "binance",
-      name: "Binance",
-      has: { spot: true, swap: true },
-      loadMarkets: vi.fn(),
-    }));
-  },
+  describeExchangeCapabilities: (...args: unknown[]) =>
+    mockState.describeExchangeCapabilities(...args),
 }));
 
 vi.mock("../../../src/ccxt/invoke.js", () => ({
@@ -78,11 +82,6 @@ import { getCcxtToolDefinitions } from "../../../src/tools/ccxt/index.js";
 
 describe("ccxt tool definitions", () => {
   beforeEach(() => {
-    mockState.getConfig.mockReturnValue({ ccxtConfigPath: "/tmp/ccxt.json" });
-    mockState.loadCcxtAccountRegistry.mockReturnValue({
-      accounts: [{ name: "binance_main", exchangeId: "binance" }],
-      warnings: [],
-    });
     mockState.listAccountSummaries.mockReturnValue([
       {
         name: "binance_main",

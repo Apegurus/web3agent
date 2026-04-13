@@ -1,31 +1,36 @@
 import { z } from "zod";
-import { loadCcxtAccountRegistry } from "../../ccxt/config.js";
-import { CcxtExchangeFactory } from "../../ccxt/factory.js";
-import { invokeCcxtPublicCall } from "../../ccxt/invoke.js";
-import { getConfig } from "../../config/env.js";
-import { isPlainObject } from "../../utils/type-guards.js";
 import {
   fundingRateEntrySchema,
   klineEntrySchema,
   orderBookResultSchema,
   tickerResultSchema,
 } from "../../api/schemas/outputs.js";
+import { invokeCcxtPublicCall } from "../../ccxt/invoke.js";
+import { getCcxtRuntimeState } from "../../ccxt/runtime-state.js";
+import { isPlainObject } from "../../utils/type-guards.js";
 
-const factoryCache = new Map<string, CcxtExchangeFactory>();
+/**
+ * Known quote currencies ordered longest-first to avoid false prefix matches
+ * (e.g. "BUSD" must be tried before "USD").
+ */
+const KNOWN_QUOTES = ["USDT", "BUSD", "USDC", "BTC", "ETH", "BNB", "USD"];
 
-function getBinanceFactory(): CcxtExchangeFactory {
-  const config = getConfig();
-  const cacheKey = config.ccxtConfigPath ?? "__no-ccxt-config__";
-  const cached = factoryCache.get(cacheKey);
-  if (cached) {
-    return cached;
+/**
+ * Converts a raw Binance-format symbol like "BTCUSDT" to the CCXT unified
+ * format "BTC/USDT". If the symbol already contains "/" it is returned as-is.
+ * If no known quote currency suffix matches, the symbol is returned unchanged
+ * and CCXT will error naturally.
+ */
+function normalizeBinanceSymbol(symbol: string): string {
+  if (symbol.includes("/")) {
+    return symbol;
   }
-
-  const factory = new CcxtExchangeFactory(
-    loadCcxtAccountRegistry({ ccxtConfigPath: config.ccxtConfigPath })
-  );
-  factoryCache.set(cacheKey, factory);
-  return factory;
+  for (const quote of KNOWN_QUOTES) {
+    if (symbol.endsWith(quote) && symbol.length > quote.length) {
+      return `${symbol.slice(0, -quote.length)}/${quote}`;
+    }
+  }
+  return symbol;
 }
 
 function stringifyValue(value: unknown, label: string): string {
@@ -40,13 +45,14 @@ function stringifyValue(value: unknown, label: string): string {
 export type BinanceTicker = z.infer<typeof tickerResultSchema>;
 
 export async function getTicker(input: { symbol: string }): Promise<BinanceTicker> {
+  const symbol = normalizeBinanceSymbol(input.symbol);
   const response = await invokeCcxtPublicCall(
     {
       exchange: "binance",
       method: "fetchTicker",
-      args: [input.symbol],
+      args: [symbol],
     },
-    getBinanceFactory()
+    getCcxtRuntimeState().factory
   );
   const data = response.result;
   if (!isPlainObject(data)) {
@@ -77,13 +83,14 @@ export async function getKlines(input: {
   limit?: number;
 }): Promise<BinanceKline[]> {
   const limit = input.limit ?? 100;
+  const symbol = normalizeBinanceSymbol(input.symbol);
   const response = await invokeCcxtPublicCall(
     {
       exchange: "binance",
       method: "fetchOHLCV",
-      args: [input.symbol, input.interval, undefined, limit],
+      args: [symbol, input.interval, undefined, limit],
     },
-    getBinanceFactory()
+    getCcxtRuntimeState().factory
   );
   if (!Array.isArray(response.result)) {
     throw new Error("CCXT OHLCV response must be an array");
@@ -118,13 +125,14 @@ export async function getOrderBook(input: {
   limit?: string;
 }): Promise<BinanceOrderBook> {
   const limit = Number(input.limit ?? "20");
+  const symbol = normalizeBinanceSymbol(input.symbol);
   const response = await invokeCcxtPublicCall(
     {
       exchange: "binance",
       method: "fetchOrderBook",
-      args: [input.symbol, limit],
+      args: [symbol, limit],
     },
-    getBinanceFactory()
+    getCcxtRuntimeState().factory
   );
   const data = response.result;
   if (!isPlainObject(data) || !Array.isArray(data.bids) || !Array.isArray(data.asks)) {
@@ -163,13 +171,15 @@ export async function getFundingRates(input: {
   limit?: number;
 }): Promise<BinanceFundingRate[]> {
   const limit = input.limit ?? 10;
+  const symbol = normalizeBinanceSymbol(input.symbol);
   const response = await invokeCcxtPublicCall(
     {
       exchange: "binance",
       method: "fetchFundingRateHistory",
-      args: [input.symbol, undefined, limit],
+      args: [symbol, undefined, limit],
+      marketType: "swap",
     },
-    getBinanceFactory()
+    getCcxtRuntimeState().factory
   );
   if (!Array.isArray(response.result)) {
     throw new Error("CCXT funding-rate response must be an array");

@@ -154,4 +154,29 @@ describe("CcxtExchangeFactory", () => {
     expect(privateExchange.setMarketsFromExchange).toHaveBeenCalledWith(publicExchange);
     expect(privateExchange.markets).toBe(publicExchange.markets);
   });
+
+  it("propagates loadMarkets network failures to the caller", async () => {
+    const factory = new CcxtExchangeFactory(registry);
+
+    // Force loadMarkets to reject on the next fresh instance
+    const exchange = await factory.getPublicExchange({
+      exchangeId: "kraken",
+      marketType: "spot",
+      sandbox: false,
+      loadMarkets: false,
+    });
+    vi.mocked(exchange.loadMarkets).mockRejectedValueOnce(
+      new Error("NetworkError: connection timed out")
+    );
+
+    await expect(
+      factory.getPublicExchange({
+        exchangeId: "kraken",
+        marketType: "spot",
+        sandbox: false,
+        loadMarkets: true,
+        reloadMarkets: true,
+      })
+    ).rejects.toThrow("NetworkError: connection timed out");
+  });
 });

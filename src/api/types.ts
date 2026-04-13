@@ -181,6 +181,11 @@ import {
   bridgeIntentSchema,
   bridgeTxStepSchema,
   categoryEntrySchema,
+  ccxtAccountSummarySchema,
+  ccxtExchangeDescriptionSchema,
+  ccxtExchangeSummarySchema,
+  ccxtInvocationClassificationSchema,
+  ccxtInvocationResultSchema,
   cexFundFlowEntrySchema,
   chainTvlEntrySchema,
   contractSecurityResultSchema,
@@ -635,48 +640,11 @@ export type ExplorerHistoricalPriceEntry = z.infer<typeof explorerHistoricalPric
 export type ExplorerHistoricalPrice = z.infer<typeof explorerHistoricalPriceSchema>;
 export type ExplorerNativeSupply = z.infer<typeof explorerNativeSupplySchema>;
 
-export interface CcxtExchangeSummary {
-  exchangeId: string;
-  name: string;
-  countries?: string[];
-  urls?: Record<string, string | Record<string, string>>;
-  configuredAccounts: string[];
-  supportsPublic: boolean;
-  supportsPrivate: boolean;
-  timeframes?: string[];
-}
-
-export interface CcxtExchangeDescription {
-  exchangeId: string;
-  name: string;
-  has: Record<string, boolean | "emulated" | undefined>;
-  timeframes?: string[];
-  symbols?: string[];
-  marketTypes: string[];
-  configuredAccounts: string[];
-  requiresAuthFor: string[];
-  supportedInvocationModes: Array<"public" | "private_read" | "private_write">;
-}
-
-export interface CcxtAccountSummary {
-  name: string;
-  exchangeId: string;
-  defaultType?: "spot" | "margin" | "future" | "swap" | "option";
-  sandbox: boolean;
-  hasPassword: boolean;
-  hasUid: boolean;
-  hasWalletAddress: boolean;
-}
-
-export type CcxtInvocationClassification = "public" | "private_read" | "private_write";
-
-export interface CcxtInvocationResult {
-  exchangeId: string;
-  account?: string;
-  method: string;
-  classification: CcxtInvocationClassification;
-  result: unknown;
-}
+export type CcxtExchangeSummary = z.infer<typeof ccxtExchangeSummarySchema>;
+export type CcxtExchangeDescription = z.infer<typeof ccxtExchangeDescriptionSchema>;
+export type CcxtAccountSummary = z.infer<typeof ccxtAccountSummarySchema>;
+export type CcxtInvocationClassification = z.infer<typeof ccxtInvocationClassificationSchema>;
+export type CcxtInvocationResult = z.infer<typeof ccxtInvocationResultSchema>;
 
 export type ListCcxtExchangesInput = z.infer<typeof ccxtListExchangesSchema>;
 export type DescribeCcxtExchangeInput = z.infer<typeof ccxtDescribeExchangeSchema>;

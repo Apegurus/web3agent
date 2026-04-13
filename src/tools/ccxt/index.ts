@@ -1,3 +1,4 @@
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import ccxt from "ccxt";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type {
@@ -9,15 +10,16 @@ import type {
 } from "../../api/types.js";
 import { listAccountSummaries, resolveExchangeIdFromAccount } from "../../ccxt/accounts.js";
 import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
-import { loadCcxtAccountRegistry } from "../../ccxt/config.js";
-import { CcxtExchangeFactory } from "../../ccxt/factory.js";
 import {
   invokeCcxtPrivateRead,
   invokeCcxtPrivateWrite,
   invokeCcxtPublicCall,
 } from "../../ccxt/invoke.js";
-import { getConfig } from "../../config/env.js";
+import { getCcxtRuntimeState } from "../../ccxt/runtime-state.js";
+import { formatToolErrorFromUnknown, formatToolResponse } from "../../utils/errors.js";
 import { isPlainObject } from "../../utils/type-guards.js";
+import { validateInput } from "../../utils/validation.js";
+import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
@@ -43,32 +45,50 @@ const CCXT_WRITE_ANNOTATIONS = {
   openWorldHint: true,
 } as const;
 
-interface CcxtRuntimeState {
-  factory: CcxtExchangeFactory;
-  registry: ReturnType<typeof loadCcxtAccountRegistry>;
+interface ExchangeStaticMeta {
+  id: string;
+  name: string;
+  countries?: string[];
+  urls?: Record<string, string | Record<string, string>>;
+  has: Record<string, boolean | "emulated" | undefined>;
+  timeframes?: string[];
 }
 
-const runtimeStateCache = new Map<string, CcxtRuntimeState>();
+let exchangeMetaCache: ExchangeStaticMeta[] | undefined;
 
-function getCcxtRuntimeState(): CcxtRuntimeState {
-  const config = getConfig();
-  const cacheKey = config.ccxtConfigPath ?? "__no-ccxt-config__";
-  const cached = runtimeStateCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
+function getExchangeMetaCache(): ExchangeStaticMeta[] {
+  if (exchangeMetaCache) return exchangeMetaCache;
 
-  const registry = loadCcxtAccountRegistry({ ccxtConfigPath: config.ccxtConfigPath });
-  for (const warning of registry.warnings) {
-    process.stderr.write(`[ccxt] ${warning}\n`);
-  }
+  exchangeMetaCache = ccxt.exchanges
+    .map((exchangeId) => {
+      const Ctor = (ccxt as unknown as Record<string, unknown>)[exchangeId];
+      if (typeof Ctor !== "function") return null;
 
-  const state = {
-    factory: new CcxtExchangeFactory(registry),
-    registry,
-  };
-  runtimeStateCache.set(cacheKey, state);
-  return state;
+      const ex = new (
+        Ctor as new () => {
+          id: string;
+          name?: string;
+          countries?: string[];
+          urls?: Record<string, string | Record<string, string>>;
+          has?: Record<string, boolean | "emulated" | undefined>;
+          timeframes?: Record<string, string>;
+        }
+      )();
+
+      return {
+        id: ex.id ?? exchangeId,
+        name: ex.name ?? exchangeId,
+        countries: Array.isArray(ex.countries) ? ex.countries : undefined,
+        urls: isPlainObject(ex.urls)
+          ? (ex.urls as Record<string, string | Record<string, string>>)
+          : undefined,
+        has: ex.has ?? {},
+        timeframes: ex.timeframes ? Object.keys(ex.timeframes) : undefined,
+      };
+    })
+    .filter((meta): meta is NonNullable<typeof meta> => meta !== null);
+
+  return exchangeMetaCache;
 }
 
 function listExchanges(input: {
@@ -78,53 +98,35 @@ function listExchanges(input: {
 }) {
   const { registry } = getCcxtRuntimeState();
 
-  return ccxt.exchanges
-    .map((exchangeId) => {
-      const ExchangeConstructor = (ccxt as unknown as Record<string, unknown>)[exchangeId];
-      if (typeof ExchangeConstructor !== "function") {
-        return null;
-      }
+  return getExchangeMetaCache()
+    .filter((meta) => {
+      if (input.marketType && !meta.has[input.marketType]) return false;
 
-      const exchange = new (ExchangeConstructor as new () => {
-        id: string;
-        name?: string;
-        countries?: string[];
-        urls?: Record<string, string | Record<string, string>>;
-        has?: Record<string, boolean | "emulated" | undefined>;
-        timeframes?: Record<string, string>;
-      })();
+      const accts = registry.accounts.filter((a) => a.exchangeId === meta.id).map((a) => a.name);
+      const hasAuth = accts.length > 0;
 
-      if (input.marketType && !exchange.has?.[input.marketType]) {
-        return null;
-      }
+      if (input.configuredOnly && !hasAuth) return false;
+      if (input.hasAuth === true && !hasAuth) return false;
+      if (input.hasAuth === false && hasAuth) return false;
 
+      return true;
+    })
+    .map((meta) => {
       const configuredAccounts = registry.accounts
-        .filter((account) => account.exchangeId === exchangeId)
-        .map((account) => account.name);
-      const hasConfiguredAuth = configuredAccounts.length > 0;
-
-      if (input.configuredOnly && !hasConfiguredAuth) {
-        return null;
-      }
-      if (input.hasAuth === true && !hasConfiguredAuth) {
-        return null;
-      }
-      if (input.hasAuth === false && hasConfiguredAuth) {
-        return null;
-      }
+        .filter((a) => a.exchangeId === meta.id)
+        .map((a) => a.name);
 
       return {
-        exchangeId: exchange.id ?? exchangeId,
-        name: exchange.name ?? exchangeId,
-        countries: Array.isArray(exchange.countries) ? exchange.countries : undefined,
-        urls: isPlainObject(exchange.urls) ? exchange.urls : undefined,
+        exchangeId: meta.id,
+        name: meta.name,
+        countries: meta.countries,
+        urls: meta.urls,
         configuredAccounts,
         supportsPublic: true,
-        supportsPrivate: hasConfiguredAuth,
-        timeframes: exchange.timeframes ? Object.keys(exchange.timeframes) : undefined,
+        supportsPrivate: configuredAccounts.length > 0,
+        timeframes: meta.timeframes,
       };
-    })
-    .filter((exchange): exchange is NonNullable<typeof exchange> => exchange !== null);
+    });
 }
 
 async function describeExchange(input: {
@@ -164,6 +166,41 @@ async function describeExchange(input: {
 function listAccounts() {
   const { registry } = getCcxtRuntimeState();
   return listAccountSummaries(registry);
+}
+
+async function executeCcxtPrivateWrite(params: Record<string, unknown>): Promise<CallToolResult> {
+  try {
+    const input = params as unknown as CcxtPrivateWriteInput;
+    const result = await invokeCcxtPrivateWrite(input, getCcxtRuntimeState().factory);
+    return formatToolResponse(result);
+  } catch (error: unknown) {
+    return formatToolErrorFromUnknown("CCXT_PRIVATE_WRITE_ERROR", error);
+  }
+}
+
+async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<CallToolResult> {
+  const validation = validateInput(ccxtPrivateWriteSchema, params);
+  if (!validation.success) return validation.error;
+
+  const input = validation.data as CcxtPrivateWriteInput;
+  const { queued, id, summary } = confirmationQueue.enqueue(
+    "ccxt_private_write",
+    `CCXT ${input.method} on account ${input.account}`,
+    validation.data as unknown as Record<string, unknown>,
+    executeCcxtPrivateWrite,
+    undefined,
+    "financial"
+  );
+
+  if (queued) {
+    return formatToolResponse({ status: "pending_confirmation", id, summary });
+  }
+
+  return executeCcxtPrivateWrite(validation.data as unknown as Record<string, unknown>);
+}
+
+export function registerCcxtExecutors(): void {
+  registerExecutor("ccxt_private_write", executeCcxtPrivateWrite);
 }
 
 const EMPTY_INPUT_SCHEMA = {
@@ -224,7 +261,8 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       inputSchema: zodToJsonSchema(ccxtPublicCallSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtPublicCallSchema,
-        async (input: CcxtPublicCallInput) => invokeCcxtPublicCall(input, getCcxtRuntimeState().factory),
+        async (input: CcxtPublicCallInput) =>
+          invokeCcxtPublicCall(input, getCcxtRuntimeState().factory),
         "CCXT_PUBLIC_CALL_ERROR"
       ),
       annotations: CCXT_READ_ANNOTATIONS,
@@ -251,12 +289,7 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
         "Invoke an authenticated mutating CCXT method using a configured named account. " +
         "This covers order placement, cancellation, leverage, transfers, withdrawals, and private implicit write endpoints.",
       inputSchema: zodToJsonSchema(ccxtPrivateWriteSchema) as Record<string, unknown>,
-      handler: createToolHandler(
-        ccxtPrivateWriteSchema,
-        async (input: CcxtPrivateWriteInput) =>
-          invokeCcxtPrivateWrite(input, getCcxtRuntimeState().factory),
-        "CCXT_PRIVATE_WRITE_ERROR"
-      ),
+      handler: handleCcxtPrivateWrite,
       riskLevel: "financial",
       annotations: CCXT_WRITE_ANNOTATIONS,
     },

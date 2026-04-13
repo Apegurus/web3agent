@@ -21,8 +21,6 @@ export function describeExchangeCapabilities(
     configuredAccounts,
     requiresAuthFor: ["private_read", "private_write"],
     supportedInvocationModes:
-      configuredAccounts.length > 0
-        ? ["public", "private_read", "private_write"]
-        : ["public"],
+      configuredAccounts.length > 0 ? ["public", "private_read", "private_write"] : ["public"],
   };
 }

@@ -5,7 +5,7 @@ import type {
   CcxtPublicCallInput,
 } from "../api/types.js";
 import { isMethodAllowedForTool } from "./classification.js";
-import { CcxtExchangeFactory } from "./factory.js";
+import type { CcxtExchangeFactory } from "./factory.js";
 import type { CcxtExchangeLike } from "./types.js";
 
 function buildMethodArgs(

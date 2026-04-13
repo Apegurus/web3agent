@@ -17,37 +17,51 @@ export const ccxtAccountNameSchema = z
 export const ccxtMethodSchema = z
   .string()
   .min(1)
-  .describe("CCXT method name to invoke, including unified methods like 'fetchTicker' or implicit methods like 'publicGetTicker'");
+  .describe(
+    "CCXT method name to invoke, including unified methods like 'fetchTicker' or implicit methods like 'publicGetTicker'"
+  );
 
 export const ccxtArgsSchema = z
   .array(z.unknown())
   .optional()
-  .describe("Positional arguments for the target CCXT method, in the same order that CCXT expects them");
+  .describe(
+    "Positional arguments for the target CCXT method, in the same order that CCXT expects them"
+  );
 
 export const ccxtParamsSchema = z
   .record(z.unknown())
   .optional()
-  .describe("Optional CCXT params object passed as the final argument when the target method accepts exchange-specific overrides");
+  .describe(
+    "Optional CCXT params object passed as the final argument when the target method accepts exchange-specific overrides"
+  );
 
 export const ccxtLoadMarketsSchema = z
   .boolean()
   .optional()
-  .describe("Whether to call loadMarkets before invocation when market metadata is needed (default: true)");
+  .describe(
+    "Whether to call loadMarkets before invocation when market metadata is needed (default: true)"
+  );
 
 export const ccxtReloadMarketsSchema = z
   .boolean()
   .optional()
-  .describe("Whether to force a fresh market reload instead of reusing cached exchange metadata (default: false)");
+  .describe(
+    "Whether to force a fresh market reload instead of reusing cached exchange metadata (default: false)"
+  );
 
 export const ccxtListExchangesSchema = z.object({
   configuredOnly: z
     .boolean()
     .optional()
-    .describe("When true, return only exchanges that have at least one configured authenticated account"),
+    .describe(
+      "When true, return only exchanges that have at least one configured authenticated account"
+    ),
   hasAuth: z
     .boolean()
     .optional()
-    .describe("When true, return only exchanges that currently have configured authenticated accounts"),
+    .describe(
+      "When true, return only exchanges that currently have configured authenticated accounts"
+    ),
   marketType: ccxtMarketTypeSchema.optional(),
 });
 
@@ -58,7 +72,9 @@ export const ccxtDescribeExchangeSchema = z
       .describe("Exchange ID to inspect when no account name is provided"),
     account: ccxtAccountNameSchema
       .optional()
-      .describe("Configured account name to inspect when you want the account's exchange and defaults"),
+      .describe(
+        "Configured account name to inspect when you want the account's exchange and defaults"
+      ),
     loadMarkets: ccxtLoadMarketsSchema,
     reloadMarkets: ccxtReloadMarketsSchema,
   })
@@ -67,7 +83,9 @@ export const ccxtDescribeExchangeSchema = z
     path: ["exchange"],
   });
 
-export const ccxtListAccountsSchema = z.object({});
+export const ccxtListAccountsSchema = z
+  .object({})
+  .describe("List all configured CCXT accounts with redacted metadata");
 
 export const ccxtPublicCallSchema = z.object({
   exchange: ccxtExchangeIdSchema,

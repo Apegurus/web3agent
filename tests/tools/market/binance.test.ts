@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invokeMocks = vi.hoisted(() => ({
   invokeCcxtPublicCall: vi.fn(),
@@ -8,21 +8,11 @@ vi.mock("../../../src/ccxt/invoke.js", () => ({
   invokeCcxtPublicCall: (...args: unknown[]) => invokeMocks.invokeCcxtPublicCall(...args),
 }));
 
-vi.mock("../../../src/config/env.js", () => ({
-  getConfig: () => ({
-    ccxtConfigPath: undefined,
+vi.mock("../../../src/ccxt/runtime-state.js", () => ({
+  getCcxtRuntimeState: () => ({
+    factory: {},
+    registry: { accounts: [], warnings: [] },
   }),
-}));
-
-vi.mock("../../../src/ccxt/config.js", () => ({
-  loadCcxtAccountRegistry: () => ({
-    accounts: [],
-    warnings: [],
-  }),
-}));
-
-vi.mock("../../../src/ccxt/factory.js", () => ({
-  CcxtExchangeFactory: class {},
 }));
 
 import {
@@ -62,7 +52,7 @@ describe("deprecated Binance compatibility shims", () => {
       {
         exchange: "binance",
         method: "fetchTicker",
-        args: ["BTCUSDT"],
+        args: ["BTC/USDT"],
       },
       expect.anything()
     );
@@ -86,8 +76,26 @@ describe("deprecated Binance compatibility shims", () => {
       method: "fetchOHLCV",
       classification: "public",
       result: [
-        [1710547200000, "64000.00", "66000.00", "63500.00", "65000.00", "12345.67", "802567890.12", 1234],
-        [1710547260000, "65000.00", "65500.00", "64800.00", "65200.00", "5678.90", "369567000.00", 987],
+        [
+          1710547200000,
+          "64000.00",
+          "66000.00",
+          "63500.00",
+          "65000.00",
+          "12345.67",
+          "802567890.12",
+          1234,
+        ],
+        [
+          1710547260000,
+          "65000.00",
+          "65500.00",
+          "64800.00",
+          "65200.00",
+          "5678.90",
+          "369567000.00",
+          987,
+        ],
       ],
     });
 
@@ -97,7 +105,7 @@ describe("deprecated Binance compatibility shims", () => {
       {
         exchange: "binance",
         method: "fetchOHLCV",
-        args: ["BTCUSDT", "1h", undefined, 50],
+        args: ["BTC/USDT", "1h", undefined, 50],
       },
       expect.anything()
     );
@@ -149,7 +157,7 @@ describe("deprecated Binance compatibility shims", () => {
       {
         exchange: "binance",
         method: "fetchOrderBook",
-        args: ["BTCUSDT", 50],
+        args: ["BTC/USDT", 50],
       },
       expect.anything()
     );
@@ -191,7 +199,8 @@ describe("deprecated Binance compatibility shims", () => {
       {
         exchange: "binance",
         method: "fetchFundingRateHistory",
-        args: ["BTCUSDT", undefined, 50],
+        args: ["BTC/USDT", undefined, 50],
+        marketType: "swap",
       },
       expect.anything()
     );

@@ -42,12 +42,15 @@ function normalizeAccount(value: unknown): CcxtAccountConfig | null {
     enableRateLimit: typeof value.enableRateLimit === "boolean" ? value.enableRateLimit : undefined,
     timeout: typeof value.timeout === "number" ? value.timeout : undefined,
     headers: isPlainObject(value.headers)
-      ? Object.entries(value.headers).reduce<Record<string, string>>((headers, [key, headerValue]) => {
-          if (typeof headerValue === "string") {
-            headers[key] = headerValue;
-          }
-          return headers;
-        }, {})
+      ? Object.entries(value.headers).reduce<Record<string, string>>(
+          (headers, [key, headerValue]) => {
+            if (typeof headerValue === "string") {
+              headers[key] = headerValue;
+            }
+            return headers;
+          },
+          {}
+        )
       : undefined,
     options: isPlainObject(value.options) ? value.options : undefined,
   };
@@ -105,7 +108,9 @@ export function loadCcxtAccountRegistry(
       continue;
     }
     if (!supportedExchanges.has(account.exchangeId)) {
-      warnings.push(`Unsupported exchange ID '${account.exchangeId}' for account '${account.name}'`);
+      warnings.push(
+        `Unsupported exchange ID '${account.exchangeId}' for account '${account.name}'`
+      );
       continue;
     }
 

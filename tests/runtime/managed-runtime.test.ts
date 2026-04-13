@@ -106,6 +106,14 @@ vi.mock("../../src/tools/research/index.js", () => ({
 
 vi.mock("../../src/tools/ccxt/index.js", () => ({
   getCcxtToolDefinitions: vi.fn(() => registerToolMocks.ccxtTools),
+  registerCcxtExecutors: vi.fn(),
+}));
+
+vi.mock("../../src/ccxt/runtime-state.js", () => ({
+  getCcxtRuntimeState: () => ({
+    factory: {},
+    registry: { accounts: [], warnings: [] },
+  }),
 }));
 
 vi.mock("../../src/tools/utility/index.js", () => ({

@@ -465,6 +465,11 @@ export {
   swapSubmissionResultSchema,
   tokenSwappableResultSchema,
   twapIntentSchema,
+  ccxtExchangeSummarySchema,
+  ccxtExchangeDescriptionSchema,
+  ccxtAccountSummarySchema,
+  ccxtInvocationClassificationSchema,
+  ccxtInvocationResultSchema,
 } from "./api/schemas/outputs.js";
 export {
   acpClaimRefundOutputSchema,

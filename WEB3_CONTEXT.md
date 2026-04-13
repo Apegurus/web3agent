@@ -180,7 +180,7 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `LIFI_API_KEY` | — | LI.Fi API key |
 | `ZEROX_API_KEY` | — | 0x API key (enables 0x plugin) |
 | `COINGECKO_API_KEY` | — | CoinGecko API key (enables CoinGecko plugin) |
-| `CCXT_CONFIG_PATH` | — | Path to a JSON file of named CCXT exchange accounts used by `ccxt_private_read` and `ccxt_private_write` |
+| `CCXT_CONFIG_PATH` | — | Path to a JSON file of named CCXT exchange accounts used by `ccxt_list_accounts`, `ccxt_private_read`, `ccxt_private_write`, and `ccxt_describe_exchange` when the `account` field is used |
 | `ACP_PAYMENT_TOKEN` | — | ERC-20 token address for ACP escrow (defaults to USDC on active chain) |
 | `PINATA_JWT` | — | Pinata JWT for auto-pinning ERC-8004 agent registration JSON to IPFS |
 | `ERC8004_AGENT_URI` | — | Advertised MCP endpoint URI for ERC-8004 agent registration |

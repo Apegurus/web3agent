@@ -44,7 +44,9 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 describe("utility tool handlers", () => {
-  const buildHealth = (overrides: Partial<Record<string, { name: string; status: string }>> = {}) => ({
+  const buildHealth = (
+    overrides: Partial<Record<string, { name: string; status: string }>> = {}
+  ) => ({
     core: "ok" as const,
     explorer: {
       name: "block-explorer",

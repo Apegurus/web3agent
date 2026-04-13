@@ -591,3 +591,65 @@ export const tokenSwappableResultSchema = z.object({
   kind: z.enum(["same-chain", "cross-chain"]).describe("Swap type"),
   reason: z.string().optional().describe("Reason if not swappable"),
 });
+
+// --- CCXT ---
+
+export const ccxtExchangeSummarySchema = z.object({
+  exchangeId: z.string().describe("CCXT exchange identifier"),
+  name: z.string().describe("Human-readable exchange name"),
+  countries: z.array(z.string()).optional().describe("Country codes where the exchange operates"),
+  urls: z
+    .record(z.union([z.string(), z.record(z.string())]))
+    .optional()
+    .describe("Exchange API and website URLs"),
+  configuredAccounts: z
+    .array(z.string())
+    .describe("Names of configured authenticated accounts for this exchange"),
+  supportsPublic: z.boolean().describe("Whether public market data methods are available"),
+  supportsPrivate: z.boolean().describe("Whether authenticated private methods are available"),
+  timeframes: z.array(z.string()).optional().describe("Supported OHLCV candlestick timeframes"),
+});
+
+export const ccxtInvocationClassificationSchema = z
+  .enum(["public", "private_read", "private_write"])
+  .describe("Classification of the invoked CCXT method");
+
+export const ccxtExchangeDescriptionSchema = z.object({
+  exchangeId: z.string().describe("CCXT exchange identifier"),
+  name: z.string().describe("Human-readable exchange name"),
+  has: z
+    .record(z.union([z.boolean(), z.literal("emulated"), z.undefined()]))
+    .describe("Exchange capability flags from CCXT"),
+  timeframes: z.array(z.string()).optional().describe("Supported OHLCV candlestick timeframes"),
+  symbols: z
+    .array(z.string())
+    .optional()
+    .describe("Trading pair symbols available on the exchange"),
+  marketTypes: z.array(z.string()).describe("Supported market types like spot, swap, future"),
+  configuredAccounts: z.array(z.string()).describe("Names of configured authenticated accounts"),
+  requiresAuthFor: z.array(z.string()).describe("Invocation modes that require authentication"),
+  supportedInvocationModes: z
+    .array(ccxtInvocationClassificationSchema)
+    .describe("Available invocation modes based on configuration"),
+});
+
+export const ccxtAccountSummarySchema = z.object({
+  name: z.string().describe("Configured account name"),
+  exchangeId: z.string().describe("CCXT exchange identifier for this account"),
+  defaultType: z
+    .enum(["spot", "margin", "future", "swap", "option"])
+    .optional()
+    .describe("Default market type for this account"),
+  sandbox: z.boolean().describe("Whether sandbox mode is enabled"),
+  hasPassword: z.boolean().describe("Whether a password is configured"),
+  hasUid: z.boolean().describe("Whether a UID is configured"),
+  hasWalletAddress: z.boolean().describe("Whether a wallet address is configured"),
+});
+
+export const ccxtInvocationResultSchema = z.object({
+  exchangeId: z.string().describe("CCXT exchange identifier that handled the invocation"),
+  account: z.string().optional().describe("Account name used for authenticated calls"),
+  method: z.string().describe("CCXT method that was invoked"),
+  classification: ccxtInvocationClassificationSchema,
+  result: z.unknown().describe("Raw result returned by the CCXT method"),
+});

@@ -2,7 +2,7 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
 import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
 import { ExplorerRouter } from "../api/explorer/router.js";
-import { loadCcxtAccountRegistry } from "../ccxt/config.js";
+import { getCcxtRuntimeState } from "../ccxt/runtime-state.js";
 import { ValidationError, parseEnv, withConfig } from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
@@ -29,11 +29,11 @@ import {
 } from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
+import { getCcxtToolDefinitions, registerCcxtExecutors } from "../tools/ccxt/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
 import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
 import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
-import { getCcxtToolDefinitions } from "../tools/ccxt/index.js";
 import { getMarketToolDefinitions } from "../tools/market/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
@@ -128,6 +128,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerAgdpExecutors();
   registerErc8004Executors();
   registerEvmExecutors();
+  registerCcxtExecutors();
   await loadSpendLog();
 
   const wallet = getWalletState();
@@ -509,7 +510,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       toolCount: this.orbsTools.length,
       message: `Loaded ${this.orbsTools.length} tools`,
     };
-    const ccxtRegistry = loadCcxtAccountRegistry({ ccxtConfigPath: this.config.ccxtConfigPath });
+    const { registry: ccxtRegistry } = getCcxtRuntimeState();
     const ccxtStatus =
       this.config.ccxtConfigPath && ccxtRegistry.warnings.length > 0 ? "degraded" : "ok";
     const ccxtMessageParts = [`Loaded ${this.ccxtTools.length} tools`];
