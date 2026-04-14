@@ -8,6 +8,11 @@ import { isMethodAllowedForTool } from "./classification.js";
 import type { CcxtExchangeFactory } from "./factory.js";
 import type { CcxtExchangeLike } from "./types.js";
 
+/** Prevents circular call when the invoked method IS loadMarkets. */
+function resolveLoadMarkets(method: string, loadMarkets: boolean | undefined): boolean | undefined {
+  return method === "loadMarkets" ? false : loadMarkets;
+}
+
 function buildMethodArgs(
   args: unknown[] | undefined,
   params: Record<string, unknown> | undefined
@@ -51,7 +56,7 @@ export async function invokeCcxtPublicCall(
     exchangeId: input.exchange,
     marketType: input.marketType,
     sandbox: input.sandbox,
-    loadMarkets: input.method === "loadMarkets" ? false : input.loadMarkets,
+    loadMarkets: resolveLoadMarkets(input.method, input.loadMarkets),
     reloadMarkets: input.reloadMarkets,
   });
   const result = await callExchangeMethod(exchange, input.method, input.args, input.params);
@@ -72,7 +77,7 @@ export async function invokeCcxtPrivateRead(
 
   const exchange = await factory.getPrivateExchange({
     accountName: input.account,
-    loadMarkets: input.method === "loadMarkets" ? false : input.loadMarkets,
+    loadMarkets: resolveLoadMarkets(input.method, input.loadMarkets),
     reloadMarkets: input.reloadMarkets,
   });
   const result = await callExchangeMethod(exchange, input.method, input.args, input.params);
@@ -94,7 +99,7 @@ export async function invokeCcxtPrivateWrite(
 
   const exchange = await factory.getPrivateExchange({
     accountName: input.account,
-    loadMarkets: input.method === "loadMarkets" ? false : input.loadMarkets,
+    loadMarkets: resolveLoadMarkets(input.method, input.loadMarkets),
     reloadMarkets: input.reloadMarkets,
   });
   const result = await callExchangeMethod(exchange, input.method, input.args, input.params);

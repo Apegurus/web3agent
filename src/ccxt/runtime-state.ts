@@ -8,6 +8,11 @@ export interface CcxtRuntimeState {
   registry: CcxtAccountRegistry;
 }
 
+/**
+ * Keyed by CCXT_CONFIG_PATH. Assumes config is immutable per process lifetime —
+ * if the file contents change while the path stays the same, the cached state
+ * will be stale until the process restarts.
+ */
 const runtimeStateCache = new Map<string, CcxtRuntimeState>();
 
 export function getCcxtRuntimeState(): CcxtRuntimeState {

@@ -69,11 +69,11 @@ export const ccxtDescribeExchangeSchema = z
   .object({
     exchange: ccxtExchangeIdSchema
       .optional()
-      .describe("Exchange ID to inspect when no account name is provided"),
+      .describe("Exchange ID to inspect (at least one of exchange or account is required)"),
     account: ccxtAccountNameSchema
       .optional()
       .describe(
-        "Configured account name to inspect when you want the account's exchange and defaults"
+        "Configured account name to inspect (at least one of exchange or account is required)"
       ),
     loadMarkets: ccxtLoadMarketsSchema,
     reloadMarkets: ccxtReloadMarketsSchema,

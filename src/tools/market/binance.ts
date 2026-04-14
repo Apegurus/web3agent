@@ -12,6 +12,10 @@ import { isPlainObject } from "../../utils/type-guards.js";
 /**
  * Known quote currencies ordered longest-first to avoid false prefix matches
  * (e.g. "BUSD" must be tried before "USD").
+ *
+ * This list is intentionally limited to the most common Binance pairs.
+ * Symbols with unlisted quotes (FDUSD, EUR, TRY, etc.) will pass through
+ * unnormalized and CCXT will error naturally. Acceptable for a deprecation shim.
  */
 const KNOWN_QUOTES = ["USDT", "BUSD", "USDC", "BTC", "ETH", "BNB", "USD"];
 
@@ -35,7 +39,9 @@ function normalizeBinanceSymbol(symbol: string): string {
 
 function stringifyValue(value: unknown, label: string): string {
   if (value === undefined || value === null) {
-    throw new Error(`Binance compatibility shim expected ${label} in CCXT response`);
+    throw new Error(
+      `Binance compatibility shim expected ${label} in CCXT response, got ${String(value)}`
+    );
   }
   return String(value);
 }
@@ -77,6 +83,12 @@ export async function getTicker(input: { symbol: string }): Promise<BinanceTicke
 
 export type BinanceKline = z.infer<typeof klineEntrySchema>;
 
+/**
+ * CCXT `fetchOHLCV` returns 6-element arrays [timestamp, open, high, low, close, volume].
+ * The original Binance REST API returned quoteVolume (index 7) and trades (index 8).
+ * These fields default to "0" and 0 respectively under the CCXT backend —
+ * callers should not rely on quoteVolume or trades from this compatibility shim.
+ */
 export async function getKlines(input: {
   symbol: string;
   interval: string;

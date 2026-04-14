@@ -56,6 +56,12 @@ interface ExchangeStaticMeta {
 
 let exchangeMetaCache: ExchangeStaticMeta[] | undefined;
 
+/**
+ * Lazily builds metadata for all CCXT-supported exchanges (~100+).
+ * The first call instantiates every exchange constructor to extract static
+ * metadata (id, name, countries, has, timeframes). Subsequent calls use cache.
+ * Expect a noticeable cold-start delay on first ccxt_list_exchanges invocation.
+ */
 function getExchangeMetaCache(): ExchangeStaticMeta[] {
   if (exchangeMetaCache) return exchangeMetaCache;
 
@@ -178,6 +184,12 @@ async function executeCcxtPrivateWrite(params: Record<string, unknown>): Promise
   }
 }
 
+/**
+ * CCXT private writes use exchange API keys, not an on-chain wallet —
+ * so we call confirmationQueue.enqueue() directly rather than going
+ * through executeWrite(), which gates on walletState.mode === "read-only".
+ * The wallet read-only guard is irrelevant for off-chain exchange operations.
+ */
 async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<CallToolResult> {
   const validation = validateInput(ccxtPrivateWriteSchema, params);
   if (!validation.success) return validation.error;
@@ -202,11 +214,6 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
 export function registerCcxtExecutors(): void {
   registerExecutor("ccxt_private_write", executeCcxtPrivateWrite);
 }
-
-const EMPTY_INPUT_SCHEMA = {
-  type: "object",
-  properties: {},
-} as const;
 
 export function getCcxtToolDefinitions(): ToolDefinition[] {
   return [
@@ -244,7 +251,7 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       description:
         "List configured CCXT accounts from CCXT_CONFIG_PATH with redacted metadata only. " +
         "Secrets are never returned.",
-      inputSchema: EMPTY_INPUT_SCHEMA as Record<string, unknown>,
+      inputSchema: zodToJsonSchema(ccxtListAccountsSchema) as Record<string, unknown>,
       handler: createToolHandler(
         ccxtListAccountsSchema,
         async () => listAccounts(),
