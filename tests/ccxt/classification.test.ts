@@ -11,9 +11,20 @@ describe("classifyCcxtMethod", () => {
     expect(classifyCcxtMethod("publicGetTicker")).toBe("public");
   });
 
+  it("classifies exchange-prefixed public implicit methods", () => {
+    expect(classifyCcxtMethod("dapiPublicGetPremiumIndex")).toBe("public");
+    expect(classifyCcxtMethod("v5PublicGetMarketTickers")).toBe("public");
+  });
+
   it("classifies authenticated read methods", () => {
     expect(classifyCcxtMethod("fetchBalance")).toBe("private_read");
     expect(classifyCcxtMethod("privateGetAccount")).toBe("private_read");
+  });
+
+  it("classifies exchange-prefixed private read implicit methods", () => {
+    expect(classifyCcxtMethod("fapiPrivateGetBalance")).toBe("private_read");
+    expect(classifyCcxtMethod("sapiPrivateGetCapitalConfigGetall")).toBe("private_read");
+    expect(classifyCcxtMethod("v5PrivateGetAccountWalletBalance")).toBe("private_read");
   });
 
   it("classifies authenticated write methods", () => {
@@ -21,8 +32,20 @@ describe("classifyCcxtMethod", () => {
     expect(classifyCcxtMethod("privatePostOrder")).toBe("private_write");
   });
 
+  it("classifies exchange-prefixed private write implicit methods", () => {
+    expect(classifyCcxtMethod("fapiPrivatePostOrder")).toBe("private_write");
+    expect(classifyCcxtMethod("sapiPrivatePostAssetTransfer")).toBe("private_write");
+    expect(classifyCcxtMethod("fapiPrivateDeleteOrder")).toBe("private_write");
+    expect(classifyCcxtMethod("sapiPrivatePutSomething")).toBe("private_write");
+  });
+
   it("denies unknown methods", () => {
     expect(classifyCcxtMethod("someUnknownMethod")).toBe("deny");
+  });
+
+  it("still denies methods without any recognized pattern", () => {
+    expect(classifyCcxtMethod("totallyUnknownMethod")).toBe("deny");
+    expect(classifyCcxtMethod("fapiSomethingElse")).toBe("deny");
   });
 });
 

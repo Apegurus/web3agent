@@ -41,6 +41,10 @@ const PRIVATE_WRITE_UNIFIED = new Set([
   "withdraw",
 ]);
 
+const IMPLICIT_PUBLIC = /PublicGet/i;
+const IMPLICIT_PRIVATE_READ = /PrivateGet/i;
+const IMPLICIT_PRIVATE_WRITE = /Private(?:Post|Put|Patch|Delete)/i;
+
 export function classifyCcxtMethod(method: string): CcxtMethodClassification {
   if (PUBLIC_UNIFIED.has(method)) {
     return "public";
@@ -52,18 +56,13 @@ export function classifyCcxtMethod(method: string): CcxtMethodClassification {
     return "private_write";
   }
 
-  if (method.startsWith("publicGet")) {
+  if (IMPLICIT_PUBLIC.test(method)) {
     return "public";
   }
-  if (method.startsWith("privateGet")) {
+  if (IMPLICIT_PRIVATE_READ.test(method)) {
     return "private_read";
   }
-  if (
-    method.startsWith("privatePost") ||
-    method.startsWith("privatePut") ||
-    method.startsWith("privatePatch") ||
-    method.startsWith("privateDelete")
-  ) {
+  if (IMPLICIT_PRIVATE_WRITE.test(method)) {
     return "private_write";
   }
 
