@@ -114,7 +114,11 @@ export class CcxtExchangeFactory {
         exchange.setSandboxMode(true);
       }
 
-      const sharedPublicExchange = this.findLoadedPublicExchange(account.exchangeId);
+      const sharedPublicExchange = this.findLoadedPublicExchange(
+        account.exchangeId,
+        account.defaultType ?? "spot",
+        account.sandbox ?? false
+      );
       if (
         sharedPublicExchange &&
         typeof exchange.setMarketsFromExchange === "function" &&
@@ -130,11 +134,15 @@ export class CcxtExchangeFactory {
     return exchange;
   }
 
-  private findLoadedPublicExchange(exchangeId: string): CcxtExchangeLike | undefined {
-    for (const exchange of this.publicInstances.values()) {
-      if (exchange.id === exchangeId && hasLoadedMarkets(exchange)) {
-        return exchange;
-      }
+  private findLoadedPublicExchange(
+    exchangeId: string,
+    marketType: string,
+    sandbox: boolean
+  ): CcxtExchangeLike | undefined {
+    const cacheKey = `${exchangeId}:${marketType}:${sandbox}`;
+    const exchange = this.publicInstances.get(cacheKey);
+    if (exchange && hasLoadedMarkets(exchange)) {
+      return exchange;
     }
     return undefined;
   }

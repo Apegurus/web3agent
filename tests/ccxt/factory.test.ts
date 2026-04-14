@@ -142,7 +142,7 @@ describe("CcxtExchangeFactory", () => {
 
     const publicExchange = await factory.getPublicExchange({
       exchangeId: "binance",
-      marketType: "spot",
+      marketType: "swap",
       sandbox: false,
       loadMarkets: true,
     });
@@ -153,6 +153,24 @@ describe("CcxtExchangeFactory", () => {
 
     expect(privateExchange.setMarketsFromExchange).toHaveBeenCalledWith(publicExchange);
     expect(privateExchange.markets).toBe(publicExchange.markets);
+  });
+
+  it("does not reuse cached markets from a public exchange with a different marketType", async () => {
+    const factory = new CcxtExchangeFactory(registry);
+
+    await factory.getPublicExchange({
+      exchangeId: "binance",
+      marketType: "spot",
+      sandbox: false,
+      loadMarkets: true,
+    });
+    const privateExchange = await factory.getPrivateExchange({
+      accountName: "binance_main",
+      loadMarkets: false,
+    });
+
+    expect(privateExchange.setMarketsFromExchange).not.toHaveBeenCalled();
+    expect(privateExchange.markets).toBeUndefined();
   });
 
   it("propagates loadMarkets network failures to the caller", async () => {
