@@ -20,7 +20,10 @@ describe("create-web3agent validate", () => {
         skipChecks: false,
       })
     ).toEqual({
-      commands: ["npm install", "npm run check"],
+      commands: [
+        { command: "npm", args: ["install"], cwd: "" },
+        { command: "npm", args: ["run", "check"], cwd: "" },
+      ],
       nextSteps: ["cd my-agent", "npm install", "npm run check", "npm run dev"],
     });
   });

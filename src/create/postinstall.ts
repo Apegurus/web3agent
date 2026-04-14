@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 
 export interface PostinstallExecutionPlan {
   projectDir: string;
-  commands: string[];
+  commands: PostinstallCommand[];
 }
 
 export interface PostinstallCommand {
@@ -12,19 +12,6 @@ export interface PostinstallCommand {
 }
 
 export type CommandRunner = (command: PostinstallCommand) => Promise<void>;
-
-function parseCommand(commandLine: string): PostinstallCommand {
-  const [command, ...args] = commandLine.split(" ").filter(Boolean);
-  if (!command) {
-    throw new Error("Post-install command cannot be empty");
-  }
-
-  return {
-    command,
-    args,
-    cwd: "",
-  };
-}
 
 async function defaultCommandRunner(command: PostinstallCommand): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -53,11 +40,10 @@ export async function runPostinstallCommands(
   plan: PostinstallExecutionPlan,
   commandRunner: CommandRunner = defaultCommandRunner
 ): Promise<void> {
-  for (const commandLine of plan.commands) {
-    const command = parseCommand(commandLine);
+  for (const command of plan.commands) {
     await commandRunner({
       ...command,
-      cwd: plan.projectDir,
+      cwd: command.cwd || plan.projectDir,
     });
   }
 }

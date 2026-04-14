@@ -8,7 +8,10 @@ describe("create-web3agent postinstall", () => {
     await runPostinstallCommands(
       {
         projectDir: "/tmp/my-agent",
-        commands: ["npm install", "npm run check"],
+        commands: [
+          { command: "npm", args: ["install"], cwd: "" },
+          { command: "npm", args: ["run", "check"], cwd: "" },
+        ],
       },
       async ({ command, args, cwd }) => {
         calls.push({ command, args, cwd });
@@ -17,6 +20,28 @@ describe("create-web3agent postinstall", () => {
 
     expect(calls).toEqual([
       { command: "npm", args: ["install"], cwd: "/tmp/my-agent" },
+      { command: "npm", args: ["run", "check"], cwd: "/tmp/my-agent" },
+    ]);
+  });
+
+  it("preserves an explicit command cwd", async () => {
+    const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+
+    await runPostinstallCommands(
+      {
+        projectDir: "/tmp/my-agent",
+        commands: [
+          { command: "npm", args: ["install"], cwd: "/tmp/shared-cache" },
+          { command: "npm", args: ["run", "check"], cwd: "" },
+        ],
+      },
+      async ({ command, args, cwd }) => {
+        calls.push({ command, args, cwd });
+      }
+    );
+
+    expect(calls).toEqual([
+      { command: "npm", args: ["install"], cwd: "/tmp/shared-cache" },
       { command: "npm", args: ["run", "check"], cwd: "/tmp/my-agent" },
     ]);
   });

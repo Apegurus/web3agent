@@ -1,3 +1,5 @@
+import type { PostinstallCommand } from "./postinstall.js";
+
 export interface PostinstallPlanInput {
   projectDir: string;
   packageManager: "npm";
@@ -6,7 +8,7 @@ export interface PostinstallPlanInput {
 }
 
 export interface PostinstallPlan {
-  commands: string[];
+  commands: PostinstallCommand[];
   nextSteps: string[];
 }
 
@@ -19,16 +21,16 @@ export function assertSupportedNodeVersion(version: string): void {
 }
 
 export function buildPostinstallPlan(input: PostinstallPlanInput): PostinstallPlan {
-  const commands: string[] = [];
+  const commands: PostinstallCommand[] = [];
   const nextSteps = input.projectDir === "." ? [] : [`cd ${input.projectDir}`];
 
   if (!input.skipInstall) {
-    commands.push(`${input.packageManager} install`);
+    commands.push({ command: input.packageManager, args: ["install"], cwd: "" });
     nextSteps.push(`${input.packageManager} install`);
   }
 
   if (!input.skipChecks && !input.skipInstall) {
-    commands.push(`${input.packageManager} run check`);
+    commands.push({ command: input.packageManager, args: ["run", "check"], cwd: "" });
     nextSteps.push(`${input.packageManager} run check`);
   } else if (!input.skipChecks) {
     nextSteps.push(`${input.packageManager} install`);

@@ -113,8 +113,12 @@ export async function runCreateCli(
     );
   }
 
+  const autoRunCommands = new Set(
+    result.postinstall.commands.map((command) => [command.command, ...command.args].join(" "))
+  );
+
   const nextSteps = result.postinstall.nextSteps.filter(
-    (step) => step.startsWith("cd ") || !result.postinstall.commands.includes(step)
+    (step) => step.startsWith("cd ") || !autoRunCommands.has(step)
   );
 
   process.stderr.write(
