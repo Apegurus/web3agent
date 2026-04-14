@@ -80,6 +80,15 @@ vi.mock("../../../src/ccxt/invoke.js", () => ({
 
 import { getCcxtToolDefinitions } from "../../../src/tools/ccxt/index.js";
 
+function getFirstTextContent(result: { content?: Array<{ type: string; text?: string }> }) {
+  const part = result.content?.[0];
+  expect(part?.type).toBe("text");
+  if (!part || part.type !== "text") {
+    throw new Error("Expected first content part to be text");
+  }
+  return part.text;
+}
+
 describe("ccxt tool definitions", () => {
   beforeEach(() => {
     mockState.listAccountSummaries.mockReturnValue([
@@ -143,6 +152,108 @@ describe("ccxt tool definitions", () => {
     const result = await tool.handler({});
 
     expect(result.isError).toBe(false);
-    expect(result.content?.[0]?.text).toContain("binance_main");
+    expect(getFirstTextContent(result)).toContain("binance_main");
+  });
+
+  it("lists exchanges through the tool handler", async () => {
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_list_exchanges");
+    if (!tool) throw new Error("Missing ccxt_list_exchanges tool");
+
+    const result = await tool.handler({});
+
+    expect(result.isError).toBe(false);
+    const text = getFirstTextContent(result);
+    expect(text).toContain("binance");
+    expect(text).toContain("kraken");
+  });
+
+  it("invokes a public CCXT method through the tool handler", async () => {
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_public_call");
+    if (!tool) throw new Error("Missing ccxt_public_call tool");
+
+    const result = await tool.handler({
+      exchange: "binance",
+      method: "fetchTicker",
+      args: ["BTC/USDT"],
+    });
+
+    expect(result.isError).toBe(false);
+    expect(mockState.invokeCcxtPublicCall).toHaveBeenCalledWith(
+      {
+        exchange: "binance",
+        method: "fetchTicker",
+        args: ["BTC/USDT"],
+      },
+      expect.anything()
+    );
+  });
+
+  it("returns pending_confirmation when confirmation queue accepts the operation", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    vi.mocked(mockQueue.enqueue).mockReturnValueOnce({
+      queued: true,
+      id: "test-pending-id",
+      summary: "CCXT createOrder on account binance_main",
+    });
+
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    const result = await tool.handler({
+      account: "binance_main",
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+    });
+
+    expect(result.isError).toBe(false);
+    expect(mockQueue.enqueue).toHaveBeenCalledWith(
+      "ccxt_private_write",
+      "CCXT createOrder on account binance_main",
+      {
+        account: "binance_main",
+        method: "createOrder",
+        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+      },
+      expect.any(Function),
+      undefined,
+      "financial"
+    );
+    const text = getFirstTextContent(result);
+    expect(text).toContain("pending_confirmation");
+    expect(text).toContain("test-pending-id");
+  });
+
+  it("executes private write directly when confirmations are bypassed", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    const result = await tool.handler({
+      account: "binance_main",
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+    });
+
+    expect(result.isError).toBe(false);
+    expect(mockQueue.enqueue).toHaveBeenCalledWith(
+      "ccxt_private_write",
+      "CCXT createOrder on account binance_main",
+      {
+        account: "binance_main",
+        method: "createOrder",
+        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+      },
+      expect.any(Function),
+      undefined,
+      "financial"
+    );
+    expect(mockState.invokeCcxtPrivateWrite).toHaveBeenCalledWith(
+      {
+        account: "binance_main",
+        method: "createOrder",
+        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+      },
+      expect.anything()
+    );
   });
 });
