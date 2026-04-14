@@ -1,5 +1,6 @@
 import { getConfig } from "../config/env.js";
 import { resilientFetch } from "../utils/resilient-fetch.js";
+import { isPlainObject } from "../utils/type-guards.js";
 
 const COINGECKO_PUBLIC_API_URL = "https://api.coingecko.com/api/v3";
 const COINGECKO_PRO_API_URL = "https://pro-api.coingecko.com/api/v3";
@@ -79,10 +80,6 @@ export function getTokenPriceHeaders(): Record<string, string> {
   return getCoinGeckoHeaders(getCoinGeckoApiKey());
 }
 
-function isPlatformMap(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function getPlatformChainIds(
   payload: CoinGeckoAssetPlatformEntry[] | null
 ): ReadonlyMap<string, number> {
@@ -120,7 +117,7 @@ function buildAddressSignals(
     if (
       typeof entry.id !== "string" ||
       !topTokenIds.has(entry.id) ||
-      !isPlatformMap(entry.platforms)
+      !isPlainObject(entry.platforms)
     ) {
       continue;
     }

@@ -29,6 +29,7 @@ export interface HealthStatus {
   goat: BackendStatus;
   lifi: BackendStatus;
   orbs: BackendStatus;
+  ccxt: BackendStatus;
   agenticEconomy: BackendStatus;
 }
 

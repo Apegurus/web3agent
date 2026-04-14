@@ -37,6 +37,7 @@ const registerToolMocks = vi.hoisted(() => ({
   walletTools: [] as unknown[],
   transactionTools: [] as unknown[],
   utilityTools: [] as unknown[],
+  ccxtTools: [] as unknown[],
 }));
 
 const policyMocks = vi.hoisted(() => ({
@@ -101,6 +102,18 @@ vi.mock("../../src/tools/market/index.js", () => ({
 
 vi.mock("../../src/tools/research/index.js", () => ({
   getResearchToolDefinitions: () => [],
+}));
+
+vi.mock("../../src/tools/ccxt/index.js", () => ({
+  getCcxtToolDefinitions: vi.fn(() => registerToolMocks.ccxtTools),
+  registerCcxtExecutors: vi.fn(),
+}));
+
+vi.mock("../../src/ccxt/runtime-state.js", () => ({
+  getCcxtRuntimeState: () => ({
+    factory: {},
+    registry: { accounts: [], warnings: [] },
+  }),
 }));
 
 vi.mock("../../src/tools/utility/index.js", () => ({
@@ -246,6 +259,7 @@ describe("managed runtime", () => {
     registerToolMocks.walletTools = [];
     registerToolMocks.transactionTools = [];
     registerToolMocks.utilityTools = [];
+    registerToolMocks.ccxtTools = [];
     policyMocks.resolvePolicy.mockReset().mockImplementation((config: unknown) => config);
     policyMocks.evaluatePolicy
       .mockReset()
@@ -325,6 +339,15 @@ describe("managed runtime", () => {
   }, 15000);
 
   it("surfaces restored queue count and goat chain restrictions in managed tool metadata", async () => {
+    registerToolMocks.ccxtTools = [
+      {
+        name: "ccxt_list_exchanges",
+        category: "market",
+        description: "list ccxt exchanges",
+        inputSchema: { type: "object", properties: {} },
+        handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
+      },
+    ];
     const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
 
     const runtime = await createRuntime({
@@ -350,10 +373,13 @@ describe("managed runtime", () => {
     expect(runtime.pendingOpsRestored).toBe(2);
 
     const goatTool = runtime.getTool("uniswap_swap");
+    const ccxtTool = runtime.getTool("ccxt_list_exchanges");
     const operationPrepareTool = runtime.getTool("operation_prepare");
     const operationResumeTool = runtime.getTool("operation_resume");
     expect(goatTool?.description).toContain("Only available on chains:");
     expect(goatTool?.inputSchema.properties).toHaveProperty("chainId");
+    expect(ccxtTool?.source).toBe("ccxt");
+    expect(runtime.getHealth().backends.ccxt).toBeDefined();
     expect(operationPrepareTool?.category).toBe("operation");
     expect(operationPrepareTool?.source).toBe("operation");
     expect(operationResumeTool?.category).toBe("operation");

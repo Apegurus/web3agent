@@ -151,6 +151,8 @@ try {
 }
 ```
 
+The runtime catalog now includes the native `ccxt_*` exchange tools, so the same CCXT surface is available through MCP, `web3agent tools ...`, and `createRuntime().invokeTool(...)`.
+
 ## Smoke Tests
 
 Run the standard repo checks first:
@@ -183,9 +185,12 @@ The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts
 - **Optional GOAT plugins** — 0x (requires `ZEROX_API_KEY`), CoinGecko (requires `COINGECKO_API_KEY`)
 - **LI.FI** — cross-chain bridging and swaps across 20+ chains
 - **Orbs** — Liquidity Hub aggregated swaps, dTWAP, dLIMIT orders
+- **CCXT tools** — exchange discovery plus public/private exchange method access across the CCXT ecosystem via `ccxt_list_exchanges`, `ccxt_describe_exchange`, `ccxt_list_accounts`, `ccxt_public_call`, `ccxt_private_read`, and `ccxt_private_write`
 - **Token resolver** — symbol-to-address resolution with built-in registry and DexScreener fallback
 - **Wallet management** — generate, persist, activate/deactivate, derive addresses, sign messages
 - **Confirmation queue** — write operations require explicit confirmation by default
+
+The legacy Binance market helpers (`market_get_ticker`, `market_get_klines`, `market_get_order_book`, `market_get_funding_rates`) are still available for compatibility, but new integrations should prefer the `ccxt_*` tool family.
 
 ## Supported Hosts
 
@@ -208,11 +213,14 @@ Default: **Base (8453)**. Override with `CHAIN_ID` env var or `chainId` paramete
 
 See [WEB3_CONTEXT.md](./WEB3_CONTEXT.md) for the full environment variable table.
 
+If you want authenticated exchange access through the new CCXT tools, set `CCXT_CONFIG_PATH` to a JSON file containing named accounts and exchange credentials.
+
 ## Known Limitations
 
 - **Blockscout** tools only work on 8 chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
 - **dSLTP** (stop-loss/take-profit orders) is not yet available
 - **0x** and **CoinGecko** plugins require their respective API keys
+- **Binance-only market tools are deprecated**: they remain callable for compatibility, but new exchange integrations should use the native `ccxt_*` tools
 - **Browser wallet signing over MCP** is indirect: MCP can prepare, simulate, and submit signed payloads, but generic MCP hosts cannot open a browser wallet prompt on their own
 
 ## Requirements

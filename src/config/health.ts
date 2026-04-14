@@ -45,6 +45,7 @@ export function formatHealthSummary(report: StartupReport): string {
     formatAdapterLine("goat", report.health.goat),
     formatAdapterLine("lifi", report.health.lifi),
     formatAdapterLine("orbs", report.health.orbs),
+    formatAdapterLine("ccxt", report.health.ccxt),
     formatAdapterLine("agentic-economy", report.health.agenticEconomy),
     `  tools:        ${report.totalToolCount} total`,
   ];
@@ -79,6 +80,7 @@ export function createDefaultHealthStatus(): HealthStatus {
     goat: { name: "goat", status: "not_configured" },
     lifi: { name: "lifi", status: "not_configured" },
     orbs: { name: "orbs", status: "not_configured" },
+    ccxt: { name: "ccxt", status: "not_configured" },
     agenticEconomy: { name: "agentic-economy", status: "not_configured" },
   };
 }

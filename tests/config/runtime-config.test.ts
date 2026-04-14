@@ -42,6 +42,16 @@ describe("runtime config parsing", () => {
     expect(config.lifiApiKey).toBe("abc123");
   });
 
+  it("accepts an optional CCXT_CONFIG_PATH", () => {
+    const config = parseEnv({ CHAIN_ID: "8453", CCXT_CONFIG_PATH: "/tmp/ccxt.json" });
+    expect(config.ccxtConfigPath).toBe("/tmp/ccxt.json");
+  });
+
+  it("defaults CCXT_CONFIG_PATH to undefined", () => {
+    const config = parseEnv({ CHAIN_ID: "8453" });
+    expect(config.ccxtConfigPath).toBeUndefined();
+  });
+
   it("defaults confirmTtlMinutes to 30", () => {
     const config = parseEnv({});
     expect(config.confirmTtlMinutes).toBe(30);

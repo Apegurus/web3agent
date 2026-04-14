@@ -60,6 +60,12 @@ import { x402CheckRequirementsSchema, x402FetchSchema } from "../tools/x402/sche
 import type { RuntimeConfig } from "../types/config.js";
 import type { WalletState } from "../types/wallet.js";
 import type {
+  ccxtDescribeExchangeSchema,
+  ccxtListAccountsSchema,
+  ccxtListExchangesSchema,
+  ccxtPrivateReadSchema,
+  ccxtPrivateWriteSchema,
+  ccxtPublicCallSchema,
   lifiExecuteBridgeSchema,
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
@@ -175,6 +181,11 @@ import {
   bridgeIntentSchema,
   bridgeTxStepSchema,
   categoryEntrySchema,
+  ccxtAccountSummarySchema,
+  ccxtExchangeDescriptionSchema,
+  ccxtExchangeSummarySchema,
+  ccxtInvocationClassificationSchema,
+  ccxtInvocationResultSchema,
   cexFundFlowEntrySchema,
   chainTvlEntrySchema,
   contractSecurityResultSchema,
@@ -628,6 +639,19 @@ export type ExplorerNativePrice = z.infer<typeof explorerNativePriceSchema>;
 export type ExplorerHistoricalPriceEntry = z.infer<typeof explorerHistoricalPriceEntrySchema>;
 export type ExplorerHistoricalPrice = z.infer<typeof explorerHistoricalPriceSchema>;
 export type ExplorerNativeSupply = z.infer<typeof explorerNativeSupplySchema>;
+
+export type CcxtExchangeSummary = z.infer<typeof ccxtExchangeSummarySchema>;
+export type CcxtExchangeDescription = z.infer<typeof ccxtExchangeDescriptionSchema>;
+export type CcxtAccountSummary = z.infer<typeof ccxtAccountSummarySchema>;
+export type CcxtInvocationClassification = z.infer<typeof ccxtInvocationClassificationSchema>;
+export type CcxtInvocationResult = z.infer<typeof ccxtInvocationResultSchema>;
+
+export type ListCcxtExchangesInput = z.infer<typeof ccxtListExchangesSchema>;
+export type DescribeCcxtExchangeInput = z.infer<typeof ccxtDescribeExchangeSchema>;
+export type ListCcxtAccountsInput = z.infer<typeof ccxtListAccountsSchema>;
+export type CcxtPublicCallInput = z.infer<typeof ccxtPublicCallSchema>;
+export type CcxtPrivateReadInput = z.infer<typeof ccxtPrivateReadSchema>;
+export type CcxtPrivateWriteInput = z.infer<typeof ccxtPrivateWriteSchema>;
 
 export type GetProtocolTvlInput = z.infer<typeof marketGetProtocolTvlSchema>;
 export type GetTopProtocolsInput = z.infer<typeof marketGetTopProtocolsSchema>;

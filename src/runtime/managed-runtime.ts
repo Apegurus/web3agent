@@ -2,6 +2,7 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
 import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
 import { ExplorerRouter } from "../api/explorer/router.js";
+import { getCcxtRuntimeState } from "../ccxt/runtime-state.js";
 import { ValidationError, parseEnv, withConfig } from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
@@ -28,6 +29,7 @@ import {
 } from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
+import { getCcxtToolDefinitions, registerCcxtExecutors } from "../tools/ccxt/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
 import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
@@ -126,6 +128,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerAgdpExecutors();
   registerErc8004Executors();
   registerEvmExecutors();
+  registerCcxtExecutors();
   await loadSpendLog();
 
   const wallet = getWalletState();
@@ -147,6 +150,7 @@ function summarizeBackends(health: HealthStatus): RuntimeHealth["backends"] {
     goat: { ...health.goat },
     lifi: { ...health.lifi },
     orbs: { ...health.orbs },
+    ccxt: { ...health.ccxt },
     agenticEconomy: { ...health.agenticEconomy },
   };
 }
@@ -167,6 +171,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly erc8004Tools: ToolDefinition[];
   private readonly evmTools: ToolDefinition[];
   private readonly policyTools: ToolDefinition[];
+  private readonly ccxtTools: ToolDefinition[];
   private readonly explorerDeps: ExplorerDeps;
   private explorerToolCount = 0;
   private readonly marketTools = getMarketToolDefinitions();
@@ -203,6 +208,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.erc8004Tools = getErc8004ToolDefinitions();
     this.evmTools = getEvmToolDefinitions();
     this.policyTools = getPolicyToolDefinitions();
+    this.ccxtTools = getCcxtToolDefinitions();
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
@@ -504,6 +510,24 @@ export class ManagedRuntime implements Web3AgentRuntime {
       toolCount: this.orbsTools.length,
       message: `Loaded ${this.orbsTools.length} tools`,
     };
+    const { registry: ccxtRegistry } = getCcxtRuntimeState();
+    const ccxtStatus =
+      this.config.ccxtConfigPath && ccxtRegistry.warnings.length > 0 ? "degraded" : "ok";
+    const ccxtMessageParts = [`Loaded ${this.ccxtTools.length} tools`];
+    if (this.config.ccxtConfigPath) {
+      ccxtMessageParts.push(`${ccxtRegistry.accounts.length} account(s)`);
+    } else {
+      ccxtMessageParts.push("no account config");
+    }
+    this.health.ccxt = {
+      name: "ccxt",
+      status: ccxtStatus,
+      toolCount: this.ccxtTools.length,
+      message:
+        ccxtRegistry.warnings.length > 0
+          ? `${ccxtMessageParts.join(", ")}; ${ccxtRegistry.warnings[0]}`
+          : ccxtMessageParts.join(", "),
+    };
     const agenticEconomyToolCount =
       this.x402Tools.length +
       this.erc8183Tools.length +
@@ -570,6 +594,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       ["acp", this.acpVirtualsTools],
       ["agdp", this.agdpTools],
       ["erc8004", this.erc8004Tools],
+      ["ccxt", this.ccxtTools],
       ["market", this.marketTools],
       ["research", this.researchTools],
     ];

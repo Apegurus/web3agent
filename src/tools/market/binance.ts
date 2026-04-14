@@ -5,14 +5,45 @@ import {
   orderBookResultSchema,
   tickerResultSchema,
 } from "../../api/schemas/outputs.js";
-import { resilientFetch } from "../../utils/resilient-fetch.js";
+import { invokeCcxtPublicCall } from "../../ccxt/invoke.js";
+import { getCcxtRuntimeState } from "../../ccxt/runtime-state.js";
+import { isPlainObject } from "../../utils/type-guards.js";
 
-function checkGeoRestriction(res: Response): void {
-  if (res.status === 451) {
+/**
+ * Known quote currencies ordered longest-first to avoid false prefix matches
+ * (e.g. "BUSD" must be tried before "USD").
+ *
+ * This list is intentionally limited to the most common Binance pairs.
+ * Symbols with unlisted quotes (FDUSD, EUR, TRY, etc.) will pass through
+ * unnormalized and CCXT will error naturally. Acceptable for a deprecation shim.
+ */
+const KNOWN_QUOTES = ["USDT", "BUSD", "USDC", "BTC", "ETH", "BNB", "USD"];
+
+/**
+ * Converts a raw Binance-format symbol like "BTCUSDT" to the CCXT unified
+ * format "BTC/USDT". If the symbol already contains "/" it is returned as-is.
+ * If no known quote currency suffix matches, the symbol is returned unchanged
+ * and CCXT will error naturally.
+ */
+function normalizeBinanceSymbol(symbol: string): string {
+  if (symbol.includes("/")) {
+    return symbol;
+  }
+  for (const quote of KNOWN_QUOTES) {
+    if (symbol.endsWith(quote) && symbol.length > quote.length) {
+      return `${symbol.slice(0, -quote.length)}/${quote}`;
+    }
+  }
+  return symbol;
+}
+
+function stringifyValue(value: unknown, label: string): string {
+  if (value === undefined || value === null) {
     throw new Error(
-      "Binance API is not available in your region. Consider using a VPN or the DefiLlama-based market tools as alternatives."
+      `Binance compatibility shim expected ${label} in CCXT response, got ${String(value)}`
     );
   }
+  return String(value);
 }
 
 // ── getTicker ─────────────────────────────────────────────────────
@@ -20,24 +51,31 @@ function checkGeoRestriction(res: Response): void {
 export type BinanceTicker = z.infer<typeof tickerResultSchema>;
 
 export async function getTicker(input: { symbol: string }): Promise<BinanceTicker> {
-  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${encodeURIComponent(input.symbol)}`;
-  const res = await resilientFetch(url, undefined, { label: "binance-ticker" });
-  checkGeoRestriction(res);
-  if (!res.ok) {
-    throw new Error(`Binance ticker request failed: ${res.status} ${res.statusText}`);
+  const symbol = normalizeBinanceSymbol(input.symbol);
+  const response = await invokeCcxtPublicCall(
+    {
+      exchange: "binance",
+      method: "fetchTicker",
+      args: [symbol],
+    },
+    getCcxtRuntimeState().factory
+  );
+  const data = response.result;
+  if (!isPlainObject(data)) {
+    throw new Error("CCXT ticker response must be an object");
   }
-  const data = (await res.json()) as BinanceTicker;
+
   return tickerResultSchema.parse({
-    symbol: data.symbol,
-    lastPrice: data.lastPrice,
-    priceChange: data.priceChange,
-    priceChangePercent: data.priceChangePercent,
-    highPrice: data.highPrice,
-    lowPrice: data.lowPrice,
-    volume: data.volume,
-    quoteVolume: data.quoteVolume,
-    bidPrice: data.bidPrice,
-    askPrice: data.askPrice,
+    symbol: typeof data.symbol === "string" ? data.symbol : input.symbol,
+    lastPrice: stringifyValue(data.last, "last price"),
+    priceChange: stringifyValue(data.change, "price change"),
+    priceChangePercent: stringifyValue(data.percentage, "price change percent"),
+    highPrice: stringifyValue(data.high, "high price"),
+    lowPrice: stringifyValue(data.low, "low price"),
+    volume: stringifyValue(data.baseVolume, "base volume"),
+    quoteVolume: stringifyValue(data.quoteVolume, "quote volume"),
+    bidPrice: stringifyValue(data.bid, "bid price"),
+    askPrice: stringifyValue(data.ask, "ask price"),
   });
 }
 
@@ -45,45 +83,48 @@ export async function getTicker(input: { symbol: string }): Promise<BinanceTicke
 
 export type BinanceKline = z.infer<typeof klineEntrySchema>;
 
-type BinanceKlineRaw = [
-  number, // openTime
-  string, // open
-  string, // high
-  string, // low
-  string, // close
-  string, // volume
-  number, // closeTime
-  string, // quoteVolume
-  number, // trades
-  string, // takerBuyBase
-  string, // takerBuyQuote
-  string, // ignore
-];
-
+/**
+ * CCXT `fetchOHLCV` returns 6-element arrays [timestamp, open, high, low, close, volume].
+ * The original Binance REST API returned quoteVolume (index 7) and trades (index 8).
+ * These fields default to "0" and 0 respectively under the CCXT backend —
+ * callers should not rely on quoteVolume or trades from this compatibility shim.
+ */
 export async function getKlines(input: {
   symbol: string;
   interval: string;
   limit?: number;
 }): Promise<BinanceKline[]> {
   const limit = input.limit ?? 100;
-  const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(input.symbol)}&interval=${encodeURIComponent(input.interval)}&limit=${limit}`;
-  const res = await resilientFetch(url, undefined, { label: "binance-klines" });
-  checkGeoRestriction(res);
-  if (!res.ok) {
-    throw new Error(`Binance klines request failed: ${res.status} ${res.statusText}`);
+  const symbol = normalizeBinanceSymbol(input.symbol);
+  const response = await invokeCcxtPublicCall(
+    {
+      exchange: "binance",
+      method: "fetchOHLCV",
+      args: [symbol, input.interval, undefined, limit],
+    },
+    getCcxtRuntimeState().factory
+  );
+  if (!Array.isArray(response.result)) {
+    throw new Error("CCXT OHLCV response must be an array");
   }
-  const data = (await res.json()) as BinanceKlineRaw[];
+
   return z.array(klineEntrySchema).parse(
-    data.map((k) => ({
-      openTime: k[0],
-      open: k[1],
-      high: k[2],
-      low: k[3],
-      close: k[4],
-      volume: k[5],
-      quoteVolume: k[7],
-      trades: k[8],
-    }))
+    response.result.map((entry) => {
+      if (!Array.isArray(entry) || entry.length < 6) {
+        throw new Error("CCXT OHLCV entry must be an array with at least 6 values");
+      }
+      const [openTime, open, high, low, close, volume, quoteVolume = "0", trades = 0] = entry;
+      return {
+        openTime: Number(openTime),
+        open: stringifyValue(open, "open price"),
+        high: stringifyValue(high, "high price"),
+        low: stringifyValue(low, "low price"),
+        close: stringifyValue(close, "close price"),
+        volume: stringifyValue(volume, "volume"),
+        quoteVolume: stringifyValue(quoteVolume, "quote volume"),
+        trades: Number(trades),
+      };
+    })
   );
 }
 
@@ -91,30 +132,45 @@ export async function getKlines(input: {
 
 export type BinanceOrderBook = z.infer<typeof orderBookResultSchema>;
 
-const binanceDepthRawSchema = z.object({
-  lastUpdateId: z.number(),
-  bids: z.array(z.tuple([z.string(), z.string()])),
-  asks: z.array(z.tuple([z.string(), z.string()])),
-});
-
-type BinanceDepthRaw = z.infer<typeof binanceDepthRawSchema>;
-
 export async function getOrderBook(input: {
   symbol: string;
   limit?: string;
 }): Promise<BinanceOrderBook> {
-  const limit = input.limit ?? "20";
-  const url = `https://api.binance.com/api/v3/depth?symbol=${encodeURIComponent(input.symbol)}&limit=${limit}`;
-  const res = await resilientFetch(url, undefined, { label: "binance-orderbook" });
-  checkGeoRestriction(res);
-  if (!res.ok) {
-    throw new Error(`Binance order book request failed: ${res.status} ${res.statusText}`);
+  const limit = Number(input.limit ?? "20");
+  const symbol = normalizeBinanceSymbol(input.symbol);
+  const response = await invokeCcxtPublicCall(
+    {
+      exchange: "binance",
+      method: "fetchOrderBook",
+      args: [symbol, limit],
+    },
+    getCcxtRuntimeState().factory
+  );
+  const data = response.result;
+  if (!isPlainObject(data) || !Array.isArray(data.bids) || !Array.isArray(data.asks)) {
+    throw new Error("CCXT order book response must include bid and ask arrays");
   }
-  const data = binanceDepthRawSchema.parse(await res.json());
+
   return orderBookResultSchema.parse({
-    lastUpdateId: data.lastUpdateId,
-    bids: data.bids.map(([price, quantity]) => ({ price, quantity })),
-    asks: data.asks.map(([price, quantity]) => ({ price, quantity })),
+    lastUpdateId: Number(data.lastUpdateId ?? data.nonce ?? 0),
+    bids: data.bids.map((level) => {
+      if (!Array.isArray(level) || level.length < 2) {
+        throw new Error("CCXT order book bid level must be a tuple");
+      }
+      return {
+        price: stringifyValue(level[0], "bid price"),
+        quantity: stringifyValue(level[1], "bid quantity"),
+      };
+    }),
+    asks: data.asks.map((level) => {
+      if (!Array.isArray(level) || level.length < 2) {
+        throw new Error("CCXT order book ask level must be a tuple");
+      }
+      return {
+        price: stringifyValue(level[0], "ask price"),
+        quantity: stringifyValue(level[1], "ask quantity"),
+      };
+    }),
   });
 }
 
@@ -122,30 +178,36 @@ export async function getOrderBook(input: {
 
 export type BinanceFundingRate = z.infer<typeof fundingRateEntrySchema>;
 
-interface BinanceFundingRateRaw {
-  symbol: string;
-  fundingTime: number;
-  fundingRate: string;
-  markPrice: string;
-}
-
 export async function getFundingRates(input: {
   symbol: string;
   limit?: number;
 }): Promise<BinanceFundingRate[]> {
   const limit = input.limit ?? 10;
-  const url = `https://fapi.binance.com/fapi/v1/fundingRate?symbol=${encodeURIComponent(input.symbol)}&limit=${limit}`;
-  const res = await resilientFetch(url, undefined, { label: "binance-funding" });
-  checkGeoRestriction(res);
-  if (!res.ok) {
-    throw new Error(`Binance funding rates request failed: ${res.status} ${res.statusText}`);
+  const symbol = normalizeBinanceSymbol(input.symbol);
+  const response = await invokeCcxtPublicCall(
+    {
+      exchange: "binance",
+      method: "fetchFundingRateHistory",
+      args: [symbol, undefined, limit],
+      marketType: "swap",
+    },
+    getCcxtRuntimeState().factory
+  );
+  if (!Array.isArray(response.result)) {
+    throw new Error("CCXT funding-rate response must be an array");
   }
-  const data = (await res.json()) as BinanceFundingRateRaw[];
+
   return z.array(fundingRateEntrySchema).parse(
-    data.map((d) => ({
-      fundingTime: d.fundingTime,
-      fundingRate: d.fundingRate,
-      markPrice: d.markPrice,
-    }))
+    response.result.map((entry) => {
+      if (!isPlainObject(entry)) {
+        throw new Error("CCXT funding-rate entry must be an object");
+      }
+      const info = isPlainObject(entry.info) ? entry.info : undefined;
+      return {
+        fundingTime: Number(entry.timestamp ?? entry.fundingTime),
+        fundingRate: stringifyValue(entry.fundingRate, "funding rate"),
+        markPrice: stringifyValue(entry.markPrice ?? info?.markPrice, "mark price"),
+      };
+    })
   );
 }

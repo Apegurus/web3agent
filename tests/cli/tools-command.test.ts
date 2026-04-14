@@ -127,6 +127,15 @@ describe("runToolsCommand", () => {
             description: "wallet",
             inputSchema: { type: "object", properties: {} },
           },
+          {
+            name: "ccxt_public_call",
+            source: "ccxt",
+            category: "market",
+            riskLevel: "safe",
+            dynamic: false,
+            description: "invoke a public ccxt method",
+            inputSchema: { type: "object", properties: { exchange: { type: "string" } } },
+          },
         ],
       })
     );
@@ -142,6 +151,12 @@ describe("runToolsCommand", () => {
             name: "wallet_generate",
             source: "wallet",
             category: "wallet",
+            riskLevel: "safe",
+          }),
+          expect.objectContaining({
+            name: "ccxt_public_call",
+            source: "ccxt",
+            category: "market",
             riskLevel: "safe",
           }),
         ],

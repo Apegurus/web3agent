@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Native CCXT tools** across the runtime, MCP server, CLI, and root SDK:
+  - `ccxt_list_exchanges`
+  - `ccxt_describe_exchange`
+  - `ccxt_list_accounts`
+  - `ccxt_public_call`
+  - `ccxt_private_read`
+  - `ccxt_private_write`
+- **CCXT account configuration** via `CCXT_CONFIG_PATH`, allowing named authenticated exchange accounts without adding one environment variable per credential.
+
+### Changed
+
+- **Binance market helpers are now deprecated compatibility shims** backed by the native CCXT layer:
+  - `market_get_ticker`
+  - `market_get_klines`
+  - `market_get_order_book`
+  - `market_get_funding_rates`
+
 ## [0.4.0] - 2026-03-23
 
 ### Breaking

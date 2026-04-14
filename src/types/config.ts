@@ -14,6 +14,7 @@ export interface RuntimeConfig {
   lifiApiKey?: string;
   zeroxApiKey?: string;
   coingeckoApiKey?: string;
+  ccxtConfigPath?: string;
   orbsPartner?: string;
   acpContractAddress?: string; // ERC-8183 contract address (from ACP_CONTRACT_ADDRESS)
   acpPaymentToken?: string; // ERC-20 token for ACP escrow (from ACP_PAYMENT_TOKEN, default USDC)
