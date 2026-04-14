@@ -613,3 +613,19 @@ export {
   walletFromMnemonicSchema,
   walletSetConfirmationSchema,
 } from "./tools/wallet/schemas.js";
+export {
+  ccxtArgsSchema,
+  ccxtAccountNameSchema,
+  ccxtDescribeExchangeSchema,
+  ccxtExchangeIdSchema,
+  ccxtListAccountsSchema,
+  ccxtListExchangesSchema,
+  ccxtLoadMarketsSchema,
+  ccxtMarketTypeSchema,
+  ccxtMethodSchema,
+  ccxtParamsSchema,
+  ccxtPrivateReadSchema,
+  ccxtPrivateWriteSchema,
+  ccxtPublicCallSchema,
+  ccxtReloadMarketsSchema,
+} from "./api/schemas/ccxt.js";
