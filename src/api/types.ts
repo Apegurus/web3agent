@@ -446,6 +446,8 @@ export interface PendingConfirmationResult {
   summary: string;
 }
 
+export type CcxtPrivateWriteResult = PendingConfirmationResult | CcxtInvocationResult;
+
 export type TypedDataPayload = z.infer<typeof typedDataPayloadSchema>;
 
 export type ApprovalStep = z.infer<typeof approvalStepSchema>;

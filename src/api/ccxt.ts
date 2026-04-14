@@ -6,6 +6,7 @@ import type {
   CcxtInvocationResult,
   CcxtPrivateReadInput,
   CcxtPrivateWriteInput,
+  CcxtPrivateWriteResult,
   CcxtPublicCallInput,
   DescribeCcxtExchangeInput,
   ListCcxtAccountsInput,
@@ -28,6 +29,6 @@ export const ccxtPublicCall = createSDKInvoker<CcxtPublicCallInput, CcxtInvocati
 export const ccxtPrivateRead = createSDKInvoker<CcxtPrivateReadInput, CcxtInvocationResult>(
   "ccxt_private_read"
 );
-export const ccxtPrivateWrite = createSDKInvoker<CcxtPrivateWriteInput, CcxtInvocationResult>(
+export const ccxtPrivateWrite = createSDKInvoker<CcxtPrivateWriteInput, CcxtPrivateWriteResult>(
   "ccxt_private_write"
 );

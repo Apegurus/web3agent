@@ -279,6 +279,7 @@ export type {
   CcxtAccountSummary,
   CcxtInvocationClassification,
   CcxtInvocationResult,
+  CcxtPrivateWriteResult,
   GetProtocolTvlInput,
   GetTopProtocolsInput,
   GetChainTvlInput,
