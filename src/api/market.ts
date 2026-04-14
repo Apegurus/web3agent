@@ -91,11 +91,15 @@ export const searchToken = createSDKInvoker<SearchTokenInput, TokenSearchResultE
 export const getCategories = createSDKInvoker<GetCategoriesInput, CategoryEntry[]>(
   "market_get_categories"
 );
+/** @deprecated Use `ccxtPublicCall` with method `fetchTicker` instead. */
 export const getTicker = createSDKInvoker<GetTickerInput, TickerResult>("market_get_ticker");
+/** @deprecated Use `ccxtPublicCall` with method `fetchOHLCV` instead. */
 export const getKlines = createSDKInvoker<GetKlinesInput, KlineEntry[]>("market_get_klines");
+/** @deprecated Use `ccxtPublicCall` with method `fetchOrderBook` instead. */
 export const getOrderBook = createSDKInvoker<GetOrderBookInput, OrderBookResult>(
   "market_get_order_book"
 );
+/** @deprecated Use `ccxtPublicCall` with method `fetchFundingRates` instead. */
 export const getFundingRates = createSDKInvoker<GetFundingRatesInput, FundingRateEntry[]>(
   "market_get_funding_rates"
 );
