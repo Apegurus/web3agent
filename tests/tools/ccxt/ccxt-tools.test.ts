@@ -91,6 +91,7 @@ function getFirstTextContent(result: { content?: Array<{ type: string; text?: st
 
 describe("ccxt tool definitions", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockState.listAccountSummaries.mockReturnValue([
       {
         name: "binance_main",
@@ -255,5 +256,24 @@ describe("ccxt tool definitions", () => {
       },
       expect.anything()
     );
+  });
+
+  it("refuses withdraw when confirmations are disabled", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    const result = await tool.handler({
+      account: "binance_main",
+      method: "withdraw",
+      args: ["USDT", 1, "0xabc"],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getFirstTextContent(result)).toContain(
+      "Method 'withdraw' requires confirmation to be enabled"
+    );
+    expect(mockQueue.enqueue).not.toHaveBeenCalled();
+    expect(mockState.invokeCcxtPrivateWrite).not.toHaveBeenCalled();
   });
 });

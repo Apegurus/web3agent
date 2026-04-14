@@ -45,6 +45,8 @@ const CCXT_WRITE_ANNOTATIONS = {
   openWorldHint: true,
 } as const;
 
+const HIGH_RISK_METHODS = new Set(["withdraw", "transfer"]);
+
 interface ExchangeStaticMeta {
   id: string;
   name: string;
@@ -202,6 +204,16 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   if (!validation.success) return validation.error;
 
   const input = validation.data as CcxtPrivateWriteInput;
+  if (HIGH_RISK_METHODS.has(input.method) && !confirmationQueue.enabled) {
+    return formatToolErrorFromUnknown(
+      "CCXT_PRIVATE_WRITE_ERROR",
+      new Error(
+        `Method '${input.method}' requires confirmation to be enabled. ` +
+          `Set CONFIRM_WRITES=true or omit it (enabled by default) to use ${input.method}.`
+      )
+    );
+  }
+
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",
     `CCXT ${input.method} on account ${input.account}`,

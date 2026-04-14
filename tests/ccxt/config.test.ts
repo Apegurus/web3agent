@@ -4,6 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const fsMockState = vi.hoisted(() => ({
+  statSync: vi.fn<typeof import("node:fs").statSync>(),
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  fsMockState.statSync.mockImplementation(actual.statSync);
+  return {
+    ...actual,
+    statSync: fsMockState.statSync,
+  };
+});
+
 vi.mock("ccxt", () => ({
   default: {
     exchanges: ["binance", "bybit", "kraken"],
@@ -80,6 +93,31 @@ describe("loadCcxtAccountRegistry", () => {
     expect(registry.warnings).toEqual([
       expect.stringContaining("Unsupported exchange ID 'not-real'"),
     ]);
+  });
+
+  it("warns when the CCXT config file is readable by other users", () => {
+    const configPath = writeConfigFile("permissions.json", {
+      accounts: [
+        {
+          name: "binance_main",
+          exchangeId: "binance",
+          apiKey: "key",
+          secret: "secret",
+        },
+      ],
+    });
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    fsMockState.statSync.mockReturnValueOnce({ mode: 0o644 } as import("node:fs").Stats);
+
+    const registry = loadCcxtAccountRegistry({ ccxtConfigPath: configPath });
+
+    expect(registry.accounts).toHaveLength(1);
+    expect(registry.warnings).toEqual([]);
+    expect(fsMockState.statSync).toHaveBeenCalledWith(configPath);
+    expect(stderrSpy).toHaveBeenCalledWith(
+      `[ccxt] WARNING: ${configPath} is readable by other users (mode 644). ` +
+        `This file contains exchange credentials. Run: chmod 600 ${configPath}\n`
+    );
   });
 
   it("rejects duplicate account names", () => {

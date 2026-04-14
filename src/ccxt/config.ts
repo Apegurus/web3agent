@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import ccxt from "ccxt";
 import type { RuntimeConfig } from "../types/config.js";
 import { isPlainObject } from "../utils/type-guards.js";
@@ -72,6 +72,18 @@ export function loadCcxtAccountRegistry(
       warnings: [`CCXT config file not found: ${config.ccxtConfigPath}`],
     };
   }
+
+  try {
+    const stats = statSync(config.ccxtConfigPath);
+    const mode = stats.mode & 0o777;
+    if (mode & 0o077) {
+      process.stderr.write(
+        `[ccxt] WARNING: ${config.ccxtConfigPath} is readable by other users (mode ${mode.toString(8)}). ` +
+          `This file contains exchange credentials. Run: chmod 600 ${config.ccxtConfigPath}\n`
+      );
+    }
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: permission check is best-effort
+  } catch {}
 
   let parsed: RawCcxtConfigFile;
   try {
