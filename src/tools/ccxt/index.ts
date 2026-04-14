@@ -70,27 +70,34 @@ function getExchangeMetaCache(): ExchangeStaticMeta[] {
       const Ctor = (ccxt as unknown as Record<string, unknown>)[exchangeId];
       if (typeof Ctor !== "function") return null;
 
-      const ex = new (
-        Ctor as new () => {
-          id: string;
-          name?: string;
-          countries?: string[];
-          urls?: Record<string, string | Record<string, string>>;
-          has?: Record<string, boolean | "emulated" | undefined>;
-          timeframes?: Record<string, string>;
-        }
-      )();
+      try {
+        const ex = new (
+          Ctor as new () => {
+            id: string;
+            name?: string;
+            countries?: string[];
+            urls?: Record<string, string | Record<string, string>>;
+            has?: Record<string, boolean | "emulated" | undefined>;
+            timeframes?: Record<string, string>;
+          }
+        )();
 
-      return {
-        id: ex.id ?? exchangeId,
-        name: ex.name ?? exchangeId,
-        countries: Array.isArray(ex.countries) ? ex.countries : undefined,
-        urls: isPlainObject(ex.urls)
-          ? (ex.urls as Record<string, string | Record<string, string>>)
-          : undefined,
-        has: ex.has ?? {},
-        timeframes: ex.timeframes ? Object.keys(ex.timeframes) : undefined,
-      };
+        return {
+          id: ex.id ?? exchangeId,
+          name: ex.name ?? exchangeId,
+          countries: Array.isArray(ex.countries) ? ex.countries : undefined,
+          urls: isPlainObject(ex.urls)
+            ? (ex.urls as Record<string, string | Record<string, string>>)
+            : undefined,
+          has: ex.has ?? {},
+          timeframes: ex.timeframes ? Object.keys(ex.timeframes) : undefined,
+        };
+      } catch (e: unknown) {
+        process.stderr.write(
+          `[ccxt] Failed to instantiate exchange ${exchangeId}: ${e instanceof Error ? e.message : String(e)}\n`
+        );
+        return null;
+      }
     })
     .filter((meta): meta is NonNullable<typeof meta> => meta !== null);
 
