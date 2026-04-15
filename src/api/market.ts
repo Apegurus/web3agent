@@ -93,7 +93,10 @@ export const getCategories = createSDKInvoker<GetCategoriesInput, CategoryEntry[
 );
 /** @deprecated Use `ccxtPublicCall` with method `fetchTicker` instead. */
 export const getTicker = createSDKInvoker<GetTickerInput, TickerResult>("market_get_ticker");
-/** @deprecated Use `ccxtPublicCall` with method `fetchOHLCV` instead. */
+/**
+ * @deprecated Use `ccxtPublicCall` with method `fetchOHLCV` instead.
+ * Note: quoteVolume and trades fields return synthetic zeros under the CCXT backend.
+ */
 export const getKlines = createSDKInvoker<GetKlinesInput, KlineEntry[]>("market_get_klines");
 /** @deprecated Use `ccxtPublicCall` with method `fetchOrderBook` instead. */
 export const getOrderBook = createSDKInvoker<GetOrderBookInput, OrderBookResult>(

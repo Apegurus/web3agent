@@ -411,8 +411,16 @@ export const klineEntrySchema = z.object({
   low: z.string().describe("Low price"),
   close: z.string().describe("Close price"),
   volume: z.string().describe("Base asset volume"),
-  quoteVolume: z.string().describe("Quote asset volume"),
-  trades: z.number().describe("Number of trades"),
+  quoteVolume: z
+    .string()
+    .describe(
+      "Quote asset volume. Returns '0' under CCXT backend — use ccxt_public_call with fetchOHLCV for raw data."
+    ),
+  trades: z
+    .number()
+    .describe(
+      "Number of trades. Returns 0 under CCXT backend — use ccxt_public_call with fetchOHLCV for raw data."
+    ),
 });
 
 export const orderBookLevelSchema = z.object({
