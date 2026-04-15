@@ -234,4 +234,26 @@ describe("runInit", () => {
     expect(mockState.cursorWrite).not.toHaveBeenCalled();
     expect(mockState.installContext).not.toHaveBeenCalled();
   });
+
+  it("ignores guide-only hosts during auto-detection", async () => {
+    mockState.detectHosts.mockResolvedValue({
+      detected: ["claude", "openclaw"],
+      projectDir: "/project",
+    });
+    mockState.assertSingleHost.mockReturnValue("claude");
+    mockState.claudeWrite.mockResolvedValue({
+      configPath: "/project/.mcp.json",
+      action: "created",
+    });
+    mockState.installContext.mockResolvedValue({
+      configPath: "/project/CLAUDE.md",
+      action: "created",
+    });
+
+    const { runInit } = await import("../../src/cli/init.js");
+    await runInit([]);
+
+    expect(mockState.assertSingleHost).toHaveBeenCalledWith(["claude"], undefined);
+    expect(mockState.claudeWrite).toHaveBeenCalled();
+  });
 });

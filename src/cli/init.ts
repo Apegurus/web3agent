@@ -65,7 +65,8 @@ export async function runInit(args: string[]): Promise<void> {
   }
 
   const { detected } = await detectHosts(projectDir);
-  const host = assertSingleHost(detected, options.host);
+  const initCapable = detected.filter((h) => HOSTS[h].installMethod === "init");
+  const host = assertSingleHost(initCapable, options.host);
   if (HOSTS[host].installMethod !== "init") {
     throw new Error(
       `Installation for ${host} is guide-driven, not supported through \`web3agent init\`. Use docs/guides/universal-access.md and let the ${host} agent follow that guide directly.`
