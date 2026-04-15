@@ -101,9 +101,6 @@ describe("ccxt tool definitions", () => {
         name: "binance_main",
         exchangeId: "binance",
         sandbox: false,
-        hasPassword: false,
-        hasUid: false,
-        hasWalletAddress: false,
       },
     ]);
     mockState.describeExchangeCapabilities.mockReturnValue({

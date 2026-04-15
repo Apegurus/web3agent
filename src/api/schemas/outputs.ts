@@ -649,9 +649,6 @@ export const ccxtAccountSummarySchema = z.object({
     .optional()
     .describe("Default market type for this account"),
   sandbox: z.boolean().describe("Whether sandbox mode is enabled"),
-  hasPassword: z.boolean().describe("Whether a password is configured"),
-  hasUid: z.boolean().describe("Whether a UID is configured"),
-  hasWalletAddress: z.boolean().describe("Whether a wallet address is configured"),
 });
 
 export const ccxtInvocationResultSchema = z.object({

@@ -18,9 +18,6 @@ export function listAccountSummaries(registry: CcxtAccountRegistry): CcxtAccount
     exchangeId: account.exchangeId,
     defaultType: account.defaultType,
     sandbox: account.sandbox ?? false,
-    hasPassword: Boolean(account.password),
-    hasUid: Boolean(account.uid),
-    hasWalletAddress: Boolean(account.walletAddress),
   }));
 }
 

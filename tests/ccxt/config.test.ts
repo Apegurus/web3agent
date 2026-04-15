@@ -220,9 +220,6 @@ describe("ccxt account helpers", () => {
         exchangeId: "bybit",
         defaultType: "swap",
         sandbox: true,
-        hasPassword: true,
-        hasUid: true,
-        hasWalletAddress: true,
       },
     ]);
   });
