@@ -11,7 +11,7 @@
   "keywords": ["web3agent", "create-web3agent", "web3", "ai-agent", "starter"],
   "type": "module",
   "dependencies": {
-    "web3agent": "0.4.0"
+    "web3agent": "workspace:*"
   },
   "bin": {
     "create-web3agent": "dist/index.js"

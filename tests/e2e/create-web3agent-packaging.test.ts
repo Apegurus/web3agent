@@ -15,7 +15,10 @@ describe("create-web3agent packaging readiness", () => {
       dependencies?: Record<string, string>;
     };
 
-    expect(wrapperPackageJson.dependencies?.web3agent).toBe(rootPackageJson.version);
+    const dep = wrapperPackageJson.dependencies?.web3agent;
+    const isWorkspaceLink = dep === "workspace:*" || dep === "workspace:^";
+    const isExactPin = dep === rootPackageJson.version;
+    expect(isWorkspaceLink || isExactPin).toBe(true);
   });
 
   it("ships starter templates from the root package", () => {
