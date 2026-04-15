@@ -45,7 +45,8 @@ jobs:
         run: pnpm pack
 
       - name: Pack create-web3agent
-        run: pnpm --filter create-web3agent pack
+        run: pnpm pack
+        working-directory: packages/create-web3agent
 
       - name: Verify tarball contents
         run: |
