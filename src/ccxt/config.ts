@@ -72,6 +72,7 @@ export function loadCcxtAccountRegistry(
       accounts: [],
       warnings: [`CCXT config file not found: ${config.ccxtConfigPath}`],
       insecurePermissions: false,
+      configPath: config.ccxtConfigPath,
     };
   }
 
@@ -99,6 +100,7 @@ export function loadCcxtAccountRegistry(
         `Failed to parse CCXT config file ${config.ccxtConfigPath}: ${error instanceof Error ? error.message : String(error)}`,
       ],
       insecurePermissions: false,
+      configPath: config.ccxtConfigPath,
     };
   }
 
@@ -107,6 +109,7 @@ export function loadCcxtAccountRegistry(
       accounts: [],
       warnings: [`CCXT config file ${config.ccxtConfigPath} must contain an accounts array`],
       insecurePermissions: false,
+      configPath: config.ccxtConfigPath,
     };
   }
 
@@ -140,5 +143,6 @@ export function loadCcxtAccountRegistry(
     accounts,
     warnings,
     insecurePermissions,
+    configPath: config.ccxtConfigPath,
   };
 }

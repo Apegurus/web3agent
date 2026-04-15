@@ -9,7 +9,7 @@ const mockState = vi.hoisted(() => ({
 }));
 
 const mockRegistry = vi.hoisted(() => ({
-  accounts: [{ name: "binance_main", exchangeId: "binance" }],
+  accounts: [{ name: "binance_main", exchangeId: "binance", apiKey: "key", secret: "secret" }],
   warnings: [] as string[],
   insecurePermissions: false,
 }));
@@ -66,6 +66,8 @@ vi.mock("../../../src/wallet/confirmation.js", () => ({
 
 vi.mock("../../../src/ccxt/accounts.js", () => ({
   listAccountSummaries: (...args: unknown[]) => mockState.listAccountSummaries(...args),
+  accountHasCredentials: (account: { apiKey?: string; secret?: string; privateKey?: string }) =>
+    Boolean(account.apiKey) || Boolean(account.secret) || Boolean(account.privateKey),
   getAccountByName: vi.fn(),
   resolveExchangeIdFromAccount: vi.fn(),
 }));
@@ -281,6 +283,45 @@ describe("ccxt tool definitions", () => {
     const result = await executor({ invalid: true });
 
     expect(result.isError).toBe(true);
+  });
+
+  it("rejects high-risk method via executor when config is insecure", async () => {
+    const { confirmationQueue: mockQueue, registerExecutor: mockRegisterExecutor } = await import(
+      "../../../src/wallet/confirmation.js"
+    );
+    const { registerCcxtExecutors } = await import("../../../src/tools/ccxt/index.js");
+
+    registerCcxtExecutors();
+
+    const executorCall = vi
+      .mocked(mockRegisterExecutor)
+      .mock.calls.find((call) => call[0] === "ccxt_private_write");
+    expect(executorCall).toBeDefined();
+    const executor = executorCall?.[1];
+    if (!executor) throw new Error("Missing ccxt_private_write executor registration");
+
+    Object.defineProperty(mockQueue, "enabled", {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+    mockRegistry.insecurePermissions = true;
+
+    const result = await executor({
+      account: "binance_main",
+      method: "withdraw",
+      args: ["USDT", 100, "0xaddr"],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getFirstTextContent(result)).toContain("insecure permissions");
+    expect(mockState.invokeCcxtPrivateWrite).not.toHaveBeenCalled();
+
+    Object.defineProperty(mockQueue, "enabled", {
+      value: false,
+      writable: true,
+      configurable: true,
+    });
   });
 
   it("refuses withdraw when confirmations are disabled", async () => {

@@ -120,8 +120,9 @@ function listExchanges(input: {
     .filter((meta) => {
       if (input.marketType && !meta.has[input.marketType]) return false;
 
-      const accts = registry.accounts.filter((a) => a.exchangeId === meta.id).map((a) => a.name);
-      const hasAuth = accts.length > 0;
+      const hasAuth = registry.accounts.some(
+        (a) => a.exchangeId === meta.id && accountHasCredentials(a)
+      );
 
       if (input.configuredOnly && !hasAuth) return false;
       if (input.hasAuth === true && !hasAuth) return false;
@@ -134,6 +135,10 @@ function listExchanges(input: {
         .filter((a) => a.exchangeId === meta.id)
         .map((a) => a.name);
 
+      const supportsPrivate = registry.accounts.some(
+        (a) => a.exchangeId === meta.id && accountHasCredentials(a)
+      );
+
       return {
         exchangeId: meta.id,
         name: meta.name,
@@ -141,7 +146,7 @@ function listExchanges(input: {
         urls: meta.urls,
         configuredAccounts,
         supportsPublic: true,
-        supportsPrivate: configuredAccounts.length > 0,
+        supportsPrivate,
         timeframes: meta.timeframes,
       };
     });
@@ -192,11 +197,42 @@ function listAccounts() {
   return listAccountSummaries(registry);
 }
 
+function checkHighRiskGuards(method: string): CallToolResult | null {
+  if (!isHighRiskCcxtMethod(method)) return null;
+
+  if (!confirmationQueue.enabled) {
+    return formatToolErrorFromUnknown(
+      "CCXT_PRIVATE_WRITE_ERROR",
+      new Error(
+        `Method '${method}' requires confirmation to be enabled. ` +
+          `Set CONFIRM_WRITES=true or omit it (enabled by default) to use ${method}.`
+      )
+    );
+  }
+
+  const { registry } = getCcxtRuntimeState();
+  if (registry.insecurePermissions) {
+    const configHint = registry.configPath
+      ? `Run: chmod 600 ${registry.configPath}`
+      : "Fix file permissions on your CCXT config file";
+    return formatToolErrorFromUnknown(
+      "CCXT_PRIVATE_WRITE_ERROR",
+      new Error(
+        `Method '${method}' is blocked because CCXT config file has insecure permissions. ${configHint}`
+      )
+    );
+  }
+
+  return null;
+}
+
 async function executeCcxtPrivateWrite(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const validation = validateInput(ccxtPrivateWriteSchema, params);
     if (!validation.success) return validation.error;
     const input = validation.data as CcxtPrivateWriteInput;
+    const blocked = checkHighRiskGuards(input.method);
+    if (blocked) return blocked;
     const result = await invokeCcxtPrivateWrite(input, getCcxtRuntimeState().factory);
     return formatToolResponse(result);
   } catch (error: unknown) {
@@ -215,25 +251,8 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   if (!validation.success) return validation.error;
 
   const input = validation.data as CcxtPrivateWriteInput;
-  if (isHighRiskCcxtMethod(input.method) && !confirmationQueue.enabled) {
-    return formatToolErrorFromUnknown(
-      "CCXT_PRIVATE_WRITE_ERROR",
-      new Error(
-        `Method '${input.method}' requires confirmation to be enabled. ` +
-          `Set CONFIRM_WRITES=true or omit it (enabled by default) to use ${input.method}.`
-      )
-    );
-  }
-
-  const { registry } = getCcxtRuntimeState();
-  if (isHighRiskCcxtMethod(input.method) && registry.insecurePermissions) {
-    return formatToolErrorFromUnknown(
-      "CCXT_PRIVATE_WRITE_ERROR",
-      new Error(
-        `Method '${input.method}' is blocked because CCXT config file has insecure permissions. Run: chmod 600 <config-path>`
-      )
-    );
-  }
+  const blocked = checkHighRiskGuards(input.method);
+  if (blocked) return blocked;
 
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",

@@ -19,6 +19,7 @@ export interface CcxtAccountRegistry {
   accounts: CcxtAccountConfig[];
   warnings: string[];
   insecurePermissions: boolean;
+  configPath?: string;
 }
 
 export interface CcxtExchangeLike {
