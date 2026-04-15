@@ -8,7 +8,11 @@ import type {
   DescribeCcxtExchangeInput,
   ListCcxtExchangesInput,
 } from "../../api/types.js";
-import { listAccountSummaries, resolveExchangeIdFromAccount } from "../../ccxt/accounts.js";
+import {
+  accountHasCredentials,
+  listAccountSummaries,
+  resolveExchangeIdFromAccount,
+} from "../../ccxt/accounts.js";
 import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
 import { isHighRiskCcxtMethod } from "../../ccxt/classification.js";
 import {
@@ -162,7 +166,10 @@ async function describeExchange(input: {
     });
     const configuredAccounts = registry.accounts
       .filter((account) => account.exchangeId === exchangeId)
-      .map((account) => account.name);
+      .map((account) => ({
+        name: account.name,
+        hasCredentials: accountHasCredentials(account),
+      }));
     return describeExchangeCapabilities(exchange, configuredAccounts);
   }
 
@@ -173,7 +180,10 @@ async function describeExchange(input: {
   });
   const configuredAccounts = registry.accounts
     .filter((account) => account.exchangeId === exchange.id)
-    .map((account) => account.name);
+    .map((account) => ({
+      name: account.name,
+      hasCredentials: accountHasCredentials(account),
+    }));
   return describeExchangeCapabilities(exchange, configuredAccounts);
 }
 

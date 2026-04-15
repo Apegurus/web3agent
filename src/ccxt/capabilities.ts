@@ -3,13 +3,20 @@ import type { CcxtExchangeLike } from "./types.js";
 
 const MARKET_TYPES = ["spot", "margin", "future", "swap", "option"] as const;
 
+interface ConfiguredExchangeAccount {
+  name: string;
+  hasCredentials: boolean;
+}
+
 export function describeExchangeCapabilities(
   exchange: CcxtExchangeLike,
-  configuredAccounts: string[]
+  configuredAccounts: ConfiguredExchangeAccount[]
 ): CcxtExchangeDescription {
   const hasEntries = Object.entries(exchange.has ?? {}).filter(
     ([, value]) => typeof value === "boolean" || value === "emulated"
   );
+  const accountNames = configuredAccounts.map((account) => account.name);
+  const hasAuthenticatedAccount = configuredAccounts.some((account) => account.hasCredentials);
 
   return {
     exchangeId: exchange.id,
@@ -18,9 +25,10 @@ export function describeExchangeCapabilities(
     timeframes: exchange.timeframes ? Object.keys(exchange.timeframes) : undefined,
     symbols: exchange.symbols,
     marketTypes: MARKET_TYPES.filter((marketType) => Boolean(exchange.has?.[marketType])),
-    configuredAccounts,
+    configuredAccounts: accountNames,
     requiresAuthFor: ["private_read", "private_write"],
-    supportedInvocationModes:
-      configuredAccounts.length > 0 ? ["public", "private_read", "private_write"] : ["public"],
+    supportedInvocationModes: hasAuthenticatedAccount
+      ? ["public", "private_read", "private_write"]
+      : ["public"],
   };
 }
