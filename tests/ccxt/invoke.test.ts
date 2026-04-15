@@ -95,6 +95,7 @@ describe("ccxt invoke helpers", () => {
         },
       ],
       warnings: [],
+      insecurePermissions: false,
     };
 
     factory = new CcxtExchangeFactory(registry);
@@ -179,5 +180,17 @@ describe("ccxt invoke helpers", () => {
         factory
       )
     ).rejects.toThrow("not allowed for ccxt_public_call");
+  });
+
+  it("throws when exchange does not implement the requested method", async () => {
+    await expect(
+      invokeCcxtPublicCall(
+        {
+          exchange: "binance",
+          method: "publicGetNonExistent",
+        },
+        factory
+      )
+    ).rejects.toThrow();
   });
 });

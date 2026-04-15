@@ -25,7 +25,7 @@ const KNOWN_QUOTES = ["USDT", "BUSD", "USDC", "BTC", "ETH", "BNB", "USD"];
  * If no known quote currency suffix matches, the symbol is returned unchanged
  * and CCXT will error naturally.
  */
-function normalizeBinanceSymbol(symbol: string): string {
+export function normalizeBinanceSymbol(symbol: string): string {
   if (symbol.includes("/")) {
     return symbol;
   }

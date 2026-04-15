@@ -89,6 +89,7 @@ describe("CcxtExchangeFactory", () => {
         },
       ],
       warnings: [],
+      insecurePermissions: false,
     };
   });
 
@@ -196,5 +197,13 @@ describe("CcxtExchangeFactory", () => {
         reloadMarkets: true,
       })
     ).rejects.toThrow("NetworkError: connection timed out");
+  });
+
+  it("throws for unsupported exchange ID via getPublicExchange", async () => {
+    const factory = new CcxtExchangeFactory(registry);
+
+    await expect(
+      factory.getPublicExchange({ exchangeId: "nonExistentExchange123" })
+    ).rejects.toThrow();
   });
 });
