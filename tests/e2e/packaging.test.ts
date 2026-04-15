@@ -1,7 +1,8 @@
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { ensureBuild } from "../global-setup.js";
 
 const ROOT = process.cwd();
 const DIST_CLI = join(ROOT, "dist/cli.js");
@@ -12,6 +13,8 @@ const EXAMPLE_ROOT_API = join(ROOT, "examples/root-api-smoke.mjs");
 const EXAMPLE_RUNTIME = join(ROOT, "examples/runtime-smoke.mjs");
 
 describe("packaging tests", () => {
+  beforeAll(() => ensureBuild(), 120_000);
+
   it("dist/cli.js exists and has shebang", () => {
     expect(existsSync(DIST_CLI)).toBe(true);
     const content = readFileSync(DIST_CLI, "utf-8");
