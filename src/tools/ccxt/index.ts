@@ -10,6 +10,7 @@ import type {
 } from "../../api/types.js";
 import { listAccountSummaries, resolveExchangeIdFromAccount } from "../../ccxt/accounts.js";
 import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
+import { isHighRiskCcxtMethod } from "../../ccxt/classification.js";
 import {
   invokeCcxtPrivateRead,
   invokeCcxtPrivateWrite,
@@ -44,8 +45,6 @@ const CCXT_WRITE_ANNOTATIONS = {
   idempotentHint: false,
   openWorldHint: true,
 } as const;
-
-const HIGH_RISK_METHODS = new Set(["withdraw", "transfer"]);
 
 interface ExchangeStaticMeta {
   id: string;
@@ -204,7 +203,7 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   if (!validation.success) return validation.error;
 
   const input = validation.data as CcxtPrivateWriteInput;
-  if (HIGH_RISK_METHODS.has(input.method) && !confirmationQueue.enabled) {
+  if (isHighRiskCcxtMethod(input.method) && !confirmationQueue.enabled) {
     return formatToolErrorFromUnknown(
       "CCXT_PRIVATE_WRITE_ERROR",
       new Error(

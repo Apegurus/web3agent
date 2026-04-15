@@ -44,6 +44,7 @@ const PRIVATE_WRITE_UNIFIED = new Set([
 const IMPLICIT_PUBLIC = /PublicGet/i;
 const IMPLICIT_PRIVATE_READ = /PrivateGet/i;
 const IMPLICIT_PRIVATE_WRITE = /Private(?:Post|Put|Patch|Delete)/i;
+const HIGH_RISK_PATTERN = /withdraw|transfer/i;
 
 export function classifyCcxtMethod(method: string): CcxtMethodClassification {
   if (PUBLIC_UNIFIED.has(method)) {
@@ -67,6 +68,12 @@ export function classifyCcxtMethod(method: string): CcxtMethodClassification {
   }
 
   return "deny";
+}
+
+export function isHighRiskCcxtMethod(method: string): boolean {
+  const classification = classifyCcxtMethod(method);
+  if (classification !== "private_write") return false;
+  return HIGH_RISK_PATTERN.test(method);
 }
 
 export function isMethodAllowedForTool(

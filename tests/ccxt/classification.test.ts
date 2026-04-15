@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { classifyCcxtMethod, isMethodAllowedForTool } from "../../src/ccxt/classification.js";
+import {
+  classifyCcxtMethod,
+  isHighRiskCcxtMethod,
+  isMethodAllowedForTool,
+} from "../../src/ccxt/classification.js";
 
 describe("classifyCcxtMethod", () => {
   it("classifies public unified methods", () => {
@@ -56,5 +60,35 @@ describe("isMethodAllowedForTool", () => {
     expect(isMethodAllowedForTool("ccxt_private_read", "fetchBalance")).toBe(true);
     expect(isMethodAllowedForTool("ccxt_private_read", "createOrder")).toBe(false);
     expect(isMethodAllowedForTool("ccxt_private_write", "createOrder")).toBe(true);
+  });
+});
+
+describe("isHighRiskCcxtMethod", () => {
+  it("marks unified withdraw as high-risk", () => {
+    expect(isHighRiskCcxtMethod("withdraw")).toBe(true);
+  });
+
+  it("marks unified transfer as high-risk", () => {
+    expect(isHighRiskCcxtMethod("transfer")).toBe(true);
+  });
+
+  it("marks implicit transfer endpoint as high-risk", () => {
+    expect(isHighRiskCcxtMethod("sapiPrivatePostAssetTransfer")).toBe(true);
+  });
+
+  it("marks implicit withdraw endpoint as high-risk", () => {
+    expect(isHighRiskCcxtMethod("privatePostWithdraw")).toBe(true);
+  });
+
+  it("does not mark createOrder as high-risk", () => {
+    expect(isHighRiskCcxtMethod("createOrder")).toBe(false);
+  });
+
+  it("does not mark cancelOrder as high-risk", () => {
+    expect(isHighRiskCcxtMethod("cancelOrder")).toBe(false);
+  });
+
+  it("does not mark public methods as high-risk", () => {
+    expect(isHighRiskCcxtMethod("fetchTicker")).toBe(false);
   });
 });

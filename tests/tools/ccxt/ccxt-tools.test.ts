@@ -276,4 +276,18 @@ describe("ccxt tool definitions", () => {
     expect(mockQueue.enqueue).not.toHaveBeenCalled();
     expect(mockState.invokeCcxtPrivateWrite).not.toHaveBeenCalled();
   });
+
+  it("refuses implicit transfer endpoint when confirmations are disabled", async () => {
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    const result = await tool.handler({
+      account: "binance_main",
+      method: "sapiPrivatePostAssetTransfer",
+      args: [{ asset: "USDT", amount: "100" }],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getFirstTextContent(result)).toContain("requires confirmation to be enabled");
+  });
 });
