@@ -3,7 +3,7 @@ import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/bl
 import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
 import { ExplorerRouter } from "../api/explorer/router.js";
 import { getCcxtRuntimeState } from "../ccxt/runtime-state.js";
-import { ValidationError, parseEnv, withConfig } from "../config/env.js";
+import { ValidationError, parseEnv, setConfig, withConfig } from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
@@ -672,6 +672,7 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     throw error;
   }
 
+  setConfig(config);
   const pendingOpsRestored = await bootstrapCoreState(config);
 
   const runtimeGoatProvider = new GoatProvider();
