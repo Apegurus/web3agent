@@ -63,6 +63,7 @@ export function loadCcxtAccountRegistry(
     return {
       accounts: [],
       warnings: [],
+      insecurePermissions: false,
     };
   }
 
@@ -70,13 +71,16 @@ export function loadCcxtAccountRegistry(
     return {
       accounts: [],
       warnings: [`CCXT config file not found: ${config.ccxtConfigPath}`],
+      insecurePermissions: false,
     };
   }
 
+  let insecurePermissions = false;
   try {
     const stats = statSync(config.ccxtConfigPath);
     const mode = stats.mode & 0o777;
     if (mode & 0o077) {
+      insecurePermissions = true;
       process.stderr.write(
         `[ccxt] WARNING: ${config.ccxtConfigPath} is readable by other users (mode ${mode.toString(8)}). ` +
           `This file contains exchange credentials. Run: chmod 600 ${config.ccxtConfigPath}\n`
@@ -94,6 +98,7 @@ export function loadCcxtAccountRegistry(
       warnings: [
         `Failed to parse CCXT config file ${config.ccxtConfigPath}: ${error instanceof Error ? error.message : String(error)}`,
       ],
+      insecurePermissions: false,
     };
   }
 
@@ -101,6 +106,7 @@ export function loadCcxtAccountRegistry(
     return {
       accounts: [],
       warnings: [`CCXT config file ${config.ccxtConfigPath} must contain an accounts array`],
+      insecurePermissions: false,
     };
   }
 
@@ -133,5 +139,6 @@ export function loadCcxtAccountRegistry(
   return {
     accounts,
     warnings,
+    insecurePermissions,
   };
 }

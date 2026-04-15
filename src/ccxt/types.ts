@@ -18,6 +18,7 @@ export interface CcxtAccountConfig {
 export interface CcxtAccountRegistry {
   accounts: CcxtAccountConfig[];
   warnings: string[];
+  insecurePermissions: boolean;
 }
 
 export interface CcxtExchangeLike {

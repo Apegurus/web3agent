@@ -120,6 +120,44 @@ describe("loadCcxtAccountRegistry", () => {
     );
   });
 
+  it("sets insecurePermissions when config file is world-readable", () => {
+    const configPath = writeConfigFile("insecure.json", {
+      accounts: [
+        {
+          name: "binance_main",
+          exchangeId: "binance",
+          apiKey: "key",
+          secret: "secret",
+        },
+      ],
+    });
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    fsMockState.statSync.mockReturnValueOnce({ mode: 0o644 } as import("node:fs").Stats);
+
+    const registry = loadCcxtAccountRegistry({ ccxtConfigPath: configPath });
+
+    expect(registry.insecurePermissions).toBe(true);
+    stderrSpy.mockRestore();
+  });
+
+  it("sets insecurePermissions to false when permissions are secure", () => {
+    const configPath = writeConfigFile("secure.json", {
+      accounts: [
+        {
+          name: "binance_main",
+          exchangeId: "binance",
+          apiKey: "key",
+          secret: "secret",
+        },
+      ],
+    });
+    fsMockState.statSync.mockReturnValueOnce({ mode: 0o600 } as import("node:fs").Stats);
+
+    const registry = loadCcxtAccountRegistry({ ccxtConfigPath: configPath });
+
+    expect(registry.insecurePermissions).toBe(false);
+  });
+
   it("rejects duplicate account names", () => {
     const configPath = writeConfigFile("dupes.json", {
       accounts: [
