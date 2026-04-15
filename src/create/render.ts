@@ -1,5 +1,5 @@
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { extname, join } from "node:path";
 
 export interface RenderTemplateOptions {
   sourceDir: string;
@@ -39,6 +39,31 @@ async function assertEmptyOrMissingDirectory(targetDir: string): Promise<void> {
   }
 }
 
+const TEXT_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".json",
+  ".md",
+  ".mdc",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".html",
+  ".css",
+  ".env",
+  ".gitignore",
+  ".npmrc",
+  ".txt",
+  "",
+]);
+
+function isTextFile(name: string): boolean {
+  const ext = extname(name).toLowerCase();
+  return TEXT_EXTENSIONS.has(ext);
+}
+
 async function copyRecursive(
   sourceDir: string,
   targetDir: string,
@@ -56,8 +81,12 @@ async function copyRecursive(
       continue;
     }
 
-    const file = await readFile(sourcePath, "utf-8");
-    await writeFile(targetPath, replaceTokens(file, tokens), "utf-8");
+    if (isTextFile(entry.name)) {
+      const file = await readFile(sourcePath, "utf-8");
+      await writeFile(targetPath, replaceTokens(file, tokens), "utf-8");
+    } else {
+      await copyFile(sourcePath, targetPath);
+    }
   }
 }
 

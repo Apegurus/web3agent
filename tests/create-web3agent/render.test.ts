@@ -51,6 +51,23 @@ describe("create-web3agent renderTemplate", () => {
     expect(readFileSync(join(targetDir, "src", "index.ts"), "utf-8")).toContain("My Agent");
   });
 
+  it("copies binary files without corruption", async () => {
+    const sourceDir = mkdtempSync(join(tmpdir(), "create-web3agent-render-source-"));
+    const targetDir = mkdtempSync(join(tmpdir(), "create-web3agent-render-target-"));
+
+    const binaryContent = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    writeFileSync(join(sourceDir, "icon.png"), binaryContent);
+
+    await renderTemplate({
+      sourceDir,
+      targetDir,
+      tokens: { PROJECT_NAME: "Test" },
+    });
+
+    const result = readFileSync(join(targetDir, "icon.png"));
+    expect(Buffer.compare(result, binaryContent)).toBe(0);
+  });
+
   it("refuses to write into a non-empty directory", async () => {
     const sourceDir = mkdtempSync(join(tmpdir(), "create-web3agent-render-source-"));
     const targetDir = mkdtempSync(join(tmpdir(), "create-web3agent-render-target-"));
