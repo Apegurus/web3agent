@@ -258,6 +258,30 @@ describe("ccxt tool definitions", () => {
     );
   });
 
+  it("rejects malformed params when executor is called directly", async () => {
+    const { registerExecutor: mockRegisterExecutor } = await import(
+      "../../../src/wallet/confirmation.js"
+    );
+    const { registerCcxtExecutors } = await import("../../../src/tools/ccxt/index.js");
+
+    registerCcxtExecutors();
+
+    const executorCall = vi
+      .mocked(mockRegisterExecutor)
+      .mock.calls.find((call) => call[0] === "ccxt_private_write");
+
+    expect(executorCall).toBeDefined();
+
+    const executor = executorCall?.[1];
+    if (!executor) {
+      throw new Error("Missing ccxt_private_write executor registration");
+    }
+
+    const result = await executor({ invalid: true });
+
+    expect(result.isError).toBe(true);
+  });
+
   it("refuses withdraw when confirmations are disabled", async () => {
     const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
     const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");

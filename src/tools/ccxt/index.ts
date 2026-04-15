@@ -184,7 +184,9 @@ function listAccounts() {
 
 async function executeCcxtPrivateWrite(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const input = params as unknown as CcxtPrivateWriteInput;
+    const validation = validateInput(ccxtPrivateWriteSchema, params);
+    if (!validation.success) return validation.error;
+    const input = validation.data as CcxtPrivateWriteInput;
     const result = await invokeCcxtPrivateWrite(input, getCcxtRuntimeState().factory);
     return formatToolResponse(result);
   } catch (error: unknown) {
