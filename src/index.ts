@@ -471,6 +471,8 @@ export {
   ccxtAccountSummarySchema,
   ccxtInvocationClassificationSchema,
   ccxtInvocationResultSchema,
+  ccxtPrivateWriteResultSchema,
+  pendingConfirmationResultSchema,
 } from "./api/schemas/outputs.js";
 export {
   acpClaimRefundOutputSchema,

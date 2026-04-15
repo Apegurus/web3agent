@@ -651,6 +651,12 @@ export const ccxtAccountSummarySchema = z.object({
   sandbox: z.boolean().describe("Whether sandbox mode is enabled"),
 });
 
+export const pendingConfirmationResultSchema = z.object({
+  status: z.literal("pending_confirmation").describe("Operation is pending user confirmation"),
+  id: z.string().describe("Confirmation queue entry ID"),
+  summary: z.string().describe("Human-readable summary of the pending operation"),
+});
+
 export const ccxtInvocationResultSchema = z.object({
   exchangeId: z.string().describe("CCXT exchange identifier that handled the invocation"),
   account: z.string().optional().describe("Account name used for authenticated calls"),
@@ -658,3 +664,9 @@ export const ccxtInvocationResultSchema = z.object({
   classification: ccxtInvocationClassificationSchema,
   result: z.unknown().describe("Raw result returned by the CCXT method"),
 });
+
+export const ccxtPrivateWriteResultSchema = z
+  .union([pendingConfirmationResultSchema, ccxtInvocationResultSchema])
+  .describe(
+    "Result of a CCXT private write operation — either pending confirmation or completed invocation"
+  );
