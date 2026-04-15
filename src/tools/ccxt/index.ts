@@ -215,6 +215,16 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
     );
   }
 
+  const { registry } = getCcxtRuntimeState();
+  if (isHighRiskCcxtMethod(input.method) && registry.insecurePermissions) {
+    return formatToolErrorFromUnknown(
+      "CCXT_PRIVATE_WRITE_ERROR",
+      new Error(
+        `Method '${input.method}' is blocked because CCXT config file has insecure permissions. Run: chmod 600 <config-path>`
+      )
+    );
+  }
+
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",
     `CCXT ${input.method} on account ${input.account}`,

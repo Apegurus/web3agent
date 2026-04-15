@@ -8,6 +8,12 @@ const mockState = vi.hoisted(() => ({
   invokeCcxtPrivateWrite: vi.fn(),
 }));
 
+const mockRegistry = vi.hoisted(() => ({
+  accounts: [{ name: "binance_main", exchangeId: "binance" }],
+  warnings: [] as string[],
+  insecurePermissions: false,
+}));
+
 vi.mock("ccxt", () => ({
   default: {
     exchanges: ["binance", "kraken"],
@@ -46,10 +52,7 @@ vi.mock("../../../src/ccxt/runtime-state.js", () => ({
         loadMarkets: vi.fn(),
       })),
     },
-    registry: {
-      accounts: [{ name: "binance_main", exchangeId: "binance" }],
-      warnings: [],
-    },
+    registry: mockRegistry,
   }),
 }));
 
@@ -92,6 +95,7 @@ function getFirstTextContent(result: { content?: Array<{ type: string; text?: st
 describe("ccxt tool definitions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRegistry.insecurePermissions = false;
     mockState.listAccountSummaries.mockReturnValue([
       {
         name: "binance_main",
@@ -313,5 +317,33 @@ describe("ccxt tool definitions", () => {
 
     expect(result.isError).toBe(true);
     expect(getFirstTextContent(result)).toContain("requires confirmation to be enabled");
+  });
+
+  it("rejects withdraw when config permissions are insecure", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    Object.defineProperty(mockQueue, "enabled", {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+    mockRegistry.insecurePermissions = true;
+
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    const result = await tool.handler({
+      account: "binance_main",
+      method: "withdraw",
+      args: ["USDT", 100, "0xaddr"],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getFirstTextContent(result)).toContain("insecure permissions");
+    expect(mockState.invokeCcxtPrivateWrite).not.toHaveBeenCalled();
+    Object.defineProperty(mockQueue, "enabled", {
+      value: false,
+      writable: true,
+      configurable: true,
+    });
   });
 });
