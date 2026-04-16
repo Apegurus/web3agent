@@ -53,10 +53,12 @@ describe("spot-config", () => {
   });
 
   describe("getSpotApiUrl", () => {
-    it("returns an https URL containing 'agents-sink'", () => {
+    it("returns the production URL without -dev suffix", () => {
       const url = getSpotApiUrl();
       expect(url).toMatch(/^https:\/\//);
       expect(url).toContain("agents-sink");
+      expect(url).not.toContain("-dev");
+      expect(url).toBe("https://agents-sink.orbs.network");
     });
   });
 

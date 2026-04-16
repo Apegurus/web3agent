@@ -24,7 +24,8 @@ import {
   formatToolResponse,
 } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
-import { confirmationQueue } from "../../wallet/confirmation.js";
+import { executeWrite } from "../../utils/write.js";
+import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
 import {
   activateWallet,
   deactivateWallet,
@@ -142,15 +143,38 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
   try {
     const v = validateInput(walletActivateSchema, params);
     if (!v.success) return v.error;
-    const { privateKey, mnemonic, accountIndex, addressIndex } = v.data;
+    const description = v.data.mnemonic
+      ? "Activate wallet from mnemonic phrase"
+      : "Activate wallet from private key";
 
-    const state = await activateWallet({
-      privateKey,
-      mnemonic,
-      accountIndex,
-      addressIndex,
-    });
+    // wallet_activate bypasses executeWrite() for two reasons:
+    // 1. executeWrite rejects read-only mode, but wallet_activate is how you EXIT read-only.
+    // 2. params contain secrets (privateKey/mnemonic) that must never be persisted to disk
+    //    via the confirmation queue's pending-ops.json.
+    // Instead, enqueue directly with scrubbed params and a closure that captures the real data.
+    const activateData = { ...v.data };
 
+    const { queued, id, summary } = confirmationQueue.enqueue(
+      "wallet_activate",
+      description,
+      { source: activateData.mnemonic ? "mnemonic" : "private-key" },
+      async () => {
+        const state = await activateWallet(activateData);
+        return formatToolResponse({
+          address: state.address,
+          chainId: state.chainId,
+          mode: state.mode,
+        });
+      },
+      getWalletState().address,
+      "destructive"
+    );
+
+    if (queued) {
+      return formatToolResponse({ status: "pending_confirmation", id, summary });
+    }
+
+    const state = await activateWallet(activateData);
     return formatToolResponse({
       address: state.address,
       chainId: state.chainId,
@@ -164,13 +188,23 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
   }
 }
 
+async function walletDeactivateExecutor(): Promise<CallToolResult> {
+  await deactivateWallet();
+  const state = getWalletState();
+  return formatToolResponse({
+    mode: state.mode,
+    message: "Wallet deactivated. Reverted to read-only ephemeral wallet.",
+  });
+}
+
 export async function walletDeactivate(): Promise<CallToolResult> {
   try {
-    await deactivateWallet();
-    const state = getWalletState();
-    return formatToolResponse({
-      mode: state.mode,
-      message: "Wallet deactivated. Reverted to read-only ephemeral wallet.",
+    return await executeWrite({
+      toolName: "wallet_deactivate",
+      description: "Deactivate wallet and delete persisted key file",
+      params: {},
+      executor: walletDeactivateExecutor,
+      riskLevel: "destructive",
     });
   } catch (err: unknown) {
     return formatToolError(
@@ -188,13 +222,28 @@ export async function walletSetConfirmation(
     if (!v.success) return v.error;
     const { enabled } = v.data;
 
-    confirmationQueue.enabled = enabled;
+    if (enabled) {
+      confirmationQueue.enabled = true;
 
-    return formatToolResponse({
-      confirmationRequired: confirmationQueue.enabled,
-      message: enabled
-        ? "Write confirmation enabled. Transactions will require explicit confirmation."
-        : "Write confirmation disabled. Transactions will execute immediately.",
+      return formatToolResponse({
+        confirmationRequired: true,
+        message: "Write confirmation enabled. Transactions will require explicit confirmation.",
+      });
+    }
+
+    if (!confirmationQueue.enabled) {
+      return formatToolResponse({
+        confirmationRequired: false,
+        message: "Write confirmation already disabled. Transactions execute immediately.",
+      });
+    }
+
+    return executeWrite({
+      toolName: "wallet_set_confirmation",
+      description: "Disable write confirmation — all future writes will execute immediately",
+      params: { enabled: false } as unknown as Record<string, unknown>,
+      executor: walletSetConfirmationExecutor,
+      riskLevel: "destructive",
     });
   } catch (err: unknown) {
     return formatToolError(
@@ -358,4 +407,25 @@ export async function transactionSimulate(
   } catch (error: unknown) {
     return formatToolErrorFromUnknown("SIMULATION_ERROR", error, "Failed to simulate transaction");
   }
+}
+
+async function walletSetConfirmationExecutor(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  confirmationQueue.enabled = (params as { enabled: boolean }).enabled;
+  const enabled = confirmationQueue.enabled;
+  return formatToolResponse({
+    confirmationRequired: enabled,
+    message: enabled
+      ? "Write confirmation enabled."
+      : "Write confirmation disabled. Transactions will execute immediately.",
+  });
+}
+
+export function registerWalletExecutors(): void {
+  // wallet_activate is NOT registered here — its executor captures secrets in a closure
+  // and must not be restorable from persisted params. If a pending wallet_activate is
+  // found on disk after restart, it's skipped (no registered executor).
+  registerExecutor("wallet_deactivate", walletDeactivateExecutor);
+  registerExecutor("wallet_set_confirmation", walletSetConfirmationExecutor);
 }

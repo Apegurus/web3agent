@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { GoatProvider } from "../../src/goat/provider.js";
+import { walletEvents } from "../../src/wallet/events.js";
 
 vi.mock("../../src/goat/toolset.js", () => ({
   buildGoatTools: vi.fn().mockResolvedValue([
@@ -154,5 +155,33 @@ describe("GoatProvider — chain-aware dispatch", () => {
     const plugins = provider.getLoadedPlugins();
     expect(plugins).toContain("erc20");
     expect(plugins).toContain("dexscreener");
+  });
+
+  it("clears all cached snapshots when wallet changes", async () => {
+    const { buildGoatTools } = await import("../../src/goat/toolset.js");
+    const buildSpy = vi.mocked(buildGoatTools);
+
+    const provider = new GoatProvider();
+    await provider.initialize(runtimeConfig);
+
+    await provider.getOrBuildSnapshot(1);
+    await provider.getOrBuildSnapshot(8453);
+
+    const callCountBeforeChange = buildSpy.mock.calls.length;
+
+    walletEvents.emit("wallet-changed", {
+      mode: "read-only",
+      chainId: 8453,
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+    await provider.waitForRebuild();
+
+    const callCountAfterRebuild = buildSpy.mock.calls.length;
+    expect(callCountAfterRebuild).toBeGreaterThan(callCountBeforeChange);
+
+    const callCountBeforeChain1Fetch = buildSpy.mock.calls.length;
+    await provider.getOrBuildSnapshot(1);
+    expect(buildSpy.mock.calls.length).toBeGreaterThan(callCountBeforeChain1Fetch);
   });
 });

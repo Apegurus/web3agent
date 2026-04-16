@@ -36,6 +36,8 @@ export class GoatProvider {
     this.walletChangeHandler = (state) => {
       this.generation++;
       const gen = this.generation;
+      // Invalidate ALL cached snapshots — they hold the old wallet's signer
+      this.snapshots.clear();
       const hasWallet = state.mode !== "read-only";
       this.pluginResult = loadPlugins({
         hasWallet,

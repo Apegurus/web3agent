@@ -117,7 +117,8 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Toggle write confirmation at runtime. When enabled, write operations are queued and require explicit confirmation.",
       inputSchema: zodToJsonSchema(walletSetConfirmationSchema) as Record<string, unknown>,
       handler: (params) => walletSetConfirmation(params),
-      annotations: { idempotentHint: true },
+      riskLevel: "destructive",
+      annotations: { idempotentHint: true, destructiveHint: true },
     },
   ];
 }

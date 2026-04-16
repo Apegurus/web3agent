@@ -197,6 +197,13 @@ describe("runPolicy", () => {
     );
   });
 
+  it("throws when numeric value is Infinity", async () => {
+    const { runPolicy } = await import("../../src/cli/policy.js");
+    await expect(runPolicy(["set", "--max-daily", "Infinity"])).rejects.toThrow(
+      "Invalid value for maxDailyUsd"
+    );
+  });
+
   it("prints help for unknown subcommand", async () => {
     const { runPolicy } = await import("../../src/cli/policy.js");
     await runPolicy(["help"]);

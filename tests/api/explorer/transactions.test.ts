@@ -190,10 +190,10 @@ describe("normalizeBlockscoutTxReceipt", () => {
     expect(result.status).toBe("failed");
   });
 
-  it("maps pending status to failed in receipt", () => {
+  it("maps pending status to pending in receipt", () => {
     const raw: BlockscoutTransaction = { ...baseBsTx, status: "" };
     const result = normalizeBlockscoutTxReceipt(raw);
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("pending");
   });
 
   it("maps effectiveGasPrice from gas_price", () => {

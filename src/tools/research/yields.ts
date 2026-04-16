@@ -10,10 +10,14 @@ const TTL = 300_000;
 const CHAIN_ALIASES: Record<string, string> = {
   bsc: "binance",
   bnb: "binance",
+  "bnb smart chain": "binance",
+  "binance smart chain": "binance",
   avax: "avalanche",
   matic: "polygon",
   arb: "arbitrum",
+  "arbitrum one": "arbitrum",
   op: "optimism",
+  "op mainnet": "optimism",
   ftm: "fantom",
   eth: "ethereum",
 };
@@ -121,8 +125,8 @@ export async function getCompareYields(input: {
 
   if (chainId !== undefined) {
     const chain = getChainById(chainId);
-    const chainNameLower = chain ? chain.name.toLowerCase() : String(chainId).toLowerCase();
-    filtered = filtered.filter((p) => p.chain.toLowerCase().includes(chainNameLower));
+    const normalized = chain ? normalizeChainName(chain.name) : String(chainId).toLowerCase();
+    filtered = filtered.filter((p) => p.chain.toLowerCase() === normalized);
   }
 
   filtered.sort((a, b) => (b.apy ?? 0) - (a.apy ?? 0));

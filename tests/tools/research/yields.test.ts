@@ -13,6 +13,18 @@ vi.mock("../../../src/tools/shared/cache.js", () => ({
   ttlCache: vi.fn((_key: string, _ttl: number, fetcher: () => Promise<unknown>) => fetcher()),
 }));
 
+vi.mock("../../../src/chains/registry.js", () => ({
+  getChainById: vi.fn((id: number) => {
+    const chains: Record<number, { id: number; name: string }> = {
+      1: { id: 1, name: "Ethereum" },
+      56: { id: 56, name: "BNB Smart Chain" },
+      42161: { id: 42161, name: "Arbitrum One" },
+      10: { id: 10, name: "OP Mainnet" },
+    };
+    return chains[id];
+  }),
+}));
+
 import { resilientFetch } from "../../../src/utils/resilient-fetch.js";
 
 const mockFetch = vi.mocked(resilientFetch);
@@ -263,6 +275,85 @@ describe("getCompareYields", () => {
     const result = await getCompareYields({ token: "NONEXISTENT" });
 
     expect(result).toHaveLength(0);
+  });
+
+  it("filters by chainId 56 (BNB Smart Chain) using normalizeChainName alias", async () => {
+    const poolsWithBsc = [
+      ...samplePools,
+      {
+        pool: "pool-bsc-1",
+        project: "pancakeswap",
+        chain: "Binance",
+        symbol: "USDC",
+        tvlUsd: 3_000_000,
+        apy: 8.0,
+        apyBase: 6.0,
+        apyReward: 2.0,
+        ilRisk: "NO",
+        rewardTokens: [],
+      },
+    ];
+    mockFetch.mockResolvedValueOnce(mockResponse({ data: poolsWithBsc }));
+
+    const result = await getCompareYields({ token: "USDC", chainId: 56 });
+
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    for (const r of result) {
+      expect(r.chain.toLowerCase()).toBe("binance");
+    }
+    expect(result.some((r) => r.project === "pancakeswap")).toBe(true);
+  });
+
+  it("filters by chainId 42161 (Arbitrum One) using normalizeChainName alias", async () => {
+    const poolsWithArb = [
+      ...samplePools,
+      {
+        pool: "pool-arb-1",
+        project: "gmx",
+        chain: "Arbitrum",
+        symbol: "USDC",
+        tvlUsd: 2_000_000,
+        apy: 6.0,
+        apyBase: 4.0,
+        apyReward: 2.0,
+        ilRisk: "NO",
+        rewardTokens: [],
+      },
+    ];
+    mockFetch.mockResolvedValueOnce(mockResponse({ data: poolsWithArb }));
+
+    const result = await getCompareYields({ token: "USDC", chainId: 42161 });
+
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    for (const r of result) {
+      expect(r.chain.toLowerCase()).toBe("arbitrum");
+    }
+  });
+
+  it("filters by chainId 10 (OP Mainnet) using normalizeChainName alias", async () => {
+    const poolsWithOp = [
+      ...samplePools,
+      {
+        pool: "pool-op-1",
+        project: "velodrome",
+        chain: "Optimism",
+        symbol: "USDC",
+        tvlUsd: 1_500_000,
+        apy: 5.0,
+        apyBase: 3.0,
+        apyReward: 2.0,
+        ilRisk: "NO",
+        rewardTokens: [],
+      },
+    ];
+    mockFetch.mockResolvedValueOnce(mockResponse({ data: poolsWithOp }));
+
+    const result = await getCompareYields({ token: "USDC", chainId: 10 });
+
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    for (const r of result) {
+      expect(r.chain.toLowerCase()).toBe("optimism");
+    }
   });
 });
 

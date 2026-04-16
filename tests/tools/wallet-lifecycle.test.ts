@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockActivateWallet = vi.fn();
 const mockDeactivateWallet = vi.fn();
 const mockGetWalletState = vi.fn();
 const mockGetActiveAccount = vi.fn();
-const mockConfirmationQueue = { enabled: true };
+const mockConfirmationQueue = {
+  enabled: true,
+  enqueue: vi.fn(),
+};
 
 vi.mock("../../src/wallet/persistence.js", () => ({
   activateWallet: (...args: unknown[]) => mockActivateWallet(...args),
@@ -15,9 +18,16 @@ vi.mock("../../src/wallet/persistence.js", () => ({
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: mockConfirmationQueue,
+  registerExecutor: vi.fn(),
 }));
 
 describe("wallet_activate tool handler", () => {
+  beforeEach(() => {
+    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockConfirmationQueue.enabled = false;
+    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+  });
+
   it("rejects when neither privateKey nor mnemonic provided", async () => {
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletActivate({});
@@ -86,9 +96,17 @@ describe("wallet_activate tool handler", () => {
 });
 
 describe("wallet_deactivate tool handler", () => {
+  beforeEach(() => {
+    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockConfirmationQueue.enabled = false;
+    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+  });
+
   it("calls deactivateWallet and returns read-only state", async () => {
     mockDeactivateWallet.mockResolvedValueOnce(undefined);
-    mockGetWalletState.mockReturnValueOnce({ mode: "read-only", chainId: 1 });
+    mockGetWalletState
+      .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
+      .mockReturnValueOnce({ mode: "read-only", chainId: 1 });
 
     const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
@@ -97,6 +115,23 @@ describe("wallet_deactivate tool handler", () => {
     const payload = JSON.parse(result.content[0].text as string);
     expect(payload.mode).toBe("read-only");
     expect(mockDeactivateWallet).toHaveBeenCalled();
+  });
+
+  it("returns pending_confirmation when confirmation is enabled", async () => {
+    mockConfirmationQueue.enabled = true;
+    mockConfirmationQueue.enqueue.mockReturnValueOnce({
+      queued: true,
+      id: "deactivate-op",
+      summary: "Deactivate wallet",
+    });
+
+    const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDeactivate();
+
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("deactivate-op");
   });
 
   it("returns error when deactivateWallet throws", async () => {
@@ -121,16 +156,22 @@ describe("wallet_set_confirmation tool handler", () => {
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
-  it("toggles confirmationQueue.enabled to false", async () => {
+  it("queues disable-confirmation when confirmation is currently enabled", async () => {
     mockConfirmationQueue.enabled = true;
+    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockConfirmationQueue.enqueue.mockReturnValue({
+      queued: true,
+      id: "test-op-id",
+      summary: "Disable write confirmation",
+    });
 
     const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
     const result = await walletSetConfirmation({ enabled: false });
 
     expect(result.isError).toBe(false);
-    expect(mockConfirmationQueue.enabled).toBe(false);
     const payload = JSON.parse(result.content[0].text as string);
-    expect(payload.confirmationRequired).toBe(false);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("test-op-id");
   });
 
   it("toggles confirmationQueue.enabled to true", async () => {

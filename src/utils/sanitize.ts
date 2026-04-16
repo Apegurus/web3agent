@@ -178,10 +178,12 @@ export function sanitizeToolInput(
 
   if (allThreats.length === 0) return { safe: true, threats: [] };
 
-  const hasCritical = allThreats.some((t) => t.severity === "critical");
+  const hasBlockingThreat = allThreats.some(
+    (t) => t.severity === "critical" || t.severity === "high"
+  );
 
-  // Financial/destructive tools: block on critical threats (financial manipulation, self-harm)
-  if ((riskLevel === "financial" || riskLevel === "destructive") && hasCritical) {
+  // Financial/destructive tools: block on critical and high-severity threats
+  if ((riskLevel === "financial" || riskLevel === "destructive") && hasBlockingThreat) {
     return { safe: false, threats: allThreats };
   }
 

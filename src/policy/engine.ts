@@ -69,6 +69,19 @@ export function evaluatePolicy(
   }
 
   if (request.estimatedUsd === null) {
+    // Financial tools MUST have an enforceable USD estimate.
+    // null means the estimator couldn't parse the tool's args — deny to prevent bypass.
+    if (request.riskLevel === "financial") {
+      return buildDecision(
+        "deny",
+        "UNESTIMABLE_FINANCIAL_WRITE",
+        `${request.toolName}: cannot estimate USD value for financial tool — spend limits cannot be enforced`,
+        request,
+        spend,
+        policy
+      );
+    }
+    // Non-financial tools (destructive, etc.) with no token amount are gas-only.
     return buildDecision(
       "allow",
       "GAS_ONLY",

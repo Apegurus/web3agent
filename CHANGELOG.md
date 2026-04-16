@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** `ExplorerTxReceipt.status` enum widened from `"success" | "failed"` to `"success" | "failed" | "pending"`. Downstream SDK consumers with exhaustive type guards or switch statements must handle the new `"pending"` variant.
 - **BREAKING:** `CcxtAccountSummary` no longer includes `hasPassword`, `hasUid`, or `hasWalletAddress` fields. These credential-presence booleans leaked configuration metadata to MCP consumers.
 - **Binance market helpers are now deprecated compatibility shims** backed by the native CCXT layer:
   - `market_get_ticker`
