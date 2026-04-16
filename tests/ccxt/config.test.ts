@@ -24,6 +24,7 @@ vi.mock("ccxt", () => ({
 }));
 
 import {
+  accountHasCredentials,
   getAccountByName,
   listAccountSummaries,
   resolveExchangeIdFromAccount,
@@ -222,6 +223,17 @@ describe("ccxt account helpers", () => {
         sandbox: true,
       },
     ]);
+  });
+
+  it("requires apiKey+secret pair or privateKey for credentials", () => {
+    expect(accountHasCredentials({ name: "a", exchangeId: "x", apiKey: "k", secret: "s" })).toBe(
+      true
+    );
+    expect(accountHasCredentials({ name: "a", exchangeId: "x", privateKey: "pk" })).toBe(true);
+    expect(accountHasCredentials({ name: "a", exchangeId: "x", apiKey: "k" })).toBe(false);
+    expect(accountHasCredentials({ name: "a", exchangeId: "x", secret: "s" })).toBe(false);
+    expect(accountHasCredentials({ name: "a", exchangeId: "x", password: "p" })).toBe(false);
+    expect(accountHasCredentials({ name: "a", exchangeId: "x" })).toBe(false);
   });
 
   it("resolves account lookups and exchange IDs by name", () => {

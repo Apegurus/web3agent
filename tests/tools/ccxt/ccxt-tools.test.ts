@@ -67,7 +67,7 @@ vi.mock("../../../src/wallet/confirmation.js", () => ({
 vi.mock("../../../src/ccxt/accounts.js", () => ({
   listAccountSummaries: (...args: unknown[]) => mockState.listAccountSummaries(...args),
   accountHasCredentials: (account: { apiKey?: string; secret?: string; privateKey?: string }) =>
-    Boolean(account.apiKey) || Boolean(account.secret) || Boolean(account.privateKey),
+    Boolean(account.privateKey) || (Boolean(account.apiKey) && Boolean(account.secret)),
   getAccountByName: vi.fn(),
   resolveExchangeIdFromAccount: vi.fn(),
 }));

@@ -2,7 +2,7 @@ import type { CcxtAccountSummary } from "../api/types.js";
 import type { CcxtAccountConfig, CcxtAccountRegistry } from "./types.js";
 
 export function accountHasCredentials(account: CcxtAccountConfig): boolean {
-  return Boolean(account.apiKey) || Boolean(account.secret) || Boolean(account.privateKey);
+  return Boolean(account.privateKey) || (Boolean(account.apiKey) && Boolean(account.secret));
 }
 
 export function getAccountByName(
