@@ -71,7 +71,7 @@ export const explorerTxDetailsSchema = explorerTransactionSchema.extend({
 
 export const explorerTxReceiptSchema = z.object({
   hash: z.string().describe("Transaction hash"),
-  status: z.enum(["success", "failed"]).describe("Execution status"),
+  status: z.enum(["success", "failed", "pending"]).describe("Execution status"),
   blockNumber: z.number().describe("Block number"),
   gasUsed: z.string().describe("Gas used"),
   effectiveGasPrice: z.string().optional().describe("Effective gas price"),

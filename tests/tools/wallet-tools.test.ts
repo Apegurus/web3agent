@@ -22,11 +22,13 @@ const persistenceMocks = vi.hoisted(() => ({
 
 const confirmationQueueMock = vi.hoisted(() => ({
   enabled: true,
+  enqueue: vi.fn(),
   confirm: vi.fn(),
   complete: vi.fn(),
   deny: vi.fn(),
   list: vi.fn(),
   pruneExpired: vi.fn(),
+  registerExecutor: vi.fn(),
 }));
 
 vi.mock("viem/accounts", () => ({
@@ -41,6 +43,7 @@ vi.mock("../../src/wallet/persistence.js", () => persistenceMocks);
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: confirmationQueueMock,
+  registerExecutor: (...args: unknown[]) => confirmationQueueMock.registerExecutor(...args),
 }));
 
 vi.mock("../../src/config/env.js", () => ({
@@ -52,10 +55,15 @@ describe("wallet tool handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     confirmationQueueMock.enabled = true;
+    confirmationQueueMock.enqueue.mockReturnValue({
+      queued: true,
+      id: "pending-op-id",
+      summary: "Queued [wallet_set_confirmation]: Disable write confirmation",
+    });
     persistenceMocks.getWalletState.mockReturnValue({
-      mode: "read-only",
+      mode: "private-key",
       chainId: 8453,
-      address: null,
+      address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
     persistenceMocks.getActiveAccount.mockReturnValue({
       address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
@@ -150,16 +158,96 @@ describe("wallet tool handlers", () => {
     });
   });
 
-  it("walletSetConfirmation toggles confirmationQueue.enabled", async () => {
+  it("walletActivate returns pending_confirmation when confirmation is enabled", async () => {
     confirmationQueueMock.enabled = true;
+
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletActivate({
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    expect(result.isError).toBe(false);
+    expect(confirmationQueueMock.enqueue).toHaveBeenCalledTimes(1);
+    expect(persistenceMocks.activateWallet).not.toHaveBeenCalled();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("pending-op-id");
+  });
+
+  it("walletActivate activates directly when confirmation is disabled", async () => {
+    confirmationQueueMock.enabled = false;
+    confirmationQueueMock.enqueue.mockReturnValue({
+      queued: false,
+      id: "wallet-activate-direct",
+      summary: "Executed [wallet_activate]: Activate wallet from private key",
+    });
+    persistenceMocks.activateWallet.mockResolvedValue({
+      address: "0x5555555555555555555555555555555555555555",
+      chainId: 8453,
+      mode: "private-key",
+    });
+
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletActivate({
+      privateKey: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    });
+
+    expect(result.isError).toBe(false);
+    expect(confirmationQueueMock.enqueue).toHaveBeenCalledTimes(1);
+    expect(persistenceMocks.activateWallet).toHaveBeenCalledWith({
+      privateKey: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      mnemonic: undefined,
+      accountIndex: undefined,
+      addressIndex: undefined,
+    });
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload).toEqual({
+      address: "0x5555555555555555555555555555555555555555",
+      chainId: 8453,
+      mode: "private-key",
+    });
+  });
+
+  it("walletSetConfirmation enables confirmation directly without queueing", async () => {
+    confirmationQueueMock.enabled = false;
+
+    const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
+    const result = await walletSetConfirmation({ enabled: true });
+
+    expect(result.isError).toBe(false);
+    expect(confirmationQueueMock.enabled).toBe(true);
+    expect(confirmationQueueMock.enqueue).not.toHaveBeenCalled();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.confirmationRequired).toBe(true);
+    expect(payload.message).toContain("Write confirmation enabled");
+  });
+
+  it("walletSetConfirmation returns a no-op response when confirmation is already disabled", async () => {
+    confirmationQueueMock.enabled = false;
 
     const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
     const result = await walletSetConfirmation({ enabled: false });
 
     expect(result.isError).toBe(false);
     expect(confirmationQueueMock.enabled).toBe(false);
+    expect(confirmationQueueMock.enqueue).not.toHaveBeenCalled();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.confirmationRequired).toBe(false);
+    expect(payload.message).toContain("already disabled");
+  });
+
+  it("walletSetConfirmation queues disabling confirmation when it is currently enabled", async () => {
+    confirmationQueueMock.enabled = true;
+
+    const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
+    const result = await walletSetConfirmation({ enabled: false });
+
+    expect(result.isError).toBe(false);
+    expect(confirmationQueueMock.enabled).toBe(true);
+    expect(confirmationQueueMock.enqueue).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("pending-op-id");
   });
 
   it("transactionList returns empty list when there are no pending operations", async () => {

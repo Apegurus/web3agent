@@ -47,6 +47,7 @@ import {
 import { getResearchToolDefinitions } from "../tools/research/index.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
+import { registerWalletExecutors } from "../tools/wallet/index.js";
 import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
@@ -123,6 +124,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerOrbsExecutors();
   registerLifiExecutors();
   registerX402Executors();
+  registerWalletExecutors();
   registerErc8183Executors();
   registerAcpVirtualsExecutors();
   registerAgdpExecutors();

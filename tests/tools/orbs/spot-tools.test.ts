@@ -273,7 +273,7 @@ describe("orbs_submit_signed_order", () => {
     const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
 
     const result = await tool.handler({
-      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
+      submitUrl: "https://agents-sink.orbs.network/orders/new",
       order: { key: "value" },
       signature: VALID_SIGNATURE,
     });
@@ -297,12 +297,11 @@ describe("orbs_submit_signed_order", () => {
     const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
 
     const result = await tool.handler({
-      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
+      submitUrl: "https://agents-sink.orbs.network/orders/new",
       order: { key: "value" },
       signature: VALID_SIGNATURE,
     });
 
-    // The handler now returns formatToolError for failed submissions
     expect(result.isError).toBe(true);
     const parsed = parseResult(result);
     expect(parsed.error).toBe("ORBS_ORDER_ERROR");
@@ -314,9 +313,9 @@ describe("orbs_submit_signed_order", () => {
     const tool = tools.find((t) => t.name === "orbs_submit_signed_order") as ToolDefinition;
 
     const result = await tool.handler({
-      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
+      submitUrl: "https://agents-sink.orbs.network/orders/new",
       order: { key: "value" },
-      signature: "0xshort", // too short
+      signature: "0xshort",
     });
 
     expect(result.isError).toBe(true);

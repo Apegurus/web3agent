@@ -21,6 +21,23 @@ All state-changing operations (swaps, bridges, transfers, wallet activation/deac
 - Queue is wallet-bound: switching wallets clears pending operations from the previous wallet
 - Disable with `CONFIRM_WRITES=false` env var or `wallet_set_confirmation(false)` at runtime
 
+## Confirmation Queue Trust Model
+
+The confirmation queue provides a **temporal pause** for destructive and financial operations — it is **not an authorization boundary**.
+
+Key implications:
+
+- The same MCP session that queued an operation can confirm it immediately. There is no separate authentication step between queue and confirm.
+- An AI agent can queue a wallet activation and confirm it in the next tool call without human intervention.
+- The queue is a speed bump that gives the host application (Claude Code, Cursor, etc.) an opportunity to surface the pending operation to the user. Whether the user actually sees and approves it depends entirely on the host's UI.
+
+**For production deployments requiring true human-in-the-loop:**
+
+- Configure an out-of-band confirmation mechanism (e.g., Telegram bot, email approval, hardware wallet prompt)
+- Do not rely solely on the MCP confirmation queue as a security gate
+
+**Future improvement:** Session-bound confirmations where a different session or credential is required to confirm operations queued by an AI agent.
+
 ## Audit Log
 
 Confirmed, denied, and expired operations are logged to `~/.web3agent/audit.log` for post-hoc review.

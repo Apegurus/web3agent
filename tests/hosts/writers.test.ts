@@ -131,4 +131,49 @@ describe("config writers", () => {
     const result = await writer.write({ projectDir: TEST_DIR, mode: "proxy", dryRun: false });
     expect(result.action).toBe("unchanged");
   });
+
+  it("switching from multi-server to proxy removes stale managed keys", async () => {
+    const { CursorWriter } = await import("../../src/hosts/writers/cursor.js");
+    const writer = new CursorWriter();
+
+    await writer.write({ projectDir: TEST_DIR, mode: "multi-server", dryRun: false });
+    const afterMulti = JSON.parse(await readFile(join(TEST_DIR, ".cursor/mcp.json"), "utf-8"));
+    expect(afterMulti.mcpServers.blockscout).toBeDefined();
+    expect(afterMulti.mcpServers.etherscan).toBeDefined();
+    expect(afterMulti.mcpServers.evm).toBeDefined();
+
+    await writer.write({ projectDir: TEST_DIR, mode: "proxy", dryRun: false });
+    const afterProxy = JSON.parse(await readFile(join(TEST_DIR, ".cursor/mcp.json"), "utf-8"));
+    expect(afterProxy.mcpServers.web3agent).toBeDefined();
+    expect(afterProxy.mcpServers.blockscout).toBeUndefined();
+    expect(afterProxy.mcpServers.etherscan).toBeUndefined();
+    expect(afterProxy.mcpServers.evm).toBeUndefined();
+  });
+
+  it("switching from multi-server to proxy preserves user-added keys", async () => {
+    await mkdir(join(TEST_DIR, ".cursor"), { recursive: true });
+    const existingConfig = JSON.stringify(
+      {
+        mcpServers: {
+          "my-custom-server": { command: "custom-cmd" },
+          blockscout: { type: "sse", url: "https://example.com" },
+          etherscan: { type: "sse", url: "https://example.com" },
+          evm: { command: "npx", args: ["-y", "@mcpdotdirect/evm-mcp-server"] },
+        },
+      },
+      null,
+      2
+    );
+    await writeFile(join(TEST_DIR, ".cursor/mcp.json"), existingConfig);
+
+    const { CursorWriter } = await import("../../src/hosts/writers/cursor.js");
+    const writer = new CursorWriter();
+    await writer.write({ projectDir: TEST_DIR, mode: "proxy", dryRun: false });
+
+    const content = JSON.parse(await readFile(join(TEST_DIR, ".cursor/mcp.json"), "utf-8"));
+    expect(content.mcpServers["my-custom-server"]).toBeDefined();
+    expect(content.mcpServers.blockscout).toBeUndefined();
+    expect(content.mcpServers.etherscan).toBeUndefined();
+    expect(content.mcpServers.evm).toBeUndefined();
+  });
 });

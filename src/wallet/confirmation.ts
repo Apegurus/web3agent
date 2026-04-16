@@ -34,6 +34,21 @@ function getPendingOpsPath(): string {
   return join(homedir(), ".web3agent", "pending-ops.json");
 }
 
+/**
+ * Manages a queue of pending write operations that require explicit confirmation.
+ *
+ * **Security model: temporal pause, NOT authorization boundary.**
+ *
+ * This queue creates a deliberate pause between requesting and executing destructive
+ * or financial operations. However, the same MCP session that enqueues an operation
+ * can also confirm it — there is no caller identity verification.
+ *
+ * For true human-in-the-loop authorization, configure an out-of-band confirmation
+ * channel (e.g., Telegram, email, hardware wallet). The queue alone only guarantees
+ * that the operation was explicitly confirmed, not that a human reviewed it.
+ *
+ * Future: consider session-bound confirmations requiring a different credential.
+ */
 export class ConfirmationQueueManager {
   private queue: Map<string, PendingOperation> = new Map();
   private persistChain: Promise<void> = Promise.resolve();
@@ -107,6 +122,10 @@ export class ConfirmationQueueManager {
 
   private executing = new Set<string>();
 
+  /**
+   * Confirm a pending operation by ID. Does not verify caller identity —
+   * this is not an authorization boundary. Any caller with the operation ID can confirm.
+   */
   confirm(id: string): { operation: PendingOperation; stale: boolean } | null {
     const operation = this.queue.get(id);
     if (!operation) return null;

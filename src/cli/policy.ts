@@ -78,8 +78,8 @@ async function setPolicy(args: string[]): Promise<void> {
   }
 
   for (const [key, value] of Object.entries(updates)) {
-    if (typeof value === "number" && (Number.isNaN(value) || value < 0)) {
-      throw new Error(`Invalid value for ${key}: must be a non-negative number`);
+    if (typeof value === "number" && (!Number.isFinite(value) || value < 0)) {
+      throw new Error(`Invalid value for ${key}: must be a finite non-negative number`);
     }
   }
 

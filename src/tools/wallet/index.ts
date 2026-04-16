@@ -24,7 +24,8 @@ import {
   formatToolResponse,
 } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
-import { confirmationQueue } from "../../wallet/confirmation.js";
+import { executeWrite } from "../../utils/write.js";
+import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
 import {
   activateWallet,
   deactivateWallet,
@@ -138,23 +139,42 @@ export async function walletGetActive(): Promise<CallToolResult> {
   }
 }
 
+async function walletActivateExecutor(params: Record<string, unknown>): Promise<CallToolResult> {
+  const { privateKey, mnemonic, accountIndex, addressIndex } = params as {
+    privateKey?: string;
+    mnemonic?: string;
+    accountIndex?: number;
+    addressIndex?: number;
+  };
+
+  const state = await activateWallet({
+    privateKey,
+    mnemonic,
+    accountIndex,
+    addressIndex,
+  });
+
+  return formatToolResponse({
+    address: state.address,
+    chainId: state.chainId,
+    mode: state.mode,
+  });
+}
+
 export async function walletActivate(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const v = validateInput(walletActivateSchema, params);
     if (!v.success) return v.error;
-    const { privateKey, mnemonic, accountIndex, addressIndex } = v.data;
+    const description = v.data.mnemonic
+      ? "Activate wallet from mnemonic phrase"
+      : "Activate wallet from private key";
 
-    const state = await activateWallet({
-      privateKey,
-      mnemonic,
-      accountIndex,
-      addressIndex,
-    });
-
-    return formatToolResponse({
-      address: state.address,
-      chainId: state.chainId,
-      mode: state.mode,
+    return executeWrite({
+      toolName: "wallet_activate",
+      description,
+      params: v.data as unknown as Record<string, unknown>,
+      executor: walletActivateExecutor,
+      riskLevel: "destructive",
     });
   } catch (err: unknown) {
     return formatToolError(
@@ -188,13 +208,34 @@ export async function walletSetConfirmation(
     if (!v.success) return v.error;
     const { enabled } = v.data;
 
-    confirmationQueue.enabled = enabled;
+    if (enabled) {
+      confirmationQueue.enabled = true;
 
-    return formatToolResponse({
-      confirmationRequired: confirmationQueue.enabled,
-      message: enabled
-        ? "Write confirmation enabled. Transactions will require explicit confirmation."
-        : "Write confirmation disabled. Transactions will execute immediately.",
+      return formatToolResponse({
+        confirmationRequired: true,
+        message: "Write confirmation enabled. Transactions will require explicit confirmation.",
+      });
+    }
+
+    if (!confirmationQueue.enabled) {
+      return formatToolResponse({
+        confirmationRequired: false,
+        message: "Write confirmation already disabled. Transactions execute immediately.",
+      });
+    }
+
+    return executeWrite({
+      toolName: "wallet_set_confirmation",
+      description: "Disable write confirmation — all future writes will execute immediately",
+      params: { enabled: false } as unknown as Record<string, unknown>,
+      executor: async () => {
+        confirmationQueue.enabled = false;
+        return formatToolResponse({
+          confirmationRequired: false,
+          message: "Write confirmation disabled. Transactions will execute immediately.",
+        });
+      },
+      riskLevel: "destructive",
     });
   } catch (err: unknown) {
     return formatToolError(
@@ -358,4 +399,18 @@ export async function transactionSimulate(
   } catch (error: unknown) {
     return formatToolErrorFromUnknown("SIMULATION_ERROR", error, "Failed to simulate transaction");
   }
+}
+
+export function registerWalletExecutors(): void {
+  registerExecutor("wallet_activate", walletActivateExecutor);
+  registerExecutor("wallet_set_confirmation", async (params) => {
+    confirmationQueue.enabled = (params as { enabled: boolean }).enabled;
+    const enabled = confirmationQueue.enabled;
+    return formatToolResponse({
+      confirmationRequired: enabled,
+      message: enabled
+        ? "Write confirmation enabled."
+        : "Write confirmation disabled. Transactions will execute immediately.",
+    });
+  });
 }

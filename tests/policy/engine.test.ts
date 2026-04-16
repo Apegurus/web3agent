@@ -52,13 +52,34 @@ describe("evaluatePolicy — safe tools", () => {
     expect(decision.toolName).toBe("get_balance");
     expect(decision.riskLevel).toBe("safe");
   });
+
+  it("still allows safe tools when estimatedUsd is null", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "get_balance",
+      riskLevel: "safe",
+      estimatedUsd: null,
+    });
+    expect(decision.action).toBe("allow");
+    expect(decision.reasonCode).toBe("SAFE_TOOL");
+  });
 });
 
 describe("evaluatePolicy — gas-only tools", () => {
-  it("allows gas-only financial tool when estimatedUsd is null", () => {
+  it("denies financial tool when estimatedUsd is null", () => {
     const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
       toolName: "approve_token",
       riskLevel: "financial",
+      estimatedUsd: null,
+      walletBalanceUsd: 1000,
+    });
+    expect(decision.action).toBe("deny");
+    expect(decision.reasonCode).toBe("UNESTIMABLE_FINANCIAL_WRITE");
+  });
+
+  it("allows destructive tool when estimatedUsd is null", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "delete_wallet",
+      riskLevel: "destructive",
       estimatedUsd: null,
       walletBalanceUsd: 1000,
     });

@@ -74,6 +74,13 @@ export function mergeServers(
     }
   }
 
+  for (const key of MANAGED_KEYS) {
+    if (!(key in incoming) && key in merged) {
+      delete merged[key];
+      changed = true;
+    }
+  }
+
   return { merged, changed };
 }
 

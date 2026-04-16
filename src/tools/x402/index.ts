@@ -33,6 +33,7 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
   const { url, method, headers } = v.data;
 
   let paymentDescription: string;
+  let paymentChainId: number | null = null;
   try {
     const { requirements, probeResponse } = await probePaymentRequirements(
       url,
@@ -59,7 +60,7 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     // asset is the token contract address, network is CAIP-2 format "eip155:{chainId}".
     const asset = firstAccept?.asset;
     const networkStr = firstAccept?.network;
-    const paymentChainId = typeof networkStr === "string" ? Number(networkStr.split(":")[1]) : null;
+    paymentChainId = typeof networkStr === "string" ? Number(networkStr.split(":")[1]) : null;
 
     if (typeof amount === "string" && typeof asset === "string" && paymentChainId) {
       const entry = lookupTokenByAddress(asset, paymentChainId);
@@ -83,7 +84,10 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
   return executeWrite({
     toolName: "x402_fetch",
     description: paymentDescription,
-    params: v.data as unknown as Record<string, unknown>,
+    params: { ...(v.data as unknown as Record<string, unknown>), paymentChainId } as Record<
+      string,
+      unknown
+    >,
     executor: executeFetchNow,
     riskLevel: "financial",
   });
@@ -96,15 +100,17 @@ async function executeFetchNow(params: Record<string, unknown>): Promise<CallToo
       method = "GET",
       body,
       headers,
+      paymentChainId,
     } = params as {
       url: string;
       method?: string;
       body?: string;
       headers?: Record<string, string>;
+      paymentChainId?: number | null;
     };
 
     const walletState = getWalletState();
-    const chainId = walletState.chainId ?? 8453;
+    const chainId = paymentChainId ?? walletState.chainId ?? 8453;
     const { fetchWithPayment } = createX402Client(chainId);
 
     const response = await fetchWithPayment(url, {

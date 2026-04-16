@@ -157,6 +157,17 @@ describe("getTopProtocols", () => {
     expect(result[0].name).toBe("Uniswap");
   });
 
+  it("filters by chain case-insensitively", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(rawProtocols));
+    const upperResult = await getTopProtocols({ chain: "Ethereum" });
+
+    mockFetch.mockResolvedValueOnce(mockResponse(rawProtocols));
+    const lowerResult = await getTopProtocols({ chain: "ethereum" });
+
+    expect(lowerResult).toHaveLength(upperResult.length);
+    expect(lowerResult.map((p) => p.name)).toEqual(upperResult.map((p) => p.name));
+  });
+
   it("filters by category when provided", async () => {
     mockFetch.mockResolvedValueOnce(mockResponse(rawProtocols));
 

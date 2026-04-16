@@ -88,7 +88,7 @@ describe("Orbs browser-wallet MCP tools", () => {
     // Build a valid 65-byte signature (0x + 130 hex chars)
     const sig = `0x${"ab".repeat(65)}`;
     const result = await tool.handler({
-      submitUrl: "https://agents-sink-dev.orbs.network/orders/new",
+      submitUrl: "https://agents-sink.orbs.network/orders/new",
       order: { maker: "0xabc" },
       signature: sig,
     });

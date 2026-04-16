@@ -13,6 +13,13 @@ export interface ExecuteWriteOptions {
   riskLevel?: RiskLevel;
 }
 
+/**
+ * Gate a write operation through the confirmation queue (when enabled).
+ *
+ * When confirmation is enabled this creates a temporal pause — the operation is queued,
+ * not executed. The confirmation step is a speed bump, not a security gate: the same
+ * caller can confirm immediately via transaction_confirm.
+ */
 export async function executeWrite(options: ExecuteWriteOptions): Promise<CallToolResult> {
   const walletState = getWalletState();
   if (walletState.mode === "read-only") {

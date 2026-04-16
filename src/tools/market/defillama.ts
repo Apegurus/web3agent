@@ -91,7 +91,8 @@ export async function getTopProtocols(input: {
   let filtered = rawData;
 
   if (chain) {
-    filtered = filtered.filter((p) => p.chains.includes(chain));
+    const chainLower = chain.toLowerCase();
+    filtered = filtered.filter((p) => p.chains.some((c: string) => c.toLowerCase() === chainLower));
   }
 
   if (category) {
