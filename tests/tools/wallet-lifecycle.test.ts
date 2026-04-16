@@ -83,18 +83,30 @@ describe("wallet_activate tool handler", () => {
     );
   });
 
-  it("rejects when activateWallet throws (executor error propagates)", async () => {
+  it("returns error when activateWallet throws", async () => {
     mockActivateWallet.mockRejectedValueOnce(new Error("bad key"));
 
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
-    await expect(walletActivate({ privateKey: "invalid" })).rejects.toThrow("bad key");
+    const result = await walletActivate({ privateKey: "invalid" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.error).toBe("WALLET_ACTIVATE_FAILED");
   });
 });
 
 describe("wallet_deactivate tool handler", () => {
+  beforeEach(() => {
+    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockConfirmationQueue.enabled = false;
+    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+  });
+
   it("calls deactivateWallet and returns read-only state", async () => {
     mockDeactivateWallet.mockResolvedValueOnce(undefined);
-    mockGetWalletState.mockReturnValueOnce({ mode: "read-only", chainId: 1 });
+    mockGetWalletState
+      .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
+      .mockReturnValueOnce({ mode: "read-only", chainId: 1 });
 
     const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
@@ -103,6 +115,23 @@ describe("wallet_deactivate tool handler", () => {
     const payload = JSON.parse(result.content[0].text as string);
     expect(payload.mode).toBe("read-only");
     expect(mockDeactivateWallet).toHaveBeenCalled();
+  });
+
+  it("returns pending_confirmation when confirmation is enabled", async () => {
+    mockConfirmationQueue.enabled = true;
+    mockConfirmationQueue.enqueue.mockReturnValueOnce({
+      queued: true,
+      id: "deactivate-op",
+      summary: "Deactivate wallet",
+    });
+
+    const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDeactivate();
+
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("deactivate-op");
   });
 
   it("returns error when deactivateWallet throws", async () => {

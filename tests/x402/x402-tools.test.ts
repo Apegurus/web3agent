@@ -198,4 +198,39 @@ describe("x402_fetch — confirmation gating", () => {
 
     expect(vi.mocked(createX402Client)).toHaveBeenCalledWith(137);
   });
+
+  it("falls back to wallet chainId when payment network is malformed", async () => {
+    const { probePaymentRequirements, createX402Client } = await import("../../src/x402/client.js");
+    vi.mocked(probePaymentRequirements).mockResolvedValueOnce({
+      requirements: {
+        x402Version: 2,
+        resource: { url: "https://example.com/api", method: "GET" },
+        accepts: [
+          {
+            scheme: "exact",
+            network: "badformat",
+            asset: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+            amount: "10000",
+            payTo: "0xabc",
+            maxTimeoutSeconds: 60,
+            extra: { name: "USDC", decimals: 6 },
+          },
+        ],
+      },
+      probeResponse: new Response("", { status: 402 }),
+      // biome-ignore lint/suspicious/noExplicitAny: mock object for testing
+    } as any);
+
+    const { confirmationQueue } = await import("../../src/wallet/confirmation.js");
+    const originalEnabled = confirmationQueue.enabled;
+    confirmationQueue.enabled = false;
+
+    const tools = getX402ToolDefinitions();
+    const tool = tools.find((t) => t.name === "x402_fetch") as ToolDefinition;
+    await tool.handler({ url: "https://example.com/api" });
+
+    confirmationQueue.enabled = originalEnabled;
+
+    expect(vi.mocked(createX402Client)).toHaveBeenCalledWith(8453);
+  });
 });

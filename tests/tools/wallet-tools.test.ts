@@ -174,12 +174,55 @@ describe("wallet tool handlers", () => {
     expect(payload.id).toBe("pending-op-id");
   });
 
+  it("walletActivate works from read-only mode (first activation)", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: undefined,
+    });
+    confirmationQueueMock.enabled = false;
+    confirmationQueueMock.enqueue.mockReturnValue({
+      queued: false,
+      id: null,
+      summary: "Confirmation bypassed",
+    });
+    persistenceMocks.activateWallet.mockResolvedValue({
+      address: "0x5555555555555555555555555555555555555555",
+      chainId: 8453,
+      mode: "private-key",
+    });
+
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletActivate({
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.address).toBe("0x5555555555555555555555555555555555555555");
+    expect(payload.mode).toBe("private-key");
+  });
+
+  it("walletActivate does not pass secrets in enqueue params", async () => {
+    confirmationQueueMock.enabled = true;
+
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    await walletActivate({
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    const enqueueParams = confirmationQueueMock.enqueue.mock.calls[0][2] as Record<string, unknown>;
+    expect(enqueueParams).not.toHaveProperty("privateKey");
+    expect(enqueueParams).not.toHaveProperty("mnemonic");
+    expect(enqueueParams.source).toBe("private-key");
+  });
+
   it("walletActivate activates directly when confirmation is disabled", async () => {
     confirmationQueueMock.enabled = false;
     confirmationQueueMock.enqueue.mockReturnValue({
       queued: false,
-      id: "wallet-activate-direct",
-      summary: "Executed [wallet_activate]: Activate wallet from private key",
+      id: null,
+      summary: "Confirmation bypassed",
     });
     persistenceMocks.activateWallet.mockResolvedValue({
       address: "0x5555555555555555555555555555555555555555",

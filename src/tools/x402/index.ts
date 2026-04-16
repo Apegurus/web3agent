@@ -60,7 +60,9 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
     // asset is the token contract address, network is CAIP-2 format "eip155:{chainId}".
     const asset = firstAccept?.asset;
     const networkStr = firstAccept?.network;
-    paymentChainId = typeof networkStr === "string" ? Number(networkStr.split(":")[1]) : null;
+    const rawChainId = typeof networkStr === "string" ? Number(networkStr.split(":")[1]) : null;
+    paymentChainId =
+      typeof rawChainId === "number" && Number.isFinite(rawChainId) ? rawChainId : null;
 
     if (typeof amount === "string" && typeof asset === "string" && paymentChainId) {
       const entry = lookupTokenByAddress(asset, paymentChainId);

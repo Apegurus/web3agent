@@ -139,28 +139,6 @@ export async function walletGetActive(): Promise<CallToolResult> {
   }
 }
 
-async function walletActivateExecutor(params: Record<string, unknown>): Promise<CallToolResult> {
-  const { privateKey, mnemonic, accountIndex, addressIndex } = params as {
-    privateKey?: string;
-    mnemonic?: string;
-    accountIndex?: number;
-    addressIndex?: number;
-  };
-
-  const state = await activateWallet({
-    privateKey,
-    mnemonic,
-    accountIndex,
-    addressIndex,
-  });
-
-  return formatToolResponse({
-    address: state.address,
-    chainId: state.chainId,
-    mode: state.mode,
-  });
-}
-
 export async function walletActivate(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const v = validateInput(walletActivateSchema, params);
@@ -169,12 +147,38 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
       ? "Activate wallet from mnemonic phrase"
       : "Activate wallet from private key";
 
-    return executeWrite({
-      toolName: "wallet_activate",
+    // wallet_activate bypasses executeWrite() for two reasons:
+    // 1. executeWrite rejects read-only mode, but wallet_activate is how you EXIT read-only.
+    // 2. params contain secrets (privateKey/mnemonic) that must never be persisted to disk
+    //    via the confirmation queue's pending-ops.json.
+    // Instead, enqueue directly with scrubbed params and a closure that captures the real data.
+    const activateData = { ...v.data };
+
+    const { queued, id, summary } = confirmationQueue.enqueue(
+      "wallet_activate",
       description,
-      params: v.data as unknown as Record<string, unknown>,
-      executor: walletActivateExecutor,
-      riskLevel: "destructive",
+      { source: activateData.mnemonic ? "mnemonic" : "private-key" },
+      async () => {
+        const state = await activateWallet(activateData);
+        return formatToolResponse({
+          address: state.address,
+          chainId: state.chainId,
+          mode: state.mode,
+        });
+      },
+      getWalletState().address,
+      "destructive"
+    );
+
+    if (queued) {
+      return formatToolResponse({ status: "pending_confirmation", id, summary });
+    }
+
+    const state = await activateWallet(activateData);
+    return formatToolResponse({
+      address: state.address,
+      chainId: state.chainId,
+      mode: state.mode,
     });
   } catch (err: unknown) {
     return formatToolError(
@@ -184,13 +188,23 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
   }
 }
 
+async function walletDeactivateExecutor(): Promise<CallToolResult> {
+  await deactivateWallet();
+  const state = getWalletState();
+  return formatToolResponse({
+    mode: state.mode,
+    message: "Wallet deactivated. Reverted to read-only ephemeral wallet.",
+  });
+}
+
 export async function walletDeactivate(): Promise<CallToolResult> {
   try {
-    await deactivateWallet();
-    const state = getWalletState();
-    return formatToolResponse({
-      mode: state.mode,
-      message: "Wallet deactivated. Reverted to read-only ephemeral wallet.",
+    return await executeWrite({
+      toolName: "wallet_deactivate",
+      description: "Deactivate wallet and delete persisted key file",
+      params: {},
+      executor: walletDeactivateExecutor,
+      riskLevel: "destructive",
     });
   } catch (err: unknown) {
     return formatToolError(
@@ -228,13 +242,7 @@ export async function walletSetConfirmation(
       toolName: "wallet_set_confirmation",
       description: "Disable write confirmation — all future writes will execute immediately",
       params: { enabled: false } as unknown as Record<string, unknown>,
-      executor: async () => {
-        confirmationQueue.enabled = false;
-        return formatToolResponse({
-          confirmationRequired: false,
-          message: "Write confirmation disabled. Transactions will execute immediately.",
-        });
-      },
+      executor: walletSetConfirmationExecutor,
       riskLevel: "destructive",
     });
   } catch (err: unknown) {
@@ -401,16 +409,23 @@ export async function transactionSimulate(
   }
 }
 
-export function registerWalletExecutors(): void {
-  registerExecutor("wallet_activate", walletActivateExecutor);
-  registerExecutor("wallet_set_confirmation", async (params) => {
-    confirmationQueue.enabled = (params as { enabled: boolean }).enabled;
-    const enabled = confirmationQueue.enabled;
-    return formatToolResponse({
-      confirmationRequired: enabled,
-      message: enabled
-        ? "Write confirmation enabled."
-        : "Write confirmation disabled. Transactions will execute immediately.",
-    });
+async function walletSetConfirmationExecutor(
+  params: Record<string, unknown>
+): Promise<CallToolResult> {
+  confirmationQueue.enabled = (params as { enabled: boolean }).enabled;
+  const enabled = confirmationQueue.enabled;
+  return formatToolResponse({
+    confirmationRequired: enabled,
+    message: enabled
+      ? "Write confirmation enabled."
+      : "Write confirmation disabled. Transactions will execute immediately.",
   });
+}
+
+export function registerWalletExecutors(): void {
+  // wallet_activate is NOT registered here — its executor captures secrets in a closure
+  // and must not be restorable from persisted params. If a pending wallet_activate is
+  // found on disk after restart, it's skipped (no registered executor).
+  registerExecutor("wallet_deactivate", walletDeactivateExecutor);
+  registerExecutor("wallet_set_confirmation", walletSetConfirmationExecutor);
 }
