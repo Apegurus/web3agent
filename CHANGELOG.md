@@ -18,8 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ccxt_private_write`
 - **CCXT account configuration** via `CCXT_CONFIG_PATH`, allowing named authenticated exchange accounts without adding one environment variable per credential.
 
+### Security
+
+- High-risk CCXT methods (`withdraw`, `transfer`, and implicit variants like `sapiPrivatePostAssetTransfer`) are now detected via classification + pattern matching instead of exact name lookup.
+- CCXT private write executor re-validates params via Zod before execution, closing a gap in the confirmation queue path.
+- World-readable CCXT config files now block high-risk methods at both handler and executor layers (not just warn).
+- `ccxt_describe_exchange` and `ccxt_list_exchanges` only advertise private capabilities when accounts have complete credentials (`apiKey` + `secret` or `privateKey`).
+
 ### Changed
 
+- **BREAKING:** `CcxtAccountSummary` no longer includes `hasPassword`, `hasUid`, or `hasWalletAddress` fields. These credential-presence booleans leaked configuration metadata to MCP consumers.
 - **Binance market helpers are now deprecated compatibility shims** backed by the native CCXT layer:
   - `market_get_ticker`
   - `market_get_klines`
