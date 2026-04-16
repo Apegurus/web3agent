@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ensureBuild } from "../global-setup.js";
 
 const ROOT = process.cwd();
 const TEMP_ROOT = mkdtempSync(join(tmpdir(), "web3agent-create-cli-install-"));
@@ -44,6 +45,7 @@ function patchGeneratedPackage(projectDir: string): void {
 
 describe("web3agent create packed CLI", () => {
   beforeAll(() => {
+    ensureBuild();
     mkdirSync(PACK_ROOT, { recursive: true });
     execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
       cwd: ROOT,

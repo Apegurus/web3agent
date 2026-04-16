@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createProject } from "../../src/create/create.js";
+import { ensureBuild } from "../global-setup.js";
 
 const ROOT = process.cwd();
 const TEMP_ROOT = mkdtempSync(join(tmpdir(), "create-web3agent-generated-projects-"));
@@ -39,6 +40,7 @@ function patchGeneratedPackage(projectDir: string): void {
 
 describe("generated starter projects", () => {
   beforeAll(() => {
+    ensureBuild();
     execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
       cwd: ROOT,
       stdio: "inherit",
