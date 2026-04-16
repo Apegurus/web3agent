@@ -56,6 +56,11 @@ const TEXT_EXTENSIONS = new Set([
   ".gitignore",
   ".npmrc",
   ".txt",
+  ".local",
+  ".example",
+  ".development",
+  ".production",
+  ".test",
   "",
 ]);
 
