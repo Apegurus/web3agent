@@ -81,6 +81,17 @@ export class ConfirmationQueueManager {
       });
   }
 
+  /**
+   * Wait for any scheduled persist to settle. Intended for tests; production
+   * code should not depend on this — the queue survives process crashes via
+   * atomic writes and `loadQueue()`.
+   */
+  async flushPendingPersists(): Promise<void> {
+    while (this.persistScheduled || this.persistNeeded) {
+      await this.persistChain;
+    }
+  }
+
   enqueue(
     type: string,
     description: string,

@@ -107,20 +107,12 @@ describe("confirmation queue", () => {
     expect(restored).toBe(0);
     expect(queue.list()).toEqual([]);
 
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const rewritten = JSON.parse(await readFile(pendingOpsPath, "utf-8")) as unknown[];
-      if (rewritten.length === 0) {
-        expect(rewritten).toEqual([]);
-        vi.unstubAllEnvs();
-        await rm(tempHome, { recursive: true, force: true });
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    await queue.flushPendingPersists();
 
     const rewritten = JSON.parse(await readFile(pendingOpsPath, "utf-8")) as unknown[];
+    expect(rewritten).toEqual([]);
+
     await rm(tempHome, { recursive: true, force: true });
     vi.unstubAllEnvs();
-    expect(rewritten).toEqual([]);
   });
 });
