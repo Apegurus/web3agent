@@ -22,6 +22,8 @@ export interface HostWriter {
   write(options: WriteOptions): Promise<WriteResult>;
 }
 
+// Keys owned by web3agent — these are added/removed on mode switch.
+// User-added keys with colliding names will be overwritten or removed.
 const MANAGED_KEYS = ["web3agent", "blockscout", "etherscan", "evm"];
 
 export function proxyEntries(): Record<string, unknown> {

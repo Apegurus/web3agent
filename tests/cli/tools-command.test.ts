@@ -258,4 +258,34 @@ describe("runToolsCommand error paths", () => {
       errorCode: "INVALID_INPUT",
     });
   });
+
+  it("writes JSON error when runtime.invokeTool throws", async () => {
+    let stdout = "";
+    const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+
+    mockState.withCliRuntime.mockImplementation(async (run: (runtime: unknown) => Promise<void>) =>
+      run({
+        invokeTool: () => {
+          throw new Error("RPC connection failed");
+        },
+      })
+    );
+
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+    await runToolsCommand(["call", "some_tool", "--input", "{}"]);
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        code: "TOOL_INVOCATION_FAILED",
+        message: "RPC connection failed",
+      },
+    });
+
+    stdoutWrite.mockRestore();
+  });
 });

@@ -147,6 +147,26 @@ export class ConfirmationQueueManager {
     if (op) this.audit("CONFIRMED", op);
   }
 
+  releaseExecuting(id: string): void {
+    this.executing.delete(id);
+  }
+
+  fail(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("EXECUTION_FAILED", op);
+  }
+
+  expire(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("EXPIRED", op);
+  }
+
   deny(id: string): boolean {
     this.executing.delete(id);
     const op = this.queue.get(id);
@@ -222,14 +242,19 @@ export class ConfirmationQueueManager {
       const raw = await readFile(filePath, "utf-8");
       const ops = JSON.parse(raw) as SerializedPendingOperation[];
       const now = Date.now();
+      let droppedEntries = false;
 
       for (const serialized of ops) {
         const createdAt = new Date(serialized.createdAt);
         const elapsed = now - createdAt.getTime();
-        if (elapsed > serialized.ttlMs) continue;
+        if (elapsed > serialized.ttlMs) {
+          droppedEntries = true;
+          continue;
+        }
 
         const executor = executorRegistry.get(serialized.type);
         if (!executor) {
+          droppedEntries = true;
           process.stderr.write(
             `[confirmation] Skipping persisted op ${serialized.id}: no executor for type '${serialized.type}'\n`
           );
@@ -247,6 +272,10 @@ export class ConfirmationQueueManager {
           walletAddress: serialized.walletAddress,
           riskLevel: serialized.riskLevel,
         });
+      }
+
+      if (droppedEntries) {
+        this.schedulePersist();
       }
 
       if (this.queue.size > 0) {

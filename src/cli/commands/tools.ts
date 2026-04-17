@@ -83,9 +83,19 @@ export async function runToolsCommand(args: string[]): Promise<void> {
     const input = parsed as Record<string, unknown>;
 
     await withCliRuntime(async (runtime) => {
-      const result = await runtime.invokeTool(toolName, input);
-      const payload = getToolResultPayload(result);
-      writeJson(payload.ok ? { ok: true, data: payload.data } : payload);
+      try {
+        const result = await runtime.invokeTool(toolName, input);
+        const payload = getToolResultPayload(result);
+        writeJson(payload.ok ? { ok: true, data: payload.data } : payload);
+      } catch (error: unknown) {
+        writeJson({
+          ok: false,
+          error: {
+            code: "TOOL_INVOCATION_FAILED",
+            message: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
     });
     return;
   }

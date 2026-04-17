@@ -99,4 +99,49 @@ describe("extractEstimatedUsd", () => {
     expect(await extractEstimatedUsd({ amountUsd: -5 })).toBeNull();
     expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBeNull();
   });
+
+  it("returns amount times price for CCXT createOrder limit orders", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 0.5, 42000],
+    });
+
+    expect(result).toBe(21000);
+  });
+
+  it("parses string amount and price for CCXT createOrder limit orders", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", "0.5", "42000"],
+    });
+
+    expect(result).toBe(21000);
+  });
+
+  it("returns 0 for CCXT createOrder market orders without price", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/USDT", "market", "buy", 0.5],
+    });
+
+    expect(result).toBe(0);
+  });
+
+  it("returns null for non-order CCXT cancellation methods", async () => {
+    const result = await extractEstimatedUsd({
+      method: "cancelOrder",
+      args: ["order-id"],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null for non-order CCXT methods", async () => {
+    const result = await extractEstimatedUsd({
+      method: "setLeverage",
+      args: [10, "BTC/USDT"],
+    });
+
+    expect(result).toBeNull();
+  });
 });

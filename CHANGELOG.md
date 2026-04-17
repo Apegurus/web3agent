@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** Policy engine now denies financial tools with unestimable USD value (`UNESTIMABLE_FINANCIAL_WRITE`) rather than allowing them as `GAS_ONLY`. The USD estimator has been extended to cover CCXT `createOrder`/`editOrder` params, but tools with truly unparseable args (e.g., `evm_write_contract` with opaque calldata) will be denied unless classified with `riskLevel: "destructive"`.
+- Spot API default endpoint changed from `agents-sink-dev.orbs.network` to `agents-sink.orbs.network`. Set `SPOT_API_URL` env var to override.
 - **BREAKING:** `ExplorerTxReceipt.status` enum widened from `"success" | "failed"` to `"success" | "failed" | "pending"`. Downstream SDK consumers with exhaustive type guards or switch statements must handle the new `"pending"` variant.
 - **BREAKING:** `CcxtAccountSummary` no longer includes `hasPassword`, `hasUid`, or `hasWalletAddress` fields. These credential-presence booleans leaked configuration metadata to MCP consumers.
 - **Binance market helpers are now deprecated compatibility shims** backed by the native CCXT layer:

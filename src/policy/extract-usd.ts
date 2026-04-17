@@ -74,6 +74,42 @@ export async function extractEstimatedUsd(args: Record<string, unknown>): Promis
     return 0;
   }
 
+  // 4. CCXT order params: method + args array [symbol, type, side, amount, price?]
+  const method = args.method;
+  const ccxtArgs = args.args;
+  if (
+    typeof method === "string" &&
+    Array.isArray(ccxtArgs) &&
+    (method === "createOrder" || method === "editOrder")
+  ) {
+    // CCXT args: [symbol, orderType, side, amount, price?, params?]
+    // amount and price may be number or string
+    const rawAmount = ccxtArgs[3];
+    const rawPrice = ccxtArgs[4];
+    const amount =
+      typeof rawAmount === "number"
+        ? rawAmount
+        : typeof rawAmount === "string"
+          ? Number(rawAmount)
+          : Number.NaN;
+    const price =
+      typeof rawPrice === "number"
+        ? rawPrice
+        : typeof rawPrice === "string"
+          ? Number(rawPrice)
+          : Number.NaN;
+
+    if (Number.isFinite(amount) && amount > 0 && Number.isFinite(price) && price > 0) {
+      return amount * price;
+    }
+    if (Number.isFinite(amount) && amount > 0) {
+      // Market order or missing price — estimation attempted but incomplete
+      return 0;
+    }
+    // Has order structure but no parseable amount
+    return 0;
+  }
+
   // No token amount fields found — tool is gas-only (cancel, approve, generic write)
   return null;
 }

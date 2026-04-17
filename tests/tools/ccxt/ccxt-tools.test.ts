@@ -147,6 +147,13 @@ describe("ccxt tool definitions", () => {
     ]);
   });
 
+  it("registers ccxt_private_write with financial riskLevel", () => {
+    const tool = getCcxtToolDefinitions().find((t) => t.name === "ccxt_private_write");
+
+    expect(tool).toBeDefined();
+    expect(tool?.riskLevel).toBe("financial");
+  });
+
   it("lists configured accounts through the tool handler", async () => {
     const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_list_accounts");
     if (!tool) {
@@ -216,7 +223,7 @@ describe("ccxt tool definitions", () => {
       {
         account: "binance_main",
         method: "createOrder",
-        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+        estimatedUsd: 50,
       },
       expect.any(Function),
       undefined,
@@ -245,7 +252,7 @@ describe("ccxt tool definitions", () => {
       {
         account: "binance_main",
         method: "createOrder",
-        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+        estimatedUsd: 50,
       },
       expect.any(Function),
       undefined,
@@ -261,7 +268,35 @@ describe("ccxt tool definitions", () => {
     );
   });
 
-  it("rejects malformed params when executor is called directly", async () => {
+  it("enqueues only policy-safe params, not raw args", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    vi.mocked(mockQueue.enqueue).mockReturnValueOnce({
+      queued: true,
+      id: "test-pending-id",
+      summary: "CCXT createOrder on account binance_main",
+    });
+
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    await tool.handler({
+      account: "binance_main",
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+    });
+
+    const enqueueCall = vi.mocked(mockQueue.enqueue).mock.calls.at(-1);
+    expect(enqueueCall).toBeDefined();
+    expect(enqueueCall?.[2]).toEqual({
+      account: "binance_main",
+      method: "createOrder",
+      estimatedUsd: 50,
+    });
+    expect(enqueueCall?.[2]).not.toHaveProperty("args");
+    expect(enqueueCall?.[5]).toBe("financial");
+  });
+
+  it("does not register ccxt_private_write executor (args in closure)", async () => {
     const { registerExecutor: mockRegisterExecutor } = await import(
       "../../../src/wallet/confirmation.js"
     );
@@ -273,55 +308,7 @@ describe("ccxt tool definitions", () => {
       .mocked(mockRegisterExecutor)
       .mock.calls.find((call) => call[0] === "ccxt_private_write");
 
-    expect(executorCall).toBeDefined();
-
-    const executor = executorCall?.[1];
-    if (!executor) {
-      throw new Error("Missing ccxt_private_write executor registration");
-    }
-
-    const result = await executor({ invalid: true });
-
-    expect(result.isError).toBe(true);
-  });
-
-  it("rejects high-risk method via executor when config is insecure", async () => {
-    const { confirmationQueue: mockQueue, registerExecutor: mockRegisterExecutor } = await import(
-      "../../../src/wallet/confirmation.js"
-    );
-    const { registerCcxtExecutors } = await import("../../../src/tools/ccxt/index.js");
-
-    registerCcxtExecutors();
-
-    const executorCall = vi
-      .mocked(mockRegisterExecutor)
-      .mock.calls.find((call) => call[0] === "ccxt_private_write");
-    expect(executorCall).toBeDefined();
-    const executor = executorCall?.[1];
-    if (!executor) throw new Error("Missing ccxt_private_write executor registration");
-
-    Object.defineProperty(mockQueue, "enabled", {
-      value: true,
-      writable: true,
-      configurable: true,
-    });
-    mockRegistry.insecurePermissions = true;
-
-    const result = await executor({
-      account: "binance_main",
-      method: "withdraw",
-      args: ["USDT", 100, "0xaddr"],
-    });
-
-    expect(result.isError).toBe(true);
-    expect(getFirstTextContent(result)).toContain("insecure permissions");
-    expect(mockState.invokeCcxtPrivateWrite).not.toHaveBeenCalled();
-
-    Object.defineProperty(mockQueue, "enabled", {
-      value: false,
-      writable: true,
-      configurable: true,
-    });
+    expect(executorCall).toBeUndefined();
   });
 
   it("refuses withdraw when confirmations are disabled", async () => {

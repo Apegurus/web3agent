@@ -513,8 +513,11 @@ export class ManagedRuntime implements Web3AgentRuntime {
       message: `Loaded ${this.orbsTools.length} tools`,
     };
     const { registry: ccxtRegistry } = getCcxtRuntimeState();
-    const ccxtStatus =
-      this.config.ccxtConfigPath && ccxtRegistry.warnings.length > 0 ? "degraded" : "ok";
+    const ccxtStatus = !this.config.ccxtConfigPath
+      ? "not_configured"
+      : ccxtRegistry.warnings.length > 0
+        ? "degraded"
+        : "ok";
     const ccxtMessageParts = [`Loaded ${this.ccxtTools.length} tools`];
     if (this.config.ccxtConfigPath) {
       ccxtMessageParts.push(`${ccxtRegistry.accounts.length} account(s)`);

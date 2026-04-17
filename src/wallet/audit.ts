@@ -3,7 +3,7 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export type AuditAction = "CONFIRMED" | "DENIED" | "EXPIRED";
+export type AuditAction = "CONFIRMED" | "DENIED" | "EXECUTION_FAILED" | "EXPIRED";
 
 export interface AuditEntry {
   action: AuditAction;

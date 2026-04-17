@@ -5,9 +5,12 @@ const mockQueue = vi.hoisted(() => {
     enabled: true,
     confirm: vi.fn(),
     complete: vi.fn(),
+    expire: vi.fn(),
+    fail: vi.fn(),
     deny: vi.fn(),
     list: vi.fn(),
     pruneExpired: vi.fn(),
+    releaseExecuting: vi.fn(),
     enqueue: vi.fn(),
   };
   return { queue };
@@ -81,6 +84,15 @@ vi.mock("../../src/policy/balance-cache.js", () => ({
   refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
 }));
 
+function parseFirstTextJson(result: { content: Array<{ type: string; text?: string }> }) {
+  const first = result.content[0];
+  expect(first?.type).toBe("text");
+  if (!first || first.type !== "text" || typeof first.text !== "string") {
+    throw new Error("Expected first content item to be text");
+  }
+  return JSON.parse(first.text);
+}
+
 describe("transaction_confirm tool handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,7 +107,7 @@ describe("transaction_confirm tool handler", () => {
     const result = await transactionConfirm({});
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -106,7 +118,7 @@ describe("transaction_confirm tool handler", () => {
     const result = await transactionConfirm({ id: "nonexistent-uuid" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("NOT_FOUND");
   });
 
@@ -132,7 +144,7 @@ describe("transaction_confirm tool handler", () => {
     const result = await transactionConfirm({ id: "op-1" });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.confirmed).toBe(true);
     expect(payload.txHash).toBe("0xabc");
   });
@@ -155,7 +167,7 @@ describe("transaction_confirm tool handler", () => {
     const result = await transactionConfirm({ id: "op-2" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("OPERATION_EXPIRED");
   });
 
@@ -192,7 +204,7 @@ describe("transaction_confirm tool handler", () => {
     const result = await transactionConfirm({ id: "op-price-fail" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("POLICY_DENIED");
     expect(executor).not.toHaveBeenCalled();
   });
@@ -273,7 +285,7 @@ describe("transaction_deny tool handler", () => {
     const result = await transactionDeny({});
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -284,7 +296,7 @@ describe("transaction_deny tool handler", () => {
     const result = await transactionDeny({ id: "nonexistent-uuid" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("NOT_FOUND");
   });
 
@@ -295,7 +307,7 @@ describe("transaction_deny tool handler", () => {
     const result = await transactionDeny({ id: "op-1" });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.denied).toBe(true);
     expect(mockQueue.queue.deny).toHaveBeenCalledWith("op-1");
   });
@@ -313,7 +325,7 @@ describe("transaction_list tool handler", () => {
     const result = await transactionList();
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.count).toBe(0);
     expect(payload.operations).toHaveLength(0);
     expect(mockQueue.queue.pruneExpired).toHaveBeenCalled();
@@ -330,7 +342,7 @@ describe("transaction_list tool handler", () => {
     const result = await transactionList();
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.count).toBe(2);
     expect(payload.operations[0].type).toBe("swap");
     expect(payload.operations[1].type).toBe("bridge");
@@ -348,7 +360,7 @@ describe("transaction_simulate tool handler", () => {
     const result = await transactionSimulate({ chainId: 8453 });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -368,7 +380,7 @@ describe("transaction_simulate tool handler", () => {
     });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.success).toBe(true);
     expect(payload.gasEstimate).toBe("145000");
     expect(simulationMocks.simulateTransaction).toHaveBeenCalledWith({

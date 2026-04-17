@@ -9,6 +9,15 @@ describe("classifyCcxtMethod", () => {
   it("classifies public unified methods", () => {
     expect(classifyCcxtMethod("fetchTicker")).toBe("public");
     expect(classifyCcxtMethod("fetchOrderBook")).toBe("public");
+    expect(classifyCcxtMethod("fetchBidsAsks")).toBe("public");
+    expect(classifyCcxtMethod("fetchMarkPrice")).toBe("public");
+    expect(classifyCcxtMethod("fetchMarkPrices")).toBe("public");
+    expect(classifyCcxtMethod("fetchPremiumIndex")).toBe("public");
+    expect(classifyCcxtMethod("fetchStatus")).toBe("public");
+    expect(classifyCcxtMethod("fetchTime")).toBe("public");
+    expect(classifyCcxtMethod("fetchL2OrderBook")).toBe("public");
+    expect(classifyCcxtMethod("fetchOpenInterestHistory")).toBe("public");
+    expect(classifyCcxtMethod("fetchOpenInterest")).toBe("public");
   });
 
   it("classifies public implicit methods", () => {
@@ -23,6 +32,18 @@ describe("classifyCcxtMethod", () => {
   it("classifies authenticated read methods", () => {
     expect(classifyCcxtMethod("fetchBalance")).toBe("private_read");
     expect(classifyCcxtMethod("privateGetAccount")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchTradingFees")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchTradingFee")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchBorrowRate")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchBorrowRates")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchBorrowRateHistory")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchBorrowInterest")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchMyLiquidations")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchLiquidations")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchMarginModes")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchMarginMode")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchTransfers")).toBe("private_read");
+    expect(classifyCcxtMethod("fetchAccounts")).toBe("private_read");
   });
 
   it("classifies exchange-prefixed private read implicit methods", () => {

@@ -12,6 +12,15 @@ const PUBLIC_UNIFIED = new Set([
   "fetchFundingRate",
   "fetchFundingRates",
   "fetchFundingRateHistory",
+  "fetchBidsAsks",
+  "fetchMarkPrice",
+  "fetchMarkPrices",
+  "fetchPremiumIndex",
+  "fetchStatus",
+  "fetchTime",
+  "fetchL2OrderBook",
+  "fetchOpenInterestHistory",
+  "fetchOpenInterest",
 ]);
 
 const PRIVATE_READ_UNIFIED = new Set([
@@ -28,6 +37,18 @@ const PRIVATE_READ_UNIFIED = new Set([
   "fetchDeposits",
   "fetchWithdrawals",
   "fetchTransactions",
+  "fetchTradingFees",
+  "fetchTradingFee",
+  "fetchBorrowRate",
+  "fetchBorrowRates",
+  "fetchBorrowRateHistory",
+  "fetchBorrowInterest",
+  "fetchMyLiquidations",
+  "fetchLiquidations",
+  "fetchMarginModes",
+  "fetchMarginMode",
+  "fetchTransfers",
+  "fetchAccounts",
 ]);
 
 const PRIVATE_WRITE_UNIFIED = new Set([

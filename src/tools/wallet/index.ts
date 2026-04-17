@@ -188,7 +188,7 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
   }
 }
 
-async function walletDeactivateExecutor(): Promise<CallToolResult> {
+async function walletDeactivateExecutor(_params: Record<string, unknown>): Promise<CallToolResult> {
   await deactivateWallet();
   const state = getWalletState();
   return formatToolResponse({
@@ -214,6 +214,10 @@ export async function walletDeactivate(): Promise<CallToolResult> {
   }
 }
 
+// Three paths:
+//  1. enabled=true  → set directly (toggling ON cannot weaken security)
+//  2. enabled=false, already disabled → no-op response
+//  3. enabled=false, currently enabled → queue via executeWrite (weakens security)
 export async function walletSetConfirmation(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
@@ -277,7 +281,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     confirmedId = id;
 
     if (result.stale) {
-      confirmationQueue.complete(id);
+      confirmationQueue.expire(id);
       confirmedId = undefined;
       return formatToolError(
         "OPERATION_EXPIRED",
@@ -290,6 +294,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       walletState.address &&
       result.operation.walletAddress.toLowerCase() !== walletState.address.toLowerCase()
     ) {
+      confirmationQueue.releaseExecuting(id);
       return formatToolError(
         "WALLET_MISMATCH",
         `Operation ${id} was queued for wallet ${result.operation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`
@@ -324,6 +329,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       if (policyDecision.action === "deny") {
         if (reservationId !== null) releaseReservation(reservationId);
         reservationId = null;
+        confirmationQueue.releaseExecuting(id);
         return formatToolError("POLICY_DENIED", policyDecision.message, {
           reasonCode: policyDecision.reasonCode,
           currentSpend: policyDecision.currentSpend,
@@ -333,6 +339,14 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     }
 
     const execResult = await result.operation.executor(opParams);
+
+    if (execResult.isError) {
+      confirmationQueue.fail(id);
+      confirmedId = undefined;
+      if (reservationId !== null) releaseReservation(reservationId);
+      reservationId = null;
+      return execResult;
+    }
 
     if (opRiskLevel === "financial" && !execResult.isError) {
       if (reservationId !== null) {
@@ -350,7 +364,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     return execResult;
   } catch (err: unknown) {
     if (reservationId !== null) releaseReservation(reservationId);
-    if (confirmedId) confirmationQueue.complete(confirmedId);
+    if (confirmedId) confirmationQueue.fail(confirmedId);
     return formatToolError("CONFIRM_FAILED", err instanceof Error ? err.message : "Unknown error");
   }
 }

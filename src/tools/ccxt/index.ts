@@ -21,10 +21,11 @@ import {
   invokeCcxtPublicCall,
 } from "../../ccxt/invoke.js";
 import { getCcxtRuntimeState } from "../../ccxt/runtime-state.js";
+import { extractEstimatedUsd } from "../../policy/extract-usd.js";
 import { formatToolErrorFromUnknown, formatToolResponse } from "../../utils/errors.js";
 import { isPlainObject } from "../../utils/type-guards.js";
 import { validateInput } from "../../utils/validation.js";
-import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
+import { confirmationQueue } from "../../wallet/confirmation.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
@@ -250,15 +251,23 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   const validation = validateInput(ccxtPrivateWriteSchema, params);
   if (!validation.success) return validation.error;
 
-  const input = validation.data as CcxtPrivateWriteInput;
-  const blocked = checkHighRiskGuards(input.method);
+  const writeData = validation.data as CcxtPrivateWriteInput;
+  const blocked = checkHighRiskGuards(writeData.method);
   if (blocked) return blocked;
+
+  const estimatedUsd = await extractEstimatedUsd(writeData as unknown as Record<string, unknown>);
+
+  const policyParams = {
+    method: writeData.method,
+    account: writeData.account,
+    ...(estimatedUsd !== null ? { estimatedUsd } : {}),
+  };
 
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",
-    `CCXT ${input.method} on account ${input.account}`,
-    validation.data as unknown as Record<string, unknown>,
-    executeCcxtPrivateWrite,
+    `CCXT ${writeData.method} on account ${writeData.account}`,
+    policyParams as unknown as Record<string, unknown>,
+    async () => executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>),
     undefined,
     "financial"
   );
@@ -267,11 +276,13 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
     return formatToolResponse({ status: "pending_confirmation", id, summary });
   }
 
-  return executeCcxtPrivateWrite(validation.data as unknown as Record<string, unknown>);
+  return executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>);
 }
 
 export function registerCcxtExecutors(): void {
-  registerExecutor("ccxt_private_write", executeCcxtPrivateWrite);
+  // ccxt_private_write is NOT registered — its executor captures args in a closure
+  // and must not be restorable from persisted params. Pending ops found on disk
+  // after restart are dropped and scrubbed by loadQueue().
 }
 
 export function getCcxtToolDefinitions(): ToolDefinition[] {
