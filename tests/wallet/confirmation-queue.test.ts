@@ -115,4 +115,36 @@ describe("confirmation queue", () => {
     await rm(tempHome, { recursive: true, force: true });
     vi.unstubAllEnvs();
   });
+
+  it("flushPendingPersists terminates even when persistQueue fails with a concurrent re-schedule", async () => {
+    // Patch persistQueue on the instance prototype to:
+    //   1. Trigger a concurrent schedulePersist() (simulating another enqueue() mid-flight),
+    //      which sets persistNeeded=true while the chain still has persistScheduled=true.
+    //   2. Then throw, landing in the catch arm.
+    // Pre-fix: catch only clears persistScheduled, leaving persistNeeded=true on a
+    //          resolved chain → infinite loop in flushPendingPersists.
+    // Post-fix: catch also clears persistNeeded → loop exits.
+    const proto = Object.getPrototypeOf(queue) as {
+      persistQueue: () => Promise<void>;
+    };
+    const originalPersistQueue = proto.persistQueue;
+    proto.persistQueue = async function (this: typeof queue) {
+      // While persistScheduled=true and the chain is in-flight, fire a second
+      // schedulePersist() by calling enqueue(). This sets persistNeeded=true but
+      // returns early from schedulePersist() because persistScheduled is still true.
+      this.enqueue("bridge", "Concurrent op during persist", {}, noopExecutor);
+      throw new Error("injected persist failure");
+    };
+
+    try {
+      queue.enqueue("swap", "First op", { amount: "1" }, noopExecutor);
+      await expect(queue.flushPendingPersists()).resolves.toBeUndefined();
+    } finally {
+      proto.persistQueue = originalPersistQueue;
+    }
+  });
+
+  it("flushPendingPersists returns immediately when nothing is pending", async () => {
+    await expect(queue.flushPendingPersists()).resolves.toBeUndefined();
+  });
 });

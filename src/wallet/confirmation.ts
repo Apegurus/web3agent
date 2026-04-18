@@ -77,6 +77,7 @@ export class ConfirmationQueueManager {
       })
       .catch((e: unknown) => {
         this.persistScheduled = false;
+        this.persistNeeded = false;
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
   }
