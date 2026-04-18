@@ -260,7 +260,7 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   const policyParams = {
     method: writeData.method,
     account: writeData.account,
-    ...(estimatedUsd !== null ? { estimatedUsd } : {}),
+    ...(estimatedUsd !== null && estimatedUsd > 0 ? { estimatedUsd } : {}),
   };
 
   const { queued, id, summary } = confirmationQueue.enqueue(

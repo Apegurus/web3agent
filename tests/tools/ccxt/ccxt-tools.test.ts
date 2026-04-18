@@ -296,6 +296,32 @@ describe("ccxt tool definitions", () => {
     expect(enqueueCall?.[5]).toBe("financial");
   });
 
+  it("omits estimatedUsd from enqueued params for market orders (price unknown)", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    vi.mocked(mockQueue.enqueue).mockReturnValueOnce({
+      queued: true,
+      id: "test-market-id",
+      summary: "CCXT createOrder on account binance_main",
+    });
+
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    await tool.handler({
+      account: "binance_main",
+      method: "createOrder",
+      args: ["BTC/USDT", "market", "buy", 0.001],
+    });
+
+    const enqueueCall = vi.mocked(mockQueue.enqueue).mock.calls.at(-1);
+    expect(enqueueCall?.[2]).toEqual({
+      account: "binance_main",
+      method: "createOrder",
+    });
+    expect(enqueueCall?.[2]).not.toHaveProperty("estimatedUsd");
+    expect(enqueueCall?.[2]).not.toHaveProperty("args");
+  });
+
   it("does not register ccxt_private_write executor (args in closure)", async () => {
     const { registerExecutor: mockRegisterExecutor } = await import(
       "../../../src/wallet/confirmation.js"
