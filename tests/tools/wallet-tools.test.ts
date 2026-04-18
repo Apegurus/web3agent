@@ -529,4 +529,32 @@ describe("wallet tool handlers", () => {
     expect(confirmationQueueMock.expire).toHaveBeenCalledWith("stale-op");
     expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
   });
+
+  it("transactionConfirm fails queued operation and releases reservation when executor returns isError", async () => {
+    confirmationQueueMock.confirm.mockReturnValue({
+      stale: false,
+      operation: {
+        id: "exec-error-op",
+        type: "ccxt_private_write",
+        description: "CCXT createOrder on account binance_main",
+        params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+        executor: vi.fn().mockResolvedValue({
+          isError: true,
+          content: [{ type: "text", text: '{"error":"EXCHANGE_REJECTED"}' }],
+        }),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "financial",
+      },
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "exec-error-op" });
+
+    expect(result.isError).toBe(true);
+    expect(confirmationQueueMock.fail).toHaveBeenCalledWith("exec-error-op");
+    expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
+    expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
+    expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(123);
+  });
 });
