@@ -348,7 +348,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       return execResult;
     }
 
-    if (opRiskLevel === "financial" && !execResult.isError) {
+    if (opRiskLevel === "financial") {
       if (reservationId !== null) {
         commitReservation(reservationId);
       } else if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
