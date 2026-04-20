@@ -433,6 +433,9 @@ describe("wallet tool handlers", () => {
       chainId: 8453,
       address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     });
+    const retryExecutor = vi
+      .fn()
+      .mockResolvedValue({ isError: false, content: [{ type: "text", text: '{"done":true}' }] });
     confirmationQueueMock.confirm
       .mockReturnValueOnce({
         stale: false,
@@ -455,9 +458,7 @@ describe("wallet tool handlers", () => {
           type: "wallet_activate",
           description: "Activate wallet",
           params: {},
-          executor: vi
-            .fn()
-            .mockResolvedValue({ isError: false, content: [{ type: "text", text: "{}" }] }),
+          executor: retryExecutor,
           createdAt: new Date(),
           ttlMs: 60_000,
           riskLevel: "destructive",
@@ -477,9 +478,11 @@ describe("wallet tool handlers", () => {
       address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
     const retried = await transactionConfirm({ id: "wallet-mismatch-op" });
-    const retriedPayload = JSON.parse((retried.content[0] as { text: string }).text);
-    expect(retriedPayload.error).not.toBe("NOT_FOUND");
+
+    expect(retried.isError).toBe(false);
+    expect(retryExecutor).toHaveBeenCalledTimes(1);
     expect(confirmationQueueMock.releaseExecuting).toHaveBeenCalledWith("wallet-mismatch-op");
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("wallet-mismatch-op");
   });
 
   it("transactionConfirm fails queued operation when executor throws", async () => {
