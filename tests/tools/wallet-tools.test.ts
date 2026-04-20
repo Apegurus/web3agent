@@ -624,5 +624,8 @@ describe("wallet tool handlers", () => {
     expect(result.isError).toBe(true);
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.error).toBe("WALLET_READ_ONLY");
+    expect(confirmationQueueMock.releaseExecuting).toHaveBeenCalledWith("evm-read-only-op");
+    expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
+    expect(confirmationQueueMock.fail).not.toHaveBeenCalled();
   });
 });
