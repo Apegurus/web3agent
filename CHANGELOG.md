@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Confirmation queue** — clear `persistNeeded` inside the `schedulePersist()` catch arm so a failed `persistQueue()` cannot strand `flushPendingPersists()` in an infinite loop when a concurrent `schedulePersist()` raced the in-flight persist.
+- **CCXT `ccxt_private_write`** — no longer persists `estimatedUsd: 0` for market orders. Market orders without price were already denied at confirm time via `UNESTIMABLE_FINANCIAL_WRITE`; this removes dead metadata from `pending-ops.json`.
+
+### Internal
+
+- Added `ConfirmationQueueManager.flushPendingPersists()` for deterministic test synchronization.
+- Removed empty `registerCcxtExecutors()`; the closure-capturing enqueue in `handleCcxtPrivateWrite` is the sole mechanism for CCXT private writes.
+- Added test coverage for the `execResult.isError → fail()` branch of `transactionConfirm` and tightened the wallet-mismatch retry assertion to verify the retry actually succeeds.
+
 ### Added
 
 - **Native CCXT tools** across the runtime, MCP server, CLI, and root SDK:
