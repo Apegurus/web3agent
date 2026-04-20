@@ -560,4 +560,69 @@ describe("wallet tool handlers", () => {
     expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
     expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(123);
   });
+
+  it("transactionConfirm allows non-wallet (CCXT) ops when wallet is read-only", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: null,
+    });
+
+    const ccxtExecutor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: '{"status":"ok"}' }],
+    });
+
+    confirmationQueueMock.confirm.mockReturnValueOnce({
+      stale: false,
+      operation: {
+        id: "ccxt-read-only-op",
+        type: "ccxt_private_write",
+        description: "CCXT createOrder on account binance_main",
+        params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+        executor: ccxtExecutor,
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "financial",
+        // walletAddress intentionally omitted — off-chain op
+      },
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "ccxt-read-only-op" });
+
+    expect(result.isError).toBe(false);
+    expect(ccxtExecutor).toHaveBeenCalledTimes(1);
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("ccxt-read-only-op");
+  });
+
+  it("transactionConfirm still rejects wallet-backed ops when wallet is read-only", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: null,
+    });
+
+    confirmationQueueMock.confirm.mockReturnValueOnce({
+      stale: false,
+      operation: {
+        id: "evm-read-only-op",
+        type: "evm_write_contract",
+        description: "Write on contract",
+        params: { chainId: 8453 },
+        executor: vi.fn(),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "destructive",
+        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "evm-read-only-op" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("WALLET_READ_ONLY");
+  });
 });

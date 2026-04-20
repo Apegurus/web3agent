@@ -262,14 +262,6 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
   let confirmedId: string | undefined;
 
   try {
-    const walletState = getWalletState();
-    if (walletState.mode === "read-only") {
-      return formatToolError(
-        "WALLET_READ_ONLY",
-        "transaction_confirm requires an active wallet. Activate a wallet first."
-      );
-    }
-
     const v = validateInput(transactionConfirmSchema, params);
     if (!v.success) return v.error;
     const { id } = v.data;
@@ -279,6 +271,20 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
     }
     confirmedId = id;
+
+    const walletState = getWalletState();
+    // Read-only gate applies only to wallet-backed ops. Off-chain ops
+    // (e.g. ccxt_private_write) enqueue without walletAddress and run via
+    // captured credentials in the executor closure — no active wallet
+    // needed.
+    if (result.operation.walletAddress !== undefined && walletState.mode === "read-only") {
+      confirmationQueue.releaseExecuting(id);
+      confirmedId = undefined;
+      return formatToolError(
+        "WALLET_READ_ONLY",
+        "transaction_confirm requires an active wallet. Activate a wallet first."
+      );
+    }
 
     if (result.stale) {
       confirmationQueue.expire(id);

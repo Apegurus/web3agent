@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Confirmation queue** — clear `persistNeeded` inside the `schedulePersist()` catch arm so a failed `persistQueue()` cannot strand `flushPendingPersists()` in an infinite loop when a concurrent `schedulePersist()` raced the in-flight persist.
 - **CCXT `ccxt_private_write`** — no longer persists `estimatedUsd: 0` for market orders. Market orders without price were already denied at confirm time via `UNESTIMABLE_FINANCIAL_WRITE`; this removes dead metadata from `pending-ops.json`.
+- **`transaction_confirm`** — no longer rejects confirmation of off-chain CCXT private writes (which have no `walletAddress`) when the wallet is in read-only mode. The read-only gate now applies only to wallet-backed operations.
 
 ### Internal
 
