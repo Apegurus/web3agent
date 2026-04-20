@@ -322,21 +322,6 @@ describe("ccxt tool definitions", () => {
     expect(enqueueCall?.[2]).not.toHaveProperty("args");
   });
 
-  it("does not register ccxt_private_write executor (args in closure)", async () => {
-    const { registerExecutor: mockRegisterExecutor } = await import(
-      "../../../src/wallet/confirmation.js"
-    );
-    const { registerCcxtExecutors } = await import("../../../src/tools/ccxt/index.js");
-
-    registerCcxtExecutors();
-
-    const executorCall = vi
-      .mocked(mockRegisterExecutor)
-      .mock.calls.find((call) => call[0] === "ccxt_private_write");
-
-    expect(executorCall).toBeUndefined();
-  });
-
   it("refuses withdraw when confirmations are disabled", async () => {
     const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
     const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");

@@ -263,6 +263,10 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
     ...(estimatedUsd !== null && estimatedUsd > 0 ? { estimatedUsd } : {}),
   };
 
+  // The executor is a closure over writeData; raw CCXT args never touch
+  // pending-ops.json. If the process restarts, loadQueue() drops any
+  // persisted ccxt_private_write entry because no executor is registered
+  // for that type.
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",
     `CCXT ${writeData.method} on account ${writeData.account}`,
@@ -277,12 +281,6 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   }
 
   return executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>);
-}
-
-export function registerCcxtExecutors(): void {
-  // ccxt_private_write is NOT registered — its executor captures args in a closure
-  // and must not be restorable from persisted params. Pending ops found on disk
-  // after restart are dropped and scrubbed by loadQueue().
 }
 
 export function getCcxtToolDefinitions(): ToolDefinition[] {

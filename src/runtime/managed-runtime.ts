@@ -29,7 +29,7 @@ import {
 } from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
-import { getCcxtToolDefinitions, registerCcxtExecutors } from "../tools/ccxt/index.js";
+import { getCcxtToolDefinitions } from "../tools/ccxt/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
 import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
@@ -130,7 +130,6 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerAgdpExecutors();
   registerErc8004Executors();
   registerEvmExecutors();
-  registerCcxtExecutors();
   await loadSpendLog();
 
   const wallet = getWalletState();
