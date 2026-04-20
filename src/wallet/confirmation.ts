@@ -76,6 +76,12 @@ export class ConfirmationQueueManager {
         if (this.persistNeeded) this.schedulePersist();
       })
       .catch((e: unknown) => {
+        // Clearing persistNeeded here drops any retry signal that a
+        // concurrent schedulePersist() set during the in-flight persist.
+        // The in-memory queue still holds the data, so the next mutating
+        // call (enqueue/complete/fail/expire/deny) will schedule another
+        // persist. We prioritise loop termination in flushPendingPersists
+        // over best-effort retry on failure.
         this.persistScheduled = false;
         this.persistNeeded = false;
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
