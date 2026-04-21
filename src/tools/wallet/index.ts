@@ -301,6 +301,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       result.operation.walletAddress.toLowerCase() !== walletState.address.toLowerCase()
     ) {
       confirmationQueue.releaseExecuting(id);
+      confirmedId = undefined;
       return formatToolError(
         "WALLET_MISMATCH",
         `Operation ${id} was queued for wallet ${result.operation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`

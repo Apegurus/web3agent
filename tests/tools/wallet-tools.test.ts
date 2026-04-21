@@ -471,6 +471,7 @@ describe("wallet tool handlers", () => {
     const mismatch = await transactionConfirm({ id: "wallet-mismatch-op" });
     const mismatchPayload = JSON.parse((mismatch.content[0] as { text: string }).text);
     expect(mismatchPayload.error).toBe("WALLET_MISMATCH");
+    expect(confirmationQueueMock.fail).not.toHaveBeenCalledWith("wallet-mismatch-op");
 
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "private-key",
