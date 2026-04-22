@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-22
+
+### Deprecated
+
+- **Removal of `submitSignedTwapOrder`, `twapIntentSchema`, `limitIntentSchema` (and the related `prepareTwapIntent` / `prepareLimitIntent` helpers) deferred from v0.5.0 to v0.6.0.** These were marked for v0.5.0 removal per the v0.3.0 notes, but downstream consumers (Orbzy) still import them. Removal will be coordinated alongside that migration; `@deprecated` JSDoc has been updated to reflect the new target.
+
 ### Fixed
 
 - **Confirmation queue** — clear `persistNeeded` inside the `schedulePersist()` catch arm so a failed `persistQueue()` cannot strand `flushPendingPersists()` in an infinite loop when a concurrent `schedulePersist()` raced the in-flight persist.

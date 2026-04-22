@@ -86,7 +86,7 @@ export const swapIntentSchema = z.object({
   chainId: z.number().describe("Chain ID"),
 });
 
-/** @deprecated Use spotOrderIntentSchema instead. Will be removed in v0.5.0. */
+/** @deprecated Use spotOrderIntentSchema instead. Will be removed in v0.6.0. */
 export const twapIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
   order: z.record(z.unknown()).describe("TWAP order data"),
@@ -101,7 +101,7 @@ export const twapIntentSchema = z.object({
     .describe("TWAP order metadata"),
 });
 
-/** @deprecated Use spotOrderIntentSchema instead. Will be removed in v0.5.0. */
+/** @deprecated Use spotOrderIntentSchema instead. Will be removed in v0.6.0. */
 export const limitIntentSchema = z.object({
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data for signing"),
   order: z.record(z.unknown()).describe("Limit order data"),
