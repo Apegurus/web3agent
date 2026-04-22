@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Confirmation queue** — clear `persistNeeded` inside the `schedulePersist()` catch arm so a failed `persistQueue()` cannot strand `flushPendingPersists()` in an infinite loop when a concurrent `schedulePersist()` raced the in-flight persist.
 - **CCXT `ccxt_private_write`** — no longer persists `estimatedUsd: 0` for market orders. Market orders without price were already denied at confirm time via `UNESTIMABLE_FINANCIAL_WRITE`; this removes dead metadata from `pending-ops.json`.
 - **`transaction_confirm`** — no longer rejects confirmation of off-chain CCXT private writes (which have no `walletAddress`) when the wallet is in read-only mode. The read-only gate now applies only to wallet-backed operations.
+- **Spend reservation leak** — `transaction_confirm` now releases in-flight reservations on `NOT_FOUND` (concurrent-race) and stale-at-confirm paths. Previously, reservations created during policy evaluation were leaked when the op was lost between the pre-check peek and the final `confirm()` call.
+- **CCXT admin/cancellation methods** — `cancelOrder`, `cancelAllOrders`, `setLeverage`, `setMarginMode`, `transfer`, `withdraw` are now classified as `destructive` rather than `financial` when queued, so the policy engine routes them through `GAS_ONLY` allow instead of denying as `UNESTIMABLE_FINANCIAL_WRITE`. Order-creation methods (`createOrder`, `editOrder`) remain `financial`. High-risk movement (`withdraw`/`transfer`) remains gated by `checkHighRiskGuards` for secure-permissions and confirmation enforcement.
+- **`web3agent tools call` exit status** — the CLI now sets `process.exitCode = 1` when a tool invocation throws, so CI scripts and shell pipelines can detect failure via exit status. The JSON error envelope on stdout is unchanged.
+- **Persisted-op audit continuity** — `loadQueue()` now emits an `EXPIRED` audit entry for any persisted operation whose TTL expired during shutdown, matching runtime `pruneExpired()` behaviour. Audit trails are now continuous across process restarts.
 
 ### Internal
 
@@ -43,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Spot API default endpoint changed from `agents-sink-dev.orbs.network` to `agents-sink.orbs.network`. Set `SPOT_API_URL` env var to override.
 - **BREAKING:** `ExplorerTxReceipt.status` enum widened from `"success" | "failed"` to `"success" | "failed" | "pending"`. Downstream SDK consumers with exhaustive type guards or switch statements must handle the new `"pending"` variant.
 - **BREAKING:** `CcxtAccountSummary` no longer includes `hasPassword`, `hasUid`, or `hasWalletAddress` fields. These credential-presence booleans leaked configuration metadata to MCP consumers.
+- **`evaluatePolicy` input** — added optional `requiresWalletBalance` flag. When `false` (e.g. off-chain CCXT ops), the `MIN_RESERVE` rule is skipped. Defaults to `true` for backward compatibility.
 - **Binance market helpers are now deprecated compatibility shims** backed by the native CCXT layer:
   - `market_get_ticker`
   - `market_get_klines`
