@@ -583,4 +583,61 @@ describe("managed runtime", () => {
 
     await runtime.shutdown();
   });
+
+  it("resolves dynamic riskLevel classifier before policy gate", async () => {
+    registerToolMocks.ccxtTools = [
+      {
+        name: "ccxt_private_write",
+        category: "market",
+        description: "ccxt private write",
+        inputSchema: { type: "object", properties: {} },
+        riskLevel: (args: Record<string, unknown>) => {
+          return args.method === "cancelOrder" ? "destructive" : "financial";
+        },
+        handler: vi.fn().mockResolvedValue({
+          isError: false,
+          content: [{ type: "text", text: '{"ok":true}' }],
+        }),
+      },
+    ];
+
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: false,
+        confirmTtlMinutes: 30,
+        etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    // cancelOrder → destructive → policy gate skipped
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(null);
+    const cancelResult = await runtime.invokeTool("ccxt_private_write", {
+      method: "cancelOrder",
+    });
+    expect(cancelResult.isError).toBe(false);
+
+    // createOrder → financial → extract attempted, policy evaluated
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
+    const createResult = await runtime.invokeTool("ccxt_private_write", {
+      method: "createOrder",
+      fromToken: "0x...",
+      fromAmount: "1000000",
+    });
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalled();
+
+    await runtime.shutdown();
+  });
 });

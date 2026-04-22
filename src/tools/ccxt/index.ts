@@ -365,7 +365,13 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
         "This covers order placement, cancellation, leverage, transfers, withdrawals, and private implicit write endpoints.",
       inputSchema: zodToJsonSchema(ccxtPrivateWriteSchema) as Record<string, unknown>,
       handler: handleCcxtPrivateWrite,
-      riskLevel: "financial",
+      riskLevel: (args: Record<string, unknown>) => {
+        const method = args.method;
+        if (typeof method !== "string" || method.length === 0) {
+          return "financial";
+        }
+        return classifyCcxtWriteRisk(method);
+      },
       annotations: CCXT_WRITE_ANNOTATIONS,
     },
   ];

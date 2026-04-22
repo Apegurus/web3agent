@@ -34,7 +34,17 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>;
   category: ToolCategory;
   handler: (params: Record<string, unknown>) => Promise<CallToolResult>;
-  riskLevel?: RiskLevel;
+  /**
+   * Static risk level, OR a dynamic classifier that inspects tool args.
+   * Dynamic classifiers are used when risk depends on per-invocation data
+   * (e.g., CCXT method-specific classification: cancelOrder=destructive,
+   * createOrder=financial).
+   *
+   * For MCP listTools output, a dynamic classifier is reported as "financial"
+   * (conservative upper bound) since consumers use the static field as a
+   * safety signal.
+   */
+  riskLevel?: RiskLevel | ((args: Record<string, unknown>) => RiskLevel);
   annotations?: {
     title?: string;
     readOnlyHint?: boolean;

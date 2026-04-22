@@ -83,6 +83,7 @@ type RuntimeToolHandler = (args: Record<string, unknown>) => Promise<CallToolRes
 
 interface RuntimeToolRecord extends ToolCatalogEntry {
   handler: RuntimeToolHandler;
+  originalRiskLevel?: RiskLevel | ((args: Record<string, unknown>) => RiskLevel);
 }
 
 function toCatalogEntry(
@@ -91,7 +92,7 @@ function toCatalogEntry(
     description?: string;
     inputSchema: Record<string, unknown> | object;
     category: ToolCategory;
-    riskLevel?: RiskLevel;
+    riskLevel?: RiskLevel | ((args: Record<string, unknown>) => RiskLevel);
     annotations?: Tool["annotations"];
   },
   source: ToolSource,
@@ -104,9 +105,29 @@ function toCatalogEntry(
     source,
     category: tool.category,
     dynamic,
-    riskLevel: tool.riskLevel ?? "safe",
+    riskLevel: typeof tool.riskLevel === "function" ? "financial" : (tool.riskLevel ?? "safe"),
     ...(tool.annotations ? { annotations: tool.annotations } : {}),
   };
+}
+
+function resolveRiskLevel(
+  tool: {
+    name: string;
+    riskLevel?: RiskLevel | ((args: Record<string, unknown>) => RiskLevel);
+  },
+  args: Record<string, unknown>
+): RiskLevel {
+  if (typeof tool.riskLevel === "function") {
+    try {
+      return tool.riskLevel(args);
+    } catch (e: unknown) {
+      process.stderr.write(
+        `[web3agent] riskLevel classifier threw for ${tool.name}: ${e instanceof Error ? e.message : String(e)}. Defaulting to 'financial' (conservative).\n`
+      );
+      return "financial";
+    }
+  }
+  return tool.riskLevel ?? "safe";
 }
 
 async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
@@ -304,7 +325,15 @@ export class ManagedRuntime implements Web3AgentRuntime {
       return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);
     }
 
-    const sanitization = sanitizeToolInput(args, tool.riskLevel);
+    const resolvedRiskLevel = resolveRiskLevel(
+      {
+        name: tool.name,
+        riskLevel: tool.originalRiskLevel,
+      },
+      args
+    );
+
+    const sanitization = sanitizeToolInput(args, resolvedRiskLevel);
     if (!sanitization.safe) {
       return formatToolError("INPUT_BLOCKED", "Input blocked by injection defense", {
         threats: sanitization.threats.map((t) => ({
@@ -320,7 +349,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       );
     }
 
-    const isFinancial = tool.riskLevel === "financial";
+    const isFinancial = resolvedRiskLevel === "financial";
     const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
     let reservationId: number | null = null;
     let spendWalletAddress: string | undefined;
@@ -355,7 +384,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
       const decision = evaluatePolicy(resolvePolicy(this.config), {
         toolName: name,
-        riskLevel: tool.riskLevel,
+        riskLevel: resolvedRiskLevel,
         estimatedUsd: rawEstimatedUsd,
         walletBalanceUsd,
         requiresWalletBalance,
@@ -568,6 +597,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, this.getFrameworkSource(tool.name)),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -575,6 +605,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "tokens"),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -582,6 +613,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "lifi"),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -589,6 +621,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "orbs"),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -596,6 +629,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "utility"),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -614,6 +648,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
         this.toolRecords.set(tool.name, {
           ...toCatalogEntry(tool, source),
           handler: (args) => tool.handler(args),
+          originalRiskLevel: tool.riskLevel,
         });
       }
     }
@@ -624,6 +659,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "explorer"),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -631,6 +667,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "evm"),
         handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
       });
     }
 
@@ -659,6 +696,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
             config: this.config,
             goatProvider: this.goatProvider,
           }),
+        originalRiskLevel: goatRiskLevel,
       });
     }
   }

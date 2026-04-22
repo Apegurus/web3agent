@@ -147,11 +147,22 @@ describe("ccxt tool definitions", () => {
     ]);
   });
 
-  it("registers ccxt_private_write with financial riskLevel", () => {
+  it("registers ccxt_private_write with a dynamic riskLevel classifier", () => {
     const tool = getCcxtToolDefinitions().find((t) => t.name === "ccxt_private_write");
 
     expect(tool).toBeDefined();
-    expect(tool?.riskLevel).toBe("financial");
+    expect(typeof tool?.riskLevel).toBe("function");
+
+    if (typeof tool?.riskLevel !== "function") {
+      throw new Error("Expected ccxt_private_write riskLevel to be a classifier function");
+    }
+
+    const classify = tool.riskLevel as (args: Record<string, unknown>) => string;
+    expect(classify({ method: "createOrder" })).toBe("financial");
+    expect(classify({ method: "editOrder" })).toBe("financial");
+    expect(classify({ method: "cancelOrder" })).toBe("destructive");
+    expect(classify({ method: "setLeverage" })).toBe("destructive");
+    expect(classify({})).toBe("financial"); // conservative default when method missing
   });
 
   it("lists configured accounts through the tool handler", async () => {
