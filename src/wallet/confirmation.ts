@@ -76,9 +76,27 @@ export class ConfirmationQueueManager {
         if (this.persistNeeded) this.schedulePersist();
       })
       .catch((e: unknown) => {
+        // Clearing persistNeeded here drops any retry signal that a
+        // concurrent schedulePersist() set during the in-flight persist.
+        // The in-memory queue still holds the data, so the next mutating
+        // call (enqueue/complete/fail/expire/deny) will schedule another
+        // persist. We prioritise loop termination in flushPendingPersists
+        // over best-effort retry on failure.
         this.persistScheduled = false;
+        this.persistNeeded = false;
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
+  }
+
+  /**
+   * Wait for any scheduled persist to settle. Intended for tests; production
+   * code should not depend on this — the queue survives process crashes via
+   * atomic writes and `loadQueue()`.
+   */
+  async flushPendingPersists(): Promise<void> {
+    while (this.persistScheduled || this.persistNeeded) {
+      await this.persistChain;
+    }
   }
 
   enqueue(
@@ -145,6 +163,26 @@ export class ConfirmationQueueManager {
     this.queue.delete(id);
     this.schedulePersist();
     if (op) this.audit("CONFIRMED", op);
+  }
+
+  releaseExecuting(id: string): void {
+    this.executing.delete(id);
+  }
+
+  fail(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("EXECUTION_FAILED", op);
+  }
+
+  expire(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("EXPIRED", op);
   }
 
   deny(id: string): boolean {
@@ -222,14 +260,30 @@ export class ConfirmationQueueManager {
       const raw = await readFile(filePath, "utf-8");
       const ops = JSON.parse(raw) as SerializedPendingOperation[];
       const now = Date.now();
+      let droppedEntries = false;
 
       for (const serialized of ops) {
         const createdAt = new Date(serialized.createdAt);
         const elapsed = now - createdAt.getTime();
-        if (elapsed > serialized.ttlMs) continue;
+        if (elapsed > serialized.ttlMs) {
+          droppedEntries = true;
+          appendAuditLog({
+            action: "EXPIRED",
+            operationType: serialized.type,
+            operationId: serialized.id,
+            walletAddress: serialized.walletAddress,
+            description: serialized.description,
+          }).catch((e: unknown) => {
+            process.stderr.write(
+              `[confirmation] Failed to audit expired persisted op ${serialized.id}: ${e}\n`
+            );
+          });
+          continue;
+        }
 
         const executor = executorRegistry.get(serialized.type);
         if (!executor) {
+          droppedEntries = true;
           process.stderr.write(
             `[confirmation] Skipping persisted op ${serialized.id}: no executor for type '${serialized.type}'\n`
           );
@@ -247,6 +301,10 @@ export class ConfirmationQueueManager {
           walletAddress: serialized.walletAddress,
           riskLevel: serialized.riskLevel,
         });
+      }
+
+      if (droppedEntries) {
+        this.schedulePersist();
       }
 
       if (this.queue.size > 0) {

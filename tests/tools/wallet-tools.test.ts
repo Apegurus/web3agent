@@ -25,11 +25,50 @@ const confirmationQueueMock = vi.hoisted(() => ({
   enqueue: vi.fn(),
   confirm: vi.fn(),
   complete: vi.fn(),
+  releaseExecuting: vi.fn(),
+  fail: vi.fn(),
+  expire: vi.fn(),
   deny: vi.fn(),
   list: vi.fn(),
   pruneExpired: vi.fn(),
   registerExecutor: vi.fn(),
 }));
+
+const balanceCacheMocks = vi.hoisted(() => ({
+  getCachedBalanceUsd: vi.fn(),
+  refreshBalanceUsd: vi.fn(),
+}));
+
+const policyConfigMocks = vi.hoisted(() => ({
+  resolvePolicy: vi.fn(),
+}));
+
+const policyEngineMocks = vi.hoisted(() => ({
+  evaluatePolicy: vi.fn(),
+}));
+
+const extractUsdMocks = vi.hoisted(() => ({
+  extractEstimatedUsd: vi.fn(),
+}));
+
+const spendTrackerMocks = vi.hoisted(() => ({
+  commitReservation: vi.fn(),
+  recordSpend: vi.fn(),
+  releaseReservation: vi.fn(),
+  reserveSpend: vi.fn(),
+}));
+
+function mockPendingOperation(
+  operation: Record<string, unknown>,
+  options?: { confirmable?: boolean }
+) {
+  confirmationQueueMock.list.mockReturnValueOnce([operation]);
+  if (options?.confirmable === false) return;
+  confirmationQueueMock.confirm.mockReturnValueOnce({
+    stale: false,
+    operation,
+  });
+}
 
 vi.mock("viem/accounts", () => ({
   english: viemAccountMocks.english,
@@ -51,6 +90,30 @@ vi.mock("../../src/config/env.js", () => ({
   tryGetConfig: (...args: unknown[]) => configMocks.tryGetConfig(...args),
 }));
 
+vi.mock("../../src/policy/balance-cache.js", () => ({
+  getCachedBalanceUsd: (...args: unknown[]) => balanceCacheMocks.getCachedBalanceUsd(...args),
+  refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
+}));
+
+vi.mock("../../src/policy/config.js", () => ({
+  resolvePolicy: (...args: unknown[]) => policyConfigMocks.resolvePolicy(...args),
+}));
+
+vi.mock("../../src/policy/engine.js", () => ({
+  evaluatePolicy: (...args: unknown[]) => policyEngineMocks.evaluatePolicy(...args),
+}));
+
+vi.mock("../../src/policy/extract-usd.js", () => ({
+  extractEstimatedUsd: (...args: unknown[]) => extractUsdMocks.extractEstimatedUsd(...args),
+}));
+
+vi.mock("../../src/policy/spend-tracker.js", () => ({
+  commitReservation: (...args: unknown[]) => spendTrackerMocks.commitReservation(...args),
+  recordSpend: (...args: unknown[]) => spendTrackerMocks.recordSpend(...args),
+  releaseReservation: (...args: unknown[]) => spendTrackerMocks.releaseReservation(...args),
+  reserveSpend: (...args: unknown[]) => spendTrackerMocks.reserveSpend(...args),
+}));
+
 describe("wallet tool handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -68,6 +131,12 @@ describe("wallet tool handlers", () => {
     persistenceMocks.getActiveAccount.mockReturnValue({
       address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     });
+    balanceCacheMocks.getCachedBalanceUsd.mockReturnValue(null);
+    balanceCacheMocks.refreshBalanceUsd.mockResolvedValue(1000);
+    policyConfigMocks.resolvePolicy.mockReturnValue({});
+    policyEngineMocks.evaluatePolicy.mockReturnValue({ action: "allow" });
+    extractUsdMocks.extractEstimatedUsd.mockResolvedValue(10);
+    spendTrackerMocks.reserveSpend.mockReturnValue(123);
   });
 
   it("walletGenerate returns address, privateKey, and warning", async () => {
@@ -315,5 +384,305 @@ describe("wallet tool handlers", () => {
     expect(result.isError).toBe(true);
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.error).toBe("NOT_FOUND");
+  });
+
+  it("transactionConfirm releases executing state after policy deny so retries are not stranded", async () => {
+    const retryExecutor = vi
+      .fn()
+      .mockResolvedValue({ isError: false, content: [{ type: "text", text: "{}" }] });
+    mockPendingOperation(
+      {
+        id: "policy-denied-op",
+        type: "wallet_activate",
+        description: "Activate wallet",
+        params: { chainId: 8453 },
+        executor: vi.fn(),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "financial",
+        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { confirmable: false }
+    );
+    mockPendingOperation({
+      id: "policy-denied-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: { chainId: 8453 },
+      executor: retryExecutor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial",
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+    policyEngineMocks.evaluatePolicy
+      .mockReturnValueOnce({
+        action: "deny",
+        message: "Denied by policy",
+        reasonCode: "LIMIT",
+        currentSpend: 25,
+      })
+      .mockReturnValueOnce({ action: "allow" });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+
+    const denied = await transactionConfirm({ id: "policy-denied-op" });
+    const deniedPayload = JSON.parse((denied.content[0] as { text: string }).text);
+    expect(deniedPayload.error).toBe("POLICY_DENIED");
+
+    const retried = await transactionConfirm({ id: "policy-denied-op" });
+    const retriedPayload = JSON.parse((retried.content[0] as { text: string }).text);
+    expect(retriedPayload.error).not.toBe("NOT_FOUND");
+    expect(retryExecutor).toHaveBeenCalledTimes(1);
+  });
+
+  it("transactionConfirm releases executing state after wallet mismatch so retries are not stranded", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "private-key",
+      chainId: 8453,
+      address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    });
+    const retryExecutor = vi
+      .fn()
+      .mockResolvedValue({ isError: false, content: [{ type: "text", text: '{"done":true}' }] });
+    mockPendingOperation(
+      {
+        id: "wallet-mismatch-op",
+        type: "wallet_activate",
+        description: "Activate wallet",
+        params: {},
+        executor: vi.fn(),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "destructive",
+        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { confirmable: false }
+    );
+    mockPendingOperation({
+      id: "wallet-mismatch-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: {},
+      executor: retryExecutor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "destructive",
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+
+    const mismatch = await transactionConfirm({ id: "wallet-mismatch-op" });
+    const mismatchPayload = JSON.parse((mismatch.content[0] as { text: string }).text);
+    expect(mismatchPayload.error).toBe("WALLET_MISMATCH");
+    expect(confirmationQueueMock.fail).not.toHaveBeenCalledWith("wallet-mismatch-op");
+
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "private-key",
+      chainId: 8453,
+      address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+    const retried = await transactionConfirm({ id: "wallet-mismatch-op" });
+
+    expect(retried.isError).toBe(false);
+    expect(retryExecutor).toHaveBeenCalledTimes(1);
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("wallet-mismatch-op");
+  });
+
+  it("transactionConfirm fails queued operation when executor throws", async () => {
+    mockPendingOperation({
+      id: "throwing-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: {},
+      executor: vi.fn().mockRejectedValue(new Error("boom")),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "destructive",
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "throwing-op" });
+
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("CONFIRM_FAILED");
+    expect(confirmationQueueMock.fail).toHaveBeenCalledWith("throwing-op");
+    expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
+  });
+
+  it("transactionConfirm expires stale confirmations instead of completing them", async () => {
+    confirmationQueueMock.list.mockReturnValueOnce([
+      {
+        id: "stale-op",
+        type: "wallet_activate",
+        description: "Activate wallet",
+        params: {},
+        executor: vi.fn(),
+        createdAt: new Date(Date.now() - 61_000),
+        ttlMs: 60_000,
+        riskLevel: "destructive",
+      },
+    ]);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "stale-op" });
+
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("OPERATION_EXPIRED");
+    expect(confirmationQueueMock.pruneExpired).toHaveBeenCalled();
+    expect(confirmationQueueMock.expire).not.toHaveBeenCalled();
+    expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
+  });
+
+  it("transactionConfirm fails queued operation and releases reservation when executor returns isError", async () => {
+    mockPendingOperation({
+      id: "exec-error-op",
+      type: "ccxt_private_write",
+      description: "CCXT createOrder on account binance_main",
+      params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+      executor: vi.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: '{"error":"EXCHANGE_REJECTED"}' }],
+      }),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial",
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "exec-error-op" });
+
+    expect(result.isError).toBe(true);
+    expect(confirmationQueueMock.fail).toHaveBeenCalledWith("exec-error-op");
+    expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
+    expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
+    expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(123);
+  });
+
+  it("transactionConfirm allows non-wallet (CCXT) ops when wallet is read-only", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: null,
+    });
+
+    const ccxtExecutor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: '{"status":"ok"}' }],
+    });
+
+    mockPendingOperation({
+      id: "ccxt-read-only-op",
+      type: "ccxt_private_write",
+      description: "CCXT createOrder on account binance_main",
+      params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+      executor: ccxtExecutor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial",
+      // walletAddress intentionally omitted — off-chain op
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "ccxt-read-only-op" });
+
+    expect(result.isError).toBe(false);
+    expect(ccxtExecutor).toHaveBeenCalledTimes(1);
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("ccxt-read-only-op");
+  });
+
+  it("transactionConfirm still rejects wallet-backed ops when wallet is read-only", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: null,
+    });
+
+    confirmationQueueMock.list.mockReturnValueOnce([
+      {
+        id: "evm-read-only-op",
+        type: "evm_write_contract",
+        description: "Write on contract",
+        params: { chainId: 8453 },
+        executor: vi.fn(),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "destructive",
+        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "evm-read-only-op" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("WALLET_READ_ONLY");
+    expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
+    expect(confirmationQueueMock.fail).not.toHaveBeenCalled();
+  });
+
+  it("transactionConfirm releases reservation when confirm() returns null (concurrent race)", async () => {
+    const operation = {
+      id: "race-op",
+      type: "evm_write_contract",
+      description: "Write on contract",
+      params: { chainId: 8453 },
+      executor: vi.fn(),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial" as const,
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
+
+    // list().find() succeeds (pre-check phase), but confirm() returns null
+    // (simulated concurrent race — another caller already marked it executing)
+    confirmationQueueMock.list.mockReturnValueOnce([operation]);
+    confirmationQueueMock.confirm.mockReturnValueOnce(null);
+
+    extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
+    spendTrackerMocks.reserveSpend.mockReturnValueOnce(999);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "race-op" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("NOT_FOUND");
+    expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(999);
+    expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
+  });
+
+  it("transactionConfirm releases reservation when op becomes stale at confirm time", async () => {
+    const operation = {
+      id: "stale-race-op",
+      type: "evm_write_contract",
+      description: "Write on contract",
+      params: { chainId: 8453 },
+      executor: vi.fn(),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial" as const,
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
+
+    // Pre-check elapsed < ttlMs (op looks fresh when list().find() runs),
+    // but by the time confirm() is called, result.stale is true (clock skew
+    // or the window expired during async policy eval).
+    confirmationQueueMock.list.mockReturnValueOnce([operation]);
+    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: true, operation });
+
+    extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
+    spendTrackerMocks.reserveSpend.mockReturnValueOnce(888);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "stale-race-op" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("OPERATION_EXPIRED");
+    expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(888);
+    expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
   });
 });

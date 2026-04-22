@@ -14,17 +14,18 @@ import {
   resolveExchangeIdFromAccount,
 } from "../../ccxt/accounts.js";
 import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
-import { isHighRiskCcxtMethod } from "../../ccxt/classification.js";
+import { classifyCcxtWriteRisk, isHighRiskCcxtMethod } from "../../ccxt/classification.js";
 import {
   invokeCcxtPrivateRead,
   invokeCcxtPrivateWrite,
   invokeCcxtPublicCall,
 } from "../../ccxt/invoke.js";
 import { getCcxtRuntimeState } from "../../ccxt/runtime-state.js";
+import { extractEstimatedUsd } from "../../policy/extract-usd.js";
 import { formatToolErrorFromUnknown, formatToolResponse } from "../../utils/errors.js";
 import { isPlainObject } from "../../utils/type-guards.js";
 import { validateInput } from "../../utils/validation.js";
-import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
+import { confirmationQueue } from "../../wallet/confirmation.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
@@ -250,28 +251,36 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   const validation = validateInput(ccxtPrivateWriteSchema, params);
   if (!validation.success) return validation.error;
 
-  const input = validation.data as CcxtPrivateWriteInput;
-  const blocked = checkHighRiskGuards(input.method);
+  const writeData = validation.data as CcxtPrivateWriteInput;
+  const blocked = checkHighRiskGuards(writeData.method);
   if (blocked) return blocked;
 
+  const estimatedUsd = await extractEstimatedUsd(writeData as unknown as Record<string, unknown>);
+
+  const policyParams = {
+    method: writeData.method,
+    account: writeData.account,
+    ...(estimatedUsd !== null && estimatedUsd > 0 ? { estimatedUsd } : {}),
+  };
+
+  // The executor is a closure over writeData; raw CCXT args never touch
+  // pending-ops.json. If the process restarts, loadQueue() drops any
+  // persisted ccxt_private_write entry because no executor is registered
+  // for that type.
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",
-    `CCXT ${input.method} on account ${input.account}`,
-    validation.data as unknown as Record<string, unknown>,
-    executeCcxtPrivateWrite,
+    `CCXT ${writeData.method} on account ${writeData.account}`,
+    policyParams as unknown as Record<string, unknown>,
+    async () => executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>),
     undefined,
-    "financial"
+    classifyCcxtWriteRisk(writeData.method)
   );
 
   if (queued) {
     return formatToolResponse({ status: "pending_confirmation", id, summary });
   }
 
-  return executeCcxtPrivateWrite(validation.data as unknown as Record<string, unknown>);
-}
-
-export function registerCcxtExecutors(): void {
-  registerExecutor("ccxt_private_write", executeCcxtPrivateWrite);
+  return executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>);
 }
 
 export function getCcxtToolDefinitions(): ToolDefinition[] {

@@ -5,9 +5,12 @@ const mockQueue = vi.hoisted(() => {
     enabled: true,
     confirm: vi.fn(),
     complete: vi.fn(),
+    expire: vi.fn(),
+    fail: vi.fn(),
     deny: vi.fn(),
     list: vi.fn(),
     pruneExpired: vi.fn(),
+    releaseExecuting: vi.fn(),
     enqueue: vi.fn(),
   };
   return { queue };
@@ -34,6 +37,18 @@ const balanceCacheMocks = vi.hoisted(() => ({
   getCachedBalanceUsd: vi.fn().mockReturnValue(null),
   refreshBalanceUsd: vi.fn().mockResolvedValue(null),
 }));
+
+function mockPendingOperation(
+  operation: Record<string, unknown>,
+  options?: { confirmable?: boolean }
+) {
+  mockQueue.queue.list.mockReturnValueOnce([operation]);
+  if (options?.confirmable === false) return;
+  mockQueue.queue.confirm.mockReturnValueOnce({
+    operation,
+    stale: false,
+  });
+}
 
 vi.mock("../../src/wallet/persistence.js", () => mockPersistence);
 
@@ -81,6 +96,15 @@ vi.mock("../../src/policy/balance-cache.js", () => ({
   refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
 }));
 
+function parseFirstTextJson(result: { content: Array<{ type: string; text?: string }> }) {
+  const first = result.content[0];
+  expect(first?.type).toBe("text");
+  if (!first || first.type !== "text" || typeof first.text !== "string") {
+    throw new Error("Expected first content item to be text");
+  }
+  return JSON.parse(first.text);
+}
+
 describe("transaction_confirm tool handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,18 +119,18 @@ describe("transaction_confirm tool handler", () => {
     const result = await transactionConfirm({});
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
   it("returns NOT_FOUND for unknown operation ID", async () => {
-    mockQueue.queue.confirm.mockReturnValueOnce(null);
+    mockQueue.queue.list.mockReturnValueOnce([]);
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "nonexistent-uuid" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("NOT_FOUND");
   });
 
@@ -115,31 +139,29 @@ describe("transaction_confirm tool handler", () => {
       isError: false,
       content: [{ type: "text", text: JSON.stringify({ confirmed: true, txHash: "0xabc" }) }],
     };
-    mockQueue.queue.confirm.mockReturnValueOnce({
-      operation: {
-        id: "op-1",
-        type: "swap",
-        description: "Swap 1 ETH for USDC",
-        params: { amount: "1" },
-        createdAt: new Date(),
-        ttlMs: 30 * 60 * 1000,
-        executor: vi.fn().mockResolvedValue(executorResult),
-      },
-      stale: false,
+    mockPendingOperation({
+      id: "op-1",
+      type: "swap",
+      description: "Swap 1 ETH for USDC",
+      params: { amount: "1" },
+      createdAt: new Date(),
+      ttlMs: 30 * 60 * 1000,
+      walletAddress: "0x0",
+      executor: vi.fn().mockResolvedValue(executorResult),
     });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "op-1" });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.confirmed).toBe(true);
     expect(payload.txHash).toBe("0xabc");
   });
 
   it("returns OPERATION_EXPIRED error when operation exceeds TTL", async () => {
-    mockQueue.queue.confirm.mockReturnValueOnce({
-      operation: {
+    mockQueue.queue.list.mockReturnValueOnce([
+      {
         id: "op-2",
         type: "bridge",
         description: "Bridge ETH",
@@ -148,14 +170,13 @@ describe("transaction_confirm tool handler", () => {
         ttlMs: 30 * 60 * 1000,
         executor: vi.fn(),
       },
-      stale: true,
-    });
+    ]);
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "op-2" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("OPERATION_EXPIRED");
   });
 
@@ -174,8 +195,8 @@ describe("transaction_confirm tool handler", () => {
       isError: false,
       content: [{ type: "text", text: JSON.stringify({ confirmed: true }) }],
     });
-    mockQueue.queue.confirm.mockReturnValueOnce({
-      operation: {
+    mockPendingOperation(
+      {
         id: "op-price-fail",
         type: "swap",
         description: "Swap with unavailable price feed",
@@ -183,16 +204,17 @@ describe("transaction_confirm tool handler", () => {
         createdAt: new Date(),
         ttlMs: 30 * 60 * 1000,
         riskLevel: "financial",
+        walletAddress: "0x0",
         executor,
       },
-      stale: false,
-    });
+      { confirmable: false }
+    );
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "op-price-fail" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("POLICY_DENIED");
     expect(executor).not.toHaveBeenCalled();
   });
@@ -204,18 +226,16 @@ describe("transaction_confirm tool handler", () => {
       content: [{ type: "text", text: JSON.stringify({ confirmed: true, txHash: "0xabc" }) }],
     };
     const executor = vi.fn().mockResolvedValue(executorResult);
-    mockQueue.queue.confirm.mockReturnValueOnce({
-      operation: {
-        id: "op-gas-only",
-        type: "orbs_cancel_order",
-        description: "Cancel a pending order",
-        params: { chainId: 1, digest: "0x123" },
-        createdAt: new Date(),
-        ttlMs: 30 * 60 * 1000,
-        riskLevel: "financial",
-        executor,
-      },
-      stale: false,
+    mockPendingOperation({
+      id: "op-gas-only",
+      type: "orbs_cancel_order",
+      description: "Cancel a pending order",
+      params: { chainId: 1, digest: "0x123" },
+      createdAt: new Date(),
+      ttlMs: 30 * 60 * 1000,
+      riskLevel: "financial",
+      walletAddress: "0x0",
+      executor,
     });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
@@ -234,18 +254,16 @@ describe("transaction_confirm tool handler", () => {
       isError: false,
       content: [{ type: "text", text: JSON.stringify({ confirmed: true }) }],
     });
-    mockQueue.queue.confirm.mockReturnValueOnce({
-      operation: {
-        id: "op-refresh-balance",
-        type: "swap",
-        description: "Swap on a non-default chain",
-        params: { chainId: 8453, fromToken: "0xabc", fromAmount: "1000" },
-        createdAt: new Date(),
-        ttlMs: 30 * 60 * 1000,
-        riskLevel: "financial",
-        executor,
-      },
-      stale: false,
+    mockPendingOperation({
+      id: "op-refresh-balance",
+      type: "swap",
+      description: "Swap on a non-default chain",
+      params: { chainId: 8453, fromToken: "0xabc", fromAmount: "1000" },
+      createdAt: new Date(),
+      ttlMs: 30 * 60 * 1000,
+      riskLevel: "financial",
+      walletAddress: "0x0",
+      executor,
     });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
@@ -261,6 +279,110 @@ describe("transaction_confirm tool handler", () => {
       })
     );
   });
+
+  it("allows non-wallet CCXT operations when wallet mode is read-only", async () => {
+    mockPersistence.getWalletState.mockReturnValue({ mode: "read-only", chainId: 1 });
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(50);
+    const executor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({ confirmed: true, id: "order-1" }) }],
+    });
+    mockPendingOperation({
+      id: "op-ccxt-read-only",
+      type: "ccxt_private_write",
+      description: "Create CCXT order",
+      params: { method: "createOrder", args: ["BTC/USDT", "limit", "buy", 1, 50000] },
+      createdAt: new Date(),
+      ttlMs: 30 * 60 * 1000,
+      riskLevel: "financial",
+      executor,
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "op-ccxt-read-only" });
+
+    expect(result.isError).toBe(false);
+    expect(executor).toHaveBeenCalledOnce();
+    expect(balanceCacheMocks.refreshBalanceUsd).not.toHaveBeenCalled();
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        estimatedUsd: 50,
+        walletBalanceUsd: null,
+        requiresWalletBalance: false,
+      })
+    );
+  });
+
+  it("still rejects wallet-backed operations when wallet mode is read-only", async () => {
+    mockPersistence.getWalletState.mockReturnValue({ mode: "read-only", chainId: 1 });
+    mockQueue.queue.list.mockReturnValueOnce([
+      {
+        id: "op-wallet-read-only",
+        type: "swap",
+        description: "Wallet-backed swap",
+        params: { fromToken: "0xabc", fromAmount: "1000" },
+        createdAt: new Date(),
+        ttlMs: 30 * 60 * 1000,
+        riskLevel: "financial",
+        walletAddress: "0x1234",
+        executor: vi.fn(),
+      },
+    ]);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "op-wallet-read-only" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.error).toBe("WALLET_READ_ONLY");
+  });
+
+  it("still denies non-wallet CCXT operations when USD estimation fails in read-only mode", async () => {
+    mockPersistence.getWalletState.mockReturnValue({ mode: "read-only", chainId: 1 });
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(0);
+    policyMocks.evaluatePolicy.mockReturnValueOnce({
+      action: "deny",
+      reasonCode: "USD_ESTIMATION_FAILED",
+      message: "ccxt_private_write: USD estimation failed",
+      riskLevel: "financial",
+      toolName: "ccxt_private_write",
+      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
+      appliedPolicy: {},
+    });
+    const executor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({ confirmed: true }) }],
+    });
+    mockPendingOperation(
+      {
+        id: "op-ccxt-price-fail",
+        type: "ccxt_private_write",
+        description: "Create CCXT order with unknown USD quote",
+        params: { method: "createOrder", args: ["ETH/BTC", "limit", "buy", 1, 0.05] },
+        createdAt: new Date(),
+        ttlMs: 30 * 60 * 1000,
+        riskLevel: "financial",
+        executor,
+      },
+      { confirmable: false }
+    );
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "op-ccxt-price-fail" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse(result.content[0].text as string);
+    expect(payload.error).toBe("POLICY_DENIED");
+    expect(executor).not.toHaveBeenCalled();
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        estimatedUsd: 0,
+        requiresWalletBalance: false,
+      })
+    );
+  });
 });
 
 describe("transaction_deny tool handler", () => {
@@ -273,7 +395,7 @@ describe("transaction_deny tool handler", () => {
     const result = await transactionDeny({});
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -284,7 +406,7 @@ describe("transaction_deny tool handler", () => {
     const result = await transactionDeny({ id: "nonexistent-uuid" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("NOT_FOUND");
   });
 
@@ -295,7 +417,7 @@ describe("transaction_deny tool handler", () => {
     const result = await transactionDeny({ id: "op-1" });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.denied).toBe(true);
     expect(mockQueue.queue.deny).toHaveBeenCalledWith("op-1");
   });
@@ -313,7 +435,7 @@ describe("transaction_list tool handler", () => {
     const result = await transactionList();
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.count).toBe(0);
     expect(payload.operations).toHaveLength(0);
     expect(mockQueue.queue.pruneExpired).toHaveBeenCalled();
@@ -330,7 +452,7 @@ describe("transaction_list tool handler", () => {
     const result = await transactionList();
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.count).toBe(2);
     expect(payload.operations[0].type).toBe("swap");
     expect(payload.operations[1].type).toBe("bridge");
@@ -348,7 +470,7 @@ describe("transaction_simulate tool handler", () => {
     const result = await transactionSimulate({ chainId: 8453 });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -368,7 +490,7 @@ describe("transaction_simulate tool handler", () => {
     });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseFirstTextJson(result);
     expect(payload.success).toBe(true);
     expect(payload.gasEstimate).toBe("145000");
     expect(simulationMocks.simulateTransaction).toHaveBeenCalledWith({

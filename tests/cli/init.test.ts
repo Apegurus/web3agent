@@ -235,6 +235,17 @@ describe("runInit", () => {
     expect(mockState.installContext).not.toHaveBeenCalled();
   });
 
+  it("shows guide-driven message when only guide-only hosts are autodetected", async () => {
+    mockState.detectHosts.mockResolvedValue({ detected: ["openclaw"], projectDir: "/project" });
+    mockState.assertSingleHost.mockImplementation(() => {
+      throw new Error("should not be called");
+    });
+
+    const { runInit } = await import("../../src/cli/init.js");
+    await expect(runInit([])).rejects.toThrow("guide-driven");
+    expect(mockState.assertSingleHost).not.toHaveBeenCalled();
+  });
+
   it("ignores guide-only hosts during auto-detection", async () => {
     mockState.detectHosts.mockResolvedValue({
       detected: ["claude", "openclaw"],

@@ -71,6 +71,43 @@ describe("extractEstimatedUsd", () => {
     expect(result).toBe(0);
   });
 
+  it("estimates USD for ccxt createOrder on a USD-quoted pair", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 1, 50000],
+    });
+
+    expect(result).toBe(50000);
+    expect(mockPricing.estimateTokenUsd).not.toHaveBeenCalled();
+  });
+
+  it("estimates USD for ccxt editOrder using the correct amount and price slots", async () => {
+    const result = await extractEstimatedUsd({
+      method: "editOrder",
+      args: ["order-1", "BTC/USDT", "limit", "buy", 1, 50000],
+    });
+
+    expect(result).toBe(50000);
+  });
+
+  it("returns 0 for ccxt createOrder on a non-USD quoted pair", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["ETH/BTC", "limit", "buy", 10, 0.05],
+    });
+
+    expect(result).toBe(0);
+  });
+
+  it("returns 0 for ccxt createOrder on a fiat-quoted non-USD pair", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/EUR", "limit", "buy", 1, 45000],
+    });
+
+    expect(result).toBe(0);
+  });
+
   it("returns null when no recognizable fields (gas-only tool)", async () => {
     const result = await extractEstimatedUsd({ foo: "bar" });
     expect(result).toBeNull();

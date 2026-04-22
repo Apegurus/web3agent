@@ -1,3 +1,5 @@
+import type { RiskLevel } from "../policy/types.js";
+
 export type CcxtMethodClassification = "public" | "private_read" | "private_write" | "deny";
 
 const PUBLIC_UNIFIED = new Set([
@@ -9,9 +11,19 @@ const PUBLIC_UNIFIED = new Set([
   "fetchOrderBook",
   "fetchOHLCV",
   "fetchTrades",
+  "fetchLiquidations",
   "fetchFundingRate",
   "fetchFundingRates",
   "fetchFundingRateHistory",
+  "fetchBidsAsks",
+  "fetchMarkPrice",
+  "fetchMarkPrices",
+  "fetchPremiumIndex",
+  "fetchStatus",
+  "fetchTime",
+  "fetchL2OrderBook",
+  "fetchOpenInterestHistory",
+  "fetchOpenInterest",
 ]);
 
 const PRIVATE_READ_UNIFIED = new Set([
@@ -28,6 +40,17 @@ const PRIVATE_READ_UNIFIED = new Set([
   "fetchDeposits",
   "fetchWithdrawals",
   "fetchTransactions",
+  "fetchTradingFees",
+  "fetchTradingFee",
+  "fetchBorrowRate",
+  "fetchBorrowRates",
+  "fetchBorrowRateHistory",
+  "fetchBorrowInterest",
+  "fetchMyLiquidations",
+  "fetchMarginModes",
+  "fetchMarginMode",
+  "fetchTransfers",
+  "fetchAccounts",
 ]);
 
 const PRIVATE_WRITE_UNIFIED = new Set([
@@ -40,6 +63,8 @@ const PRIVATE_WRITE_UNIFIED = new Set([
   "transfer",
   "withdraw",
 ]);
+
+const CCXT_FINANCIAL_WRITE = new Set(["createOrder", "editOrder"]);
 
 const IMPLICIT_PUBLIC = /PublicGet/i;
 const IMPLICIT_PRIVATE_READ = /PrivateGet/i;
@@ -74,6 +99,20 @@ export function isHighRiskCcxtMethod(method: string): boolean {
   const classification = classifyCcxtMethod(method);
   if (classification !== "private_write") return false;
   return HIGH_RISK_PATTERN.test(method);
+}
+
+/**
+ * Risk classification for a CCXT private write method.
+ *
+ * "financial" — order placement/edit; amount × price is estimable from args,
+ *               and the policy engine should enforce USD spend limits.
+ * "destructive" — admin/cancel/movement; no parseable USD at write time.
+ *               Policy engine treats as gas-only; high-risk movement
+ *               (withdraw/transfer) is separately gated by
+ *               checkHighRiskGuards + confirmation requirements.
+ */
+export function classifyCcxtWriteRisk(method: string): Exclude<RiskLevel, "safe"> {
+  return CCXT_FINANCIAL_WRITE.has(method) ? "financial" : "destructive";
 }
 
 export function isMethodAllowedForTool(

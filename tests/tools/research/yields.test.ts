@@ -20,6 +20,7 @@ vi.mock("../../../src/chains/registry.js", () => ({
       56: { id: 56, name: "BNB Smart Chain" },
       42161: { id: 42161, name: "Arbitrum One" },
       10: { id: 10, name: "OP Mainnet" },
+      42220: { id: 42220, name: "Celo" },
     };
     return chains[id];
   }),
@@ -354,6 +355,28 @@ describe("getCompareYields", () => {
     for (const r of result) {
       expect(r.chain.toLowerCase()).toBe("optimism");
     }
+  });
+
+  it("filters by chainId 42220 (Celo) with unaliased chain name", async () => {
+    const poolsWithCelo = [
+      ...samplePools,
+      {
+        pool: "pool-celo-1",
+        project: "moola",
+        chain: "Celo",
+        symbol: "USDC",
+        tvlUsd: 1_000_000,
+        apy: 3.0,
+        apyBase: 2.0,
+        apyReward: 1.0,
+        ilRisk: "NO",
+        rewardTokens: [],
+      },
+    ];
+    mockFetch.mockResolvedValueOnce(mockResponse({ data: poolsWithCelo }));
+    const result = await getCompareYields({ token: "USDC", chainId: 42220 });
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    for (const r of result) expect(r.chain.toLowerCase()).toBe("celo");
   });
 });
 
