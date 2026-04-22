@@ -58,6 +58,18 @@ const spendTrackerMocks = vi.hoisted(() => ({
   reserveSpend: vi.fn(),
 }));
 
+function mockPendingOperation(
+  operation: Record<string, unknown>,
+  options?: { confirmable?: boolean }
+) {
+  confirmationQueueMock.list.mockReturnValueOnce([operation]);
+  if (options?.confirmable === false) return;
+  confirmationQueueMock.confirm.mockReturnValueOnce({
+    stale: false,
+    operation,
+  });
+}
+
 vi.mock("viem/accounts", () => ({
   english: viemAccountMocks.english,
   generatePrivateKey: (...args: unknown[]) => viemAccountMocks.generatePrivateKey(...args),
@@ -375,37 +387,34 @@ describe("wallet tool handlers", () => {
   });
 
   it("transactionConfirm releases executing state after policy deny so retries are not stranded", async () => {
-    confirmationQueueMock.confirm
-      .mockReturnValueOnce({
-        stale: false,
-        operation: {
-          id: "policy-denied-op",
-          type: "wallet_activate",
-          description: "Activate wallet",
-          params: { chainId: 8453 },
-          executor: vi.fn(),
-          createdAt: new Date(),
-          ttlMs: 60_000,
-          riskLevel: "financial",
-          walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        },
-      })
-      .mockReturnValueOnce({
-        stale: false,
-        operation: {
-          id: "policy-denied-op",
-          type: "wallet_activate",
-          description: "Activate wallet",
-          params: { chainId: 8453 },
-          executor: vi
-            .fn()
-            .mockResolvedValue({ isError: false, content: [{ type: "text", text: "{}" }] }),
-          createdAt: new Date(),
-          ttlMs: 60_000,
-          riskLevel: "financial",
-          walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        },
-      });
+    const retryExecutor = vi
+      .fn()
+      .mockResolvedValue({ isError: false, content: [{ type: "text", text: "{}" }] });
+    mockPendingOperation(
+      {
+        id: "policy-denied-op",
+        type: "wallet_activate",
+        description: "Activate wallet",
+        params: { chainId: 8453 },
+        executor: vi.fn(),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "financial",
+        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { confirmable: false }
+    );
+    mockPendingOperation({
+      id: "policy-denied-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: { chainId: 8453 },
+      executor: retryExecutor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial",
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
     policyEngineMocks.evaluatePolicy
       .mockReturnValueOnce({
         action: "deny",
@@ -424,7 +433,7 @@ describe("wallet tool handlers", () => {
     const retried = await transactionConfirm({ id: "policy-denied-op" });
     const retriedPayload = JSON.parse((retried.content[0] as { text: string }).text);
     expect(retriedPayload.error).not.toBe("NOT_FOUND");
-    expect(confirmationQueueMock.releaseExecuting).toHaveBeenCalledWith("policy-denied-op");
+    expect(retryExecutor).toHaveBeenCalledTimes(1);
   });
 
   it("transactionConfirm releases executing state after wallet mismatch so retries are not stranded", async () => {
@@ -436,35 +445,31 @@ describe("wallet tool handlers", () => {
     const retryExecutor = vi
       .fn()
       .mockResolvedValue({ isError: false, content: [{ type: "text", text: '{"done":true}' }] });
-    confirmationQueueMock.confirm
-      .mockReturnValueOnce({
-        stale: false,
-        operation: {
-          id: "wallet-mismatch-op",
-          type: "wallet_activate",
-          description: "Activate wallet",
-          params: {},
-          executor: vi.fn(),
-          createdAt: new Date(),
-          ttlMs: 60_000,
-          riskLevel: "destructive",
-          walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        },
-      })
-      .mockReturnValueOnce({
-        stale: false,
-        operation: {
-          id: "wallet-mismatch-op",
-          type: "wallet_activate",
-          description: "Activate wallet",
-          params: {},
-          executor: retryExecutor,
-          createdAt: new Date(),
-          ttlMs: 60_000,
-          riskLevel: "destructive",
-          walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        },
-      });
+    mockPendingOperation(
+      {
+        id: "wallet-mismatch-op",
+        type: "wallet_activate",
+        description: "Activate wallet",
+        params: {},
+        executor: vi.fn(),
+        createdAt: new Date(),
+        ttlMs: 60_000,
+        riskLevel: "destructive",
+        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { confirmable: false }
+    );
+    mockPendingOperation({
+      id: "wallet-mismatch-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: {},
+      executor: retryExecutor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "destructive",
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
 
@@ -482,23 +487,19 @@ describe("wallet tool handlers", () => {
 
     expect(retried.isError).toBe(false);
     expect(retryExecutor).toHaveBeenCalledTimes(1);
-    expect(confirmationQueueMock.releaseExecuting).toHaveBeenCalledWith("wallet-mismatch-op");
     expect(confirmationQueueMock.complete).toHaveBeenCalledWith("wallet-mismatch-op");
   });
 
   it("transactionConfirm fails queued operation when executor throws", async () => {
-    confirmationQueueMock.confirm.mockReturnValue({
-      stale: false,
-      operation: {
-        id: "throwing-op",
-        type: "wallet_activate",
-        description: "Activate wallet",
-        params: {},
-        executor: vi.fn().mockRejectedValue(new Error("boom")),
-        createdAt: new Date(),
-        ttlMs: 60_000,
-        riskLevel: "destructive",
-      },
+    mockPendingOperation({
+      id: "throwing-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: {},
+      executor: vi.fn().mockRejectedValue(new Error("boom")),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "destructive",
     });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
@@ -511,45 +512,42 @@ describe("wallet tool handlers", () => {
   });
 
   it("transactionConfirm expires stale confirmations instead of completing them", async () => {
-    confirmationQueueMock.confirm.mockReturnValue({
-      stale: true,
-      operation: {
+    confirmationQueueMock.list.mockReturnValueOnce([
+      {
         id: "stale-op",
         type: "wallet_activate",
         description: "Activate wallet",
         params: {},
         executor: vi.fn(),
-        createdAt: new Date(),
+        createdAt: new Date(Date.now() - 61_000),
         ttlMs: 60_000,
         riskLevel: "destructive",
       },
-    });
+    ]);
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "stale-op" });
 
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.error).toBe("OPERATION_EXPIRED");
-    expect(confirmationQueueMock.expire).toHaveBeenCalledWith("stale-op");
+    expect(confirmationQueueMock.pruneExpired).toHaveBeenCalled();
+    expect(confirmationQueueMock.expire).not.toHaveBeenCalled();
     expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
   });
 
   it("transactionConfirm fails queued operation and releases reservation when executor returns isError", async () => {
-    confirmationQueueMock.confirm.mockReturnValue({
-      stale: false,
-      operation: {
-        id: "exec-error-op",
-        type: "ccxt_private_write",
-        description: "CCXT createOrder on account binance_main",
-        params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
-        executor: vi.fn().mockResolvedValue({
-          isError: true,
-          content: [{ type: "text", text: '{"error":"EXCHANGE_REJECTED"}' }],
-        }),
-        createdAt: new Date(),
-        ttlMs: 60_000,
-        riskLevel: "financial",
-      },
+    mockPendingOperation({
+      id: "exec-error-op",
+      type: "ccxt_private_write",
+      description: "CCXT createOrder on account binance_main",
+      params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+      executor: vi.fn().mockResolvedValue({
+        isError: true,
+        content: [{ type: "text", text: '{"error":"EXCHANGE_REJECTED"}' }],
+      }),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial",
     });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
@@ -574,19 +572,16 @@ describe("wallet tool handlers", () => {
       content: [{ type: "text", text: '{"status":"ok"}' }],
     });
 
-    confirmationQueueMock.confirm.mockReturnValueOnce({
-      stale: false,
-      operation: {
-        id: "ccxt-read-only-op",
-        type: "ccxt_private_write",
-        description: "CCXT createOrder on account binance_main",
-        params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
-        executor: ccxtExecutor,
-        createdAt: new Date(),
-        ttlMs: 60_000,
-        riskLevel: "financial",
-        // walletAddress intentionally omitted — off-chain op
-      },
+    mockPendingOperation({
+      id: "ccxt-read-only-op",
+      type: "ccxt_private_write",
+      description: "CCXT createOrder on account binance_main",
+      params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+      executor: ccxtExecutor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial",
+      // walletAddress intentionally omitted — off-chain op
     });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
@@ -604,9 +599,8 @@ describe("wallet tool handlers", () => {
       address: null,
     });
 
-    confirmationQueueMock.confirm.mockReturnValueOnce({
-      stale: false,
-      operation: {
+    confirmationQueueMock.list.mockReturnValueOnce([
+      {
         id: "evm-read-only-op",
         type: "evm_write_contract",
         description: "Write on contract",
@@ -617,7 +611,7 @@ describe("wallet tool handlers", () => {
         riskLevel: "destructive",
         walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       },
-    });
+    ]);
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "evm-read-only-op" });
@@ -625,7 +619,6 @@ describe("wallet tool handlers", () => {
     expect(result.isError).toBe(true);
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.error).toBe("WALLET_READ_ONLY");
-    expect(confirmationQueueMock.releaseExecuting).toHaveBeenCalledWith("evm-read-only-op");
     expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
     expect(confirmationQueueMock.fail).not.toHaveBeenCalled();
   });

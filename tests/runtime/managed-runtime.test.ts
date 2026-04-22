@@ -525,4 +525,62 @@ describe("managed runtime", () => {
 
     await runtime.shutdown();
   });
+
+  it("skips wallet-balance enforcement for direct ccxt_private_write in read-only mode", async () => {
+    registerToolMocks.ccxtTools = [
+      {
+        name: "ccxt_private_write",
+        category: "market",
+        description: "ccxt private write",
+        inputSchema: { type: "object", properties: {} },
+        riskLevel: "financial",
+        handler: vi.fn().mockResolvedValue({
+          isError: false,
+          content: [{ type: "text", text: '{"ok":true}' }],
+        }),
+      },
+    ];
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(50);
+
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: false,
+        confirmTtlMinutes: 30,
+        etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    balanceCacheMocks.refreshBalanceUsd.mockClear();
+
+    const result = await runtime.invokeTool("ccxt_private_write", {
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 1, 50000],
+    });
+
+    expect(result.isError).toBe(false);
+    expect(balanceCacheMocks.refreshBalanceUsd).not.toHaveBeenCalled();
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        estimatedUsd: 50,
+        walletBalanceUsd: null,
+        requiresWalletBalance: false,
+      })
+    );
+
+    await runtime.shutdown();
+  });
 });

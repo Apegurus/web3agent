@@ -283,4 +283,16 @@ describe("evaluatePolicy — min reserve", () => {
     });
     expect(decision.action).toBe("allow");
   });
+
+  it("skips reserve enforcement when wallet balance is not required", () => {
+    const decision = evaluatePolicy(DEFAULT_TREASURY_POLICY, {
+      toolName: "ccxt_private_write",
+      riskLevel: "financial",
+      estimatedUsd: 50,
+      walletBalanceUsd: null,
+      requiresWalletBalance: false,
+    });
+    expect(decision.action).toBe("allow");
+    expect(decision.reasonCode).toBe("ALLOWED");
+  });
 });

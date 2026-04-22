@@ -9,6 +9,7 @@ describe("classifyCcxtMethod", () => {
   it("classifies public unified methods", () => {
     expect(classifyCcxtMethod("fetchTicker")).toBe("public");
     expect(classifyCcxtMethod("fetchOrderBook")).toBe("public");
+    expect(classifyCcxtMethod("fetchLiquidations")).toBe("public");
     expect(classifyCcxtMethod("fetchBidsAsks")).toBe("public");
     expect(classifyCcxtMethod("fetchMarkPrice")).toBe("public");
     expect(classifyCcxtMethod("fetchMarkPrices")).toBe("public");
@@ -39,7 +40,6 @@ describe("classifyCcxtMethod", () => {
     expect(classifyCcxtMethod("fetchBorrowRateHistory")).toBe("private_read");
     expect(classifyCcxtMethod("fetchBorrowInterest")).toBe("private_read");
     expect(classifyCcxtMethod("fetchMyLiquidations")).toBe("private_read");
-    expect(classifyCcxtMethod("fetchLiquidations")).toBe("private_read");
     expect(classifyCcxtMethod("fetchMarginModes")).toBe("private_read");
     expect(classifyCcxtMethod("fetchMarginMode")).toBe("private_read");
     expect(classifyCcxtMethod("fetchTransfers")).toBe("private_read");
@@ -77,8 +77,10 @@ describe("classifyCcxtMethod", () => {
 describe("isMethodAllowedForTool", () => {
   it("allows methods only on the matching CCXT invocation tool", () => {
     expect(isMethodAllowedForTool("ccxt_public_call", "fetchTicker")).toBe(true);
+    expect(isMethodAllowedForTool("ccxt_public_call", "fetchLiquidations")).toBe(true);
     expect(isMethodAllowedForTool("ccxt_public_call", "fetchBalance")).toBe(false);
     expect(isMethodAllowedForTool("ccxt_private_read", "fetchBalance")).toBe(true);
+    expect(isMethodAllowedForTool("ccxt_private_read", "fetchLiquidations")).toBe(false);
     expect(isMethodAllowedForTool("ccxt_private_read", "createOrder")).toBe(false);
     expect(isMethodAllowedForTool("ccxt_private_write", "createOrder")).toBe(true);
   });

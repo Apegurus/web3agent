@@ -323,6 +323,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     const isFinancial = tool.riskLevel === "financial";
     const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
     let reservationId: number | null = null;
+    let spendWalletAddress: string | undefined;
 
     if (isFinancial) {
       if (rawEstimatedUsd === 0) {
@@ -336,15 +337,20 @@ export class ManagedRuntime implements Web3AgentRuntime {
       }
 
       const wallet = getWalletState();
+      const requiresWalletBalance = name !== "ccxt_private_write";
+      spendWalletAddress = requiresWalletBalance ? wallet.address : undefined;
       const policyChainId =
         typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
-      let walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
-      if (walletBalanceUsd === null && wallet.address) {
-        walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
+      let walletBalanceUsd: number | null = null;
+      if (requiresWalletBalance) {
+        walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
+        if (walletBalanceUsd === null && wallet.address) {
+          walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
+        }
       }
 
       if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
-        reservationId = reserveSpend(name, rawEstimatedUsd, wallet.address);
+        reservationId = reserveSpend(name, rawEstimatedUsd, spendWalletAddress);
       }
 
       const decision = evaluatePolicy(resolvePolicy(this.config), {
@@ -352,6 +358,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
         riskLevel: tool.riskLevel,
         estimatedUsd: rawEstimatedUsd,
         walletBalanceUsd,
+        requiresWalletBalance,
       });
 
       if (decision.action === "deny") {
@@ -384,7 +391,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
           if (reservationId !== null) {
             commitReservation(reservationId);
           } else if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
-            recordSpend(name, rawEstimatedUsd, getWalletState().address);
+            recordSpend(name, rawEstimatedUsd, spendWalletAddress);
           }
         } else if (reservationId !== null) {
           releaseReservation(reservationId);

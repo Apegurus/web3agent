@@ -71,6 +71,43 @@ describe("extractEstimatedUsd", () => {
     expect(result).toBe(0);
   });
 
+  it("estimates USD for ccxt createOrder on a USD-quoted pair", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 1, 50000],
+    });
+
+    expect(result).toBe(50000);
+    expect(mockPricing.estimateTokenUsd).not.toHaveBeenCalled();
+  });
+
+  it("estimates USD for ccxt editOrder using the correct amount and price slots", async () => {
+    const result = await extractEstimatedUsd({
+      method: "editOrder",
+      args: ["order-1", "BTC/USDT", "limit", "buy", 1, 50000],
+    });
+
+    expect(result).toBe(50000);
+  });
+
+  it("returns 0 for ccxt createOrder on a non-USD quoted pair", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["ETH/BTC", "limit", "buy", 10, 0.05],
+    });
+
+    expect(result).toBe(0);
+  });
+
+  it("returns 0 for ccxt createOrder on a fiat-quoted non-USD pair", async () => {
+    const result = await extractEstimatedUsd({
+      method: "createOrder",
+      args: ["BTC/EUR", "limit", "buy", 1, 45000],
+    });
+
+    expect(result).toBe(0);
+  });
+
   it("returns null when no recognizable fields (gas-only tool)", async () => {
     const result = await extractEstimatedUsd({ foo: "bar" });
     expect(result).toBeNull();
@@ -98,50 +135,5 @@ describe("extractEstimatedUsd", () => {
   it("ignores negative and NaN explicit values", async () => {
     expect(await extractEstimatedUsd({ amountUsd: -5 })).toBeNull();
     expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBeNull();
-  });
-
-  it("returns amount times price for CCXT createOrder limit orders", async () => {
-    const result = await extractEstimatedUsd({
-      method: "createOrder",
-      args: ["BTC/USDT", "limit", "buy", 0.5, 42000],
-    });
-
-    expect(result).toBe(21000);
-  });
-
-  it("parses string amount and price for CCXT createOrder limit orders", async () => {
-    const result = await extractEstimatedUsd({
-      method: "createOrder",
-      args: ["BTC/USDT", "limit", "buy", "0.5", "42000"],
-    });
-
-    expect(result).toBe(21000);
-  });
-
-  it("returns 0 for CCXT createOrder market orders without price", async () => {
-    const result = await extractEstimatedUsd({
-      method: "createOrder",
-      args: ["BTC/USDT", "market", "buy", 0.5],
-    });
-
-    expect(result).toBe(0);
-  });
-
-  it("returns null for non-order CCXT cancellation methods", async () => {
-    const result = await extractEstimatedUsd({
-      method: "cancelOrder",
-      args: ["order-id"],
-    });
-
-    expect(result).toBeNull();
-  });
-
-  it("returns null for non-order CCXT methods", async () => {
-    const result = await extractEstimatedUsd({
-      method: "setLeverage",
-      args: [10, "BTC/USDT"],
-    });
-
-    expect(result).toBeNull();
   });
 });

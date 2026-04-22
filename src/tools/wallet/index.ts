@@ -262,29 +262,90 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
   let confirmedId: string | undefined;
 
   try {
+    const walletState = getWalletState();
     const v = validateInput(transactionConfirmSchema, params);
     if (!v.success) return v.error;
     const { id } = v.data;
+
+    const pendingOperation = confirmationQueue.list().find((operation) => operation.id === id);
+    if (!pendingOperation) {
+      return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
+    }
+
+    const elapsed = Date.now() - pendingOperation.createdAt.getTime();
+    if (elapsed > pendingOperation.ttlMs) {
+      confirmationQueue.pruneExpired();
+      return formatToolError(
+        "OPERATION_EXPIRED",
+        `Operation ${id} was confirmed after TTL expiry and will not be executed.`
+      );
+    }
+
+    const requiresWalletBalance = Boolean(pendingOperation.walletAddress);
+    if (requiresWalletBalance && walletState.mode === "read-only") {
+      return formatToolError(
+        "WALLET_READ_ONLY",
+        "transaction_confirm requires an active wallet. Activate a wallet first."
+      );
+    }
+
+    if (
+      pendingOperation.walletAddress &&
+      walletState.address &&
+      pendingOperation.walletAddress.toLowerCase() !== walletState.address.toLowerCase()
+    ) {
+      return formatToolError(
+        "WALLET_MISMATCH",
+        `Operation ${id} was queued for wallet ${pendingOperation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`
+      );
+    }
+
+    const opRiskLevel = pendingOperation.riskLevel ?? "financial";
+    const opParams = pendingOperation.params;
+    const rawEstimatedUsd = opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
+    const spendWalletAddress = pendingOperation.walletAddress;
+
+    if (opRiskLevel === "financial") {
+      const policyChainId =
+        typeof opParams.chainId === "number" ? (opParams.chainId as number) : walletState.chainId;
+      let walletBalanceUsd: number | null = null;
+      if (requiresWalletBalance && spendWalletAddress) {
+        walletBalanceUsd = getCachedBalanceUsd(spendWalletAddress, policyChainId);
+        if (walletBalanceUsd === null) {
+          walletBalanceUsd = await refreshBalanceUsd(spendWalletAddress, policyChainId);
+        }
+      }
+
+      if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
+        reservationId = reserveSpend(pendingOperation.type, rawEstimatedUsd, spendWalletAddress);
+      }
+
+      const config = getConfig();
+      const policy = resolvePolicy(config);
+      const policyDecision = evaluatePolicy(policy, {
+        toolName: pendingOperation.type,
+        riskLevel: opRiskLevel,
+        estimatedUsd: rawEstimatedUsd,
+        walletBalanceUsd,
+        requiresWalletBalance,
+      });
+
+      if (policyDecision.action === "deny") {
+        if (reservationId !== null) releaseReservation(reservationId);
+        reservationId = null;
+        return formatToolError("POLICY_DENIED", policyDecision.message, {
+          reasonCode: policyDecision.reasonCode,
+          currentSpend: policyDecision.currentSpend,
+          note: "Policy re-evaluated at confirm time",
+        });
+      }
+    }
 
     const result = confirmationQueue.confirm(id);
     if (!result) {
       return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
     }
     confirmedId = id;
-
-    const walletState = getWalletState();
-    // Read-only gate applies only to wallet-backed ops. Off-chain ops
-    // (e.g. ccxt_private_write) enqueue without walletAddress and run via
-    // captured credentials in the executor closure — no active wallet
-    // needed.
-    if (result.operation.walletAddress !== undefined && walletState.mode === "read-only") {
-      confirmationQueue.releaseExecuting(id);
-      confirmedId = undefined;
-      return formatToolError(
-        "WALLET_READ_ONLY",
-        "transaction_confirm requires an active wallet. Activate a wallet first."
-      );
-    }
 
     if (result.stale) {
       confirmationQueue.expire(id);
@@ -293,56 +354,6 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
         "OPERATION_EXPIRED",
         `Operation ${id} was confirmed after TTL expiry and will not be executed.`
       );
-    }
-
-    if (
-      result.operation.walletAddress &&
-      walletState.address &&
-      result.operation.walletAddress.toLowerCase() !== walletState.address.toLowerCase()
-    ) {
-      confirmationQueue.releaseExecuting(id);
-      confirmedId = undefined;
-      return formatToolError(
-        "WALLET_MISMATCH",
-        `Operation ${id} was queued for wallet ${result.operation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`
-      );
-    }
-
-    const opRiskLevel = result.operation.riskLevel ?? "financial";
-    const opParams = result.operation.params;
-    const rawEstimatedUsd = opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
-
-    if (opRiskLevel === "financial") {
-      const policyChainId =
-        typeof opParams.chainId === "number" ? (opParams.chainId as number) : walletState.chainId;
-      let walletBalanceUsd = getCachedBalanceUsd(walletState.address, policyChainId);
-      if (walletBalanceUsd === null && walletState.address) {
-        walletBalanceUsd = await refreshBalanceUsd(walletState.address, policyChainId);
-      }
-
-      if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
-        reservationId = reserveSpend(result.operation.type, rawEstimatedUsd, walletState.address);
-      }
-
-      const config = getConfig();
-      const policy = resolvePolicy(config);
-      const policyDecision = evaluatePolicy(policy, {
-        toolName: result.operation.type,
-        riskLevel: opRiskLevel,
-        estimatedUsd: rawEstimatedUsd,
-        walletBalanceUsd,
-      });
-
-      if (policyDecision.action === "deny") {
-        if (reservationId !== null) releaseReservation(reservationId);
-        reservationId = null;
-        confirmationQueue.releaseExecuting(id);
-        return formatToolError("POLICY_DENIED", policyDecision.message, {
-          reasonCode: policyDecision.reasonCode,
-          currentSpend: policyDecision.currentSpend,
-          note: "Policy re-evaluated at confirm time",
-        });
-      }
     }
 
     const execResult = await result.operation.executor(opParams);
@@ -359,7 +370,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       if (reservationId !== null) {
         commitReservation(reservationId);
       } else if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
-        recordSpend(result.operation.type, rawEstimatedUsd, walletState.address);
+        recordSpend(result.operation.type, rawEstimatedUsd, spendWalletAddress);
       }
     } else if (reservationId !== null) {
       releaseReservation(reservationId);

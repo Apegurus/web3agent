@@ -19,6 +19,7 @@ export interface PolicyEvaluationRequest {
   riskLevel: RiskLevel;
   estimatedUsd: number | null;
   walletBalanceUsd?: number | null;
+  requiresWalletBalance?: boolean;
 }
 
 function buildDecision(
@@ -104,15 +105,20 @@ export function evaluatePolicy(
   }
 
   const estimatedUsd = request.estimatedUsd;
+  const requiresWalletBalance = request.requiresWalletBalance !== false;
 
   const rules = [
     () => evaluateX402Limit(policy, estimatedUsd, request.toolName),
     () => evaluateSingleTransactionLimit(policy, estimatedUsd, request.toolName),
     () => evaluateHourlyLimit(policy, estimatedUsd, spend, request.toolName),
     () => evaluateDailyLimit(policy, estimatedUsd, spend, request.toolName),
-    () =>
-      evaluateMinReserve(policy, estimatedUsd, request.walletBalanceUsd ?? null, request.toolName),
   ];
+
+  if (requiresWalletBalance) {
+    rules.push(() =>
+      evaluateMinReserve(policy, estimatedUsd, request.walletBalanceUsd ?? null, request.toolName)
+    );
+  }
 
   for (const rule of rules) {
     const result = rule();
