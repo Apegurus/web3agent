@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyCcxtMethod,
+  classifyCcxtWriteRisk,
   isHighRiskCcxtMethod,
   isMethodAllowedForTool,
 } from "../../src/ccxt/classification.js";
@@ -113,5 +114,32 @@ describe("isHighRiskCcxtMethod", () => {
 
   it("does not mark public methods as high-risk", () => {
     expect(isHighRiskCcxtMethod("fetchTicker")).toBe(false);
+  });
+});
+
+describe("classifyCcxtWriteRisk", () => {
+  it("classifies order-creation methods as financial", () => {
+    expect(classifyCcxtWriteRisk("createOrder")).toBe("financial");
+    expect(classifyCcxtWriteRisk("editOrder")).toBe("financial");
+  });
+
+  it("classifies order-cancellation and admin methods as destructive", () => {
+    expect(classifyCcxtWriteRisk("cancelOrder")).toBe("destructive");
+    expect(classifyCcxtWriteRisk("cancelAllOrders")).toBe("destructive");
+    expect(classifyCcxtWriteRisk("setLeverage")).toBe("destructive");
+    expect(classifyCcxtWriteRisk("setMarginMode")).toBe("destructive");
+  });
+
+  it("classifies high-risk movement methods as destructive", () => {
+    // transfer/withdraw are USD-opaque at write time; checkHighRiskGuards
+    // provides the secure-permissions gate for these separately.
+    expect(classifyCcxtWriteRisk("transfer")).toBe("destructive");
+    expect(classifyCcxtWriteRisk("withdraw")).toBe("destructive");
+  });
+
+  it("classifies unknown private write methods as destructive by default", () => {
+    // Implicit PrivatePost/etc. — conservative default: no USD estimation,
+    // admin-style. Still gated by confirmation + high-risk guards.
+    expect(classifyCcxtWriteRisk("privatePostSomeUnknownEndpoint")).toBe("destructive");
   });
 });

@@ -14,7 +14,7 @@ import {
   resolveExchangeIdFromAccount,
 } from "../../ccxt/accounts.js";
 import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
-import { isHighRiskCcxtMethod } from "../../ccxt/classification.js";
+import { classifyCcxtWriteRisk, isHighRiskCcxtMethod } from "../../ccxt/classification.js";
 import {
   invokeCcxtPrivateRead,
   invokeCcxtPrivateWrite,
@@ -273,7 +273,7 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
     policyParams as unknown as Record<string, unknown>,
     async () => executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>),
     undefined,
-    "financial"
+    classifyCcxtWriteRisk(writeData.method)
   );
 
   if (queued) {

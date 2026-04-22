@@ -355,6 +355,50 @@ describe("ccxt tool definitions", () => {
     expect(getFirstTextContent(result)).toContain("requires confirmation to be enabled");
   });
 
+  it("enqueues cancelOrder with destructive riskLevel (not financial)", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    vi.mocked(mockQueue.enqueue).mockReturnValueOnce({
+      queued: true,
+      id: "cancel-pending-id",
+      summary: "CCXT cancelOrder on account binance_main",
+    });
+
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    await tool.handler({
+      account: "binance_main",
+      method: "cancelOrder",
+      args: ["order-id-123", "BTC/USDT"],
+    });
+
+    const enqueueCall = vi.mocked(mockQueue.enqueue).mock.calls.at(-1);
+    expect(enqueueCall).toBeDefined();
+    // 6th arg to enqueue() is riskLevel
+    expect(enqueueCall?.[5]).toBe("destructive");
+  });
+
+  it("enqueues createOrder with financial riskLevel", async () => {
+    const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
+    vi.mocked(mockQueue.enqueue).mockReturnValueOnce({
+      queued: true,
+      id: "create-pending-id",
+      summary: "CCXT createOrder on account binance_main",
+    });
+
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_private_write");
+    if (!tool) throw new Error("Missing ccxt_private_write tool");
+
+    await tool.handler({
+      account: "binance_main",
+      method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
+    });
+
+    const enqueueCall = vi.mocked(mockQueue.enqueue).mock.calls.at(-1);
+    expect(enqueueCall?.[5]).toBe("financial");
+  });
+
   it("rejects withdraw when config permissions are insecure", async () => {
     const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
     Object.defineProperty(mockQueue, "enabled", {
