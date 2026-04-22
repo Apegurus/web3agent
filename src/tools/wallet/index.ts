@@ -166,7 +166,7 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
           mode: state.mode,
         });
       },
-      getWalletState().address,
+      undefined, // wallet_activate is the transition INTO a signing wallet — no pre-existing address requirement
       "destructive"
     );
 

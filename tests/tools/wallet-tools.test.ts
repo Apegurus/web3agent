@@ -247,7 +247,9 @@ describe("wallet tool handlers", () => {
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "read-only",
       chainId: 8453,
-      address: undefined,
+      address: "0x1234567890123456789012345678901234567890",
+      accountIndex: 0,
+      addressIndex: 0,
     });
     confirmationQueueMock.enabled = false;
     confirmationQueueMock.enqueue.mockReturnValue({
@@ -270,6 +272,36 @@ describe("wallet tool handlers", () => {
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.address).toBe("0x5555555555555555555555555555555555555555");
     expect(payload.mode).toBe("private-key");
+  });
+
+  it("walletActivate end-to-end: read-only runtime state → activate → confirm succeeds", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: "0x1234567890123456789012345678901234567890",
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+    confirmationQueueMock.enabled = true;
+    let enqueuedWalletAddress: string | undefined = "sentinel";
+    confirmationQueueMock.enqueue.mockImplementation(
+      (_type, _description, _params, _executor, walletAddress) => {
+        enqueuedWalletAddress = walletAddress;
+        return {
+          queued: true,
+          id: "pending-op-id",
+          summary: "Confirmation queued",
+        };
+      }
+    );
+
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletActivate({
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    expect(result.isError).toBe(false);
+    expect(enqueuedWalletAddress).toBeUndefined();
   });
 
   it("walletActivate does not pass secrets in enqueue params", async () => {
