@@ -622,4 +622,67 @@ describe("wallet tool handlers", () => {
     expect(confirmationQueueMock.complete).not.toHaveBeenCalled();
     expect(confirmationQueueMock.fail).not.toHaveBeenCalled();
   });
+
+  it("transactionConfirm releases reservation when confirm() returns null (concurrent race)", async () => {
+    const operation = {
+      id: "race-op",
+      type: "evm_write_contract",
+      description: "Write on contract",
+      params: { chainId: 8453 },
+      executor: vi.fn(),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial" as const,
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
+
+    // list().find() succeeds (pre-check phase), but confirm() returns null
+    // (simulated concurrent race — another caller already marked it executing)
+    confirmationQueueMock.list.mockReturnValueOnce([operation]);
+    confirmationQueueMock.confirm.mockReturnValueOnce(null);
+
+    extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
+    spendTrackerMocks.reserveSpend.mockReturnValueOnce(999);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "race-op" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("NOT_FOUND");
+    expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(999);
+    expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
+  });
+
+  it("transactionConfirm releases reservation when op becomes stale at confirm time", async () => {
+    const operation = {
+      id: "stale-race-op",
+      type: "evm_write_contract",
+      description: "Write on contract",
+      params: { chainId: 8453 },
+      executor: vi.fn(),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial" as const,
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
+
+    // Pre-check elapsed < ttlMs (op looks fresh when list().find() runs),
+    // but by the time confirm() is called, result.stale is true (clock skew
+    // or the window expired during async policy eval).
+    confirmationQueueMock.list.mockReturnValueOnce([operation]);
+    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: true, operation });
+
+    extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
+    spendTrackerMocks.reserveSpend.mockReturnValueOnce(888);
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "stale-race-op" });
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("OPERATION_EXPIRED");
+    expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(888);
+    expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
+  });
 });

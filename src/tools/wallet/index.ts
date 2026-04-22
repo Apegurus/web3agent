@@ -343,6 +343,8 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
 
     const result = confirmationQueue.confirm(id);
     if (!result) {
+      if (reservationId !== null) releaseReservation(reservationId);
+      reservationId = null;
       return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
     }
     confirmedId = id;
@@ -350,6 +352,8 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     if (result.stale) {
       confirmationQueue.expire(id);
       confirmedId = undefined;
+      if (reservationId !== null) releaseReservation(reservationId);
+      reservationId = null;
       return formatToolError(
         "OPERATION_EXPIRED",
         `Operation ${id} was confirmed after TTL expiry and will not be executed.`
