@@ -4,6 +4,10 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfirmationQueueManager } from "../../src/wallet/confirmation.js";
 
+vi.mock("../../src/wallet/audit.js", () => ({
+  appendAuditLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const noopExecutor = async () => ({ content: [{ type: "text" as const, text: "ok" }] });
 
 describe("confirmation queue", () => {
@@ -114,6 +118,50 @@ describe("confirmation queue", () => {
 
     await rm(tempHome, { recursive: true, force: true });
     vi.unstubAllEnvs();
+  });
+
+  it("emits EXPIRED audit for TTL-dropped entries when loading persisted queue", async () => {
+    const { appendAuditLog: appendAuditLogMock } = await import("../../src/wallet/audit.js");
+    const mocked = vi.mocked(appendAuditLogMock);
+    mocked.mockClear();
+
+    const tempHome = await mkdtemp(join(tmpdir(), "web3agent-confirmation-"));
+    vi.stubEnv("HOME", tempHome);
+
+    try {
+      const pendingOpsDir = join(tempHome, ".web3agent");
+      const pendingOpsPath = join(pendingOpsDir, "pending-ops.json");
+      await mkdir(pendingOpsDir, { recursive: true });
+      await writeFile(
+        pendingOpsPath,
+        JSON.stringify(
+          [
+            {
+              id: "ttl-expired-op",
+              type: "swap",
+              description: "Stale swap",
+              params: { amount: "1" },
+              createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
+              ttlMs: 30 * 60 * 1000, // 30 min TTL — already expired
+              riskLevel: "financial",
+            },
+          ],
+          null,
+          2
+        )
+      );
+
+      await queue.loadQueue();
+      await queue.flushPendingPersists();
+
+      const expiredCalls = mocked.mock.calls.filter(
+        ([entry]) => entry.action === "EXPIRED" && entry.operationId === "ttl-expired-op"
+      );
+      expect(expiredCalls).toHaveLength(1);
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+      vi.unstubAllEnvs();
+    }
   });
 
   it("flushPendingPersists terminates even when persistQueue fails with a concurrent re-schedule", async () => {

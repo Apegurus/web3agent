@@ -267,6 +267,17 @@ export class ConfirmationQueueManager {
         const elapsed = now - createdAt.getTime();
         if (elapsed > serialized.ttlMs) {
           droppedEntries = true;
+          appendAuditLog({
+            action: "EXPIRED",
+            operationType: serialized.type,
+            operationId: serialized.id,
+            walletAddress: serialized.walletAddress,
+            description: serialized.description,
+          }).catch((e: unknown) => {
+            process.stderr.write(
+              `[confirmation] Failed to audit expired persisted op ${serialized.id}: ${e}\n`
+            );
+          });
           continue;
         }
 
