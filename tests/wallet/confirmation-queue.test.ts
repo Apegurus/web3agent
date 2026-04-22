@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfirmationQueueManager } from "../../src/wallet/confirmation.js";
 
 vi.mock("../../src/wallet/audit.js", () => ({
@@ -12,9 +12,22 @@ const noopExecutor = async () => ({ content: [{ type: "text" as const, text: "ok
 
 describe("confirmation queue", () => {
   let queue: ConfirmationQueueManager;
+  let tempHome: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    tempHome = await mkdtemp(join(tmpdir(), "web3agent-confirmation-"));
+    // Pre-create .web3agent so async persists triggered by enqueue() in
+    // non-stub-aware tests land successfully rather than silently failing
+    // in the schedulePersist catch arm.
+    await mkdir(join(tempHome, ".web3agent"), { recursive: true });
+    vi.stubEnv("HOME", tempHome);
     queue = new ConfirmationQueueManager(true);
+  });
+
+  afterEach(async () => {
+    await queue.flushPendingPersists();
+    await rm(tempHome, { recursive: true, force: true });
+    vi.unstubAllEnvs();
   });
 
   it("enqueues operations and returns ID", () => {
@@ -78,9 +91,6 @@ describe("confirmation queue", () => {
   });
 
   it("rewrites pending-ops.json when legacy unrestorable entries are dropped on load", async () => {
-    const tempHome = await mkdtemp(join(tmpdir(), "web3agent-confirmation-"));
-    vi.stubEnv("HOME", tempHome);
-
     const pendingOpsDir = join(tempHome, ".web3agent");
     const pendingOpsPath = join(pendingOpsDir, "pending-ops.json");
     await mkdir(pendingOpsDir, { recursive: true });
@@ -115,9 +125,6 @@ describe("confirmation queue", () => {
 
     const rewritten = JSON.parse(await readFile(pendingOpsPath, "utf-8")) as unknown[];
     expect(rewritten).toEqual([]);
-
-    await rm(tempHome, { recursive: true, force: true });
-    vi.unstubAllEnvs();
   });
 
   it("emits EXPIRED audit for TTL-dropped entries when loading persisted queue", async () => {
@@ -125,43 +132,35 @@ describe("confirmation queue", () => {
     const mocked = vi.mocked(appendAuditLogMock);
     mocked.mockClear();
 
-    const tempHome = await mkdtemp(join(tmpdir(), "web3agent-confirmation-"));
-    vi.stubEnv("HOME", tempHome);
+    const pendingOpsDir = join(tempHome, ".web3agent");
+    const pendingOpsPath = join(pendingOpsDir, "pending-ops.json");
+    await mkdir(pendingOpsDir, { recursive: true });
+    await writeFile(
+      pendingOpsPath,
+      JSON.stringify(
+        [
+          {
+            id: "ttl-expired-op",
+            type: "swap",
+            description: "Stale swap",
+            params: { amount: "1" },
+            createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
+            ttlMs: 30 * 60 * 1000, // 30 min TTL — already expired
+            riskLevel: "financial",
+          },
+        ],
+        null,
+        2
+      )
+    );
 
-    try {
-      const pendingOpsDir = join(tempHome, ".web3agent");
-      const pendingOpsPath = join(pendingOpsDir, "pending-ops.json");
-      await mkdir(pendingOpsDir, { recursive: true });
-      await writeFile(
-        pendingOpsPath,
-        JSON.stringify(
-          [
-            {
-              id: "ttl-expired-op",
-              type: "swap",
-              description: "Stale swap",
-              params: { amount: "1" },
-              createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
-              ttlMs: 30 * 60 * 1000, // 30 min TTL — already expired
-              riskLevel: "financial",
-            },
-          ],
-          null,
-          2
-        )
-      );
+    await queue.loadQueue();
+    await queue.flushPendingPersists();
 
-      await queue.loadQueue();
-      await queue.flushPendingPersists();
-
-      const expiredCalls = mocked.mock.calls.filter(
-        ([entry]) => entry.action === "EXPIRED" && entry.operationId === "ttl-expired-op"
-      );
-      expect(expiredCalls).toHaveLength(1);
-    } finally {
-      await rm(tempHome, { recursive: true, force: true });
-      vi.unstubAllEnvs();
-    }
+    const expiredCalls = mocked.mock.calls.filter(
+      ([entry]) => entry.action === "EXPIRED" && entry.operationId === "ttl-expired-op"
+    );
+    expect(expiredCalls).toHaveLength(1);
   });
 
   it("flushPendingPersists terminates even when persistQueue fails with a concurrent re-schedule", async () => {
