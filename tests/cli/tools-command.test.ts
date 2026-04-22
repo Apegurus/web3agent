@@ -195,6 +195,7 @@ describe("runToolsCommand error paths", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    process.exitCode = 0;
   });
 
   it("throws CliExitError with MISSING_TOOL_NAME for `tools describe` without a name", async () => {
@@ -285,7 +286,35 @@ describe("runToolsCommand error paths", () => {
         message: "RPC connection failed",
       },
     });
+    expect(process.exitCode).toBe(1);
 
     stdoutWrite.mockRestore();
+  });
+
+  it("does not set exitCode on successful tool invocation", async () => {
+    let stdout = "";
+    const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+
+    const previousExitCode = process.exitCode;
+    process.exitCode = 0;
+
+    mockState.withCliRuntime.mockImplementation(async (run: (runtime: unknown) => Promise<void>) =>
+      run({
+        invokeTool: async () => ({
+          content: [{ type: "text", text: JSON.stringify({ ok: true, data: { result: "ok" } }) }],
+          isError: false,
+        }),
+      })
+    );
+
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+    await runToolsCommand(["call", "some_tool", "--input", "{}"]);
+
+    expect(process.exitCode).toBe(0);
+    stdoutWrite.mockRestore();
+    process.exitCode = previousExitCode;
   });
 });

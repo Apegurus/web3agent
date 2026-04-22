@@ -95,6 +95,7 @@ export async function runToolsCommand(args: string[]): Promise<void> {
             message: error instanceof Error ? error.message : String(error),
           },
         });
+        process.exitCode = 1;
       }
     });
     return;
