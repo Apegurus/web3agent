@@ -1,3 +1,5 @@
+import type { RiskLevel } from "../policy/types.js";
+
 export type CcxtMethodClassification = "public" | "private_read" | "private_write" | "deny";
 
 const PUBLIC_UNIFIED = new Set([
@@ -109,7 +111,7 @@ export function isHighRiskCcxtMethod(method: string): boolean {
  *               (withdraw/transfer) is separately gated by
  *               checkHighRiskGuards + confirmation requirements.
  */
-export function classifyCcxtWriteRisk(method: string): "financial" | "destructive" {
+export function classifyCcxtWriteRisk(method: string): Exclude<RiskLevel, "safe"> {
   return CCXT_FINANCIAL_WRITE.has(method) ? "financial" : "destructive";
 }
 
