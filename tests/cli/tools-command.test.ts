@@ -317,4 +317,41 @@ describe("runToolsCommand error paths", () => {
     stdoutWrite.mockRestore();
     process.exitCode = previousExitCode;
   });
+
+  it("sets exitCode=1 when tool returns an ok:false envelope", async () => {
+    let stdout = "";
+    const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+
+    mockState.withCliRuntime.mockImplementation(async (run: (runtime: unknown) => Promise<void>) =>
+      run({
+        invokeTool: async () => ({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                ok: false,
+                error: { code: "POLICY_DENIED", message: "spend cap reached" },
+              }),
+            },
+          ],
+          isError: true,
+        }),
+      })
+    );
+
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+    await runToolsCommand(["call", "some_tool", "--input", "{}"]);
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toEqual({
+      ok: false,
+      error: { code: "POLICY_DENIED", message: "spend cap reached" },
+    });
+    expect(process.exitCode).toBe(1);
+
+    stdoutWrite.mockRestore();
+  });
 });

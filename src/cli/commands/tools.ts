@@ -86,7 +86,12 @@ export async function runToolsCommand(args: string[]): Promise<void> {
       try {
         const result = await runtime.invokeTool(toolName, input);
         const payload = getToolResultPayload(result);
-        writeJson(payload.ok ? { ok: true, data: payload.data } : payload);
+        if (payload.ok) {
+          writeJson({ ok: true, data: payload.data });
+        } else {
+          writeJson(payload);
+          process.exitCode = 1;
+        }
       } catch (error: unknown) {
         writeJson({
           ok: false,
