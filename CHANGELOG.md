@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Removal of `submitSignedTwapOrder`, `twapIntentSchema`, `limitIntentSchema` (and the related `prepareTwapIntent` / `prepareLimitIntent` helpers) deferred from v0.5.0 to v0.6.0.** These were marked for v0.5.0 removal per the v0.3.0 notes, but downstream consumers (Orbzy) still import them. Removal will be coordinated alongside that migration; `@deprecated` JSDoc has been updated to reflect the new target.
 
+### Build
+
+- **`prepack` hook in both publishable packages.** `web3agent` now runs `pnpm run build:package` (root tsup build) and `create-web3agent` runs `tsup` on `prepack`, guaranteeing a freshly-built `dist/` ships with every `npm pack` / `npm publish` even if the working tree's `dist/` is stale or absent.
+
 ### Fixed
 
 - **Confirmation queue** — clear `persistNeeded` inside the `schedulePersist()` catch arm so a failed `persistQueue()` cannot strand `flushPendingPersists()` in an infinite loop when a concurrent `schedulePersist()` raced the in-flight persist.
