@@ -23,6 +23,7 @@ vi.mock("../../src/wallet/confirmation.js", () => ({
 
 describe("wallet_activate tool handler", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
     mockConfirmationQueue.enabled = false;
     mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
@@ -97,6 +98,7 @@ describe("wallet_activate tool handler", () => {
 
 describe("wallet_deactivate tool handler", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
     mockConfirmationQueue.enabled = false;
     mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
@@ -105,6 +107,7 @@ describe("wallet_deactivate tool handler", () => {
   it("calls deactivateWallet and returns read-only state", async () => {
     mockDeactivateWallet.mockResolvedValueOnce(undefined);
     mockGetWalletState
+      .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
       .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
       .mockReturnValueOnce({ mode: "read-only", chainId: 1 });
 

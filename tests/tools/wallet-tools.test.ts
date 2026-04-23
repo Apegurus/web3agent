@@ -352,6 +352,26 @@ describe("wallet tool handlers", () => {
     });
   });
 
+  it("walletDeactivate is a no-op-safe idempotent operation from read-only mode", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: "0x1234567890123456789012345678901234567890",
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+    persistenceMocks.deactivateWallet.mockResolvedValue(undefined);
+    confirmationQueueMock.enabled = true;
+
+    const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDeactivate();
+
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.mode).toBeDefined();
+    expect(persistenceMocks.deactivateWallet).toHaveBeenCalledTimes(1);
+  });
+
   it("walletSetConfirmation enables confirmation directly without queueing", async () => {
     confirmationQueueMock.enabled = false;
 

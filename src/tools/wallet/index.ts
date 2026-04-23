@@ -199,6 +199,12 @@ async function walletDeactivateExecutor(_params: Record<string, unknown>): Promi
 
 export async function walletDeactivate(): Promise<CallToolResult> {
   try {
+    const state = getWalletState();
+    if (state.mode === "read-only") {
+      // Idempotent cleanup path — allowed from read-only mode so users can
+      // ensure any persisted key file is removed even after prior deactivate.
+      return walletDeactivateExecutor({});
+    }
     return await executeWrite({
       toolName: "wallet_deactivate",
       description: "Deactivate wallet and delete persisted key file",
