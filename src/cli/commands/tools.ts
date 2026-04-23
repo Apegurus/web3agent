@@ -55,16 +55,20 @@ function printHelp(): void {
 
 export async function runToolsCommand(args: string[]): Promise<void> {
   const [subcommand, ...rest] = args;
+  const isJsonMode = args.includes("--json") || rest.includes("--json");
 
   if (subcommand === "list") {
-    await withCliRuntime(async (runtime) => {
-      writeJson({
-        ok: true,
-        data: {
-          tools: runtime.listTools(),
-        },
-      });
-    });
+    await withCliRuntime(
+      async (runtime) => {
+        writeJson({
+          ok: true,
+          data: {
+            tools: runtime.listTools(),
+          },
+        });
+      },
+      { json: isJsonMode }
+    );
     return;
   }
 
@@ -74,19 +78,22 @@ export async function runToolsCommand(args: string[]): Promise<void> {
       failJson("MISSING_TOOL_NAME", "Usage: web3agent tools describe <tool-name> --json");
     }
 
-    await withCliRuntime(async (runtime) => {
-      const tool = runtime.getTool(toolName);
-      if (!tool) {
-        failJson("UNKNOWN_TOOL", `Unknown tool: ${toolName}`);
-      }
+    await withCliRuntime(
+      async (runtime) => {
+        const tool = runtime.getTool(toolName);
+        if (!tool) {
+          failJson("UNKNOWN_TOOL", `Unknown tool: ${toolName}`);
+        }
 
-      writeJson({
-        ok: true,
-        data: {
-          tool,
-        },
-      });
-    });
+        writeJson({
+          ok: true,
+          data: {
+            tool,
+          },
+        });
+      },
+      { json: isJsonMode }
+    );
     return;
   }
 
@@ -120,27 +127,30 @@ export async function runToolsCommand(args: string[]): Promise<void> {
     }
     const input = parsed as Record<string, unknown>;
 
-    await withCliRuntime(async (runtime) => {
-      try {
-        const result = await runtime.invokeTool(toolName, input);
-        const payload = getToolResultPayload(result);
-        if (payload.ok) {
-          writeJson({ ok: true, data: payload.data });
-        } else {
-          writeJson(payload);
+    await withCliRuntime(
+      async (runtime) => {
+        try {
+          const result = await runtime.invokeTool(toolName, input);
+          const payload = getToolResultPayload(result);
+          if (payload.ok) {
+            writeJson({ ok: true, data: payload.data });
+          } else {
+            writeJson(payload);
+            process.exitCode = 1;
+          }
+        } catch (error: unknown) {
+          writeJson({
+            ok: false,
+            error: {
+              code: "TOOL_INVOCATION_FAILED",
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
           process.exitCode = 1;
         }
-      } catch (error: unknown) {
-        writeJson({
-          ok: false,
-          error: {
-            code: "TOOL_INVOCATION_FAILED",
-            message: error instanceof Error ? error.message : String(error),
-          },
-        });
-        process.exitCode = 1;
-      }
-    });
+      },
+      { json: isJsonMode }
+    );
     return;
   }
 
