@@ -136,4 +136,13 @@ describe("extractEstimatedUsd", () => {
     expect(await extractEstimatedUsd({ amountUsd: -5 })).toBeNull();
     expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBeNull();
   });
+
+  it("rejects Infinity from explicit USD fields", async () => {
+    expect(await extractEstimatedUsd({ estimatedUsd: Number.POSITIVE_INFINITY })).not.toBe(
+      Number.POSITIVE_INFINITY
+    );
+    expect(await extractEstimatedUsd({ amountUsd: "Infinity" })).not.toBe(Number.POSITIVE_INFINITY);
+    // Either 0 (token fields present but estimation failed) or null (no estimable field)
+    // are both acceptable — just NOT infinity.
+  });
 });

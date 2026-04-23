@@ -76,10 +76,10 @@ export async function extractEstimatedUsd(args: Record<string, unknown>): Promis
   // 1. Check explicit USD fields
   for (const key of USD_FIELD_NAMES) {
     const val = args[key];
-    if (typeof val === "number" && val > 0) return val;
+    if (typeof val === "number" && Number.isFinite(val) && val > 0) return val;
     if (typeof val === "string") {
       const parsed = Number(val);
-      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
     }
   }
 
