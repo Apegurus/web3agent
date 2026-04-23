@@ -5,7 +5,7 @@ import { dirname } from "node:path";
 export async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   const dir = dirname(filePath);
   if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
+    await mkdir(dir, { recursive: true, mode: 0o700 });
   }
 
   const tmpPath = `${filePath}.tmp`;

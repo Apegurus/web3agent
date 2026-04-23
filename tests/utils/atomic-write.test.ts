@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,4 +41,15 @@ describe("atomicWriteJson", () => {
     expect(existsSync(`${filePath}.tmp`)).toBe(false);
     expect(existsSync(filePath)).toBe(true);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "creates parent directories with restrictive mode 0o700",
+    async () => {
+      const nestedPath = join(TEST_DIR, "nested", "subdir", "file.json");
+      await atomicWriteJson(nestedPath, { ok: true });
+
+      const parentMode = statSync(join(TEST_DIR, "nested")).mode & 0o777;
+      expect(parentMode).toBe(0o700);
+    }
+  );
 });

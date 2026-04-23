@@ -50,7 +50,7 @@ export function appendAuditLog(entry: AuditEntry): Promise<void> {
     .then(async () => {
       const dir = getAuditDir();
       if (!existsSync(dir)) {
-        await mkdir(dir, { recursive: true });
+        await mkdir(dir, { recursive: true, mode: 0o700 });
       }
       await appendFile(getAuditPath(), formatEntry(entry), { mode: 0o600 });
     });
