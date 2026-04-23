@@ -260,6 +260,31 @@ describe("runToolsCommand error paths", () => {
     });
   });
 
+  it("parses tool name correctly when --input flag precedes positional arg", async () => {
+    let stdout = "";
+    const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+
+    const invokeTool = vi.fn(async () => ({
+      isError: false,
+      content: [{ type: "text", text: '{"ok": true}' }],
+    }));
+
+    mockState.withCliRuntime.mockImplementation(async (run: (runtime: unknown) => Promise<void>) =>
+      run({ invokeTool })
+    );
+
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+    await runToolsCommand(["call", "--input", "{}", "resolve_token", "--json"]);
+
+    expect(invokeTool).toHaveBeenCalledTimes(1);
+    expect(invokeTool).toHaveBeenCalledWith("resolve_token", expect.any(Object));
+
+    stdoutWrite.mockRestore();
+  });
+
   it("writes JSON error when runtime.invokeTool throws", async () => {
     let stdout = "";
     const stdoutWrite = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {

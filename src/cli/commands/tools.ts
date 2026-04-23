@@ -2,6 +2,44 @@ import { getToolResultPayload } from "../../utils/tool-results.js";
 import { failJson, writeJson } from "../output.js";
 import { withCliRuntime } from "../runtime.js";
 
+/**
+ * Extracts the tool name from args, respecting flag semantics.
+ * Treats --input as a flag that consumes its next token as a value, so the
+ * first remaining positional arg (not a flag, not a flag's value) is the
+ * tool name. This is stable regardless of whether the user writes
+ * "call <name> --input {...}" or "call --input {...} <name>".
+ */
+function extractToolName(args: string[]): { toolName: string | undefined; remaining: string[] } {
+  const FLAG_WITH_VALUE = new Set(["--input"]);
+  const remaining: string[] = [];
+  let toolName: string | undefined;
+  let skipNext = false;
+
+  for (const arg of args) {
+    if (skipNext) {
+      remaining.push(arg);
+      skipNext = false;
+      continue;
+    }
+
+    if (arg.startsWith("--")) {
+      remaining.push(arg);
+      if (FLAG_WITH_VALUE.has(arg)) {
+        skipNext = true;
+      }
+      continue;
+    }
+
+    if (toolName === undefined) {
+      toolName = arg;
+    } else {
+      remaining.push(arg);
+    }
+  }
+
+  return { toolName, remaining };
+}
+
 function printHelp(): void {
   process.stderr.write(
     `${[
@@ -31,7 +69,7 @@ export async function runToolsCommand(args: string[]): Promise<void> {
   }
 
   if (subcommand === "describe") {
-    const toolName = rest.find((arg) => !arg.startsWith("--"));
+    const { toolName } = extractToolName(rest);
     if (!toolName) {
       failJson("MISSING_TOOL_NAME", "Usage: web3agent tools describe <tool-name> --json");
     }
@@ -53,7 +91,7 @@ export async function runToolsCommand(args: string[]): Promise<void> {
   }
 
   if (subcommand === "call") {
-    const toolName = rest.find((arg) => !arg.startsWith("--"));
+    const { toolName } = extractToolName(rest);
     if (!toolName) {
       failJson(
         "MISSING_TOOL_NAME",
