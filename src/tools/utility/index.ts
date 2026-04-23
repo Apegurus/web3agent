@@ -27,7 +27,7 @@ export async function serverStatus(): Promise<CallToolResult> {
           goat: _health.goat.status,
           lifi: _health.lifi.status,
           orbs: _health.orbs.status,
-          ccxt: _health.ccxt.status,
+          ccxt: _health.ccxt?.status ?? "not_initialized",
           agenticEconomy: _health.agenticEconomy?.status ?? "not_initialized",
         }
       : {
