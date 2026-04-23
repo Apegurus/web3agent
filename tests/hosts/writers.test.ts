@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const TEST_DIR = join(process.cwd(), "tests/tmp/host-writers");
@@ -41,6 +42,24 @@ describe("config writers", () => {
     const content = JSON.parse(await readFile(join(TEST_DIR, ".cursor/mcp.json"), "utf-8"));
     expect(content.mcpServers["other-server"]).toBeDefined();
     expect(content.mcpServers.web3agent).toBeDefined();
+  });
+
+  it("refuses to overwrite when existing config is malformed JSON", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "web3agent-writer-malformed-"));
+    const configPath = join(tmpDir, ".cursor", "mcp.json");
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, "{ not valid json", "utf-8");
+
+    const { CursorWriter } = await import("../../src/hosts/writers/cursor.js");
+    const writer = new CursorWriter();
+    await expect(
+      writer.write({ projectDir: tmpDir, mode: "proxy", dryRun: false })
+    ).rejects.toThrow(/malformed/i);
+
+    const content = readFileSync(configPath, "utf-8");
+    expect(content).toBe("{ not valid json");
+
+    rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it("cursor writer creates backup on update", async () => {
