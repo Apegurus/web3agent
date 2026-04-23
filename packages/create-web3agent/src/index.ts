@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export interface PostinstallCommand {
@@ -29,7 +30,15 @@ export async function runCreateCli(argv: string[], options?: RunCreateCliOptions
   return module.runCreateCli(argv, options);
 }
 
-const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = (() => {
+  try {
+    const here = realpathSync(fileURLToPath(import.meta.url));
+    const invoked = process.argv[1] ? realpathSync(process.argv[1]) : undefined;
+    return invoked !== undefined && here === invoked;
+  } catch {
+    return false;
+  }
+})();
 
 if (isMain) {
   void runCreateCli(process.argv.slice(2)).catch((error: unknown) => {
