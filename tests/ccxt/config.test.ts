@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -158,6 +158,72 @@ describe("loadCcxtAccountRegistry", () => {
 
     expect(registry.insecurePermissions).toBe(false);
   });
+
+  it("fails closed with insecurePermissions=true when statSync throws", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "ccxt-stat-"));
+    const configPath = join(tmpDir, "ccxt.json");
+    writeFileSync(configPath, JSON.stringify({ accounts: [] }));
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    fsMockState.statSync.mockImplementationOnce(() => {
+      throw new Error("EACCES: stat failed");
+    });
+
+    try {
+      const result = loadCcxtAccountRegistry({ ccxtConfigPath: configPath });
+
+      expect(result.insecurePermissions).toBe(true);
+      expect(stderrSpy).toHaveBeenCalledWith(
+        `[ccxt] WARNING: could not verify permissions on ${configPath}: EACCES: stat failed. Treating as insecure.\n`
+      );
+    } finally {
+      stderrSpy.mockRestore();
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "preserves insecurePermissions=true through the parse-error early return",
+    () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "ccxt-parse-"));
+      const configPath = join(tmpDir, "ccxt.json");
+      writeFileSync(configPath, "{ not json", { mode: 0o644 });
+      chmodSync(configPath, 0o644);
+
+      try {
+        const result = loadCcxtAccountRegistry({ ccxtConfigPath: configPath });
+
+        expect(result.accounts).toEqual([]);
+        expect(result.insecurePermissions).toBe(true);
+        expect(result.warnings).toEqual([
+          expect.stringContaining(`Failed to parse CCXT config file ${configPath}`),
+        ]);
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "preserves insecurePermissions=true through the non-array-accounts early return",
+    () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "ccxt-badshape-"));
+      const configPath = join(tmpDir, "ccxt.json");
+      writeFileSync(configPath, JSON.stringify({ accounts: "not-an-array" }), { mode: 0o644 });
+      chmodSync(configPath, 0o644);
+
+      try {
+        const result = loadCcxtAccountRegistry({ ccxtConfigPath: configPath });
+
+        expect(result.accounts).toEqual([]);
+        expect(result.insecurePermissions).toBe(true);
+        expect(result.warnings).toEqual([
+          `CCXT config file ${configPath} must contain an accounts array`,
+        ]);
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+  );
 
   it("rejects duplicate account names", () => {
     const configPath = writeConfigFile("dupes.json", {

@@ -87,8 +87,12 @@ export function loadCcxtAccountRegistry(
           `This file contains exchange credentials. Run: chmod 600 ${config.ccxtConfigPath}\n`
       );
     }
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: permission check is best-effort
-  } catch {}
+  } catch (statErr: unknown) {
+    insecurePermissions = true;
+    process.stderr.write(
+      `[ccxt] WARNING: could not verify permissions on ${config.ccxtConfigPath}: ${statErr instanceof Error ? statErr.message : String(statErr)}. Treating as insecure.\n`
+    );
+  }
 
   let parsed: RawCcxtConfigFile;
   try {
@@ -99,7 +103,7 @@ export function loadCcxtAccountRegistry(
       warnings: [
         `Failed to parse CCXT config file ${config.ccxtConfigPath}: ${error instanceof Error ? error.message : String(error)}`,
       ],
-      insecurePermissions: false,
+      insecurePermissions,
       configPath: config.ccxtConfigPath,
     };
   }
@@ -108,7 +112,7 @@ export function loadCcxtAccountRegistry(
     return {
       accounts: [],
       warnings: [`CCXT config file ${config.ccxtConfigPath} must contain an accounts array`],
-      insecurePermissions: false,
+      insecurePermissions,
       configPath: config.ccxtConfigPath,
     };
   }
