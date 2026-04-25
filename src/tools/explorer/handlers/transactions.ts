@@ -46,9 +46,10 @@ export function getTransactionToolDefinitions(deps: ExplorerDeps): ToolDefinitio
         async (input: TxHistoryInput) => {
           return withFallback(deps, input.chainId, "transactions", async (backend) => {
             if (backend === "blockscout") {
-              const raw = await blockscout.getAddressTransactions(input.chainId, input.address, {
-                page: input.page,
-              });
+              // Blockscout v2 uses cursor-based pagination (next_page_params) rather than
+              // offset pages. The page/pageSize input params only apply to the Etherscan
+              // path below — Blockscout always returns the first page here.
+              const raw = await blockscout.getAddressTransactions(input.chainId, input.address);
               return {
                 transactions: raw.items.map(normalizeBlockscoutTransaction),
                 hasMore: raw.next_page_params !== null,

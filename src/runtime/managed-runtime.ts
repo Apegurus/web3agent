@@ -691,7 +691,7 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
 
   const explorerBlockscout = new ExplorerBlockscoutClient();
   const explorerEtherscan = config.etherscanApiKey
-    ? new ExplorerEtherscanClient(config.etherscanApiKey, config.etherscanApiUrl)
+    ? new ExplorerEtherscanClient(config.etherscanApiKey)
     : undefined;
   const explorerRouter = new ExplorerRouter(
     explorerBlockscout.getSupportedChainIds(),

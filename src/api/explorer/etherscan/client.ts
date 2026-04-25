@@ -7,10 +7,7 @@ import type {
 } from "./types.js";
 
 export class EtherscanClient {
-  constructor(
-    private readonly apiKey: string,
-    private readonly baseUrlOverride?: string
-  ) {}
+  constructor(private readonly apiKey: string) {}
 
   async call<T = unknown>(
     chainId: number,
@@ -18,17 +15,13 @@ export class EtherscanClient {
     action: string,
     params: Record<string, string> = {}
   ): Promise<T> {
-    const baseUrl = getEtherscanApiUrl(chainId, this.baseUrlOverride);
+    const baseUrl = getEtherscanApiUrl(chainId);
     if (!baseUrl) {
       throw new Error(`Etherscan API not supported for chain ${chainId}`);
     }
 
-    // Preserve base path (e.g., Routescan URLs include /v2/.../etherscan)
-    // Guard against double /api if override already includes it
-    const parsed = new URL(baseUrl);
-    const basePath = parsed.pathname.replace(/\/api\/?$/, "");
-    const apiPath = basePath.endsWith("/") ? `${basePath}api` : `${basePath}/api`;
-    const url = new URL(apiPath, parsed.origin);
+    const url = new URL(baseUrl);
+    url.searchParams.set("chainid", String(chainId));
     url.searchParams.set("module", module);
     url.searchParams.set("action", action);
     url.searchParams.set("apikey", this.apiKey);
