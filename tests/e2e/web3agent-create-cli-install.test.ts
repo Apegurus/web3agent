@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ensureBuild } from "../global-setup.js";
+import { withPackLock } from "./pack-mutex.js";
 
 const ROOT = process.cwd();
 const TEMP_ROOT = mkdtempSync(join(tmpdir(), "web3agent-create-cli-install-"));
@@ -47,13 +48,17 @@ describe("web3agent create packed CLI", () => {
   beforeAll(() => {
     ensureBuild();
     mkdirSync(PACK_ROOT, { recursive: true });
-    execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
-      cwd: ROOT,
-      stdio: "inherit",
+    withPackLock(() => {
+      execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
+        cwd: ROOT,
+        stdio: "inherit",
+      });
     });
-    execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
-      cwd: join(ROOT, "packages", "create-web3agent"),
-      stdio: "inherit",
+    withPackLock(() => {
+      execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
+        cwd: join(ROOT, "packages", "create-web3agent"),
+        stdio: "inherit",
+      });
     });
   });
 

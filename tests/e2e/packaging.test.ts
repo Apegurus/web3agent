@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ensureBuild } from "../global-setup.js";
+import { withPackLock } from "./pack-mutex.js";
 
 const ROOT = process.cwd();
 const DIST_CLI = join(ROOT, "dist/cli.js");
@@ -104,10 +105,12 @@ describe("packaging tests", () => {
   });
 
   it("pnpm pack --json includes required files", () => {
-    const output = execSync("pnpm pack --json", {
-      encoding: "utf-8",
-      cwd: ROOT,
-    });
+    const output = withPackLock(() =>
+      execSync("pnpm pack --json", {
+        encoding: "utf-8",
+        cwd: ROOT,
+      })
+    );
 
     expect(output).toContain("dist/cli.js");
     expect(output).toContain("dist/index.js");
