@@ -18,6 +18,7 @@ const persistenceMocks = vi.hoisted(() => ({
   deactivateWallet: vi.fn(),
   getWalletState: vi.fn(),
   getActiveAccount: vi.fn(),
+  hasPersistedWalletKey: vi.fn().mockReturnValue(false),
 }));
 
 const confirmationQueueMock = vi.hoisted(() => ({
@@ -352,7 +353,7 @@ describe("wallet tool handlers", () => {
     });
   });
 
-  it("walletDeactivate is a no-op-safe idempotent operation from read-only mode", async () => {
+  it("walletDeactivate is a no-op-safe idempotent operation from read-only mode with no persisted key", async () => {
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "read-only",
       chainId: 8453,
@@ -361,6 +362,7 @@ describe("wallet tool handlers", () => {
       addressIndex: 0,
     });
     persistenceMocks.deactivateWallet.mockResolvedValue(undefined);
+    persistenceMocks.hasPersistedWalletKey.mockReturnValue(false);
     confirmationQueueMock.enabled = true;
 
     const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
@@ -370,6 +372,35 @@ describe("wallet tool handlers", () => {
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.mode).toBeDefined();
     expect(persistenceMocks.deactivateWallet).toHaveBeenCalledTimes(1);
+    // Confirmation queue must NOT have been used — true no-op short-circuit.
+    expect(confirmationQueueMock.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("walletDeactivate routes through executeWrite when read-only mode has a stale persisted key file", async () => {
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      address: "0x1234567890123456789012345678901234567890",
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+    persistenceMocks.deactivateWallet.mockResolvedValue(undefined);
+    // Stale key file present — filesystem deletion must still go through the gate.
+    persistenceMocks.hasPersistedWalletKey.mockReturnValue(true);
+    confirmationQueueMock.enabled = true;
+    confirmationQueueMock.enqueue.mockReturnValue({
+      queued: true,
+      id: "pending-deactivate-id",
+      summary: "Confirm wallet deactivation",
+    });
+
+    const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDeactivate();
+
+    expect(result.isError).toBe(false);
+    expect(confirmationQueueMock.enqueue).toHaveBeenCalledTimes(1);
+    // Direct executor must NOT have run — the queue gate is in charge now.
+    expect(persistenceMocks.deactivateWallet).not.toHaveBeenCalled();
   });
 
   it("walletSetConfirmation enables confirmation directly without queueing", async () => {

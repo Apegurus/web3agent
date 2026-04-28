@@ -4,6 +4,7 @@ const mockActivateWallet = vi.fn();
 const mockDeactivateWallet = vi.fn();
 const mockGetWalletState = vi.fn();
 const mockGetActiveAccount = vi.fn();
+const mockHasPersistedWalletKey = vi.fn().mockReturnValue(false);
 const mockConfirmationQueue = {
   enabled: true,
   enqueue: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("../../src/wallet/persistence.js", () => ({
   deactivateWallet: (...args: unknown[]) => mockDeactivateWallet(...args),
   getWalletState: () => mockGetWalletState(),
   getActiveAccount: () => mockGetActiveAccount(),
+  hasPersistedWalletKey: () => mockHasPersistedWalletKey(),
 }));
 
 vi.mock("../../src/wallet/confirmation.js", () => ({

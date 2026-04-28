@@ -31,6 +31,7 @@ import {
   deactivateWallet,
   getActiveAccount,
   getWalletState,
+  hasPersistedWalletKey,
 } from "../../wallet/persistence.js";
 import {
   transactionConfirmSchema,
@@ -200,11 +201,35 @@ async function walletDeactivateExecutor(_params: Record<string, unknown>): Promi
 export async function walletDeactivate(): Promise<CallToolResult> {
   try {
     const state = getWalletState();
+
+    // Read-only mode bypasses executeWrite()'s read-only gate (which exists
+    // to block writes that REQUIRE a signer; deactivate is the inverse — the
+    // transition AWAY from a signer). Two sub-paths:
     if (state.mode === "read-only") {
-      // Idempotent cleanup path — allowed from read-only mode so users can
-      // ensure any persisted key file is removed even after prior deactivate.
+      if (!hasPersistedWalletKey()) {
+        // True no-op: nothing to unlink, already ephemeral. Skip the queue.
+        return walletDeactivateExecutor({});
+      }
+      // Stale key file present (e.g., prior crashed session). Filesystem
+      // deletion is still a destructive write, so route through the
+      // confirmation queue when enabled — but with `walletAddress: undefined`
+      // so transaction_confirm's read-only gate doesn't reject it.
+      if (confirmationQueue.enabled) {
+        const { queued, id, summary } = confirmationQueue.enqueue(
+          "wallet_deactivate",
+          "Deactivate wallet and delete persisted key file",
+          {},
+          walletDeactivateExecutor,
+          undefined,
+          "destructive"
+        );
+        if (queued) {
+          return formatToolResponse({ status: "pending_confirmation", id, summary });
+        }
+      }
       return walletDeactivateExecutor({});
     }
+
     return await executeWrite({
       toolName: "wallet_deactivate",
       description: "Deactivate wallet and delete persisted key file",
