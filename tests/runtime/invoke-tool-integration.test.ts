@@ -181,10 +181,20 @@ function parseToolText(result: {
   return JSON.parse(firstContent.text) as Record<string, unknown>;
 }
 
-function getFlatErrorFields(parsed: Record<string, unknown>) {
+// formatToolError writes the legacy flat shape ({ error: code, message }) to
+// content[0].text, and the nested envelope ({ ok: false, error: { code, message } })
+// to structuredContent. Tests that consume content[0].text use the flat shape.
+function getFlatErrorFields(parsed: Record<string, unknown>): { code: string; message: string } {
+  const code = parsed.error;
+  const message = parsed.message;
+  if (typeof code !== "string") {
+    throw new Error(
+      `Expected error code at parsed.error to be a string, got ${typeof code}: ${JSON.stringify(parsed)}`
+    );
+  }
   return {
-    code: typeof parsed.error === "string" ? parsed.error : undefined,
-    message: typeof parsed.message === "string" ? parsed.message : "",
+    code,
+    message: typeof message === "string" ? message : "",
   };
 }
 
@@ -224,13 +234,18 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
       const parsed = parseToolText(result);
       const { code, message } = getFlatErrorFields(parsed);
 
+      // The classifier should have routed cancelOrder as "destructive", so
+      // financial-gate codes must NOT appear.
       expect(code).not.toBe("UNESTIMABLE_FINANCIAL_WRITE");
       expect(code).not.toBe("SPEND_LIMIT_ERROR");
-      expect(
-        code === undefined ||
-          code.startsWith("CCXT_") ||
-          message.includes("MOCK_EXCHANGE_NO_NETWORK")
-      ).toBe(true);
+      expect(code).not.toBe("USD_ESTIMATION_FAILED");
+      expect(code).not.toBe("POLICY_DENIED");
+      // Failure must originate from the mock exchange (downstream of the gate),
+      // not from upstream policy. Either a CCXT_*-prefixed code OR a message
+      // tagged with our mock sentinel is acceptable evidence.
+      const reachedExchange =
+        code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
+      expect(reachedExchange).toBe(true);
     } finally {
       await runtime.shutdown();
     }
@@ -252,16 +267,23 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
       expect(result.isError).toBe(true);
       const parsed = parseToolText(result);
       const { code, message } = getFlatErrorFields(parsed);
+
+      // createOrder must be financial-classified. The acceptable outcomes are:
+      //  - the financial gate denied (SPEND_LIMIT_ERROR, UNESTIMABLE_FINANCIAL_WRITE,
+      //    USD_ESTIMATION_FAILED, POLICY_DENIED) — proves the gate ran, OR
+      //  - the call passed the gate and reached the mock exchange (CCXT_* / MOCK_).
+      // What must NOT happen: passing through with a non-CCXT, non-gate error code,
+      // which would indicate the financial branch was bypassed entirely.
       const gateCodes = new Set([
         "SPEND_LIMIT_ERROR",
         "UNESTIMABLE_FINANCIAL_WRITE",
         "USD_ESTIMATION_FAILED",
         "POLICY_DENIED",
       ]);
-      const exchangeCodeOrMessage =
-        (code ?? "").startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
+      const reachedExchange =
+        code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
 
-      expect((code !== undefined && gateCodes.has(code)) || exchangeCodeOrMessage).toBe(true);
+      expect(gateCodes.has(code) || reachedExchange).toBe(true);
     } finally {
       await runtime.shutdown();
     }
