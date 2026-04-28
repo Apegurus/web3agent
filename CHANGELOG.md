@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`readJsonFile` (in `src/hosts/writers/base.ts`) now throws on malformed/unreadable configs.** Previously every read or parse error returned `null`. Programmatic consumers must now handle a thrown error tagged with `code === "HOST_CONFIG_MALFORMED"` (parse failure) or rethrown filesystem errors (EACCES, EPERM, EISDIR, …); only `ENOENT` continues to return `null`. This is the call-side counterpart of the M2 fix in 0.5.0 — surfaced here so SDK consumers don't silently receive `null` for situations that should be loud.
+
+### Fixed
+
+- **`extractEstimatedUsd` clamps non-finite computed paths to `0`.** The 0.5.0 M1 fix added `Number.isFinite` guards on the explicit-USD-field branch only. Computed paths — CCXT `amount * price` overflow and `estimateTokenUsd` returning a non-finite value — could still propagate `Infinity` to `evaluatePolicy` and policy log messages. Now wrapped at the function boundary: any non-finite inner result is logged to stderr and replaced with `0` (estimation-failed).
+- **`listTools()` / `getTool()` no longer leak `originalRiskLevel`.** The 0.5.0 H2 fix introduced an `originalRiskLevel` field on `RuntimeToolRecord` to preserve dynamic risk classifiers, but the catalog accessors only stripped `handler` before returning. SDK consumers iterating `runtime.listTools()` saw an undocumented extra field — a function for classifier-backed tools, a duplicate string for static tools. Now stripped alongside `handler`.
+
+### Tests
+
+- **Pack-mutex around `pnpm pack` calls in e2e** — added `tests/e2e/pack-mutex.ts`, a small O_EXCL-based file lock used by `web3agent-create-cli-install.test.ts`, `create-web3agent-generated-projects.test.ts`, and `packaging.test.ts`. Closes a known race introduced by the 0.5.0 `prepack` hooks: parallel pack invocations could collide on tsup's `clean: true` step and produce ENOENT.
+
+### Notes
+
+- **`listTools()` reports dynamic-classifier tools as static `"financial"`.** This is by design — MCP consumers use `riskLevel` as a conservative upper-bound safety signal, and per-method classification (e.g., CCXT `cancelOrder` → `destructive`) is only resolved at invocation time. UIs that branch on `riskLevel` to choose warning copy will over-warn for `cancelOrder`-class operations on `ccxt_private_write` until they consume the resolved risk via the runtime invocation path.
+
 ## [0.5.0] - 2026-04-22
 
 ### Deprecated
