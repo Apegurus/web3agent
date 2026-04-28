@@ -300,13 +300,15 @@ export class ManagedRuntime implements Web3AgentRuntime {
   }
 
   listTools(): ToolCatalogEntry[] {
-    return [...this.toolRecords.values()].map(({ handler: _handler, ...tool }) => tool);
+    return [...this.toolRecords.values()].map(
+      ({ handler: _handler, originalRiskLevel: _originalRiskLevel, ...tool }) => tool
+    );
   }
 
   getTool(name: string): ToolCatalogEntry | undefined {
     const tool = this.toolRecords.get(name);
     if (!tool) return undefined;
-    const { handler: _handler, ...rest } = tool;
+    const { handler: _handler, originalRiskLevel: _originalRiskLevel, ...rest } = tool;
     return rest;
   }
 
