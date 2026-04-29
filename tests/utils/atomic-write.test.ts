@@ -1,5 +1,5 @@
 import { existsSync, statSync } from "node:fs";
-import { readFile, rm } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -50,6 +50,21 @@ describe("atomicWriteJson", () => {
 
       const parentMode = statSync(join(TEST_DIR, "nested")).mode & 0o777;
       expect(parentMode).toBe(0o700);
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "tightens permissions on a pre-existing 0o755 parent directory (upgrade path)",
+    async () => {
+      // Simulate a pre-0.5.0 install: dir already exists with the umask default 0o755.
+      const preExistingDir = join(TEST_DIR, "legacy");
+      await mkdir(preExistingDir, { recursive: true });
+      await chmod(preExistingDir, 0o755);
+      expect(statSync(preExistingDir).mode & 0o777).toBe(0o755);
+
+      // Next atomic write must repair the mode to 0o700.
+      await atomicWriteJson(join(preExistingDir, "data.json"), { ok: true });
+      expect(statSync(preExistingDir).mode & 0o777).toBe(0o700);
     }
   );
 });

@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+const IS_POSIX = process.platform !== "win32";
 
 export type AuditAction = "CONFIRMED" | "DENIED" | "EXECUTION_FAILED" | "EXPIRED";
 
@@ -51,6 +53,16 @@ export function appendAuditLog(entry: AuditEntry): Promise<void> {
       const dir = getAuditDir();
       if (!existsSync(dir)) {
         await mkdir(dir, { recursive: true, mode: 0o700 });
+      } else if (IS_POSIX) {
+        // Repair pre-existing dirs from < 0.5.0 installs created with the
+        // process umask (typically 0o755). Best-effort.
+        try {
+          await chmod(dir, 0o700);
+        } catch (e: unknown) {
+          process.stderr.write(
+            `[audit] Could not tighten permissions on ${dir}: ${e instanceof Error ? e.message : String(e)}\n`
+          );
+        }
       }
       await appendFile(getAuditPath(), formatEntry(entry), { mode: 0o600 });
     });
