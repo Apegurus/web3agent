@@ -614,7 +614,11 @@ export const ccxtExchangeSummarySchema = z.object({
     .array(z.string())
     .describe("Names of configured authenticated accounts for this exchange"),
   supportsPublic: z.boolean().describe("Whether public market data methods are available"),
-  supportsPrivate: z.boolean().describe("Whether authenticated private methods are available"),
+  supportsPrivate: z
+    .boolean()
+    .describe(
+      "True only when a credentialed account is configured AND the exchange exposes at least one private method (read or write). False if either side is missing."
+    ),
   timeframes: z.array(z.string()).optional().describe("Supported OHLCV candlestick timeframes"),
 });
 

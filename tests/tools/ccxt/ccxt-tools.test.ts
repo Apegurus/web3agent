@@ -72,10 +72,19 @@ vi.mock("../../../src/ccxt/accounts.js", () => ({
   resolveExchangeIdFromAccount: vi.fn(),
 }));
 
-vi.mock("../../../src/ccxt/capabilities.js", () => ({
-  describeExchangeCapabilities: (...args: unknown[]) =>
-    mockState.describeExchangeCapabilities(...args),
-}));
+vi.mock("../../../src/ccxt/capabilities.js", async () => {
+  // Re-export the real method-list constants and helper alongside the mocked
+  // describeExchangeCapabilities, so listExchanges' supportsPrivate gating
+  // logic exercises the production code path.
+  const actual = await vi.importActual<typeof import("../../../src/ccxt/capabilities.js")>(
+    "../../../src/ccxt/capabilities.js"
+  );
+  return {
+    ...actual,
+    describeExchangeCapabilities: (...args: unknown[]) =>
+      mockState.describeExchangeCapabilities(...args),
+  };
+});
 
 vi.mock("../../../src/ccxt/invoke.js", () => ({
   invokeCcxtPublicCall: (...args: unknown[]) => mockState.invokeCcxtPublicCall(...args),
@@ -85,10 +94,12 @@ vi.mock("../../../src/ccxt/invoke.js", () => ({
 
 import { getCcxtToolDefinitions } from "../../../src/tools/ccxt/index.js";
 
-function getFirstTextContent(result: { content?: Array<{ type: string; text?: string }> }) {
+function getFirstTextContent(result: {
+  content?: Array<{ type: string; text?: string }>;
+}): string {
   const part = result.content?.[0];
   expect(part?.type).toBe("text");
-  if (!part || part.type !== "text") {
+  if (!part || part.type !== "text" || typeof part.text !== "string") {
     throw new Error("Expected first content part to be text");
   }
   return part.text;
@@ -187,6 +198,60 @@ describe("ccxt tool definitions", () => {
     const text = getFirstTextContent(result);
     expect(text).toContain("binance");
     expect(text).toContain("kraken");
+  });
+
+  it("supportsPrivate requires both credentials and exchange.has private methods (M3 follow-up)", async () => {
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_list_exchanges");
+    if (!tool) throw new Error("Missing ccxt_list_exchanges tool");
+
+    // mockRegistry has a credentialed binance account by default.
+    // The mocked ccxt module has binance.has = { spot, swap } (no private methods)
+    // and kraken.has = { spot } (no credentials configured for kraken).
+    const result = await tool.handler({});
+    expect(result.isError).toBe(false);
+
+    const exchanges = JSON.parse(getFirstTextContent(result)) as Array<{
+      exchangeId: string;
+      supportsPrivate: boolean;
+    }>;
+    const byId = new Map(exchanges.map((e) => [e.exchangeId, e]));
+
+    // binance has credentials but no private methods → supportsPrivate=false
+    expect(byId.get("binance")?.supportsPrivate).toBe(false);
+    // kraken has neither credentials nor private methods → supportsPrivate=false
+    expect(byId.get("kraken")?.supportsPrivate).toBe(false);
+  });
+
+  it("supportsPrivate is true when credentials AND private methods are both present", async () => {
+    // Re-instantiate ccxt with binance now exposing fetchBalance, then re-import.
+    vi.resetModules();
+    vi.doMock("ccxt", () => ({
+      default: {
+        exchanges: ["binance"],
+        binance: class {
+          id = "binance";
+          name = "Binance";
+          countries = ["JP"];
+          urls = { api: "https://api.binance.com" };
+          has = { spot: true, fetchBalance: true };
+          timeframes = { "1m": "1m" };
+        },
+      },
+    }));
+
+    const { getCcxtToolDefinitions: getToolsFresh } = await import(
+      "../../../src/tools/ccxt/index.js"
+    );
+    const tool = getToolsFresh().find((entry) => entry.name === "ccxt_list_exchanges");
+    if (!tool) throw new Error("Missing ccxt_list_exchanges tool");
+
+    const result = await tool.handler({});
+    const exchanges = JSON.parse(getFirstTextContent(result)) as Array<{
+      exchangeId: string;
+      supportsPrivate: boolean;
+    }>;
+    const binance = exchanges.find((e) => e.exchangeId === "binance");
+    expect(binance?.supportsPrivate).toBe(true);
   });
 
   it("invokes a public CCXT method through the tool handler", async () => {

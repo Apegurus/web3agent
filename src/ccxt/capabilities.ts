@@ -3,9 +3,33 @@ import type { CcxtExchangeLike } from "./types.js";
 
 const MARKET_TYPES = ["spot", "margin", "future", "swap", "option"] as const;
 
-const PRIVATE_READ_METHODS = ["fetchBalance", "fetchPositions", "fetchOpenOrders", "fetchMyTrades"];
+export const PRIVATE_READ_METHODS = [
+  "fetchBalance",
+  "fetchPositions",
+  "fetchOpenOrders",
+  "fetchMyTrades",
+];
 
-const PRIVATE_WRITE_METHODS = ["createOrder", "cancelOrder", "transfer", "withdraw", "setLeverage"];
+export const PRIVATE_WRITE_METHODS = [
+  "createOrder",
+  "cancelOrder",
+  "transfer",
+  "withdraw",
+  "setLeverage",
+];
+
+/**
+ * True if the exchange's `has` map advertises any of the given methods.
+ * Treats both `true` and `"emulated"` as supported. Suitable for capability
+ * gating where the goal is "is the method reachable at all".
+ */
+export function hasAnyPrivateMethod(
+  has: Record<string, boolean | "emulated" | undefined> | undefined,
+  methods: string[]
+): boolean {
+  if (!has) return false;
+  return methods.some((method) => Boolean(has[method]));
+}
 
 interface ConfiguredExchangeAccount {
   name: string;
@@ -13,7 +37,7 @@ interface ConfiguredExchangeAccount {
 }
 
 function hasAnyMethod(exchange: CcxtExchangeLike, methods: string[]): boolean {
-  return methods.some((method) => Boolean(exchange.has?.[method]));
+  return hasAnyPrivateMethod(exchange.has, methods);
 }
 
 export function describeExchangeCapabilities(
