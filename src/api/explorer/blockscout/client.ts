@@ -57,7 +57,10 @@ export class BlockscoutClient {
     return this.fetch<BlockscoutTokenList>(url.toString());
   }
 
-  async getAddressTransactions(chainId: number, address: string): Promise<BlockscoutTransactionList> {
+  async getAddressTransactions(
+    chainId: number,
+    address: string
+  ): Promise<BlockscoutTransactionList> {
     const base = this.getBaseUrl(chainId);
     return this.fetch<BlockscoutTransactionList>(
       `${base}/api/v2/addresses/${encodeURIComponent(address)}/transactions`
