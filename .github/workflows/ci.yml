@@ -2,17 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+
+# Cancel in-flight runs on the same PR/branch when a new commit lands. Keeps
+# rapid-iteration PRs from queueing redundant minutes against the runner pool.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     env:
       NODE_OPTIONS: '--max-old-space-size=4096'
     strategy:
+      fail-fast: false
       matrix:
+        # ubuntu is the primary target; macos catches POSIX-specific code paths
+        # (mode 0o700 dir-permission repair, pack-mutex Atomics.wait + O_EXCL
+        # lockfile, fs.realpathSync symlink semantics in create-web3agent) that
+        # would otherwise only be exercised on developer machines.
+        os: [ubuntu-latest, macos-latest]
         node-version: [22.x]
 
     steps:
@@ -58,3 +70,10 @@ jobs:
         run: |
           TARBALL=$(ls web3agent-*.tgz)
           node tests/e2e/package-install-smoke.mjs "$PWD/$TARBALL"
+
+      - name: Security audit (non-blocking)
+        # pnpm audit's exit code is sensitive to transient advisory churn;
+        # surface findings as warnings so CI doesn't flap on upstream changes,
+        # while still showing the report in the run summary.
+        run: pnpm audit --prod || true
+        if: matrix.os == 'ubuntu-latest'
