@@ -27,7 +27,7 @@ export function reserveSpend(
 ): number {
   if (!Number.isFinite(estimatedUsd) || estimatedUsd < 0) {
     process.stderr.write(
-      `[policy] Refusing reservation for non-finite spend (${estimatedUsd}) on ${toolName}.\n`
+      `[policy] Refusing reservation for invalid spend (${estimatedUsd}) on ${toolName}: must be a finite non-negative number.\n`
     );
     return nextReservationId++;
   }
@@ -79,7 +79,7 @@ function schedulePersist(): void {
 export function recordSpend(toolName: string, estimatedUsd: number, walletAddress?: string): void {
   if (!Number.isFinite(estimatedUsd) || estimatedUsd < 0) {
     process.stderr.write(
-      `[policy] Refusing to record non-finite spend (${estimatedUsd}) for ${toolName}. This indicates a caller bug — spend limits depend on finite values.\n`
+      `[policy] Refusing to record invalid spend (${estimatedUsd}) for ${toolName}: must be a finite non-negative number. This indicates a caller bug — spend limits depend on valid values.\n`
     );
     return;
   }

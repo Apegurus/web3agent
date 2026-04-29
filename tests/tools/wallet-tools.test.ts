@@ -275,7 +275,7 @@ describe("wallet tool handlers", () => {
     expect(payload.mode).toBe("private-key");
   });
 
-  it("walletActivate end-to-end: read-only runtime state → activate → confirm succeeds", async () => {
+  it("walletActivate enqueues with walletAddress=undefined from read-only runtime state (H1 invariant)", async () => {
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "read-only",
       chainId: 8453,
@@ -376,7 +376,7 @@ describe("wallet tool handlers", () => {
     expect(confirmationQueueMock.enqueue).not.toHaveBeenCalled();
   });
 
-  it("walletDeactivate routes through executeWrite when read-only mode has a stale persisted key file", async () => {
+  it("walletDeactivate routes through the confirmation queue when read-only mode has a stale persisted key file", async () => {
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "read-only",
       chainId: 8453,
