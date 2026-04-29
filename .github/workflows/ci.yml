@@ -25,15 +25,19 @@ jobs:
         # lockfile, fs.realpathSync symlink semantics in create-web3agent) that
         # would otherwise only be exercised on developer machines.
         os: [ubuntu-latest, macos-latest]
-        node-version: [22.x]
+        # Node 24.x is the current Active LTS (since 2025-10). The floor is
+        # engines.node ">=22" in both publishable packages, so Node 24 is
+        # in-bounds for users while picking up upstream perf and security
+        # fixes that 22 won't backport.
+        node-version: [24.x]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
