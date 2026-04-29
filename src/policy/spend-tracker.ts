@@ -25,6 +25,12 @@ export function reserveSpend(
   estimatedUsd: number,
   walletAddress?: string
 ): number {
+  if (!Number.isFinite(estimatedUsd) || estimatedUsd < 0) {
+    process.stderr.write(
+      `[policy] Refusing reservation for invalid spend (${estimatedUsd}) on ${toolName}: must be a finite non-negative number.\n`
+    );
+    return nextReservationId++;
+  }
   const id = nextReservationId++;
   pendingReservations.set(id, {
     timestamp: new Date().toISOString(),
@@ -71,6 +77,12 @@ function schedulePersist(): void {
 // If the process crashes between push() and persist completing, recent spend is lost.
 // Accepted tradeoff: policy may under-enforce briefly after a crash, but won't over-enforce.
 export function recordSpend(toolName: string, estimatedUsd: number, walletAddress?: string): void {
+  if (!Number.isFinite(estimatedUsd) || estimatedUsd < 0) {
+    process.stderr.write(
+      `[policy] Refusing to record invalid spend (${estimatedUsd}) for ${toolName}: must be a finite non-negative number. This indicates a caller bug — spend limits depend on valid values.\n`
+    );
+    return;
+  }
   records.push({
     timestamp: new Date().toISOString(),
     toolName,
@@ -90,6 +102,7 @@ export function getSpendWindow(): SpendWindow {
   let dailyCount = 0;
 
   for (const record of records) {
+    if (!Number.isFinite(record.estimatedUsd)) continue;
     const age = now - new Date(record.timestamp).getTime();
     if (age <= DAY_MS) {
       dailyUsd += record.estimatedUsd;
@@ -102,6 +115,7 @@ export function getSpendWindow(): SpendWindow {
   }
 
   for (const record of pendingReservations.values()) {
+    if (!Number.isFinite(record.estimatedUsd)) continue;
     hourlyUsd += record.estimatedUsd;
     dailyUsd += record.estimatedUsd;
     hourlyCount++;

@@ -17,18 +17,23 @@ function toTomlStringArray(values: string[]): string {
   return `[${values.map((value) => toTomlString(value)).join(", ")}]`;
 }
 
-function encodeTomlSection(name: string, value: Record<string, unknown>): string[] {
+export function encodeTomlSection(name: string, value: Record<string, unknown>): string[] {
   const lines = [`[mcp_servers.${name}]`];
 
   for (const [key, raw] of Object.entries(value)) {
     if (typeof raw === "string") {
       lines.push(`${key} = ${toTomlString(raw)}`);
-      continue;
-    }
-    if (Array.isArray(raw) && raw.every((item) => typeof item === "string")) {
+    } else if (typeof raw === "boolean") {
+      lines.push(`${key} = ${raw ? "true" : "false"}`);
+    } else if (typeof raw === "number" && Number.isFinite(raw)) {
+      lines.push(`${key} = ${raw}`);
+    } else if (Array.isArray(raw) && raw.every((item) => typeof item === "string")) {
       lines.push(`${key} = ${toTomlStringArray(raw as string[])}`);
+    } else {
+      process.stderr.write(
+        `[hosts/codex] Skipping unsupported TOML value type for ${name}.${key}: ${typeof raw}\n`
+      );
     }
-    // Other value types (boolean, number, nested) are not encoded — add cases here if the schema evolves.
   }
 
   return lines;
@@ -104,11 +109,16 @@ function stripManagedSections(existing: string): string {
   return kept.join("\n").trimEnd();
 }
 
-function mergeManagedBlock(existing: string, managedBlock: string): string {
+export function mergeManagedBlock(existing: string, managedBlock: string): string {
   const startIdx = existing.indexOf(MARKER_START);
-  const endIdx = existing.indexOf(MARKER_END);
+  // Start-anchor the end-marker search: only find MARKER_END that appears AFTER
+  // MARKER_START. Otherwise a literal "# web3agent:end" earlier in the file
+  // (e.g., in user comments) would be matched as the block terminator, producing
+  // garbage output.
+  const endIdx =
+    startIdx === -1 ? -1 : existing.indexOf(MARKER_END, startIdx + MARKER_START.length);
 
-  if (startIdx !== -1 && endIdx !== -1) {
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
     const before = existing.slice(0, startIdx).trimEnd();
     const after = existing.slice(endIdx + MARKER_END.length).trimStart();
     const parts = [before, managedBlock, after].filter((part) => part.length > 0);

@@ -1,6 +1,6 @@
 {
   "name": "web3agent",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Web3 MCP proxy server — gives AI agents complete blockchain capabilities through a single install",
   "license": "MIT",
   "author": "Apeguru <hello@apeguru.dev>",
@@ -106,6 +106,7 @@
   "scripts": {
     "build": "pnpm run build:package && pnpm --filter create-web3agent build",
     "build:package": "tsup",
+    "prepack": "pnpm run build:package",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check .",

@@ -133,6 +133,22 @@ describe("utility tool handlers", () => {
     expect(payload.toolCount).toBe(0);
   });
 
+  it("serverStatus does not throw when _health.ccxt is missing (partial health object)", async () => {
+    const { serverStatus, setHealthStatus } = await import("../../src/tools/utility/index.js");
+
+    // Build a valid health object, then delete ccxt to simulate a partial/older state.
+    const baseHealth = buildHealth();
+    const partialHealth = { ...baseHealth };
+    // biome-ignore lint/performance/noDelete: simulating missing optional health field
+    delete (partialHealth as Partial<typeof partialHealth>).ccxt;
+    setHealthStatus(partialHealth as unknown as typeof baseHealth, 1);
+
+    const result = await serverStatus();
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.backends.ccxt).toBe("not_initialized");
+  });
+
   it("listSupportedChains returns chain entries with id, name, and nativeCurrency", async () => {
     const { listSupportedChains } = await import("../../src/tools/utility/index.js");
     const result = await listSupportedChains();

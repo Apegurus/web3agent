@@ -4,6 +4,7 @@ const mockActivateWallet = vi.fn();
 const mockDeactivateWallet = vi.fn();
 const mockGetWalletState = vi.fn();
 const mockGetActiveAccount = vi.fn();
+const mockHasPersistedWalletKey = vi.fn().mockReturnValue(false);
 const mockConfirmationQueue = {
   enabled: true,
   enqueue: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("../../src/wallet/persistence.js", () => ({
   deactivateWallet: (...args: unknown[]) => mockDeactivateWallet(...args),
   getWalletState: () => mockGetWalletState(),
   getActiveAccount: () => mockGetActiveAccount(),
+  hasPersistedWalletKey: () => mockHasPersistedWalletKey(),
 }));
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
@@ -23,6 +25,7 @@ vi.mock("../../src/wallet/confirmation.js", () => ({
 
 describe("wallet_activate tool handler", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
     mockConfirmationQueue.enabled = false;
     mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
@@ -97,6 +100,7 @@ describe("wallet_activate tool handler", () => {
 
 describe("wallet_deactivate tool handler", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
     mockConfirmationQueue.enabled = false;
     mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
@@ -105,6 +109,7 @@ describe("wallet_deactivate tool handler", () => {
   it("calls deactivateWallet and returns read-only state", async () => {
     mockDeactivateWallet.mockResolvedValueOnce(undefined);
     mockGetWalletState
+      .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
       .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
       .mockReturnValueOnce({ mode: "read-only", chainId: 1 });
 

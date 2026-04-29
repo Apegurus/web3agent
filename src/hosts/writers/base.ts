@@ -110,11 +110,24 @@ export async function safeWriteConfig(
 }
 
 export async function readJsonFile(path: string): Promise<Record<string, unknown> | null> {
+  let raw: string;
   try {
-    const raw = await readFile(path, "utf-8");
+    raw = await readFile(path, "utf-8");
+  } catch (readErr: unknown) {
+    if ((readErr as NodeJS.ErrnoException)?.code === "ENOENT") {
+      return null;
+    }
+    throw readErr;
+  }
+
+  try {
     return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
+  } catch (parseErr: unknown) {
+    const err = new Error(
+      `Malformed JSON in existing config at ${path}: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Refusing to overwrite. Fix the file or delete it to proceed.`
+    );
+    (err as Error & { code?: string }).code = "HOST_CONFIG_MALFORMED";
+    throw err;
   }
 }
 

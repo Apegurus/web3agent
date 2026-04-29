@@ -13,7 +13,12 @@ import {
   listAccountSummaries,
   resolveExchangeIdFromAccount,
 } from "../../ccxt/accounts.js";
-import { describeExchangeCapabilities } from "../../ccxt/capabilities.js";
+import {
+  PRIVATE_READ_METHODS,
+  PRIVATE_WRITE_METHODS,
+  describeExchangeCapabilities,
+  hasAnyPrivateMethod,
+} from "../../ccxt/capabilities.js";
 import { classifyCcxtWriteRisk, isHighRiskCcxtMethod } from "../../ccxt/classification.js";
 import {
   invokeCcxtPrivateRead,
@@ -136,9 +141,18 @@ function listExchanges(input: {
         .filter((a) => a.exchangeId === meta.id)
         .map((a) => a.name);
 
-      const supportsPrivate = registry.accounts.some(
+      const hasCredentialedAccount = registry.accounts.some(
         (a) => a.exchangeId === meta.id && accountHasCredentials(a)
       );
+      // M3 follow-up: gate supportsPrivate on BOTH a credentialed account AND
+      // the exchange exposing at least one private method (read or write).
+      // Credentials alone don't make the private surface usable — agents that
+      // pick the first supportsPrivate=true exchange would otherwise hit
+      // "method not supported" at the CCXT layer.
+      const supportsPrivate =
+        hasCredentialedAccount &&
+        (hasAnyPrivateMethod(meta.has, PRIVATE_READ_METHODS) ||
+          hasAnyPrivateMethod(meta.has, PRIVATE_WRITE_METHODS));
 
       return {
         exchangeId: meta.id,
@@ -365,7 +379,13 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
         "This covers order placement, cancellation, leverage, transfers, withdrawals, and private implicit write endpoints.",
       inputSchema: zodToJsonSchema(ccxtPrivateWriteSchema) as Record<string, unknown>,
       handler: handleCcxtPrivateWrite,
-      riskLevel: "financial",
+      riskLevel: (args: Record<string, unknown>) => {
+        const method = args.method;
+        if (typeof method !== "string" || method.length === 0) {
+          return "financial";
+        }
+        return classifyCcxtWriteRisk(method);
+      },
       annotations: CCXT_WRITE_ANNOTATIONS,
     },
   ];

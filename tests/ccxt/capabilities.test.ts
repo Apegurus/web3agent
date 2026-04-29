@@ -5,7 +5,12 @@ import type { CcxtExchangeLike } from "../../src/ccxt/types.js";
 const mockExchange: CcxtExchangeLike = {
   id: "binance",
   name: "Binance",
-  has: { spot: true, fetchTicker: true },
+  has: {
+    spot: true,
+    fetchTicker: true,
+    fetchBalance: true,
+    createOrder: true,
+  },
   timeframes: { "1m": "1m" },
   symbols: ["BTC/USDT"],
   loadMarkets: async () => ({}),
@@ -33,6 +38,31 @@ describe("describeExchangeCapabilities", () => {
     ]);
 
     expect(result.supportedInvocationModes).toEqual(["public"]);
+  });
+
+  it("does NOT advertise private_write when exchange lacks createOrder/cancelOrder", () => {
+    const exchange: CcxtExchangeLike = {
+      id: "minimal",
+      name: "minimal",
+      has: { spot: true, fetchTicker: true },
+    };
+
+    const result = describeExchangeCapabilities(exchange, [{ name: "test", hasCredentials: true }]);
+
+    expect(result.supportedInvocationModes).toEqual(["public"]);
+  });
+
+  it("advertises private_read but NOT private_write when exchange has fetchBalance but lacks createOrder", () => {
+    const exchange: CcxtExchangeLike = {
+      id: "readonly",
+      name: "readonly",
+      has: { spot: true, fetchBalance: true, fetchPositions: true },
+    };
+
+    const result = describeExchangeCapabilities(exchange, [{ name: "test", hasCredentials: true }]);
+
+    expect(result.supportedInvocationModes).toContain("private_read");
+    expect(result.supportedInvocationModes).not.toContain("private_write");
   });
 
   it("still includes account names in configuredAccounts regardless of credentials", () => {

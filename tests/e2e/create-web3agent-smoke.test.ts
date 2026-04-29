@@ -1,12 +1,22 @@
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCreateCli } from "../../src/create/cli.js";
 
 describe("create-web3agent smoke", () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("materializes the bundled Vercel starter through the CLI entrypoint", async () => {
     const root = mkdtempSync(join(tmpdir(), "create-web3agent-cli-"));
+    tempDirs.push(root);
     const targetDir = join(root, "starter-app");
     let stderr = "";
 
@@ -38,6 +48,7 @@ describe("create-web3agent smoke", () => {
 
   it("runs post-install commands by default when skip flags are not set", async () => {
     const root = mkdtempSync(join(tmpdir(), "create-web3agent-cli-"));
+    tempDirs.push(root);
     const targetDir = join(root, "starter-app");
     const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
 
@@ -55,6 +66,7 @@ describe("create-web3agent smoke", () => {
 
   it("materializes the bundled Mastra starter through the CLI entrypoint", async () => {
     const root = mkdtempSync(join(tmpdir(), "create-web3agent-cli-"));
+    tempDirs.push(root);
     const targetDir = join(root, "mastra-app");
 
     await runCreateCli([
@@ -75,6 +87,7 @@ describe("create-web3agent smoke", () => {
 
   it("materializes the bundled MCP-host starter through the CLI entrypoint", async () => {
     const root = mkdtempSync(join(tmpdir(), "create-web3agent-cli-"));
+    tempDirs.push(root);
     const targetDir = join(root, "mcp-host-app");
 
     await runCreateCli([
