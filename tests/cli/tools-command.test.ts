@@ -192,16 +192,37 @@ describe("runToolsCommand", () => {
 });
 
 describe("runToolsCommand error paths", () => {
+  let stderr = "";
+  const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    stderr += String(chunk);
+    return true;
+  });
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     process.exitCode = 0;
+    stderr = "";
+  });
+
+  afterEach(() => {
+    stderrWrite.mockClear();
+  });
+
+  it("prints human-readable validation errors without --json", async () => {
+    const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
+
+    await runToolsCommand(["describe"]);
+
+    expect(stderr).toContain("MISSING_TOOL_NAME");
+    expect(stderr).toContain("Usage: web3agent tools describe <tool-name> --json");
+    expect(process.exitCode).toBe(1);
   });
 
   it("throws CliExitError with MISSING_TOOL_NAME for `tools describe` without a name", async () => {
     const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
 
-    await expect(runToolsCommand(["describe"])).rejects.toMatchObject({
+    await expect(runToolsCommand(["describe", "--json"])).rejects.toMatchObject({
       name: "CliExitError",
       errorCode: "MISSING_TOOL_NAME",
     });
@@ -214,16 +235,18 @@ describe("runToolsCommand error paths", () => {
 
     const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
 
-    await expect(runToolsCommand(["describe", "nonexistent_tool"])).rejects.toMatchObject({
-      name: "CliExitError",
-      errorCode: "UNKNOWN_TOOL",
-    });
+    await expect(runToolsCommand(["describe", "nonexistent_tool", "--json"])).rejects.toMatchObject(
+      {
+        name: "CliExitError",
+        errorCode: "UNKNOWN_TOOL",
+      }
+    );
   });
 
   it("throws CliExitError with MISSING_TOOL_NAME for `tools call` without a name", async () => {
     const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
 
-    await expect(runToolsCommand(["call"])).rejects.toMatchObject({
+    await expect(runToolsCommand(["call", "--json"])).rejects.toMatchObject({
       name: "CliExitError",
       errorCode: "MISSING_TOOL_NAME",
     });
@@ -232,17 +255,19 @@ describe("runToolsCommand error paths", () => {
   it("throws CliExitError with MISSING_INPUT for `tools call` with bare --input flag", async () => {
     const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
 
-    await expect(runToolsCommand(["call", "some_tool", "--input"])).rejects.toMatchObject({
-      name: "CliExitError",
-      errorCode: "MISSING_INPUT",
-    });
+    await expect(runToolsCommand(["call", "some_tool", "--json", "--input"])).rejects.toMatchObject(
+      {
+        name: "CliExitError",
+        errorCode: "MISSING_INPUT",
+      }
+    );
   });
 
   it("throws CliExitError with INVALID_INPUT_JSON for malformed JSON input", async () => {
     const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
 
     await expect(
-      runToolsCommand(["call", "some_tool", "--input", "{not valid json}"])
+      runToolsCommand(["call", "some_tool", "--input", "{not valid json}", "--json"])
     ).rejects.toMatchObject({
       name: "CliExitError",
       errorCode: "INVALID_INPUT_JSON",
@@ -253,7 +278,7 @@ describe("runToolsCommand error paths", () => {
     const { runToolsCommand } = await import("../../src/cli/commands/tools.js");
 
     await expect(
-      runToolsCommand(["call", "some_tool", "--input", '"a string"'])
+      runToolsCommand(["call", "some_tool", "--input", '"a string"', "--json"])
     ).rejects.toMatchObject({
       name: "CliExitError",
       errorCode: "INVALID_INPUT",

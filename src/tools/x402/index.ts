@@ -13,7 +13,15 @@ import { registerExecutor } from "../../wallet/confirmation.js";
 import { getWalletState } from "../../wallet/persistence.js";
 import { createX402Client, probePaymentRequirements } from "../../x402/client.js";
 import { createToolHandler } from "../shared/handler-factory.js";
-import { x402CheckRequirementsSchema, x402FetchSchema } from "./schemas.js";
+import {
+  x402CheckRequirementsSchema,
+  x402FetchExecutorSchema,
+  x402FetchSchema,
+} from "./schemas.js";
+
+function toExecutorParams(params: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined));
+}
 
 const x402CheckRequirements = createToolHandler(
   x402CheckRequirementsSchema,
@@ -86,10 +94,7 @@ async function x402Fetch(params: Record<string, unknown>): Promise<CallToolResul
   return executeWrite({
     toolName: "x402_fetch",
     description: paymentDescription,
-    params: { ...(v.data as unknown as Record<string, unknown>), paymentChainId } as Record<
-      string,
-      unknown
-    >,
+    params: toExecutorParams(x402FetchExecutorSchema.parse({ ...v.data, paymentChainId })),
     executor: executeFetchNow,
     riskLevel: "financial",
   });
@@ -103,13 +108,7 @@ async function executeFetchNow(params: Record<string, unknown>): Promise<CallToo
       body,
       headers,
       paymentChainId,
-    } = params as {
-      url: string;
-      method?: string;
-      body?: string;
-      headers?: Record<string, string>;
-      paymentChainId?: number | null;
-    };
+    } = x402FetchExecutorSchema.parse(params);
 
     const walletState = getWalletState();
     const chainId = paymentChainId ?? walletState.chainId ?? 8453;

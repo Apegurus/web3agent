@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { BLOCKSCOUT_DEFAULT_URL, ETHERSCAN_DEFAULT_URL } from "../../config/env.js";
+import { isPlainObject } from "../../utils/type-guards.js";
 
 export type WriteMode = "proxy" | "multi-server";
 
@@ -121,8 +122,19 @@ export async function readJsonFile(path: string): Promise<Record<string, unknown
   }
 
   try {
-    return JSON.parse(raw) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isPlainObject(parsed)) {
+      const err = new Error(
+        `Malformed JSON config at ${path}: expected a top-level object. Refusing to overwrite. Fix the file or delete it to proceed.`
+      );
+      (err as Error & { code?: string }).code = "HOST_CONFIG_MALFORMED";
+      throw err;
+    }
+    return parsed;
   } catch (parseErr: unknown) {
+    if ((parseErr as Error & { code?: string }).code === "HOST_CONFIG_MALFORMED") {
+      throw parseErr;
+    }
     const err = new Error(
       `Malformed JSON in existing config at ${path}: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}. Refusing to overwrite. Fix the file or delete it to proceed.`
     );
