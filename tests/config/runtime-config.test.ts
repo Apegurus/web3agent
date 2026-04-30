@@ -76,4 +76,9 @@ describe("runtime config parsing", () => {
     expect(config.walletAccountIndex).toBe(2);
     expect(config.walletAddressIndex).toBe(3);
   });
+
+  it("rejects Infinity in policy numeric env vars", () => {
+    expect(() => parseEnv({ POLICY_MAX_DAILY_USD: "Infinity" })).toThrow();
+    expect(() => parseEnv({ POLICY_MAX_DAILY_USD: "-Infinity" })).toThrow();
+  });
 });

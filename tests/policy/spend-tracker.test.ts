@@ -50,6 +50,14 @@ describe("recordSpend", () => {
     const ts = records[0].timestamp;
     expect(new Date(ts).toISOString()).toBe(ts);
   });
+
+  it("refuses to record Infinity spend and preserves window integrity", () => {
+    recordSpend("transfer_token", 100);
+    recordSpend("transfer_token", Number.POSITIVE_INFINITY);
+    const window = getSpendWindow();
+    expect(Number.isFinite(window.dailyUsd)).toBe(true);
+    expect(window.dailyUsd).toBe(100);
+  });
 });
 
 describe("getSpendWindow", () => {

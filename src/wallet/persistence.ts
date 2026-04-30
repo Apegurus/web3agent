@@ -306,3 +306,7 @@ export async function deactivateWallet(): Promise<void> {
     await unlink(walletPath);
   }
 }
+
+export function hasPersistedWalletKey(): boolean {
+  return existsSync(getWalletPath());
+}

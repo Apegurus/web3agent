@@ -71,15 +71,31 @@ function extractCcxtOrderUsd(args: Record<string, unknown>): number | null {
  * - positive number: estimation succeeded
  * - 0: estimation was attempted (token fields present) but failed (price feed down, unknown token)
  * - null: tool args have no estimable token fields (gas-only write, cancellation, approval)
+ *
+ * The result is always finite. Computed paths (CCXT amount*price overflow, pricing-helper
+ * returning a non-finite number) are clamped to 0 with a stderr warning, so downstream
+ * spend tracking and policy evaluation never see Infinity/NaN.
  */
 export async function extractEstimatedUsd(args: Record<string, unknown>): Promise<number | null> {
+  const result = await extractEstimatedUsdInner(args);
+  if (result === null) return null;
+  if (!Number.isFinite(result) || result < 0) {
+    process.stderr.write(
+      `[policy] extractEstimatedUsd produced non-finite or negative value (${result}); treating as estimation-failed.\n`
+    );
+    return 0;
+  }
+  return result;
+}
+
+async function extractEstimatedUsdInner(args: Record<string, unknown>): Promise<number | null> {
   // 1. Check explicit USD fields
   for (const key of USD_FIELD_NAMES) {
     const val = args[key];
-    if (typeof val === "number" && val > 0) return val;
+    if (typeof val === "number" && Number.isFinite(val) && val > 0) return val;
     if (typeof val === "string") {
       const parsed = Number(val);
-      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
     }
   }
 

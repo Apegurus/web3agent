@@ -165,7 +165,7 @@ export async function submitSignedOrder(params: {
   return { status: "submitted", response: result.response };
 }
 
-/** @deprecated Use submitSignedOrder instead. Will be removed in v0.5.0. */
+/** @deprecated Use submitSignedOrder instead. Will be removed in v0.6.0. */
 export async function submitSignedTwapOrder(params: {
   order: Record<string, unknown>;
   signature: { v: number; r: string; s: string };

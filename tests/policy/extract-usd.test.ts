@@ -136,4 +136,48 @@ describe("extractEstimatedUsd", () => {
     expect(await extractEstimatedUsd({ amountUsd: -5 })).toBeNull();
     expect(await extractEstimatedUsd({ amountUsd: "abc" })).toBeNull();
   });
+
+  it("rejects Infinity from explicit USD fields", async () => {
+    expect(await extractEstimatedUsd({ estimatedUsd: Number.POSITIVE_INFINITY })).not.toBe(
+      Number.POSITIVE_INFINITY
+    );
+    expect(await extractEstimatedUsd({ amountUsd: "Infinity" })).not.toBe(Number.POSITIVE_INFINITY);
+    // Either 0 (token fields present but estimation failed) or null (no estimable field)
+    // are both acceptable — just NOT infinity.
+  });
+
+  it("clamps CCXT createOrder amount*price overflow to 0 (not Infinity)", async () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    try {
+      // Number.MAX_VALUE * 2 overflows to Infinity. Both inputs pass parsePositiveNumber's
+      // own finite check, so the multiplication is the overflow site.
+      const result = await extractEstimatedUsd({
+        method: "createOrder",
+        args: ["BTC/USDT", "limit", "buy", Number.MAX_VALUE, Number.MAX_VALUE],
+      });
+      expect(Number.isFinite(result as number)).toBe(true);
+      expect(result).toBe(0);
+      const stderrCalls = stderrSpy.mock.calls.map(([chunk]) => String(chunk)).join("");
+      expect(stderrCalls).toContain("[policy]");
+      expect(stderrCalls).toContain("non-finite");
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it("clamps non-finite output from estimateTokenUsd to 0 (not Infinity)", async () => {
+    mockRegistry.lookupTokenByAddress.mockReturnValue({ decimals: 18 });
+    mockPricing.estimateTokenUsd.mockResolvedValue(Number.POSITIVE_INFINITY);
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    try {
+      const result = await extractEstimatedUsd({
+        fromToken: "0xtoken",
+        fromAmount: "1000000000000000000",
+        chainId: 1,
+      });
+      expect(result).toBe(0);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
 });

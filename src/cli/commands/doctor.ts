@@ -14,19 +14,24 @@ function printHelp(): void {
 }
 
 export async function runDoctorCommand(args: string[]): Promise<void> {
-  if (!args.includes("--json")) {
+  const isJsonMode = args.includes("--json");
+
+  if (!isJsonMode) {
     printHelp();
     return;
   }
 
-  await withCliRuntime(async (runtime) => {
-    const health = runtime.getHealth();
-    writeJson({
-      ok: true,
-      data: {
-        health,
-        issues: buildDoctorIssues(health),
-      },
-    });
-  });
+  await withCliRuntime(
+    async (runtime) => {
+      const health = runtime.getHealth();
+      writeJson({
+        ok: true,
+        data: {
+          health,
+          issues: buildDoctorIssues(health),
+        },
+      });
+    },
+    { json: isJsonMode }
+  );
 }

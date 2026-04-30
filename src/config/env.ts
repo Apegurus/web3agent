@@ -52,11 +52,11 @@ function parsePolicyBoolean(value: string | undefined): boolean | undefined {
 function parsePositiveFloat(field: string, value: string | undefined): number | undefined {
   if (value === undefined || value === "") return undefined;
   const parsed = Number(value);
-  if (Number.isNaN(parsed) || parsed < 0) {
+  if (!Number.isFinite(parsed) || parsed < 0) {
     throw new ValidationError(
       field,
       value,
-      `${field} must be a non-negative number, got "${value}"`
+      `${field} must be a finite non-negative number, got "${value}"`
     );
   }
   return parsed;
