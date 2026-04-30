@@ -94,6 +94,9 @@
     "vitest": "^2.0.0"
   },
   "pnpm": {
+    "overrides": {
+      "path-to-regexp": "8.4.0"
+    },
     "peerDependencyRules": {
       "allowedVersions": {
         "@goat-sdk/core": "0.5.0",
