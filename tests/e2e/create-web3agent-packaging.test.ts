@@ -44,6 +44,20 @@ describe("create-web3agent packaging readiness", () => {
     expect(packageJson.bin?.["create-web3agent"]).toBe("dist/index.js");
   });
 
+  it("declares the build tools used by its own package scripts", () => {
+    const packageJson = JSON.parse(
+      readFileSync(join(ROOT, "packages", "create-web3agent", "package.json"), "utf-8")
+    ) as {
+      scripts?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    expect(packageJson.scripts?.build).toContain("tsup");
+    expect(packageJson.scripts?.typecheck).toContain("tsc");
+    expect(packageJson.devDependencies?.tsup).toBeTruthy();
+    expect(packageJson.devDependencies?.typescript).toBeTruthy();
+  });
+
   it("documents npm create web3agent as the starter path", () => {
     const readme = readFileSync(join(ROOT, "README.md"), "utf-8");
 
