@@ -106,6 +106,7 @@ vi.mock("../../src/tools/research/index.js", () => ({
 
 vi.mock("../../src/tools/ccxt/index.js", () => ({
   getCcxtToolDefinitions: vi.fn(() => registerToolMocks.ccxtTools),
+  registerCcxtExecutors: vi.fn(),
 }));
 
 vi.mock("../../src/ccxt/runtime-state.js", () => ({
@@ -489,6 +490,15 @@ describe("managed runtime", () => {
       },
     ];
     policyMocks.extractEstimatedUsd.mockResolvedValueOnce(0);
+    policyMocks.evaluatePolicy.mockReturnValueOnce({
+      action: "deny",
+      reasonCode: "USD_ESTIMATION_FAILED",
+      message: "financial_test: USD estimation failed",
+      riskLevel: "financial",
+      toolName: "financial_test",
+      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
+      appliedPolicy: { maxSingleTransactionUsd: 100, maxHourlyUsd: 100, maxDailyUsd: 100 },
+    });
 
     const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
@@ -521,7 +531,10 @@ describe("managed runtime", () => {
 
     expect(result.isError).toBe(true);
     expect(balanceCacheMocks.refreshBalanceUsd).not.toHaveBeenCalled();
-    expect(policyMocks.evaluatePolicy).not.toHaveBeenCalled();
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ estimatedUsd: 0, walletBalanceUsd: null })
+    );
 
     await runtime.shutdown();
   });
@@ -579,6 +592,70 @@ describe("managed runtime", () => {
         walletBalanceUsd: null,
         requiresWalletBalance: false,
       })
+    );
+
+    await runtime.shutdown();
+  });
+
+  it("routes zero USD estimates through the policy denial envelope", async () => {
+    registerToolMocks.ccxtTools = [
+      {
+        name: "ccxt_private_write",
+        category: "market",
+        description: "ccxt private write",
+        inputSchema: { type: "object", properties: {} },
+        riskLevel: "financial",
+        handler: vi.fn().mockResolvedValue({
+          isError: false,
+          content: [{ type: "text", text: '{"ok":true}' }],
+        }),
+      },
+    ];
+    policyMocks.extractEstimatedUsd.mockResolvedValueOnce(0);
+    policyMocks.evaluatePolicy.mockReturnValueOnce({
+      action: "deny",
+      reasonCode: "USD_ESTIMATION_FAILED",
+      message: "ccxt_private_write: USD estimation failed",
+      riskLevel: "financial",
+      toolName: "ccxt_private_write",
+      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
+      appliedPolicy: { maxSingleTransactionUsd: 100, maxHourlyUsd: 100, maxDailyUsd: 100 },
+    });
+
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: false,
+        confirmTtlMinutes: 30,
+        etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    const result = await runtime.invokeTool("ccxt_private_write", { method: "createOrder" });
+    const firstContent = result.content[0];
+    if (firstContent?.type !== "text") {
+      throw new Error("Expected text error content");
+    }
+    const payload = JSON.parse(firstContent.text);
+
+    expect(result.isError).toBe(true);
+    expect(payload.error).toBe("POLICY_DENIED");
+    expect(payload.details.reasonCode).toBe("USD_ESTIMATION_FAILED");
+    expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ estimatedUsd: 0 })
     );
 
     await runtime.shutdown();

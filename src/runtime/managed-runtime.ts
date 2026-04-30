@@ -29,7 +29,7 @@ import {
 } from "../tools/acp-virtuals/index.js";
 import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
 import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
-import { getCcxtToolDefinitions } from "../tools/ccxt/index.js";
+import { getCcxtToolDefinitions, registerCcxtExecutors } from "../tools/ccxt/index.js";
 import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
 import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
 import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
@@ -145,6 +145,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerOrbsExecutors();
   registerLifiExecutors();
   registerX402Executors();
+  registerCcxtExecutors();
   registerWalletExecutors();
   registerErc8183Executors();
   registerAcpVirtualsExecutors();
@@ -357,23 +358,13 @@ export class ManagedRuntime implements Web3AgentRuntime {
     let spendWalletAddress: string | undefined;
 
     if (isFinancial) {
-      if (rawEstimatedUsd === 0) {
-        process.stderr.write(
-          `[web3agent] Denied financial tool "${name}" — USD estimation failed for spend-limit enforcement\n`
-        );
-        return formatToolError(
-          "SPEND_LIMIT_ERROR",
-          `Cannot execute financial tool "${name}" without a USD estimate. Ensure the token is recognized and price feeds are available.`
-        );
-      }
-
       const wallet = getWalletState();
       const requiresWalletBalance = name !== "ccxt_private_write";
       spendWalletAddress = requiresWalletBalance ? wallet.address : undefined;
       const policyChainId =
         typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
       let walletBalanceUsd: number | null = null;
-      if (requiresWalletBalance) {
+      if (requiresWalletBalance && rawEstimatedUsd !== 0) {
         walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
         if (walletBalanceUsd === null && wallet.address) {
           walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);

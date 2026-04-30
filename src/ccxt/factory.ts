@@ -1,5 +1,5 @@
 import ccxt from "ccxt";
-import { getAccountByName } from "./accounts.js";
+import { accountHasCredentials, getAccountByName } from "./accounts.js";
 import type { CcxtAccountConfig, CcxtAccountRegistry, CcxtExchangeLike } from "./types.js";
 
 export interface GetPublicExchangeOptions {
@@ -105,6 +105,9 @@ export class CcxtExchangeFactory {
     const account = getAccountByName(this.registry, options.accountName);
     if (!account) {
       throw new Error(`Unknown CCXT account: ${options.accountName}`);
+    }
+    if (!accountHasCredentials(account)) {
+      throw new Error(`CCXT account '${options.accountName}' is missing CCXT credentials`);
     }
 
     if (!exchange) {

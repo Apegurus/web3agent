@@ -158,6 +158,15 @@ describe("ccxt tool definitions", () => {
     ]);
   });
 
+  it("documents configuredOnly as the legacy auth-filter alias", () => {
+    const tool = getCcxtToolDefinitions().find((entry) => entry.name === "ccxt_list_exchanges");
+    if (!tool) throw new Error("Missing ccxt_list_exchanges tool");
+
+    const properties = tool.inputSchema.properties as Record<string, { description?: string }>;
+    expect(properties.configuredOnly.description).toContain("Deprecated alias");
+    expect(properties.hasAuth.description).toContain("Preferred");
+  });
+
   it("registers ccxt_private_write with a dynamic riskLevel classifier", () => {
     const tool = getCcxtToolDefinitions().find((t) => t.name === "ccxt_private_write");
 
@@ -299,6 +308,7 @@ describe("ccxt tool definitions", () => {
       {
         account: "binance_main",
         method: "createOrder",
+        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
         estimatedUsd: 50,
       },
       expect.any(Function),
@@ -328,6 +338,7 @@ describe("ccxt tool definitions", () => {
       {
         account: "binance_main",
         method: "createOrder",
+        args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
         estimatedUsd: 50,
       },
       expect.any(Function),
@@ -344,7 +355,7 @@ describe("ccxt tool definitions", () => {
     );
   });
 
-  it("enqueues only policy-safe params, not raw args", async () => {
+  it("enqueues restorable private write params for restart durability", async () => {
     const { confirmationQueue: mockQueue } = await import("../../../src/wallet/confirmation.js");
     vi.mocked(mockQueue.enqueue).mockReturnValueOnce({
       queued: true,
@@ -366,9 +377,9 @@ describe("ccxt tool definitions", () => {
     expect(enqueueCall?.[2]).toEqual({
       account: "binance_main",
       method: "createOrder",
+      args: ["BTC/USDT", "limit", "buy", 0.001, 50000],
       estimatedUsd: 50,
     });
-    expect(enqueueCall?.[2]).not.toHaveProperty("args");
     expect(enqueueCall?.[5]).toBe("financial");
   });
 
@@ -393,9 +404,9 @@ describe("ccxt tool definitions", () => {
     expect(enqueueCall?.[2]).toEqual({
       account: "binance_main",
       method: "createOrder",
+      args: ["BTC/USDT", "market", "buy", 0.001],
     });
     expect(enqueueCall?.[2]).not.toHaveProperty("estimatedUsd");
-    expect(enqueueCall?.[2]).not.toHaveProperty("args");
   });
 
   it("refuses withdraw when confirmations are disabled", async () => {

@@ -23,6 +23,19 @@ function cacheKey(address: string, chainId: number): string {
 // Stablecoin symbols — treat as $1.00
 const STABLECOIN_SYMBOLS = new Set(["USDC", "USDT", "DAI", "USDbC", "BUSD", "USDB"]);
 
+const ASSET_PRICE_IDS: Record<string, string> = {
+  BTC: "bitcoin",
+  WBTC: "wrapped-bitcoin",
+  CBBTC: "coinbase-wrapped-btc",
+  ETH: "ethereum",
+  WETH: "weth",
+  BNB: "binancecoin",
+  SOL: "solana",
+  AVAX: "avalanche-2",
+  MATIC: "matic-network",
+  POL: "matic-network",
+};
+
 // Invert FALLBACK_PLATFORM_CHAIN_IDS: chainId → platform string
 const CHAIN_TO_PLATFORM: Record<number, string> = {};
 for (const [platform, chainId] of Object.entries(FALLBACK_PLATFORM_CHAIN_IDS)) {
@@ -124,6 +137,36 @@ export async function estimateTokenUsd(
   // Acceptable for policy estimation — not used for exact accounting.
   const amount = Number(amountRaw) / 10 ** decimals;
   return amount * price;
+}
+
+export async function getAssetPriceUsd(symbol: string): Promise<number | null> {
+  const normalized = symbol.toUpperCase();
+  if (STABLECOIN_SYMBOLS.has(normalized) || normalized === "USD") return 1;
+
+  const id = ASSET_PRICE_IDS[normalized];
+  if (!id) return null;
+
+  try {
+    const baseUrl = getTokenPriceUrl();
+    const url = `${baseUrl}/simple/price?ids=${id}&vs_currencies=usd`;
+    const response = await resilientFetch(
+      url,
+      { headers: getTokenPriceHeaders() },
+      {
+        label: "coingecko-asset-price",
+        retry: { maxRetries: 1 },
+        timeoutMs: 10_000,
+      }
+    );
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as Record<string, { usd?: number }>;
+    const price = data[id]?.usd;
+    return typeof price === "number" && Number.isFinite(price) && price > 0 ? price : null;
+  } catch (e: unknown) {
+    process.stderr.write(`[tokens] CoinGecko asset price failed for ${normalized}: ${e}\n`);
+    return null;
+  }
 }
 
 async function fetchCoinGeckoTokenPrice(address: string, chainId: number): Promise<number | null> {

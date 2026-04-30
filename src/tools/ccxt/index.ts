@@ -30,7 +30,7 @@ import { extractEstimatedUsd } from "../../policy/extract-usd.js";
 import { formatToolErrorFromUnknown, formatToolResponse } from "../../utils/errors.js";
 import { isPlainObject } from "../../utils/type-guards.js";
 import { validateInput } from "../../utils/validation.js";
-import { confirmationQueue } from "../../wallet/confirmation.js";
+import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
 import type { ToolDefinition } from "../register.js";
 import { createToolHandler } from "../shared/handler-factory.js";
 import {
@@ -274,18 +274,15 @@ async function handleCcxtPrivateWrite(params: Record<string, unknown>): Promise<
   const policyParams = {
     method: writeData.method,
     account: writeData.account,
+    args: writeData.args,
     ...(estimatedUsd !== null && estimatedUsd > 0 ? { estimatedUsd } : {}),
   };
 
-  // The executor is a closure over writeData; raw CCXT args never touch
-  // pending-ops.json. If the process restarts, loadQueue() drops any
-  // persisted ccxt_private_write entry because no executor is registered
-  // for that type.
   const { queued, id, summary } = confirmationQueue.enqueue(
     "ccxt_private_write",
     `CCXT ${writeData.method} on account ${writeData.account}`,
     policyParams as unknown as Record<string, unknown>,
-    async () => executeCcxtPrivateWrite(writeData as unknown as Record<string, unknown>),
+    executeCcxtPrivateWrite,
     undefined,
     classifyCcxtWriteRisk(writeData.method)
   );
@@ -389,4 +386,8 @@ export function getCcxtToolDefinitions(): ToolDefinition[] {
       annotations: CCXT_WRITE_ANNOTATIONS,
     },
   ];
+}
+
+export function registerCcxtExecutors(): void {
+  registerExecutor("ccxt_private_write", executeCcxtPrivateWrite);
 }

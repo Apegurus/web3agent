@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockPricing = vi.hoisted(() => ({
   estimateTokenUsd: vi.fn(),
+  getAssetPriceUsd: vi.fn(),
 }));
 
 vi.mock("../../src/tokens/pricing.js", () => mockPricing);
@@ -17,6 +18,7 @@ import { extractEstimatedUsd } from "../../src/policy/extract-usd.js";
 describe("extractEstimatedUsd", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPricing.getAssetPriceUsd.mockResolvedValue(null);
   });
 
   it("returns explicit amountUsd field", async () => {
@@ -90,13 +92,27 @@ describe("extractEstimatedUsd", () => {
     expect(result).toBe(50000);
   });
 
-  it("returns 0 for ccxt createOrder on a non-USD quoted pair", async () => {
+  it("converts ccxt createOrder notional for a non-USD crypto quote pair", async () => {
+    mockPricing.getAssetPriceUsd.mockResolvedValue(60000);
+
     const result = await extractEstimatedUsd({
       method: "createOrder",
       args: ["ETH/BTC", "limit", "buy", 10, 0.05],
     });
 
-    expect(result).toBe(0);
+    expect(result).toBe(30000);
+    expect(mockPricing.getAssetPriceUsd).toHaveBeenCalledWith("BTC");
+  });
+
+  it("converts ccxt editOrder notional for a non-USD crypto quote pair", async () => {
+    mockPricing.getAssetPriceUsd.mockResolvedValue(60000);
+
+    const result = await extractEstimatedUsd({
+      method: "editOrder",
+      args: ["order-1", "ETH/BTC", "limit", "buy", 10, 0.05],
+    });
+
+    expect(result).toBe(30000);
   });
 
   it("returns 0 for ccxt createOrder on a fiat-quoted non-USD pair", async () => {

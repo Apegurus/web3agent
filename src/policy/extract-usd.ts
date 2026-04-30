@@ -1,4 +1,4 @@
-import { estimateTokenUsd } from "../tokens/pricing.js";
+import { estimateTokenUsd, getAssetPriceUsd } from "../tokens/pricing.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
 
 const USD_FIELD_NAMES = ["amountUsd", "amount_usd", "estimatedUsd"];
@@ -36,7 +36,14 @@ function extractQuoteAsset(symbol: string): string | null {
   return parts[1].toUpperCase();
 }
 
-function extractCcxtOrderUsd(args: Record<string, unknown>): number | null {
+async function quoteNotionalToUsd(quote: string, notional: number): Promise<number> {
+  if (USD_QUOTES.has(quote)) return notional;
+
+  const quoteUsd = await getAssetPriceUsd(quote);
+  return quoteUsd === null ? 0 : notional * quoteUsd;
+}
+
+async function extractCcxtOrderUsd(args: Record<string, unknown>): Promise<number | null> {
   const method = args.method;
   const methodArgs = args.args;
   if (!Array.isArray(methodArgs)) return null;
@@ -48,8 +55,8 @@ function extractCcxtOrderUsd(args: Record<string, unknown>): number | null {
     if (typeof symbol !== "string" || amount === null || price === null) return 0;
 
     const quote = extractQuoteAsset(symbol);
-    if (quote === null || !USD_QUOTES.has(quote)) return 0;
-    return amount * price;
+    if (quote === null) return 0;
+    return quoteNotionalToUsd(quote, amount * price);
   }
 
   if (method === "editOrder") {
@@ -59,8 +66,8 @@ function extractCcxtOrderUsd(args: Record<string, unknown>): number | null {
     if (typeof symbol !== "string" || amount === null || price === null) return 0;
 
     const quote = extractQuoteAsset(symbol);
-    if (quote === null || !USD_QUOTES.has(quote)) return 0;
-    return amount * price;
+    if (quote === null) return 0;
+    return quoteNotionalToUsd(quote, amount * price);
   }
 
   return null;
@@ -100,7 +107,7 @@ async function extractEstimatedUsdInner(args: Record<string, unknown>): Promise<
   }
 
   // 2. Try CCXT order args for create/edit order flows
-  const ccxtOrderUsd = extractCcxtOrderUsd(args);
+  const ccxtOrderUsd = await extractCcxtOrderUsd(args);
   if (ccxtOrderUsd !== null) {
     return ccxtOrderUsd;
   }

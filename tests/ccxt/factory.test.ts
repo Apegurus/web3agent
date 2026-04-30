@@ -125,6 +125,21 @@ describe("CcxtExchangeFactory", () => {
     expect(first).toBe(second);
   });
 
+  it("rejects private exchange creation when account credentials are missing", async () => {
+    registry.accounts = [
+      {
+        name: "binance_readonly",
+        exchangeId: "binance",
+      },
+    ];
+    const factory = new CcxtExchangeFactory(registry);
+
+    await expect(factory.getPrivateExchange({ accountName: "binance_readonly" })).rejects.toThrow(
+      "missing CCXT credentials"
+    );
+    expect(mockState.instances).toHaveLength(0);
+  });
+
   it("calls loadMarkets when requested", async () => {
     const factory = new CcxtExchangeFactory(registry);
 

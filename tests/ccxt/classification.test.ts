@@ -121,6 +121,10 @@ describe("classifyCcxtWriteRisk", () => {
   it("classifies order-creation methods as financial", () => {
     expect(classifyCcxtWriteRisk("createOrder")).toBe("financial");
     expect(classifyCcxtWriteRisk("editOrder")).toBe("financial");
+    expect(classifyCcxtWriteRisk("privatePostOrder")).toBe("financial");
+    expect(classifyCcxtWriteRisk("fapiPrivatePostOrder")).toBe("financial");
+    expect(classifyCcxtWriteRisk("privatePutOrder")).toBe("financial");
+    expect(classifyCcxtWriteRisk("privatePatchOrder")).toBe("financial");
   });
 
   it("classifies order-cancellation and admin methods as destructive", () => {

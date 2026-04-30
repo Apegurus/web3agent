@@ -70,6 +70,7 @@ const IMPLICIT_PUBLIC = /PublicGet/i;
 const IMPLICIT_PRIVATE_READ = /PrivateGet/i;
 const IMPLICIT_PRIVATE_WRITE = /Private(?:Post|Put|Patch|Delete)/i;
 const HIGH_RISK_PATTERN = /withdraw|transfer/i;
+const IMPLICIT_FINANCIAL_ORDER_WRITE = /Private(?:Post|Put|Patch).*Orders?$/i;
 
 export function classifyCcxtMethod(method: string): CcxtMethodClassification {
   if (PUBLIC_UNIFIED.has(method)) {
@@ -112,7 +113,9 @@ export function isHighRiskCcxtMethod(method: string): boolean {
  *               checkHighRiskGuards + confirmation requirements.
  */
 export function classifyCcxtWriteRisk(method: string): Exclude<RiskLevel, "safe"> {
-  return CCXT_FINANCIAL_WRITE.has(method) ? "financial" : "destructive";
+  return CCXT_FINANCIAL_WRITE.has(method) || IMPLICIT_FINANCIAL_ORDER_WRITE.test(method)
+    ? "financial"
+    : "destructive";
 }
 
 export function isMethodAllowedForTool(
