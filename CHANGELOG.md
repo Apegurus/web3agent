@@ -7,24 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-22
+
 ### Changed
 
-- **`readJsonFile` (in `src/hosts/writers/base.ts`) now throws on malformed/unreadable configs.** Previously every read or parse error returned `null`. Programmatic consumers must now handle a thrown error tagged with `code === "HOST_CONFIG_MALFORMED"` (parse failure) or rethrown filesystem errors (EACCES, EPERM, EISDIR, …); only `ENOENT` continues to return `null`. This is the call-side counterpart of the M2 fix in 0.5.0 — surfaced here so SDK consumers don't silently receive `null` for situations that should be loud.
-
-### Fixed
-
-- **`extractEstimatedUsd` clamps non-finite computed paths to `0`.** The 0.5.0 M1 fix added `Number.isFinite` guards on the explicit-USD-field branch only. Computed paths — CCXT `amount * price` overflow and `estimateTokenUsd` returning a non-finite value — could still propagate `Infinity` to `evaluatePolicy` and policy log messages. Now wrapped at the function boundary: any non-finite inner result is logged to stderr and replaced with `0` (estimation-failed).
-- **`listTools()` / `getTool()` no longer leak `originalRiskLevel`.** The 0.5.0 H2 fix introduced an `originalRiskLevel` field on `RuntimeToolRecord` to preserve dynamic risk classifiers, but the catalog accessors only stripped `handler` before returning. SDK consumers iterating `runtime.listTools()` saw an undocumented extra field — a function for classifier-backed tools, a duplicate string for static tools. Now stripped alongside `handler`.
-
-### Tests
-
-- **Pack-mutex around `pnpm pack` calls in e2e** — added `tests/e2e/pack-mutex.ts`, a small O_EXCL-based file lock used by `web3agent-create-cli-install.test.ts`, `create-web3agent-generated-projects.test.ts`, and `packaging.test.ts`. Closes a known race introduced by the 0.5.0 `prepack` hooks: parallel pack invocations could collide on tsup's `clean: true` step and produce ENOENT.
-
-### Notes
-
-- **`listTools()` reports dynamic-classifier tools as static `"financial"`.** This is by design — MCP consumers use `riskLevel` as a conservative upper-bound safety signal, and per-method classification (e.g., CCXT `cancelOrder` → `destructive`) is only resolved at invocation time. UIs that branch on `riskLevel` to choose warning copy will over-warn for `cancelOrder`-class operations on `ccxt_private_write` until they consume the resolved risk via the runtime invocation path.
-
-## [0.5.0] - 2026-04-22
+- **`readJsonFile` (in `src/hosts/writers/base.ts`) now throws on malformed/unreadable configs.** Previously every read or parse error returned `null`. Programmatic consumers must now handle a thrown error tagged with `code === "HOST_CONFIG_MALFORMED"` (parse failure) or rethrown filesystem errors (EACCES, EPERM, EISDIR, …); only `ENOENT` continues to return `null`. This is the SDK-facing counterpart of the M2 host-writer fix below.
 
 ### Deprecated
 
@@ -33,16 +20,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Build
 
 - **`prepack` hook in both publishable packages.** `web3agent` now runs `pnpm run build:package` (root tsup build) and `create-web3agent` runs `tsup` on `prepack`, guaranteeing a freshly-built `dist/` ships with every `npm pack` / `npm publish` even if the working tree's `dist/` is stale or absent (H4).
+- **`create-web3agent` packaging contract.** The compatibility wrapper now reuses the canonical `web3agent/create` types, preserves the runtime-only dynamic import that keeps template asset lookup rooted in the main package, and declares its own `tsup` / `typescript` dev dependencies so package-local build and typecheck scripts are reproducible.
+
+### CI
+
+- **Node release matrix.** CI now validates both the published engine floor (Node 22) and the current Active LTS line (Node 24).
+- **Blocking production audit.** The production dependency audit now fails CI on high-severity advisories; `path-to-regexp` is pinned to patched `8.4.0` through pnpm overrides to clear the transitive `@modelcontextprotocol/sdk -> express -> router` advisory.
 
 ### Fixed
 
 - **`wallet_activate` in read-only mode (H1)** — activation was deadlocking under the default `CONFIRM_WRITES=true` flow because the tool was enqueuing with the ephemeral read-only `resolveEphemeral()` address. `transaction_confirm` then saw `walletAddress !== undefined` and enforced the read-only gate, blocking first-time activation. Now enqueues with `undefined`: `wallet_activate` is the transition *into* a signing wallet, so there is no pre-existing signer requirement.
 - **CCXT `ccxt_private_write` per-method risk classification (H2)** — `classifyCcxtWriteRisk()` was dead code for direct `runtime.invokeTool()` paths because the runtime policy gate read the static `riskLevel: "financial"` field before the handler ran, denying `cancelOrder` / `setLeverage` with `UNESTIMABLE_FINANCIAL_WRITE`. Added dynamic `riskLevel: RiskLevel | ((args) => RiskLevel)` classifier support on `ToolDefinition`; the runtime resolves it via a new `resolveRiskLevel()` helper before sanitization, spend-tracking, and `evaluatePolicy`. `listTools()` still reports classifier-based tools as static `"financial"` (conservative upper bound) so MCP consumers keep the safety signal.
 - **Policy numeric `Infinity` guards (M1)** — env parsing, explicit USD fields in tool args, and the spend-tracker record/window functions all accepted `Infinity` (since `Number.isNaN(Infinity) === false`). One `Infinity`-valued reservation or record would permanently poison the rolling spend window until process restart, effectively disabling spend caps. Added `Number.isFinite` guards at `parsePositiveFloat`, `extractEstimatedUsd` explicit-field loop, `recordSpend`, `reserveSpend`, and `getSpendWindow` (defensive).
+- **`extractEstimatedUsd` also clamps non-finite computed paths to `0`.** The explicit-USD-field `Number.isFinite` guards (M1) do not cover computed paths — CCXT `amount * price` overflow and `estimateTokenUsd` returning a non-finite value could still propagate `Infinity` to `evaluatePolicy`. Now wrapped at the function boundary: any non-finite inner result is logged to stderr and replaced with `0` (estimation-failed).
+- **`listTools()` / `getTool()` no longer leak `originalRiskLevel`.** The dynamic risk classifier support (H2) introduced an `originalRiskLevel` field on `RuntimeToolRecord` to preserve classifiers, but catalog accessors only stripped `handler` before returning. Now stripped alongside `handler`.
+- **CCXT private write remediation.** Implicit private order endpoints are now classified as financial writes, non-USD crypto quote notionals are converted to USD for spend policy, private exchange creation rejects accounts without credentials, queued CCXT writes persist executable args for restart durability, and zero-USD estimates now flow through the standard policy-denial envelope.
 - **Host writers refuse to overwrite malformed configs (M2)** — `readJsonFile` collapsed every read/parse failure into `return null`, which `BaseHostWriter.write()` interpreted as "config doesn't exist, create fresh", silently erasing user-edited malformed `.cursor/mcp.json`, `.opencode/config.json`, etc. Now only `ENOENT` returns `null`; malformed JSON throws a tagged `HOST_CONFIG_MALFORMED` error, and any other read error (EACCES, EPERM, etc.) rethrows so the writer refuses to proceed.
+- **Host writers reject non-object JSON configs.** Parsed JSON configs whose top-level shape is an array, string, number, boolean, or `null` are now treated as malformed and left untouched instead of being overwritten as if they were missing.
 - **CCXT capability gating (M3)** — `describeExchangeCapabilities` was advertising `private_read` / `private_write` based solely on account credentials, ignoring whether the exchange exposed the underlying methods. Now gates each mode on both credentials AND `exchange.has[method]` for the relevant read (`fetchBalance`/`fetchPositions`/`fetchOpenOrders`/`fetchMyTrades`) and write (`createOrder`/`cancelOrder`/`transfer`/`withdraw`/`setLeverage`) families. `requiresAuthFor` now reflects only modes that are actually reachable.
 - **CLI `tools call` arg parsing (L4)** — the naive `rest.find((arg) => !arg.startsWith("--"))` picked the first non-flag token as the tool name, mis-identifying JSON input values (`{}`) that happened to not start with `--`. Replaced with a flag-aware `extractToolName()` that understands `--input` consumes its next token. Both `tools describe` and `tools call` dispatchers use it; ordering (flag-before-positional or positional-before-flag) no longer matters.
+- **CLI `tools` validation errors outside JSON mode.** `web3agent tools describe` and `web3agent tools call` now print human-readable validation failures and set exit code `1` unless `--json` is requested; JSON mode continues to throw structured `CliExitError` envelopes.
 - **CLI runtime setup JSON envelope (L1)** — `withCliRuntime` setup failures raised raw exceptions under `--json`, so machine-readable CLI consumers got a stack trace instead of a structured envelope. Now wraps setup failures as `CliExitError("RUNTIME_SETUP_FAILED", ...)` when `options.json` is true. Shutdown failures are now explicitly best-effort: logged to stderr with `[web3agent]` prefix, never rethrown, so a successful operation's result is preserved when only the cleanup fails.
+- **x402 executor payload validation.** Internal `x402_fetch` confirmation payloads now use a dedicated Zod executor schema for the resolved `paymentChainId`, keeping internal queue data validated without exposing that field as public tool input.
 - **`wallet_deactivate` in read-only mode (L6)** — was blocked by `executeWrite()`'s read-only gate. Deactivation is an idempotent cleanup (reverts to read-only + removes any persisted key file), so it must succeed from read-only state. Now short-circuits to the executor when `state.mode === "read-only"`; the `executeWrite()` path applies only when an active wallet is being torn down.
 - **`serverStatus` guard for missing `_health.ccxt` (L8)** — matched the adjacent `agenticEconomy?.status ?? "not_initialized"` pattern; previously threw `TypeError` when `setHealthStatus` was invoked with a partial health object lacking the `ccxt` key.
 - **Codex TOML writer (L9)** — `mergeManagedBlock` used non-start-anchored `indexOf(MARKER_END)`, so a literal `# web3agent:end` string in user comments before the managed block matched as the block terminator, producing garbage output. Now passes `startIdx + MARKER_START.length` as the search origin, plus an `endIdx > startIdx` sanity check. Additionally, `encodeTomlSection` now preserves `boolean` and finite `number` values (previously silently dropped); unsupported types emit a `[hosts/codex]` stderr warning.
@@ -62,6 +61,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Integration coverage** — new `tests/runtime/invoke-tool-integration.test.ts` exercises the full `runtime.invokeTool → sanitization → policy gate → handler` path for H1 and H2 using module-boundary mocks for CCXT runtime state, accounts, and the unrelated GOAT provider chain (copied verbatim from the existing `managed-runtime.test.ts` pattern).
 - **E2E cleanup (L11)** — `create-web3agent-smoke.test.ts` created `mkdtempSync` directories but never `rmSync`-ed them. Added `afterEach` cleanup that removes all tracked temp dirs. Verified: 0 new leaks per run (was 4 per run pre-fix).
 - **New `tests/e2e/create-web3agent-bin-symlink.test.ts`** — creates a symlink to `dist/index.js` and invokes it via node to prove L10 fix. The existing `web3agent-create-cli-install.test.ts` invokes `dist/index.js` directly, bypassing the symlink path entirely.
+- **Pack-mutex around `pnpm pack` calls in e2e** — added `tests/e2e/pack-mutex.ts`, a small O_EXCL-based file lock used by `web3agent-create-cli-install.test.ts`, `create-web3agent-generated-projects.test.ts`, and `packaging.test.ts`. Prevents a race where parallel pack invocations collide on tsup's `clean: true` step.
+
+### Notes
+
+- **`listTools()` reports dynamic-classifier tools as static `"financial"`.** This is by design — MCP consumers use `riskLevel` as a conservative upper-bound safety signal, and per-method classification (e.g., CCXT `cancelOrder` → `destructive`) is only resolved at invocation time. UIs that branch on `riskLevel` to choose warning copy will over-warn for `cancelOrder`-class operations on `ccxt_private_write` until they consume the resolved risk via the runtime invocation path.
 
 ### Fixed (from PR #17 merged into this release)
 
