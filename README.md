@@ -1,92 +1,133 @@
 # web3agent
 
-> Portable Web3 capability layer for AI agents — usable through MCP, CLI, and SDK/runtime.
+Give your AI agent full EVM execution. Swaps, bridges, lending, staking, limit orders, exchange trading. 17 chains. 150+ tools. One install.
+
+Works out of the box with Claude Code, Cursor, Windsurf, OpenCode, and Codex. Self-custodial. Every write operation goes through a confirmation queue: nothing executes without your approval.
+
+EVM execution is a solved problem. Stop rebuilding it. Plug in and ship.
+
+---
+
+## What you can do
+
+Once installed, your AI agent can execute real DeFi operations in plain language:
+
+- **"Swap 0.1 ETH for USDC on Base"** — routed, simulated, confirmed, executed
+- **"Bridge 500 USDC from Arbitrum to Optimism"** — cross-chain via LI.FI, 20+ chains
+- **"Set a limit order to buy ETH at $2,800"** — decentralized dLIMIT via Orbs
+- **"Cancel my open orders on Binance"** — CCXT exchange access with per-method risk classification
+- **"What's my wallet balance across all my chains?"** — read-only, no confirmation needed
+- **"Show me yield opportunities above 5% APY"** — research tools, protocol analysis, due diligence
+
+No ABI. No transaction building. No chain-switching. The agent handles routing, simulation, and the confirmation queue. You approve, it executes.
+
+---
 
 ## Install
-
-Use the canonical install guide when you want a self-install flow another agent can follow end to end:
-
-```text
-https://raw.githubusercontent.com/apegurus/web3agent/main/docs/guides/universal-access.md
-```
-
-Use `web3agent init` as the fast path for hosts with stable config contracts:
 
 ```bash
 npx web3agent init
 ```
 
-For a step-by-step install guide for both humans and coding agents, see [docs/guides/universal-access.md](./docs/guides/universal-access.md).
+Detects your AI agent host and configures it automatically.
 
-## Starter Path
+For a step-by-step guide covering both human and agent setups, see [docs/guides/universal-access.md](docs/guides/universal-access.md).
 
-Primary starter command:
+---
+
+## Supported hosts
+
+| Host | Config location |
+|------|-----------------|
+| Claude Code | `~/.claude/mcp.json` |
+| Cursor | `.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| OpenCode | `.opencode/config.json` |
+| Codex | `.codex/config.toml` |
+| OpenClaw | agent-mediated self-install via canonical guide |
+
+---
+
+## Supported chains
+
+Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, Scroll, Mode, Blast, Mantle, Celo, Gnosis, Sepolia, Base Sepolia.
+
+**Default:** Base (8453). Override with the `CHAIN_ID` env var or pass `chainId` per call.
+
+---
+
+## What's included
+
+| Capability | Provider | Notes |
+|------------|----------|-------|
+| On-chain state | EVM MCP | Balances, contract reads/writes, gas, ENS, multicall (25 tools) |
+| Swaps | GOAT / Uniswap / Balancer | Same-chain, ERC-20/721 |
+| Aggregated swaps | Orbs Liquidity Hub | Optimal pricing via solver network |
+| Cross-chain bridges | LI.FI | 20+ chains |
+| Advanced orders | Orbs | dTWAP, dLIMIT |
+| Exchange trading | CCXT | Public/private access across 100+ exchanges (6 tools) |
+| Block explorer | Blockscout + Etherscan | Address info, tx history, NFTs, contract ABIs, network stats (35 tools) |
+| Market data | DefiLlama / CoinGecko / Binance | TVL, prices, DEX volume, stablecoin stats, sentiment (20 tools) |
+| Research | DefiLlama / on-chain | Contract security, yield analysis, whale tracking, governance (13 tools) |
+| Token resolution | Built-in registry + DexScreener | Symbol-to-address, long-tail assets |
+| Wallet management | Built-in | Generate, persist, activate, derive, sign |
+| Confirmation queue | Built-in | Write operations require explicit approval |
+| Agent protocols | AGDP / ACP / x402 / ERC-8004 | Agent marketplace, cooperation, payments |
+| Price data | CoinGecko | Requires `COINGECKO_API_KEY` |
+| 0x swaps | 0x | Requires `ZEROX_API_KEY` |
+
+---
+
+## Starter templates
 
 ```bash
 npx web3agent create
 ```
 
-Compatibility entrypoint, once `create-web3agent` is published:
+Scaffolds a ready-to-run project from one of three bundled templates:
 
-```bash
-npm create web3agent
-```
+- **Vercel AI SDK** — chat agent with tool calling
+- **Mastra** — agent framework with web3agent tools
+- **MCP-host** — lightweight MCP client
 
-Bundled starter templates:
+Each starter uses the same `web3agent` lifecycle surfaces as MCP and CLI.
 
-- Vercel AI SDK
-- Mastra
-- MCP-host
-
-These starters stay on the same `web3agent` lifecycle surfaces instead of introducing a parallel execution model.
+---
 
 ## Usage
 
 ```bash
-# Configure your AI agent host
+# Initialize for your host (run once)
 npx web3agent init
 
-# Universal CLI fallback
-npx web3agent tools list --json
-npx web3agent tools describe resolve_token --json
-npx web3agent tool call server_status --input '{}' --json
-npx web3agent doctor --json
-
-# Start the MCP server (stdio)
+# Start the MCP server
 npx web3agent
+
+# CLI fallback (for non-MCP hosts or scripting)
+npx web3agent tools list --json
+npx web3agent tools call resolve_token --input '{"symbol":"USDC","chainId":8453}' --json
+npx web3agent doctor --json
 
 # Options
 npx web3agent --help
 npx web3agent --version
 ```
 
-CLI is the universal fallback when a host cannot consume MCP directly or when you want explicit machine-readable tool calls.
+---
 
-## First Safe Write Flow
-
-The canonical M1 parity flow is:
-
-1. `lifi_execute_bridge`
-2. `transaction_confirm`
-
-Example:
-
-```bash
-npx web3agent tool call lifi_execute_bridge --input '{"fromChainId":1,"toChainId":8453,"fromToken":"0x0000000000000000000000000000000000000000","toToken":"0x0000000000000000000000000000000000000000","fromAmount":"1000000000000000000"}' --json
-
-npx web3agent tool call transaction_confirm --input '{"id":"<pending-operation-id>"}' --json
-```
-
-This is intentionally the same lifecycle shape used across MCP, CLI, and the runtime API.
-
-## Programmatic Usage
+## Programmatic usage
 
 ### Root API
 
-Use the package root when you want stable, typed Web3 capabilities from another app or agent layer.
+Use the package root for stable, typed EVM capabilities from another app or agent layer.
 
-```js
-import { getChain, listChainTokens, resolveCanonicalTokenSync, resolveToken } from "web3agent";
+```javascript
+import {
+  getChain,
+  listChainTokens,
+  resolveCanonicalTokenSync,
+  resolveToken
+} from "web3agent";
 
 const chain = getChain(8453);
 const usdc = resolveCanonicalTokenSync({ symbol: "USDC", chainId: 8453 });
@@ -96,47 +137,35 @@ const discovered = await resolveToken({ symbol: "DEGEN", chainId: 8453 });
 console.log(chain?.name, usdc?.address, discovered.address, tokens.tokens.length);
 ```
 
-Use `resolveCanonicalToken()` / `resolveCanonicalTokenSync()` when you only want well-known registry tokens and native-token aliases. Use `resolveToken()` when you want registry resolution plus DexScreener discovery fallback for long-tail assets.
+Use `resolveCanonicalToken()` for well-known registry tokens and native-token aliases. Use `resolveToken()` when you also want DexScreener discovery fallback for long-tail assets.
 
-Root API helpers lazily create a shared default runtime under the hood. Long-lived processes can import `shutdownDefaultRuntime` from `web3agent/runtime` to release those resources when finished.
+### Browser wallet flows
 
-### Browser Wallet Flows
+Use the root API when your app owns the signer (e.g. a browser wallet via wagmi or AppKit).
 
-Use the root package API when your app owns the signer, for example a browser wallet connected through wagmi or AppKit.
-
-```js
+```javascript
 import { prepareOperation, resumeOperation, simulateTransaction } from "web3agent";
 ```
-
-The primary flow is generic:
 
 1. `prepareOperation(...)` returns the next wallet actions plus `resumeState`
 2. Your app executes those actions with the browser wallet
 3. `resumeOperation(...)` continues until the operation completes
 
-Protocol-specific helpers like `prepareSwapIntent()` and `submitSignedSwap()` remain available as compatibility wrappers, but new integrations should target the generic prepared-operation API first.
+Transaction actions are only considered complete once you return a confirmed result:
 
-Prepared browser-wallet flows are staged. `prepareOperation()` and `resumeOperation()` only return the next required actions, and `resumeOperation()` persists previously completed action results inside the opaque resume state so callers only need to submit newly finished actions on each round.
-
-Transaction actions are only considered complete once the caller returns a confirmed result:
-
-```js
+```javascript
 { type: "transaction", txHash: "0x...", status: "confirmed" }
 ```
 
-`resumeOperation()` independently verifies the receipt before advancing to the next stage.
+`resumeOperation()` independently verifies the receipt before advancing.
 
-For LI.FI compatibility helpers, `prepareBridgeIntent()` now returns both `steps` and `actions` as the transaction-only sequence for browser wallets, including any required approval transactions before the bridge call. Use `prepareOperation()` with `integration: "lifi"` when you need the staged external-wallet flow with typed-data signing.
-
-`simulateTransaction()` returns a success payload on successful simulation and throws structured `Web3AgentError` failures for invalid inputs, reverts, or RPC errors. When `debug_traceCall` is unavailable, balance changes come from a best-effort fallback decoder.
-
-Architecture notes live in [docs/architecture/browser-wallet-operations.md](./docs/architecture/browser-wallet-operations.md).
+Architecture notes: [docs/architecture/browser-wallet-operations.md](docs/architecture/browser-wallet-operations.md)
 
 ### Runtime API
 
-Use `web3agent/runtime` when you need tool discovery, generic invocation, wallet flows, or upstream passthrough tools.
+Use `web3agent/runtime` when you need tool discovery, generic invocation, or upstream passthrough tools.
 
-```js
+```javascript
 import { createRuntime } from "web3agent/runtime";
 
 const runtime = await createRuntime();
@@ -151,82 +180,31 @@ try {
 }
 ```
 
-The runtime catalog now includes the native `ccxt_*` exchange tools, so the same CCXT surface is available through MCP, `web3agent tools ...`, and `createRuntime().invokeTool(...)`.
+---
 
-## Smoke Tests
+## Environment variables
 
-Run the standard repo checks first:
+See [WEB3_CONTEXT.md](WEB3_CONTEXT.md) for the full environment variable reference.
 
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-```
+For authenticated exchange access via CCXT tools, set `CCXT_CONFIG_PATH` to a JSON file containing named accounts and exchange credentials.
 
-Then run the packaged API smoke scripts:
+---
 
-```bash
-node examples/root-api-smoke.mjs
-node examples/runtime-smoke.mjs
-node examples/runtime-smoke.mjs --run
-```
+## Known limitations
 
-`root-api-smoke.mjs` is fully local. `runtime-smoke.mjs` without flags verifies the runtime import surface only. `runtime-smoke.mjs --run` starts the real runtime in read-only mode, so upstream services may appear as degraded or fail if network access is unavailable.
+- Blockscout explorer tools work on 8 chains only (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
+- Stop-loss and take-profit orders (dSLTP) are not yet available
+- 0x and CoinGecko plugins require their respective API keys
+- MCP hosts cannot open a browser wallet prompt directly — MCP can prepare, simulate, and submit signed payloads, but signing requires your app to handle the wallet interaction
 
-The env-gated browser-wallet e2e test in [`tests/e2e/browser-wallet-flow.test.ts`](tests/e2e/browser-wallet-flow.test.ts) runs when these variables are present: `BROWSER_WALLET_E2E`, `BROWSER_WALLET_E2E_CHAIN_ID`, `BROWSER_WALLET_E2E_ACCOUNT`, `BROWSER_WALLET_E2E_FROM_TOKEN`, `BROWSER_WALLET_E2E_TO_TOKEN`, `BROWSER_WALLET_E2E_IN_AMOUNT`, and `BROWSER_WALLET_E2E_SIGNATURE`.
-
-## What you get
-
-- **Blockscout** — indexed blockchain data (address info, tx history, NFTs, contract ABIs). Supported on 8 chains: Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era.
-- **Etherscan** — contract ABI fetching (requires `ETHERSCAN_API_KEY`)
-- **EVM MCP** — live on-chain state (balances, contract reads/writes, gas, ENS, multicall)
-- **GOAT plugins** — Uniswap, Balancer, ERC-20/721, ENS, DexScreener
-- **Optional GOAT plugins** — 0x (requires `ZEROX_API_KEY`), CoinGecko (requires `COINGECKO_API_KEY`)
-- **LI.FI** — cross-chain bridging and swaps across 20+ chains
-- **Orbs** — Liquidity Hub aggregated swaps, dTWAP, dLIMIT orders
-- **CCXT tools** — exchange discovery plus public/private exchange method access across the CCXT ecosystem via `ccxt_list_exchanges`, `ccxt_describe_exchange`, `ccxt_list_accounts`, `ccxt_public_call`, `ccxt_private_read`, and `ccxt_private_write`
-- **Token resolver** — symbol-to-address resolution with built-in registry and DexScreener fallback
-- **Wallet management** — generate, persist, activate/deactivate, derive addresses, sign messages
-- **Confirmation queue** — write operations require explicit confirmation by default
-
-The legacy Binance market helpers (`market_get_ticker`, `market_get_klines`, `market_get_order_book`, `market_get_funding_rates`) are still available for compatibility, but new integrations should prefer the `ccxt_*` tool family.
-
-## Supported Hosts
-
-| Host | Install path |
-|------|--------------|
-| Claude Code | `web3agent init` fast path plus canonical guide |
-| Cursor | `web3agent init` fast path plus canonical guide |
-| Windsurf | `web3agent init` fast path plus canonical guide |
-| OpenCode | `web3agent init` fast path plus canonical guide |
-| Codex | `.codex/config.toml` via `web3agent init --host codex` plus canonical guide |
-| OpenClaw | canonical guide, agent-mediated self-install |
-
-## Supported Chains
-
-Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, Scroll, Mode, Blast, Mantle, Celo, Gnosis, Sepolia, Base Sepolia.
-
-Default: **Base (8453)**. Override with `CHAIN_ID` env var or `chainId` parameter per call.
-
-## Environment Variables
-
-See [WEB3_CONTEXT.md](./WEB3_CONTEXT.md) for the full environment variable table.
-
-If you want authenticated exchange access through the new CCXT tools, set `CCXT_CONFIG_PATH` to a JSON file containing named accounts and exchange credentials.
-
-## Known Limitations
-
-- **Blockscout** tools only work on 8 chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
-- **dSLTP** (stop-loss/take-profit orders) is not yet available
-- **0x** and **CoinGecko** plugins require their respective API keys
-- **Binance-only market tools are deprecated**: they remain callable for compatibility, but new exchange integrations should use the native `ccxt_*` tools
-- **Browser wallet signing over MCP** is indirect: MCP can prepare, simulate, and submit signed payloads, but generic MCP hosts cannot open a browser wallet prompt on their own
+---
 
 ## Requirements
 
 - Node.js 22+
 - pnpm (for development)
+
+---
 
 ## License
 
