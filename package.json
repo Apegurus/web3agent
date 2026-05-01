@@ -114,7 +114,7 @@
     "test:watch": "vitest",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "typecheck": "pnpm run typecheck:package && pnpm --filter create-web3agent typecheck",
+    "typecheck": "pnpm run build:package && pnpm run typecheck:package && pnpm --filter create-web3agent typecheck",
     "typecheck:package": "tsc --noEmit",
     "pack:check": "node -e \"const { execFileSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join } = require('node:path'); const dir = mkdtempSync(join(tmpdir(), 'web3agent-pack-')); try { execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', dir], { stdio: 'inherit' }); } finally { rmSync(dir, { recursive: true, force: true }); }\""
   },
