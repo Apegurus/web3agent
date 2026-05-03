@@ -84,6 +84,12 @@ Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, 
 npx web3agent create
 ```
 
+Or via the npm create compatibility entrypoint:
+
+```bash
+npm create web3agent@latest
+```
+
 Scaffolds a ready-to-run project from one of three bundled templates:
 
 - **Vercel AI SDK** — chat agent with tool calling
