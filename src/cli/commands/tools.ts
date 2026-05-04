@@ -53,6 +53,16 @@ function printHelp(): void {
   );
 }
 
+function failForMode(isJsonMode: boolean, code: string, message: string): boolean {
+  if (isJsonMode) {
+    failJson(code, message);
+  }
+
+  process.stderr.write(`${code}: ${message}\n`);
+  process.exitCode = 1;
+  return true;
+}
+
 export async function runToolsCommand(args: string[]): Promise<void> {
   const [subcommand, ...rest] = args;
   const isJsonMode = args.includes("--json") || rest.includes("--json");
@@ -75,14 +85,20 @@ export async function runToolsCommand(args: string[]): Promise<void> {
   if (subcommand === "describe") {
     const { toolName } = extractToolName(rest);
     if (!toolName) {
-      failJson("MISSING_TOOL_NAME", "Usage: web3agent tools describe <tool-name> --json");
+      failForMode(
+        isJsonMode,
+        "MISSING_TOOL_NAME",
+        "Usage: web3agent tools describe <tool-name> --json"
+      );
+      return;
     }
+    const resolvedToolName = toolName;
 
     await withCliRuntime(
       async (runtime) => {
-        const tool = runtime.getTool(toolName);
+        const tool = runtime.getTool(resolvedToolName);
         if (!tool) {
-          failJson("UNKNOWN_TOOL", `Unknown tool: ${toolName}`);
+          if (failForMode(isJsonMode, "UNKNOWN_TOOL", `Unknown tool: ${resolvedToolName}`)) return;
         }
 
         writeJson({
@@ -100,37 +116,45 @@ export async function runToolsCommand(args: string[]): Promise<void> {
   if (subcommand === "call") {
     const { toolName } = extractToolName(rest);
     if (!toolName) {
-      failJson(
+      failForMode(
+        isJsonMode,
         "MISSING_TOOL_NAME",
         "Usage: web3agent tools call <tool-name> --input '{...}' --json"
       );
+      return;
     }
+    const resolvedToolName = toolName;
 
     const inputFlagIndex = rest.indexOf("--input");
     const inputJson = inputFlagIndex === -1 ? "{}" : rest[inputFlagIndex + 1];
     if (inputJson === undefined) {
-      failJson("MISSING_INPUT", "--input requires a JSON object string");
+      failForMode(isJsonMode, "MISSING_INPUT", "--input requires a JSON object string");
+      return;
     }
+    const resolvedInputJson = inputJson;
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(inputJson);
+      parsed = JSON.parse(resolvedInputJson);
     } catch (error: unknown) {
-      failJson(
+      failForMode(
+        isJsonMode,
         "INVALID_INPUT_JSON",
         error instanceof Error ? error.message : "Failed to parse --input JSON"
       );
+      return;
     }
 
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      failJson("INVALID_INPUT", "--input must be a JSON object");
+      failForMode(isJsonMode, "INVALID_INPUT", "--input must be a JSON object");
+      return;
     }
     const input = parsed as Record<string, unknown>;
 
     await withCliRuntime(
       async (runtime) => {
         try {
-          const result = await runtime.invokeTool(toolName, input);
+          const result = await runtime.invokeTool(resolvedToolName, input);
           const payload = getToolResultPayload(result);
           if (payload.ok) {
             writeJson({ ok: true, data: payload.data });

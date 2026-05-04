@@ -12,3 +12,13 @@ export const x402FetchSchema = z.object({
   body: z.string().optional().describe("Request body (for POST/PUT)"),
   headers: z.record(z.string()).optional().describe("Optional request headers"),
 });
+
+export const x402FetchExecutorSchema = x402FetchSchema.extend({
+  paymentChainId: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .describe("Internal resolved payment chain ID from x402 requirements"),
+});

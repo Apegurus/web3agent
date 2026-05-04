@@ -54,13 +54,13 @@ export const ccxtListExchangesSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "When true, return only exchanges that have at least one configured authenticated account"
+      "Deprecated alias for hasAuth=true; return only exchanges that have at least one configured authenticated account"
     ),
   hasAuth: z
     .boolean()
     .optional()
     .describe(
-      "When true, return only exchanges that currently have configured authenticated accounts"
+      "Preferred auth filter. When true, return only exchanges with configured authenticated accounts; when false, return only exchanges without them"
     ),
   marketType: ccxtMarketTypeSchema.optional(),
 });

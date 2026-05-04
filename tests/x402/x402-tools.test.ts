@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolDefinition } from "../../src/tools/register.js";
 import { getX402ToolDefinitions } from "../../src/tools/x402/index.js";
+import { x402FetchExecutorSchema } from "../../src/tools/x402/schemas.js";
 
 vi.mock("@x402/fetch", () => ({
   x402Client: vi.fn().mockImplementation(() => ({
@@ -110,6 +111,15 @@ describe("x402_check_requirements", () => {
 });
 
 describe("x402_fetch — confirmation gating", () => {
+  it("models paymentChainId as internal executor data instead of public input", () => {
+    const parsed = x402FetchExecutorSchema.parse({
+      url: "https://example.com/api",
+      paymentChainId: 137,
+    });
+
+    expect(parsed.paymentChainId).toBe(137);
+  });
+
   it("executes directly when no payment required (no confirmation needed)", async () => {
     const tools = getX402ToolDefinitions();
     const tool = tools.find((t) => t.name === "x402_fetch") as ToolDefinition;

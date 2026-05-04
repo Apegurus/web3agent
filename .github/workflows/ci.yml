@@ -25,11 +25,8 @@ jobs:
         # lockfile, fs.realpathSync symlink semantics in create-web3agent) that
         # would otherwise only be exercised on developer machines.
         os: [ubuntu-latest, macos-latest]
-        # Node 24.x is the current Active LTS (since 2025-10). The floor is
-        # engines.node ">=22" in both publishable packages, so Node 24 is
-        # in-bounds for users while picking up upstream perf and security
-        # fixes that 22 won't backport.
-        node-version: [24.x]
+        # Validate the published engine floor plus the current Active LTS.
+        node-version: [22.x, 24.x]
 
     steps:
       - uses: actions/checkout@v6
@@ -75,9 +72,6 @@ jobs:
           TARBALL=$(ls web3agent-*.tgz)
           node tests/e2e/package-install-smoke.mjs "$PWD/$TARBALL"
 
-      - name: Security audit (non-blocking)
-        # pnpm audit's exit code is sensitive to transient advisory churn;
-        # surface findings as warnings so CI doesn't flap on upstream changes,
-        # while still showing the report in the run summary.
-        run: pnpm audit --prod || true
+      - name: Security audit
+        run: pnpm audit --prod --audit-level high
         if: matrix.os == 'ubuntu-latest'

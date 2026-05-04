@@ -62,6 +62,24 @@ describe("config writers", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  it("refuses to overwrite when existing JSON config has a non-object top-level shape", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "web3agent-writer-wrong-shape-"));
+    const configPath = join(tmpDir, ".cursor", "mcp.json");
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, "[]", "utf-8");
+
+    const { CursorWriter } = await import("../../src/hosts/writers/cursor.js");
+    const writer = new CursorWriter();
+    await expect(
+      writer.write({ projectDir: tmpDir, mode: "proxy", dryRun: false })
+    ).rejects.toMatchObject({ code: "HOST_CONFIG_MALFORMED" });
+
+    const content = readFileSync(configPath, "utf-8");
+    expect(content).toBe("[]");
+
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
   it("cursor writer creates backup on update", async () => {
     await mkdir(join(TEST_DIR, ".cursor"), { recursive: true });
     await writeFile(
