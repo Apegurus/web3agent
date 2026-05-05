@@ -12,6 +12,7 @@ export default defineConfig([
       "mcp/index": "src/mcp/index.ts",
       "agdp/api": "src/agdp/api.ts",
       "x402/client": "src/x402/client.ts",
+      "ows-backend": "src/wallet/ows-backend.ts",
     },
     format: ["esm"],
     target: "node22",

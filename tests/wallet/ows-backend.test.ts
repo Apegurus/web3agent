@@ -14,15 +14,26 @@ function createVaultPath(): string {
 }
 
 describe("OwsWalletBackend", () => {
+  let originalHome: string | undefined;
   let originalPassphrase: string | undefined;
   let vaultPaths: string[];
 
   beforeEach(() => {
+    originalHome = process.env.HOME;
     originalPassphrase = process.env.OWS_PASSPHRASE;
     vaultPaths = [];
+    const homePath = createVaultPath();
+    vaultPaths.push(homePath);
+    process.env.HOME = homePath;
   });
 
   afterEach(() => {
+    if (originalHome === undefined) {
+      Reflect.deleteProperty(process.env, "HOME");
+    } else {
+      process.env.HOME = originalHome;
+    }
+
     if (originalPassphrase === undefined) {
       Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
     } else {

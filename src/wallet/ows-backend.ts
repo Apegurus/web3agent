@@ -15,11 +15,12 @@ import type { WalletMode, WalletState } from "../types/wallet.js";
 import { atomicWriteJson } from "../utils/atomic-write.js";
 import type { WalletBackend } from "./backend.js";
 import { walletEvents } from "./events.js";
+import { migrateLegacyWalletToOws } from "./migration.js";
+import { OWS_ACTIVE_WALLET_NAME, OWS_METADATA_FILE_NAME } from "./ows-constants.js";
 
-export const OWS_ACTIVE_WALLET_NAME = "web3agent-active";
+export { OWS_ACTIVE_WALLET_NAME } from "./ows-constants.js";
 
 const OWS_DEFAULT_VAULT_PATH = join(homedir(), ".web3agent", "ows");
-const OWS_METADATA_FILE_NAME = "wallet-metadata.json";
 const VALID_MNEMONIC_WORD_COUNTS = new Set([12, 15, 18, 21, 24]);
 
 interface OwsWalletBackendOptions {
@@ -192,6 +193,24 @@ export class OwsWalletBackend implements WalletBackend {
       });
       return;
     }
+
+    if (this.hasWalletNamed(OWS_ACTIVE_WALLET_NAME)) {
+      const metadata = await this.readMetadata();
+      const activeMode = metadata?.activeMode ?? this.inferModeFromExport(OWS_ACTIVE_WALLET_NAME);
+      const accountIndex = metadata?.activeAccountIndex ?? config.accountIndex;
+      const addressIndex = metadata?.activeAddressIndex ?? config.addressIndex;
+
+      await this.loadWallet({
+        walletName: OWS_ACTIVE_WALLET_NAME,
+        mode: activeMode,
+        chainId: config.chainId,
+        accountIndex,
+        addressIndex,
+      });
+      return;
+    }
+
+    await migrateLegacyWalletToOws({ passphrase: this.passphrase, vaultPath: this.vaultPath });
 
     if (this.hasWalletNamed(OWS_ACTIVE_WALLET_NAME)) {
       const metadata = await this.readMetadata();
