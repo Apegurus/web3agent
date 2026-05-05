@@ -133,6 +133,8 @@ import type {
   walletActivateSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
+  walletInfoOutputSchema,
+  walletInfoSchema,
   walletSetConfirmationSchema,
 } from "./schemas.js";
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
@@ -288,6 +290,8 @@ export type WalletActivateInput = z.infer<typeof walletActivateSchema>;
 export type WalletSetConfirmationInput = z.infer<typeof walletSetConfirmationSchema>;
 export type WalletFromMnemonicInput = z.infer<typeof walletFromMnemonicSchema>;
 export type WalletDeriveAddressesInput = z.infer<typeof walletDeriveAddressesSchema>;
+export type WalletInfoInput = z.infer<typeof walletInfoSchema>;
+export type WalletInfoResult = z.infer<typeof walletInfoOutputSchema>;
 export type TransactionConfirmInput = z.infer<typeof transactionConfirmSchema>;
 export type TransactionDenyInput = z.infer<typeof transactionDenySchema>;
 export type SimulateTransactionInput = z.infer<typeof transactionSimulateSchema>;
