@@ -16,6 +16,7 @@ import {
   walletGenerate,
   walletGenerateMnemonic,
   walletGetActive,
+  walletInfo,
   walletSetConfirmation,
 } from "./wallet/index.js";
 import {
@@ -25,6 +26,7 @@ import {
   walletActivateSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
+  walletInfoSchema,
   walletSetConfirmationSchema,
 } from "./wallet/schemas.js";
 
@@ -98,6 +100,15 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
         "Get the currently active wallet address, chain ID, and mode (private-key, mnemonic, or read-only).",
       inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletGetActive(),
+      annotations: { readOnlyHint: true },
+    },
+    {
+      name: "wallet_info",
+      category: "wallet",
+      description:
+        "Get wallet backend metadata, storage security posture, and current wallet state without exposing secrets.",
+      inputSchema: zodToJsonSchema(walletInfoSchema) as Record<string, unknown>,
+      handler: () => walletInfo(),
       annotations: { readOnlyHint: true },
     },
     {

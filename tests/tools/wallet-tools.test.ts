@@ -21,6 +21,10 @@ const persistenceMocks = vi.hoisted(() => ({
   hasPersistedWalletKey: vi.fn().mockReturnValue(false),
 }));
 
+const backendSelectorMocks = vi.hoisted(() => ({
+  getWalletBackend: vi.fn(),
+}));
+
 const confirmationQueueMock = vi.hoisted(() => ({
   enabled: true,
   enqueue: vi.fn(),
@@ -81,9 +85,16 @@ vi.mock("viem/accounts", () => ({
 
 vi.mock("../../src/wallet/persistence.js", () => persistenceMocks);
 
+vi.mock("../../src/wallet/backend-selector.js", () => backendSelectorMocks);
+
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: confirmationQueueMock,
   registerExecutor: (...args: unknown[]) => confirmationQueueMock.registerExecutor(...args),
+}));
+
+vi.mock("../../src/tools/utility/index.js", () => ({
+  listSupportedChains: vi.fn(),
+  serverStatus: vi.fn(),
 }));
 
 vi.mock("../../src/config/env.js", () => ({
@@ -131,6 +142,12 @@ describe("wallet tool handlers", () => {
     });
     persistenceMocks.getActiveAccount.mockReturnValue({
       address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    });
+    backendSelectorMocks.getWalletBackend.mockReturnValue({
+      info: {
+        type: "legacy",
+        reason: "OWS wallet backend unavailable; using legacy persistence fallback",
+      },
     });
     balanceCacheMocks.getCachedBalanceUsd.mockReturnValue(null);
     balanceCacheMocks.refreshBalanceUsd.mockResolvedValue(1000);
@@ -226,6 +243,143 @@ describe("wallet tool handlers", () => {
       chainId: 1,
       mode: "private-key",
     });
+  });
+
+  it("walletInfo reports OWS backend metadata and wallet state without secrets", async () => {
+    const originalPassphrase = process.env.OWS_PASSPHRASE;
+    process.env.OWS_PASSPHRASE = "owner-passphrase";
+    backendSelectorMocks.getWalletBackend.mockReturnValue({
+      info: {
+        type: "ows",
+        reason: "OWS wallet backend available with encrypted vault support",
+      },
+    });
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "mnemonic",
+      chainId: 1,
+      address: "0xBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+      accountIndex: 2,
+      addressIndex: 5,
+    });
+
+    try {
+      const { walletInfo } = await import("../../src/tools/wallet/index.js");
+      const result = await walletInfo();
+
+      expect(result.isError).toBe(false);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload).toEqual({
+        backend: "ows",
+        backendReason: "OWS wallet backend available with encrypted vault support",
+        vaultPath: "~/.web3agent/ows/",
+        supportedChains: ["evm"],
+        securityPosture: "encrypted-at-rest",
+        passphraseConfigured: true,
+        state: {
+          mode: "mnemonic",
+          address: "0xBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+          chainId: 1,
+          accountIndex: 2,
+          addressIndex: 5,
+        },
+      });
+      const responseText = JSON.stringify(payload);
+      expect(responseText).not.toContain("privateKey");
+      expect(responseText).not.toContain("mnemonic phrase");
+      expect(responseText).not.toContain("owner-passphrase");
+    } finally {
+      if (originalPassphrase === undefined) {
+        // biome-ignore lint/performance/noDelete: process.env requires delete to truly unset; assignment sets string "undefined"
+        delete process.env.OWS_PASSPHRASE;
+      } else {
+        process.env.OWS_PASSPHRASE = originalPassphrase;
+      }
+    }
+  });
+
+  it("walletInfo reports legacy backend metadata with null vault path", async () => {
+    const originalPassphrase = process.env.OWS_PASSPHRASE;
+    // biome-ignore lint/performance/noDelete: process.env requires delete to truly unset; assignment sets string "undefined"
+    delete process.env.OWS_PASSPHRASE;
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      chainId: 8453,
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+
+    try {
+      const { walletInfo } = await import("../../src/tools/wallet/index.js");
+      const result = await walletInfo();
+
+      expect(result.isError).toBe(false);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload).toEqual({
+        backend: "legacy",
+        backendReason: "OWS wallet backend unavailable; using legacy persistence fallback",
+        vaultPath: null,
+        supportedChains: ["evm"],
+        securityPosture: "legacy-wallet-json",
+        passphraseConfigured: false,
+        state: {
+          mode: "read-only",
+          address: null,
+          chainId: 8453,
+          accountIndex: 0,
+          addressIndex: 0,
+        },
+      });
+    } finally {
+      if (originalPassphrase !== undefined) {
+        process.env.OWS_PASSPHRASE = originalPassphrase;
+      }
+    }
+  });
+
+  it("walletInfo reports passphraseConfigured false for whitespace OWS passphrase", async () => {
+    const originalPassphrase = process.env.OWS_PASSPHRASE;
+    process.env.OWS_PASSPHRASE = "   ";
+
+    try {
+      const { walletInfo } = await import("../../src/tools/wallet/index.js");
+      const result = await walletInfo();
+
+      expect(result.isError).toBe(false);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.passphraseConfigured).toBe(false);
+    } finally {
+      if (originalPassphrase === undefined) {
+        // biome-ignore lint/performance/noDelete: process.env requires delete to truly unset; assignment sets string "undefined"
+        delete process.env.OWS_PASSPHRASE;
+      } else {
+        process.env.OWS_PASSPHRASE = originalPassphrase;
+      }
+    }
+  });
+
+  it("walletInfo returns WALLET_INFO_FAILED when backend metadata cannot be read", async () => {
+    backendSelectorMocks.getWalletBackend.mockImplementation(() => {
+      throw new Error("backend selection failed");
+    });
+
+    const { walletInfo } = await import("../../src/tools/wallet/index.js");
+    const result = await walletInfo();
+
+    expect(result.isError).toBe(true);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("WALLET_INFO_FAILED");
+    expect(payload.message).toBe("backend selection failed");
+  });
+
+  it("registers wallet_info as a read-only wallet tool", async () => {
+    const { getWalletToolDefinitions } = await import("../../src/tools/register.js");
+
+    const definition = getWalletToolDefinitions().find((tool) => tool.name === "wallet_info");
+
+    expect(definition).toBeDefined();
+    expect(definition?.category).toBe("wallet");
+    expect(definition?.annotations).toEqual({ readOnlyHint: true });
+    expect(definition?.riskLevel).toBeUndefined();
   });
 
   it("walletActivate returns pending_confirmation when confirmation is enabled", async () => {

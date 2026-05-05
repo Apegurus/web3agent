@@ -25,6 +25,7 @@ import {
 } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
+import { getWalletBackend } from "../../wallet/backend-selector.js";
 import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
 import {
   activateWallet,
@@ -135,6 +136,40 @@ export async function walletGetActive(): Promise<CallToolResult> {
   } catch (err: unknown) {
     return formatToolError(
       "WALLET_STATE_FAILED",
+      err instanceof Error ? err.message : "Unknown error"
+    );
+  }
+}
+
+function hasConfiguredOwsPassphrase(): boolean {
+  const passphrase = process.env.OWS_PASSPHRASE;
+  return passphrase !== undefined && passphrase.trim() !== "";
+}
+
+export async function walletInfo(): Promise<CallToolResult> {
+  try {
+    const backend = getWalletBackend();
+    const state = getWalletState();
+    const isOws = backend.info.type === "ows";
+
+    return formatToolResponse({
+      backend: backend.info.type,
+      backendReason: backend.info.reason,
+      vaultPath: isOws ? "~/.web3agent/ows/" : null,
+      supportedChains: ["evm"],
+      securityPosture: isOws ? "encrypted-at-rest" : "legacy-wallet-json",
+      passphraseConfigured: hasConfiguredOwsPassphrase(),
+      state: {
+        mode: state.mode,
+        address: state.address ?? null,
+        chainId: state.chainId,
+        accountIndex: state.accountIndex,
+        addressIndex: state.addressIndex,
+      },
+    });
+  } catch (err: unknown) {
+    return formatToolError(
+      "WALLET_INFO_FAILED",
       err instanceof Error ? err.message : "Unknown error"
     );
   }
