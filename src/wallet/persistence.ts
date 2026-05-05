@@ -1,5 +1,6 @@
 import type { Account } from "viem";
 import type { WalletMode, WalletState } from "../types/wallet.js";
+import { NO_WALLET_BACKEND_SELECTED_MESSAGE, getWalletBackend } from "./backend-selector.js";
 import {
   activateWalletInternal,
   deactivateWalletInternal,
@@ -12,12 +13,29 @@ import {
 
 export type { WalletMode };
 
+function isNoBackendSelectedError(error: unknown): boolean {
+  return error instanceof Error && error.message === NO_WALLET_BACKEND_SELECTED_MESSAGE;
+}
+
+function getSelectedWalletBackendOrNull() {
+  try {
+    return getWalletBackend();
+  } catch (error: unknown) {
+    if (isNoBackendSelectedError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export function getWalletState(): WalletState {
-  return getWalletStateInternal();
+  const backend = getSelectedWalletBackendOrNull();
+  return backend ? backend.getState() : getWalletStateInternal();
 }
 
 export function getActiveAccount(): Account {
-  return getActiveAccountInternal();
+  const backend = getSelectedWalletBackendOrNull();
+  return backend ? backend.getAccount() : getActiveAccountInternal();
 }
 
 export async function initializeWallet(config: {
@@ -27,6 +45,11 @@ export async function initializeWallet(config: {
   privateKey?: string;
   mnemonic?: string;
 }): Promise<void> {
+  const backend = getSelectedWalletBackendOrNull();
+  if (backend) {
+    await backend.initialize(config);
+    return;
+  }
   await initializeWalletInternal(config);
 }
 
@@ -36,14 +59,21 @@ export async function activateWallet(params: {
   accountIndex?: number;
   addressIndex?: number;
 }): Promise<WalletState> {
-  return activateWalletInternal(params);
+  const backend = getSelectedWalletBackendOrNull();
+  return backend ? backend.activate(params) : activateWalletInternal(params);
 }
 
 export async function getPersistedKeyForSubprocess(): Promise<string | null> {
-  return getPersistedKeyForSubprocessInternal();
+  const backend = getSelectedWalletBackendOrNull();
+  return backend ? backend.getKeyForSubprocess() : getPersistedKeyForSubprocessInternal();
 }
 
 export async function deactivateWallet(): Promise<void> {
+  const backend = getSelectedWalletBackendOrNull();
+  if (backend) {
+    await backend.deactivate();
+    return;
+  }
   await deactivateWalletInternal();
 }
 

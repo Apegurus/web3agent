@@ -13,6 +13,7 @@ const mockState = vi.hoisted(() => {
 
   return {
     goatProviders,
+    selectWalletBackend: vi.fn().mockResolvedValue({ info: { type: "legacy", reason: "test" } }),
     dispatchGoatTool: vi.fn(),
     initializeWallet: vi.fn().mockResolvedValue(undefined),
     getWalletState: vi.fn().mockReturnValue({
@@ -57,6 +58,10 @@ const balanceCacheMocks = vi.hoisted(() => ({
 vi.mock("../../src/wallet/persistence.js", () => ({
   initializeWallet: (...args: unknown[]) => mockState.initializeWallet(...args),
   getWalletState: (...args: unknown[]) => mockState.getWalletState(...args),
+}));
+
+vi.mock("../../src/wallet/backend-selector.js", () => ({
+  selectWalletBackend: (...args: unknown[]) => mockState.selectWalletBackend(...args),
 }));
 
 vi.mock("../../src/tools/orbs/index.js", () => ({
@@ -247,6 +252,9 @@ describe("managed runtime", () => {
       structuredContent: { ok: true, data: { status: "ok" } },
       content: [{ type: "text", text: '{"status":"ok"}' }],
     });
+    mockState.selectWalletBackend.mockReset().mockResolvedValue({
+      info: { type: "legacy", reason: "test" },
+    });
     mockState.initializeWallet.mockClear();
     mockState.registerOrbsExecutors.mockClear();
     mockState.registerLifiExecutors.mockClear();
@@ -383,6 +391,44 @@ describe("managed runtime", () => {
     expect(operationPrepareTool?.category).toBe("operation");
     expect(operationPrepareTool?.source).toBe("operation");
     expect(operationResumeTool?.category).toBe("operation");
+
+    await runtime.shutdown();
+  });
+
+  it("selects the wallet backend before initializing wallet state during startup", async () => {
+    const order: string[] = [];
+    mockState.selectWalletBackend.mockImplementationOnce(async () => {
+      order.push("select");
+      return { info: { type: "legacy", reason: "test" } };
+    });
+    mockState.initializeWallet.mockImplementationOnce(async () => {
+      order.push("initialize");
+    });
+
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: true,
+        confirmTtlMinutes: 30,
+        etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    expect(order).toEqual(["select", "initialize"]);
+    expect(mockState.selectWalletBackend).toHaveBeenCalledTimes(1);
+    expect(mockState.initializeWallet).toHaveBeenCalledTimes(1);
 
     await runtime.shutdown();
   });

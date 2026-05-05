@@ -9,6 +9,9 @@ type PackageResolver = (id: string) => string;
 let testResolver: PackageResolver | undefined;
 let cachedBackend: WalletBackend | undefined;
 
+export const NO_WALLET_BACKEND_SELECTED_MESSAGE =
+  "[wallet] No wallet backend selected. Call selectWalletBackend() first.";
+
 function hasConfiguredOwsPassphrase(): boolean {
   const passphrase = process.env.OWS_PASSPHRASE;
   return passphrase !== undefined && passphrase.trim() !== "";
@@ -122,7 +125,7 @@ export async function selectWalletBackend(): Promise<WalletBackend> {
 
 export function getWalletBackend(): WalletBackend {
   if (cachedBackend === undefined) {
-    throw new Error("[wallet] No wallet backend selected. Call selectWalletBackend() first.");
+    throw new Error(NO_WALLET_BACKEND_SELECTED_MESSAGE);
   }
   return cachedBackend;
 }
