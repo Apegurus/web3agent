@@ -81,6 +81,14 @@ Never duplicate utility functions. Canonical locations:
 | Wallet state | `src/wallet/persistence.ts` |
 | `ttlCache`, `clearCache` | `src/tools/shared/cache.ts` |
 
+## Wallet Backends
+
+- Wallet persistence is selected at runtime through `selectWalletBackend()` in `src/wallet/backend-selector.ts`; call it before wallet initialization and use `getWalletBackend()`/`src/wallet/persistence.ts` afterward.
+- OWS is the preferred backend on supported platforms when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is set to a non-empty value. Set `OWS_FORCE_LEGACY=1` to force the legacy JSON backend.
+- The OWS backend stores the active wallet under `web3agent-active` in the encrypted vault at `~/.web3agent/ows` by default, with metadata in `web3agent-metadata.json`.
+- If OWS starts with no active encrypted wallet, it migrates an existing legacy `~/.web3agent/wallet.json` into the OWS vault, writes metadata, copies the legacy file to `wallet.json.migrated`, and removes the original only after import and backup succeed.
+- Never log or expose wallet secrets. `wallet_info`/`getWalletInfo()` report backend type, wallet mode, chain, address, and fallback reason only.
+
 ## Testing
 
 - Vitest with `tests/` mirroring `src/` structure
