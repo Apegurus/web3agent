@@ -9,12 +9,20 @@ type PackageResolver = (id: string) => string;
 let testResolver: PackageResolver | undefined;
 let cachedBackend: WalletBackend | undefined;
 
+function hasConfiguredOwsPassphrase(): boolean {
+  const passphrase = process.env.OWS_PASSPHRASE;
+  return passphrase !== undefined && passphrase.trim() !== "";
+}
+
 export function setOwsPackageResolverForTests(resolver?: PackageResolver): void {
   testResolver = resolver;
 }
 
 export function detectOwsAvailability(): boolean {
   if (process.env.OWS_FORCE_LEGACY === "1") {
+    return false;
+  }
+  if (!hasConfiguredOwsPassphrase()) {
     return false;
   }
   const resolve = testResolver ?? defaultRequire.resolve;
@@ -94,6 +102,10 @@ async function tryLoadOwsBackend(): Promise<WalletBackend | null> {
 export async function selectWalletBackend(): Promise<WalletBackend> {
   if (cachedBackend !== undefined) {
     return cachedBackend;
+  }
+
+  if (process.env.OWS_FORCE_LEGACY !== "1" && !hasConfiguredOwsPassphrase()) {
+    process.stderr.write("[wallet] OWS passphrase missing or empty; using legacy wallet backend\n");
   }
 
   if (detectOwsAvailability()) {
