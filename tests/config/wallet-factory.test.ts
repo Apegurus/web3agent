@@ -1,0 +1,213 @@
+import { http, createWalletClient } from "viem";
+import type {} from "vitest/globals";
+import { getChainById } from "../../src/chains/registry.js";
+import { getConfig } from "../../src/config/env.js";
+import {
+  createWalletClientForChain,
+  getTransportForChain,
+} from "../../src/config/wallet-factory.js";
+
+vi.mock("viem", () => ({
+  http: vi.fn((url?: string) => ({ transport: "http", url })),
+  createWalletClient: vi.fn((params: unknown) => ({ kind: "wallet-client", params })),
+}));
+
+vi.mock("../../src/chains/registry.js", () => ({
+  getChainById: vi.fn(),
+}));
+
+vi.mock("../../src/config/env.js", () => ({
+  getConfig: vi.fn(() => ({
+    chainId: 8453,
+    rpcUrl: "https://rpc.base.local",
+    chainRpcUrls: {},
+  })),
+  tryGetConfig: vi.fn(() => ({
+    chainId: 8453,
+    rpcUrl: "https://rpc.base.local",
+    chainRpcUrls: {},
+  })),
+}));
+
+const DEFAULT_CONFIG = {
+  chainId: 8453,
+  rpcUrl: "https://rpc.base.local",
+  chainRpcUrls: {} as Record<number, string>,
+  privateKey: undefined,
+  mnemonic: undefined,
+  walletAccountIndex: 0,
+  walletAddressIndex: 0,
+  confirmWrites: true,
+  confirmTtlMinutes: 30,
+  etherscanApiUrl: "https://api.etherscan.io",
+  etherscanApiKey: undefined,
+  lifiApiKey: undefined,
+  zeroxApiKey: undefined,
+  coingeckoApiKey: undefined,
+};
+
+describe("wallet factory", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getConfig).mockReturnValue({ ...DEFAULT_CONFIG });
+  });
+
+  it("returns a wallet client for supported default chain using configured RPC", () => {
+    const chain = { id: 8453, name: "Base" };
+    vi.mocked(getChainById).mockReturnValue(chain as never);
+    const account = { address: "0x1111111111111111111111111111111111111111", type: "json-rpc" };
+
+    const client = createWalletClientForChain(account as never, 8453);
+
+    expect(http).toHaveBeenCalledWith("https://rpc.base.local");
+    expect(createWalletClient).toHaveBeenCalledWith({
+      account,
+      chain,
+      transport: { transport: "http", url: "https://rpc.base.local" },
+    });
+    expect(client).toEqual({
+      kind: "wallet-client",
+      params: {
+        account,
+        chain,
+        transport: { transport: "http", url: "https://rpc.base.local" },
+      },
+    });
+  });
+
+  it("returns a wallet client for non-default chain using fallback transport", () => {
+    const chain = { id: 1, name: "Ethereum" };
+    vi.mocked(getChainById).mockReturnValue(chain as never);
+    const account = {
+      address: "0x2222222222222222222222222222222222222222",
+      type: "local",
+      publicKey: "0x03",
+      source: "privateKey",
+    };
+
+    createWalletClientForChain(account as never, 1);
+
+    expect(http).toHaveBeenCalledWith();
+    expect(createWalletClient).toHaveBeenCalledWith({
+      account,
+      chain,
+      transport: { transport: "http", url: undefined },
+    });
+  });
+
+  it("supports different account shapes across chain IDs", () => {
+    vi.mocked(getChainById).mockImplementation(
+      (chainId) => ({ id: chainId, name: `chain-${chainId}` }) as never
+    );
+    const accounts = [
+      { address: "0x3333333333333333333333333333333333333333", type: "json-rpc" },
+      {
+        address: "0x4444444444444444444444444444444444444444",
+        type: "local",
+        publicKey: "0x02",
+        source: "mnemonic",
+      },
+    ];
+
+    createWalletClientForChain(accounts[0] as never, 8453);
+    createWalletClientForChain(accounts[1] as never, 42161);
+
+    expect(createWalletClient).toHaveBeenCalledTimes(2);
+    expect(createWalletClient).toHaveBeenNthCalledWith(1, {
+      account: accounts[0],
+      chain: { id: 8453, name: "chain-8453" },
+      transport: { transport: "http", url: "https://rpc.base.local" },
+    });
+    expect(createWalletClient).toHaveBeenNthCalledWith(2, {
+      account: accounts[1],
+      chain: { id: 42161, name: "chain-42161" },
+      transport: { transport: "http", url: undefined },
+    });
+  });
+
+  it("throws for unsupported chain IDs", () => {
+    vi.mocked(getChainById).mockReturnValue(undefined);
+
+    expect(() => {
+      createWalletClientForChain(
+        { address: "0x5555555555555555555555555555555555555555" } as never,
+        9999999
+      );
+    }).toThrow("Unsupported chain ID: 9999999");
+    expect(createWalletClient).not.toHaveBeenCalled();
+  });
+
+  it("uses per-chain RPC_URL override when set", () => {
+    vi.mocked(getConfig).mockReturnValue({
+      ...DEFAULT_CONFIG,
+      chainRpcUrls: { 42161: "https://arb.custom-rpc.com" },
+    });
+    const chain = { id: 42161, name: "Arbitrum" };
+    vi.mocked(getChainById).mockReturnValue(chain as never);
+    const account = { address: "0x1111111111111111111111111111111111111111", type: "json-rpc" };
+
+    createWalletClientForChain(account as never, 42161);
+
+    expect(http).toHaveBeenCalledWith("https://arb.custom-rpc.com");
+  });
+
+  it("uses BSC fallback RPC when no override is set", () => {
+    const chain = { id: 56, name: "BNB Smart Chain" };
+    vi.mocked(getChainById).mockReturnValue(chain as never);
+    const account = { address: "0x1111111111111111111111111111111111111111", type: "json-rpc" };
+
+    createWalletClientForChain(account as never, 56);
+
+    expect(http).toHaveBeenCalledWith("https://bsc-dataseed.bnbchain.org");
+  });
+
+  it("prefers per-chain RPC over fallback", () => {
+    vi.mocked(getConfig).mockReturnValue({
+      ...DEFAULT_CONFIG,
+      chainRpcUrls: { 56: "https://bsc.my-rpc.com" },
+    });
+    const chain = { id: 56, name: "BNB Smart Chain" };
+    vi.mocked(getChainById).mockReturnValue(chain as never);
+    const account = { address: "0x1111111111111111111111111111111111111111", type: "json-rpc" };
+
+    createWalletClientForChain(account as never, 56);
+
+    expect(http).toHaveBeenCalledWith("https://bsc.my-rpc.com");
+  });
+});
+
+describe("getTransportForChain", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getConfig).mockReturnValue({ ...DEFAULT_CONFIG });
+  });
+
+  it("returns per-chain RPC when configured", () => {
+    vi.mocked(getConfig).mockReturnValue({
+      ...DEFAULT_CONFIG,
+      chainRpcUrls: { 137: "https://polygon.custom-rpc.com" },
+    });
+
+    getTransportForChain(137);
+
+    expect(http).toHaveBeenCalledWith("https://polygon.custom-rpc.com");
+  });
+
+  it("returns default RPC for the default chain", () => {
+    getTransportForChain(8453);
+
+    expect(http).toHaveBeenCalledWith("https://rpc.base.local");
+  });
+
+  it("returns BSC fallback for chain 56", () => {
+    getTransportForChain(56);
+
+    expect(http).toHaveBeenCalledWith("https://bsc-dataseed.bnbchain.org");
+  });
+
+  it("returns bare http() for chains without any override or fallback", () => {
+    getTransportForChain(1);
+
+    expect(http).toHaveBeenCalledWith();
+  });
+});

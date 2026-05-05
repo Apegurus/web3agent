@@ -2,6 +2,21 @@ node_modules/
 dist/
 .env
 .env.*
+!.env.example
 coverage/
-.sisyphus/evidence/
 *.tgz
+
+# Agentic coding tools
+.argus/
+.sisyphus/
+.opencode/
+.claude/
+opencode.json
+
+# Internal artifacts
+.reviews/
+.worktrees/
+docs/superpowers/
+PR*-REVIEW.md
+ASSESSMENT.md
+*_SPEC.md

@@ -1,0 +1,325 @@
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type { OperationExecutor, PendingOperation } from "../types/wallet.js";
+import { atomicWriteJson } from "../utils/atomic-write.js";
+import { type AuditAction, appendAuditLog } from "./audit.js";
+
+const DEFAULT_TTL_MS = 30 * 60 * 1000;
+
+interface SerializedPendingOperation {
+  id: string;
+  type: string;
+  description: string;
+  params: Record<string, unknown>;
+  createdAt: string;
+  ttlMs: number;
+  walletAddress?: string;
+  riskLevel?: PendingOperation["riskLevel"];
+}
+
+const executorRegistry = new Map<string, OperationExecutor>();
+
+export function registerExecutor(type: string, fn: OperationExecutor): void {
+  executorRegistry.set(type, fn);
+}
+
+export function getExecutor(type: string): OperationExecutor | undefined {
+  return executorRegistry.get(type);
+}
+
+function getPendingOpsPath(): string {
+  return join(homedir(), ".web3agent", "pending-ops.json");
+}
+
+/**
+ * Manages a queue of pending write operations that require explicit confirmation.
+ *
+ * **Security model: temporal pause, NOT authorization boundary.**
+ *
+ * This queue creates a deliberate pause between requesting and executing destructive
+ * or financial operations. However, the same MCP session that enqueues an operation
+ * can also confirm it — there is no caller identity verification.
+ *
+ * For true human-in-the-loop authorization, configure an out-of-band confirmation
+ * channel (e.g., Telegram, email, hardware wallet). The queue alone only guarantees
+ * that the operation was explicitly confirmed, not that a human reviewed it.
+ *
+ * Future: consider session-bound confirmations requiring a different credential.
+ */
+export class ConfirmationQueueManager {
+  private queue: Map<string, PendingOperation> = new Map();
+  private persistChain: Promise<void> = Promise.resolve();
+  private persistScheduled = false;
+  private persistNeeded = false;
+  public enabled: boolean;
+  public ttlMs: number;
+
+  constructor(enabled: boolean, ttlMs: number = DEFAULT_TTL_MS) {
+    this.enabled = enabled;
+    this.ttlMs = ttlMs;
+  }
+
+  private schedulePersist(): void {
+    this.persistNeeded = true;
+    if (this.persistScheduled) return;
+    this.persistScheduled = true;
+    this.persistChain = this.persistChain
+      .then(() => {
+        this.persistNeeded = false;
+        return this.persistQueue();
+      })
+      .then(() => {
+        this.persistScheduled = false;
+        if (this.persistNeeded) this.schedulePersist();
+      })
+      .catch((e: unknown) => {
+        // Clearing persistNeeded here drops any retry signal that a
+        // concurrent schedulePersist() set during the in-flight persist.
+        // The in-memory queue still holds the data, so the next mutating
+        // call (enqueue/complete/fail/expire/deny) will schedule another
+        // persist. We prioritise loop termination in flushPendingPersists
+        // over best-effort retry on failure.
+        this.persistScheduled = false;
+        this.persistNeeded = false;
+        process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
+      });
+  }
+
+  /**
+   * Wait for any scheduled persist to settle. Intended for tests; production
+   * code should not depend on this — the queue survives process crashes via
+   * atomic writes and `loadQueue()`.
+   */
+  async flushPendingPersists(): Promise<void> {
+    while (this.persistScheduled || this.persistNeeded) {
+      await this.persistChain;
+    }
+  }
+
+  enqueue(
+    type: string,
+    description: string,
+    params: Record<string, unknown>,
+    executor: OperationExecutor,
+    walletAddress?: string,
+    riskLevel?: PendingOperation["riskLevel"]
+  ): { queued: boolean; id: string | null; summary: string } {
+    if (!this.enabled) {
+      return {
+        queued: false,
+        id: null,
+        summary: `Confirmation bypassed: ${description}`,
+      };
+    }
+
+    const id = randomUUID();
+    const operation: PendingOperation = {
+      id,
+      type,
+      description,
+      params,
+      executor,
+      createdAt: new Date(),
+      ttlMs: this.ttlMs,
+      walletAddress,
+      riskLevel,
+    };
+
+    this.queue.set(id, operation);
+    this.schedulePersist();
+
+    return {
+      queued: true,
+      id,
+      summary: `Queued [${type}]: ${description} — confirm with ID: ${id}`,
+    };
+  }
+
+  private executing = new Set<string>();
+
+  /**
+   * Confirm a pending operation by ID. Does not verify caller identity —
+   * this is not an authorization boundary. Any caller with the operation ID can confirm.
+   */
+  confirm(id: string): { operation: PendingOperation; stale: boolean } | null {
+    const operation = this.queue.get(id);
+    if (!operation) return null;
+    if (this.executing.has(id)) return null;
+
+    this.executing.add(id);
+
+    const elapsed = Date.now() - operation.createdAt.getTime();
+    const stale = elapsed > operation.ttlMs;
+
+    return { operation, stale };
+  }
+
+  complete(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("CONFIRMED", op);
+  }
+
+  releaseExecuting(id: string): void {
+    this.executing.delete(id);
+  }
+
+  fail(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("EXECUTION_FAILED", op);
+  }
+
+  expire(id: string): void {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    this.queue.delete(id);
+    this.schedulePersist();
+    if (op) this.audit("EXPIRED", op);
+  }
+
+  deny(id: string): boolean {
+    this.executing.delete(id);
+    const op = this.queue.get(id);
+    const removed = this.queue.delete(id);
+    if (removed) {
+      this.schedulePersist();
+      if (op) this.audit("DENIED", op);
+    }
+    return removed;
+  }
+
+  list(): PendingOperation[] {
+    return [...this.queue.values()];
+  }
+
+  pruneExpired(): void {
+    const now = Date.now();
+    const expired: PendingOperation[] = [];
+    for (const [id, op] of this.queue) {
+      if (now - op.createdAt.getTime() > op.ttlMs) {
+        expired.push(op);
+        this.queue.delete(id);
+      }
+    }
+    if (expired.length > 0) {
+      this.schedulePersist();
+      for (const op of expired) {
+        this.audit("EXPIRED", op);
+      }
+    }
+  }
+
+  flushAll(): number {
+    const count = this.queue.size;
+    this.queue.clear();
+    this.executing.clear();
+    this.schedulePersist();
+    return count;
+  }
+
+  private audit(action: AuditAction, op: PendingOperation): void {
+    appendAuditLog({
+      action,
+      operationType: op.type,
+      operationId: op.id,
+      walletAddress: op.walletAddress,
+      description: op.description,
+    }).catch((e: unknown) => {
+      process.stderr.write(`[confirmation] Failed to write audit log: ${e}\n`);
+    });
+  }
+
+  private async persistQueue(): Promise<void> {
+    const ops: SerializedPendingOperation[] = [...this.queue.values()].map((op) => ({
+      id: op.id,
+      type: op.type,
+      description: op.description,
+      params: op.params,
+      createdAt: op.createdAt.toISOString(),
+      ttlMs: op.ttlMs,
+      walletAddress: op.walletAddress,
+      riskLevel: op.riskLevel,
+    }));
+
+    await atomicWriteJson(getPendingOpsPath(), ops);
+  }
+
+  async loadQueue(): Promise<number> {
+    const filePath = getPendingOpsPath();
+    if (!existsSync(filePath)) return 0;
+
+    try {
+      const raw = await readFile(filePath, "utf-8");
+      const ops = JSON.parse(raw) as SerializedPendingOperation[];
+      const now = Date.now();
+      let droppedEntries = false;
+
+      for (const serialized of ops) {
+        const createdAt = new Date(serialized.createdAt);
+        const elapsed = now - createdAt.getTime();
+        if (elapsed > serialized.ttlMs) {
+          droppedEntries = true;
+          appendAuditLog({
+            action: "EXPIRED",
+            operationType: serialized.type,
+            operationId: serialized.id,
+            walletAddress: serialized.walletAddress,
+            description: serialized.description,
+          }).catch((e: unknown) => {
+            process.stderr.write(
+              `[confirmation] Failed to audit expired persisted op ${serialized.id}: ${e}\n`
+            );
+          });
+          continue;
+        }
+
+        const executor = executorRegistry.get(serialized.type);
+        if (!executor) {
+          droppedEntries = true;
+          process.stderr.write(
+            `[confirmation] Skipping persisted op ${serialized.id}: no executor for type '${serialized.type}'\n`
+          );
+          continue;
+        }
+
+        this.queue.set(serialized.id, {
+          id: serialized.id,
+          type: serialized.type,
+          description: serialized.description,
+          params: serialized.params,
+          executor,
+          createdAt,
+          ttlMs: serialized.ttlMs,
+          walletAddress: serialized.walletAddress,
+          riskLevel: serialized.riskLevel,
+        });
+      }
+
+      if (droppedEntries) {
+        this.schedulePersist();
+      }
+
+      if (this.queue.size > 0) {
+        process.stderr.write(
+          `[confirmation] Restored ${this.queue.size} pending operation(s) from disk\n`
+        );
+      }
+      return this.queue.size;
+    } catch (e: unknown) {
+      process.stderr.write(
+        `[confirmation] Failed to load persisted queue (starting fresh): ${e}\n`
+      );
+      return 0;
+    }
+  }
+}
+
+export const confirmationQueue = new ConfirmationQueueManager(true);

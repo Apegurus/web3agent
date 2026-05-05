@@ -1,0 +1,140 @@
+import { getChainById } from "../chains/registry.js";
+import type { RuntimeHealth } from "../runtime/types.js";
+import type { HealthStatus, StartupReport } from "../types/health.js";
+import { VERSION } from "../version.js";
+
+export interface DoctorIssue {
+  code: string;
+  backend: string;
+  status: string;
+  message: string;
+  fix: string;
+}
+
+function formatAdapterLine(name: string, status: { status: string; toolCount?: number }): string {
+  const count = status.toolCount != null ? ` (${status.toolCount} tools)` : "";
+  return `    ${name.padEnd(14)} ${status.status}${count}`;
+}
+
+function maskAddress(address?: string): string {
+  if (!address) return "none";
+  if (address.length <= 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export function formatHealthSummary(report: StartupReport): string {
+  const chain = getChainById(report.activeChainId);
+  const chainLabel = chain
+    ? `${report.activeChainId} (${chain.name})`
+    : String(report.activeChainId);
+  const walletLabel = report.walletAddress
+    ? `${report.walletMode} (${maskAddress(report.walletAddress)})`
+    : report.walletMode;
+
+  const lines: string[] = [
+    "[web3agent] ─── startup ───",
+    `  version:      ${VERSION}`,
+    `  chain:        ${chainLabel}`,
+    `  wallet:       ${walletLabel}`,
+    `  confirmation: ${report.confirmWrites ? "enabled" : "disabled"}`,
+    "  adapters:",
+    formatAdapterLine("explorer", report.health.explorer),
+    formatAdapterLine("blockscout", report.health.blockscout),
+    formatAdapterLine("etherscan", report.health.etherscan),
+    formatAdapterLine("evm", report.health.evm),
+    formatAdapterLine("goat", report.health.goat),
+    formatAdapterLine("lifi", report.health.lifi),
+    formatAdapterLine("orbs", report.health.orbs),
+    formatAdapterLine("ccxt", report.health.ccxt),
+    formatAdapterLine("agentic-economy", report.health.agenticEconomy),
+    `  tools:        ${report.totalToolCount} total`,
+  ];
+
+  if (report.pendingOpsRestored && report.pendingOpsRestored > 0) {
+    lines.push(`  pending-ops:  ${report.pendingOpsRestored} restored`);
+  }
+
+  if (report.degradedServices.length > 0) {
+    lines.push(`  degraded:     ${report.degradedServices.join(", ")}`);
+  }
+
+  lines.push("[web3agent] ────────────────");
+
+  return lines.join("\n");
+}
+
+export function createDefaultHealthStatus(): HealthStatus {
+  return {
+    core: "ok",
+    explorer: {
+      name: "block-explorer",
+      status: "not_configured",
+      backends: {
+        blockscout: { status: "not_configured", chainCount: 0 },
+        etherscan: { status: "not_configured", chainCount: 0 },
+      },
+    },
+    blockscout: { name: "blockscout", status: "not_configured" },
+    etherscan: { name: "etherscan", status: "not_configured" },
+    evm: { name: "evm", status: "not_configured" },
+    goat: { name: "goat", status: "not_configured" },
+    lifi: { name: "lifi", status: "not_configured" },
+    orbs: { name: "orbs", status: "not_configured" },
+    ccxt: { name: "ccxt", status: "not_configured" },
+    agenticEconomy: { name: "agentic-economy", status: "not_configured" },
+  };
+}
+
+export function createStartupReport(partial: Partial<StartupReport>): StartupReport {
+  return {
+    health: partial.health ?? createDefaultHealthStatus(),
+    totalToolCount: partial.totalToolCount ?? 0,
+    walletMode: partial.walletMode ?? "none",
+    walletAddress: partial.walletAddress,
+    confirmWrites: partial.confirmWrites ?? true,
+    activeChainId: partial.activeChainId ?? 8453,
+    degradedServices: partial.degradedServices ?? [],
+    pendingOpsRestored: partial.pendingOpsRestored,
+    fatalError: partial.fatalError,
+  };
+}
+
+export function markBackendDegraded(
+  health: HealthStatus,
+  backend: keyof HealthStatus,
+  message: string
+): void {
+  if (backend === "core") {
+    health.core = "degraded";
+    return;
+  }
+  health[backend].status = "degraded";
+  health[backend].message = message;
+}
+
+function issueForBackend(name: string, backend: { status: string; message?: string }): DoctorIssue {
+  const normalizedName = name.replace(/([A-Z])/g, "_$1").toUpperCase();
+  const code = `${normalizedName}_${backend.status.toUpperCase()}`;
+  const message =
+    backend.message ??
+    (backend.status === "not_configured"
+      ? `${name} is not configured`
+      : `${name} is currently ${backend.status}`);
+
+  return {
+    code,
+    backend: name,
+    status: backend.status,
+    message,
+    fix:
+      backend.status === "not_configured"
+        ? `Configure the ${name} backend if you need its capabilities, or ignore this if it is optional for your workflow.`
+        : `Check the ${name} backend configuration, credentials, and upstream availability, then rerun \`web3agent doctor --json\`.`,
+  };
+}
+
+export function buildDoctorIssues(health: RuntimeHealth): DoctorIssue[] {
+  return Object.entries(health.backends)
+    .filter(([, backend]) => backend.status !== "ok")
+    .map(([name, backend]) => issueForBackend(name, backend));
+}

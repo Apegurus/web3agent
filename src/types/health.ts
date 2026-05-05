@@ -7,32 +7,40 @@ export interface BackendStatus {
   toolCount?: number;
 }
 
+export interface ExplorerBackendHealth {
+  status: BackendStatusCode;
+  chainCount: number;
+  message?: string;
+}
+
+export interface ExplorerHealth extends BackendStatus {
+  backends: {
+    blockscout: ExplorerBackendHealth;
+    etherscan: ExplorerBackendHealth;
+  };
+}
+
 export interface HealthStatus {
   core: BackendStatusCode;
+  explorer: ExplorerHealth;
   blockscout: BackendStatus;
+  etherscan: BackendStatus;
   evm: BackendStatus;
   goat: BackendStatus;
   lifi: BackendStatus;
   orbs: BackendStatus;
+  ccxt: BackendStatus;
+  agenticEconomy: BackendStatus;
 }
 
 export interface StartupReport {
   health: HealthStatus;
   totalToolCount: number;
   walletMode: string;
+  walletAddress?: string;
   confirmWrites: boolean;
   activeChainId: number;
   degradedServices: string[];
+  pendingOpsRestored?: number;
   fatalError?: string;
-}
-
-export function formatHealthSummary(report: StartupReport): string {
-  const lines: string[] = [
-    `[web3agent] Starting on chain ${report.activeChainId}, wallet: ${report.walletMode}, confirm: ${report.confirmWrites}`,
-    `[web3agent] Tools: ${report.totalToolCount} loaded`,
-  ];
-  if (report.degradedServices.length > 0) {
-    lines.push(`[web3agent] Degraded: ${report.degradedServices.join(", ")}`);
-  }
-  return lines.join("\n");
 }

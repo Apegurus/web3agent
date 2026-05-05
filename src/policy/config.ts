@@ -1,0 +1,94 @@
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type { RuntimeConfig } from "../types/config.js";
+import { atomicWriteJson } from "../utils/atomic-write.js";
+import { DEFAULT_TREASURY_POLICY, type TreasuryPolicy } from "./types.js";
+
+function getPolicyFilePath(): string {
+  return join(homedir(), ".web3agent", "policy.json");
+}
+
+let policyFileCache: { data: Partial<TreasuryPolicy>; expiry: number } | undefined;
+const POLICY_CACHE_TTL_MS = 5_000;
+
+function loadPolicyFile(): Partial<TreasuryPolicy> {
+  if (policyFileCache && Date.now() < policyFileCache.expiry) return policyFileCache.data;
+
+  const filePath = getPolicyFilePath();
+  if (!existsSync(filePath)) return {};
+
+  try {
+    const raw = readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const result: Partial<TreasuryPolicy> = {};
+
+    if (typeof parsed.enabled === "boolean") result.enabled = parsed.enabled;
+
+    const numericFields: Array<keyof Omit<TreasuryPolicy, "enabled">> = [
+      "maxSingleTransactionUsd",
+      "maxHourlyUsd",
+      "maxDailyUsd",
+      "minReserveUsd",
+      "maxX402PaymentUsd",
+    ];
+    for (const field of numericFields) {
+      if (typeof parsed[field] === "number" && (parsed[field] as number) >= 0) {
+        result[field] = parsed[field] as number;
+      }
+    }
+
+    policyFileCache = { data: result, expiry: Date.now() + POLICY_CACHE_TTL_MS };
+    return result;
+  } catch (e: unknown) {
+    process.stderr.write(`[policy] Failed to load policy.json: ${e}\n`);
+    return {};
+  }
+}
+
+/**
+ * Resolve the effective treasury policy.
+ * Precedence: env vars (RuntimeConfig) > policy.json > built-in defaults.
+ */
+export function resolvePolicy(config: RuntimeConfig): TreasuryPolicy {
+  const filePolicy = loadPolicyFile();
+
+  const policy: TreasuryPolicy = {
+    enabled: config.policyEnabled ?? filePolicy.enabled ?? DEFAULT_TREASURY_POLICY.enabled,
+    maxSingleTransactionUsd:
+      config.policyMaxSingleTransactionUsd ??
+      filePolicy.maxSingleTransactionUsd ??
+      DEFAULT_TREASURY_POLICY.maxSingleTransactionUsd,
+    maxHourlyUsd:
+      config.policyMaxHourlyUsd ?? filePolicy.maxHourlyUsd ?? DEFAULT_TREASURY_POLICY.maxHourlyUsd,
+    maxDailyUsd:
+      config.policyMaxDailyUsd ?? filePolicy.maxDailyUsd ?? DEFAULT_TREASURY_POLICY.maxDailyUsd,
+    minReserveUsd:
+      config.policyMinReserveUsd ??
+      filePolicy.minReserveUsd ??
+      DEFAULT_TREASURY_POLICY.minReserveUsd,
+    maxX402PaymentUsd:
+      config.policyMaxX402PaymentUsd ??
+      filePolicy.maxX402PaymentUsd ??
+      DEFAULT_TREASURY_POLICY.maxX402PaymentUsd,
+  };
+
+  if (policy.maxHourlyUsd > policy.maxDailyUsd) {
+    process.stderr.write(
+      `[policy] maxHourlyUsd ($${policy.maxHourlyUsd}) exceeds maxDailyUsd ($${policy.maxDailyUsd}) — capping hourly to daily\n`
+    );
+    policy.maxHourlyUsd = policy.maxDailyUsd;
+  }
+
+  return policy;
+}
+
+export async function savePolicyFile(policy: Partial<TreasuryPolicy>): Promise<string> {
+  const filePath = getPolicyFilePath();
+
+  const existing = loadPolicyFile();
+  const merged = { ...existing, ...policy };
+  await atomicWriteJson(filePath, merged);
+  policyFileCache = undefined;
+  return filePath;
+}
