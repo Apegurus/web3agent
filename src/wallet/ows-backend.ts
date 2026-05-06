@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -8,8 +9,9 @@ import {
   importWalletMnemonic,
   importWalletPrivateKey,
   listWallets,
+  renameWallet,
 } from "@open-wallet-standard/core";
-import { type Account, type Hex, isHex } from "viem";
+import type { Account } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import type { WalletMode, WalletState } from "../types/wallet.js";
 import { atomicWriteJson } from "../utils/atomic-write.js";
@@ -17,6 +19,7 @@ import type { WalletBackend } from "./backend.js";
 import { walletEvents } from "./events.js";
 import { migrateLegacyWalletToOws } from "./migration.js";
 import { OWS_ACTIVE_WALLET_NAME, OWS_METADATA_FILE_NAME } from "./ows-constants.js";
+import { isRecord, normalizePrivateKey, requirePrivateKey } from "./wallet-utils.js";
 
 export { OWS_ACTIVE_WALLET_NAME } from "./ows-constants.js";
 
@@ -49,32 +52,12 @@ function isWalletSummary(value: unknown): value is WalletSummary {
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function resolvePassphrase(passphrase?: string): string {
   const resolved = passphrase ?? process.env.OWS_PASSPHRASE;
   if (resolved === undefined || resolved.trim() === "") {
     throw new Error("[wallet] OWS passphrase is required and must be non-empty");
   }
   return resolved;
-}
-
-function normalizePrivateKey(privateKey: string): Hex | null {
-  const normalized = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
-  if (!isHex(normalized, { strict: true }) || normalized.length !== 66) {
-    return null;
-  }
-  return normalized;
-}
-
-function requirePrivateKey(privateKey: string): Hex {
-  const normalized = normalizePrivateKey(privateKey);
-  if (normalized === null) {
-    throw new Error("[wallet] Invalid 32-byte hex private key");
-  }
-  return normalized;
 }
 
 function isMnemonicLike(secret: string): boolean {
@@ -139,16 +122,16 @@ function extractSecp256k1Key(value: unknown): string | null {
   return null;
 }
 
+function warnAndReturnRawKey(privateKey: string): string {
+  process.stderr.write("[wallet] WARNING: Raw key exported for subprocess (GOAT compatibility)\n");
+  return privateKey;
+}
+
 async function ensureDirectory(path: string): Promise<void> {
   await mkdir(path, { recursive: true });
 }
 
 export class OwsWalletBackend implements WalletBackend {
-  readonly info = {
-    type: "ows",
-    reason: "OWS wallet backend available with encrypted vault support",
-  } as const;
-
   private readonly passphrase: string;
   private readonly vaultPath: string;
   private currentState: WalletState = {
@@ -164,6 +147,14 @@ export class OwsWalletBackend implements WalletBackend {
   constructor(options: OwsWalletBackendOptions = {}) {
     this.passphrase = resolvePassphrase(options.passphrase);
     this.vaultPath = options.vaultPath ?? OWS_DEFAULT_VAULT_PATH;
+  }
+
+  get info() {
+    return {
+      type: "ows",
+      reason: "OWS wallet backend available with encrypted vault support",
+      vaultPath: this.vaultPath,
+    } as const;
   }
 
   async initialize(config: {
@@ -261,9 +252,9 @@ export class OwsWalletBackend implements WalletBackend {
     if (privateKey !== undefined) {
       await this.replaceWallet(
         OWS_ACTIVE_WALLET_NAME,
-        () =>
+        (walletName) =>
           importWalletPrivateKey(
-            OWS_ACTIVE_WALLET_NAME,
+            walletName,
             requirePrivateKey(privateKey),
             this.passphrase,
             this.vaultPath,
@@ -289,14 +280,8 @@ export class OwsWalletBackend implements WalletBackend {
     if (mnemonic !== undefined) {
       await this.replaceWallet(
         OWS_ACTIVE_WALLET_NAME,
-        () =>
-          importWalletMnemonic(
-            OWS_ACTIVE_WALLET_NAME,
-            mnemonic,
-            this.passphrase,
-            accountIndex,
-            this.vaultPath
-          ),
+        (walletName) =>
+          importWalletMnemonic(walletName, mnemonic, this.passphrase, accountIndex, this.vaultPath),
         {
           activeMode: "mnemonic",
           activeAccountIndex: accountIndex,
@@ -325,6 +310,15 @@ export class OwsWalletBackend implements WalletBackend {
     });
   }
 
+  async deletePersistedWallet(): Promise<void> {
+    if (this.hasWalletNamed(OWS_ACTIVE_WALLET_NAME)) {
+      deleteWallet(OWS_ACTIVE_WALLET_NAME, this.vaultPath);
+    }
+
+    await this.writeMetadata({});
+    await this.deactivate();
+  }
+
   async getKeyForSubprocess(): Promise<string | null> {
     if (
       this.currentState.mode === "read-only" ||
@@ -332,10 +326,6 @@ export class OwsWalletBackend implements WalletBackend {
     ) {
       return null;
     }
-
-    process.stderr.write(
-      "[wallet] WARNING: Raw key exported for subprocess (GOAT compatibility)\n"
-    );
 
     const parsedExport = parseWalletExport(
       exportWallet(OWS_ACTIVE_WALLET_NAME, this.passphrase, this.vaultPath)
@@ -350,7 +340,8 @@ export class OwsWalletBackend implements WalletBackend {
       if (hdKey.privateKey === null) {
         return null;
       }
-      return normalizePrivateKey(Buffer.from(hdKey.privateKey).toString("hex"));
+      const normalizedKey = normalizePrivateKey(Buffer.from(hdKey.privateKey).toString("hex"));
+      return normalizedKey === null ? null : warnAndReturnRawKey(normalizedKey);
     }
 
     if (parsedExport.type !== "json") {
@@ -358,20 +349,45 @@ export class OwsWalletBackend implements WalletBackend {
     }
 
     const privateKey = extractSecp256k1Key(parsedExport.value);
-    return privateKey === null ? null : normalizePrivateKey(privateKey);
+    if (privateKey === null) return null;
+    const normalizedKey = normalizePrivateKey(privateKey);
+    return normalizedKey === null ? null : warnAndReturnRawKey(normalizedKey);
   }
 
   private async replaceWallet(
     walletName: string,
-    create: () => unknown,
+    create: (walletName: string) => unknown,
     metadata: OwsWalletMetadata
   ): Promise<void> {
     await ensureDirectory(this.vaultPath);
-    if (this.hasWalletNamed(walletName)) {
-      deleteWallet(walletName, this.vaultPath);
+
+    const backupWalletName = `${walletName}-backup-${randomUUID()}`;
+    const hasExistingWallet = this.hasWalletNamed(walletName);
+
+    try {
+      if (hasExistingWallet) {
+        renameWallet(walletName, backupWalletName, this.vaultPath);
+      }
+
+      create(walletName);
+      if (!this.hasWalletNamed(walletName)) {
+        throw new Error("[wallet] OWS replacement import did not create the active wallet");
+      }
+
+      await this.writeMetadata(metadata);
+
+      if (hasExistingWallet && this.hasWalletNamed(backupWalletName)) {
+        deleteWallet(backupWalletName, this.vaultPath);
+      }
+    } catch (error: unknown) {
+      if (this.hasWalletNamed(walletName)) {
+        deleteWallet(walletName, this.vaultPath);
+      }
+      if (hasExistingWallet && this.hasWalletNamed(backupWalletName)) {
+        renameWallet(backupWalletName, walletName, this.vaultPath);
+      }
+      throw error;
     }
-    create();
-    await this.writeMetadata(metadata);
   }
 
   private loadReadOnlyAccount(config: {
@@ -425,7 +441,7 @@ export class OwsWalletBackend implements WalletBackend {
     accountIndex: number,
     addressIndex: number
   ): Account {
-    if (mode === "mnemonic" && accountIndex !== 0) {
+    if (mode === "mnemonic" && (accountIndex !== 0 || addressIndex !== 0)) {
       const parsedExport = parseWalletExport(
         exportWallet(walletName, this.passphrase, this.vaultPath)
       );

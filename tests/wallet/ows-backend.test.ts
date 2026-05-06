@@ -1,12 +1,16 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listWallets } from "@open-wallet-standard/core";
 import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OWS_METADATA_FILE_NAME } from "../../src/wallet/ows-constants.js";
 
 const TEST_PASSPHRASE = "test-passphrase";
 const TEST_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const TEST_REPLACEMENT_PRIVATE_KEY =
+  "0x59c6995e998f97a5a0044966f0945382d25e72839cf0b37d4a4dffdebd5a6a2b";
 const TEST_MNEMONIC = "test test test test test test test test test test test junk";
 
 function createVaultPath(): string {
@@ -90,6 +94,56 @@ describe("OwsWalletBackend", () => {
     expect(typeof backend.getAccount().signMessage).toBe("function");
   });
 
+  it("preserves the old active wallet when replacement import fails", async () => {
+    type ImportWalletPrivateKey = typeof import(
+      "@open-wallet-standard/core"
+    ).importWalletPrivateKey;
+    const unexpectedImportWalletPrivateKey: ImportWalletPrivateKey = (name) => {
+      throw new Error(`Unexpected call before mock setup: ${name}`);
+    };
+    let importWalletPrivateKeyImplementation = unexpectedImportWalletPrivateKey;
+    const importWalletPrivateKeyMock = vi.fn(
+      (...args: Parameters<ImportWalletPrivateKey>): ReturnType<ImportWalletPrivateKey> =>
+        importWalletPrivateKeyImplementation(...args)
+    );
+
+    vi.doMock("@open-wallet-standard/core", async () => {
+      const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+        "@open-wallet-standard/core"
+      );
+      importWalletPrivateKeyImplementation = actual.importWalletPrivateKey;
+      return {
+        ...actual,
+        importWalletPrivateKey: importWalletPrivateKeyMock,
+      };
+    });
+
+    const { OwsWalletBackend, OWS_ACTIVE_WALLET_NAME } = await import(
+      "../../src/wallet/ows-backend.js"
+    );
+    const vaultPath = createVaultPath();
+    vaultPaths.push(vaultPath);
+
+    const backend = new OwsWalletBackend({ passphrase: TEST_PASSPHRASE, vaultPath });
+    await backend.initialize({ chainId: 8453, accountIndex: 0, addressIndex: 0 });
+    await backend.activate({ privateKey: TEST_PRIVATE_KEY });
+    const oldAddress = backend.getState().address;
+
+    importWalletPrivateKeyMock.mockImplementationOnce(() => {
+      throw new Error("replacement import failed");
+    });
+
+    await expect(backend.activate({ privateKey: TEST_REPLACEMENT_PRIVATE_KEY })).rejects.toThrow(
+      "replacement import failed"
+    );
+
+    expect(listWallets(vaultPath).some((wallet) => wallet.name === OWS_ACTIVE_WALLET_NAME)).toBe(
+      true
+    );
+    expect(backend.getState().address).toBe(oldAddress);
+    await expect(backend.getKeyForSubprocess()).resolves.toBe(TEST_PRIVATE_KEY);
+  });
+
   it("activate with mnemonic respects account and address indices", async () => {
     const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
     const vaultPath = createVaultPath();
@@ -114,6 +168,35 @@ describe("OwsWalletBackend", () => {
     expect(state.address).toBe(expectedAccount.address);
   });
 
+  it.each([
+    { accountIndex: 0, addressIndex: 0 },
+    { accountIndex: 0, addressIndex: 1 },
+    { accountIndex: 1, addressIndex: 0 },
+    { accountIndex: 1, addressIndex: 2 },
+  ])(
+    "matches viem mnemonic derivation for account $accountIndex address $addressIndex",
+    async ({ accountIndex, addressIndex }) => {
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const vaultPath = createVaultPath();
+      vaultPaths.push(vaultPath);
+
+      const backend = new OwsWalletBackend({ passphrase: TEST_PASSPHRASE, vaultPath });
+      await backend.initialize({ chainId: 1, accountIndex: 0, addressIndex: 0 });
+
+      const state = await backend.activate({
+        mnemonic: TEST_MNEMONIC,
+        accountIndex,
+        addressIndex,
+      });
+      const expectedAccount = mnemonicToAccount(TEST_MNEMONIC, { accountIndex, addressIndex });
+
+      expect(state.mode).toBe("mnemonic");
+      expect(state.accountIndex).toBe(accountIndex);
+      expect(state.addressIndex).toBe(addressIndex);
+      expect(state.address).toBe(expectedAccount.address);
+    }
+  );
+
   it("deactivate returns to read-only without creating extra persistent wallets", async () => {
     const { OwsWalletBackend, OWS_ACTIVE_WALLET_NAME } = await import(
       "../../src/wallet/ows-backend.js"
@@ -133,6 +216,45 @@ describe("OwsWalletBackend", () => {
     expect(walletsBeforeDeactivate.some((wallet) => wallet.name === OWS_ACTIVE_WALLET_NAME)).toBe(
       true
     );
+  });
+
+  it("deletePersistedWallet removes the active OWS wallet, clears metadata, and returns read-only state", async () => {
+    const { OwsWalletBackend, OWS_ACTIVE_WALLET_NAME } = await import(
+      "../../src/wallet/ows-backend.js"
+    );
+    const vaultPath = createVaultPath();
+    vaultPaths.push(vaultPath);
+
+    const backend = new OwsWalletBackend({ passphrase: TEST_PASSPHRASE, vaultPath });
+    await backend.initialize({ chainId: 8453, accountIndex: 0, addressIndex: 0 });
+    await backend.activate({ mnemonic: TEST_MNEMONIC, accountIndex: 1, addressIndex: 2 });
+
+    const metadataPath = join(vaultPath, OWS_METADATA_FILE_NAME);
+    expect(listWallets(vaultPath).some((wallet) => wallet.name === OWS_ACTIVE_WALLET_NAME)).toBe(
+      true
+    );
+    expect(existsSync(metadataPath)).toBe(true);
+
+    await backend.deletePersistedWallet();
+
+    expect(backend.getState().mode).toBe("read-only");
+    expect(listWallets(vaultPath).some((wallet) => wallet.name === OWS_ACTIVE_WALLET_NAME)).toBe(
+      false
+    );
+    expect(JSON.parse(await readFile(metadataPath, "utf-8"))).toEqual({});
+  });
+
+  it("deletePersistedWallet is a no-op-safe read-only transition when no OWS wallet is persisted", async () => {
+    const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+    const vaultPath = createVaultPath();
+    vaultPaths.push(vaultPath);
+
+    const backend = new OwsWalletBackend({ passphrase: TEST_PASSPHRASE, vaultPath });
+    await backend.initialize({ chainId: 8453, accountIndex: 0, addressIndex: 0 });
+
+    await expect(backend.deletePersistedWallet()).resolves.toBeUndefined();
+    expect(backend.getState().mode).toBe("read-only");
+    expect(listWallets(vaultPath)).toHaveLength(0);
   });
 
   it("getKeyForSubprocess returns null in read-only mode without logging a raw-key warning", async () => {
@@ -171,6 +293,37 @@ describe("OwsWalletBackend", () => {
       expect(exportedKey).toBe(TEST_PRIVATE_KEY);
       expect(loggedOutput).toContain("[wallet] WARNING: Raw key exported for subprocess");
       expect(loggedOutput).not.toContain(TEST_PRIVATE_KEY);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it("getKeyForSubprocess does not warn when private-key export has no secp256k1 key", async () => {
+    const exportWalletMock = vi.fn(() => JSON.stringify({ ed25519: "not-an-evm-key" }));
+    vi.doMock("@open-wallet-standard/core", async () => {
+      const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+        "@open-wallet-standard/core"
+      );
+      return {
+        ...actual,
+        exportWallet: exportWalletMock,
+      };
+    });
+
+    const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+    const vaultPath = createVaultPath();
+    vaultPaths.push(vaultPath);
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    try {
+      const backend = new OwsWalletBackend({ passphrase: TEST_PASSPHRASE, vaultPath });
+      await backend.initialize({ chainId: 8453, accountIndex: 0, addressIndex: 0 });
+      await backend.activate({ privateKey: TEST_PRIVATE_KEY });
+
+      await expect(backend.getKeyForSubprocess()).resolves.toBeNull();
+      expect(stderrSpy.mock.calls.flat().join("\n")).not.toContain(
+        "WARNING: Raw key exported for subprocess"
+      );
     } finally {
       stderrSpy.mockRestore();
     }
