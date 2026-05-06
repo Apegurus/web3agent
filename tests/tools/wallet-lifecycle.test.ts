@@ -1,7 +1,9 @@
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockActivateWallet = vi.fn();
 const mockDeactivateWallet = vi.fn();
+const mockDeletePersistedWallet = vi.fn();
 const mockGetWalletState = vi.fn();
 const mockGetActiveAccount = vi.fn();
 const mockHasPersistedWalletKey = vi.fn().mockReturnValue(false);
@@ -13,9 +15,15 @@ const mockConfirmationQueue = {
 vi.mock("../../src/wallet/persistence.js", () => ({
   activateWallet: (...args: unknown[]) => mockActivateWallet(...args),
   deactivateWallet: (...args: unknown[]) => mockDeactivateWallet(...args),
+  deletePersistedWallet: (...args: unknown[]) => mockDeletePersistedWallet(...args),
   getWalletState: () => mockGetWalletState(),
   getActiveAccount: () => mockGetActiveAccount(),
   hasPersistedWalletKey: () => mockHasPersistedWalletKey(),
+}));
+
+vi.mock("../../src/wallet/agent-visible-secrets.js", () => ({
+  getAgentVisibleSecretsDisabledMessage: () => "agent-visible secrets disabled",
+  isAgentVisibleSecretsEnabled: () => true,
 }));
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
@@ -23,9 +31,32 @@ vi.mock("../../src/wallet/confirmation.js", () => ({
   registerExecutor: vi.fn(),
 }));
 
+function resetWalletMocks(): void {
+  mockActivateWallet.mockReset();
+  mockDeactivateWallet.mockReset();
+  mockDeletePersistedWallet.mockReset();
+  mockGetWalletState.mockReset();
+  mockGetActiveAccount.mockReset();
+  mockHasPersistedWalletKey.mockReset();
+  mockConfirmationQueue.enqueue.mockReset();
+  mockHasPersistedWalletKey.mockReturnValue(false);
+}
+
+function parseTextPayload(result: CallToolResult): Record<string, unknown> {
+  const firstContent = result.content[0];
+  if (firstContent.type !== "text") {
+    throw new Error(`Expected text response, got ${firstContent.type}`);
+  }
+  const parsed: unknown = JSON.parse(firstContent.text);
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new Error("Expected object response payload");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 describe("wallet_activate tool handler", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetWalletMocks();
     mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
     mockConfirmationQueue.enabled = false;
     mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
@@ -35,7 +66,7 @@ describe("wallet_activate tool handler", () => {
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletActivate({});
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -52,7 +83,7 @@ describe("wallet_activate tool handler", () => {
     });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.address).toBe("0xABCD");
     expect(payload.mode).toBe("private-key");
     expect(mockActivateWallet).toHaveBeenCalledWith(
@@ -93,14 +124,14 @@ describe("wallet_activate tool handler", () => {
     const result = await walletActivate({ privateKey: "invalid" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.error).toBe("WALLET_ACTIVATE_FAILED");
   });
 });
 
 describe("wallet_deactivate tool handler", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetWalletMocks();
     mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
     mockConfirmationQueue.enabled = false;
     mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
@@ -108,35 +139,29 @@ describe("wallet_deactivate tool handler", () => {
 
   it("calls deactivateWallet and returns read-only state", async () => {
     mockDeactivateWallet.mockResolvedValueOnce(undefined);
-    mockGetWalletState
-      .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
-      .mockReturnValueOnce({ mode: "private-key", address: "0xABCD", chainId: 1 })
-      .mockReturnValueOnce({ mode: "read-only", chainId: 1 });
+    mockGetWalletState.mockReturnValue({ mode: "read-only", chainId: 1 });
 
     const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.mode).toBe("read-only");
     expect(mockDeactivateWallet).toHaveBeenCalled();
   });
 
-  it("returns pending_confirmation when confirmation is enabled", async () => {
+  it("does not queue session-local deactivation when confirmation is enabled", async () => {
     mockConfirmationQueue.enabled = true;
-    mockConfirmationQueue.enqueue.mockReturnValueOnce({
-      queued: true,
-      id: "deactivate-op",
-      summary: "Deactivate wallet",
-    });
+    mockDeactivateWallet.mockResolvedValueOnce(undefined);
+    mockGetWalletState.mockReturnValue({ mode: "read-only", chainId: 1 });
 
     const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
-    expect(payload.status).toBe("pending_confirmation");
-    expect(payload.id).toBe("deactivate-op");
+    const payload = parseTextPayload(result);
+    expect(payload.mode).toBe("read-only");
+    expect(mockConfirmationQueue.enqueue).not.toHaveBeenCalled();
   });
 
   it("returns error when deactivateWallet throws", async () => {
@@ -146,8 +171,60 @@ describe("wallet_deactivate tool handler", () => {
     const result = await walletDeactivate();
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.error).toBe("WALLET_DEACTIVATE_FAILED");
+  });
+});
+
+describe("wallet_delete tool handler", () => {
+  beforeEach(() => {
+    resetWalletMocks();
+    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockConfirmationQueue.enabled = false;
+    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+  });
+
+  it("queues permanent deletion when confirmation is enabled", async () => {
+    mockConfirmationQueue.enabled = true;
+    mockConfirmationQueue.enqueue.mockReturnValueOnce({
+      queued: true,
+      id: "delete-op",
+      summary: "Permanently delete wallet",
+    });
+
+    const { walletDelete } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDelete();
+
+    expect(result.isError).toBe(false);
+    const payload = parseTextPayload(result);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("delete-op");
+    expect(mockDeletePersistedWallet).not.toHaveBeenCalled();
+  });
+
+  it("deletes persisted wallet material and returns read-only state", async () => {
+    mockDeletePersistedWallet.mockResolvedValueOnce(undefined);
+    mockGetWalletState.mockReturnValue({ mode: "read-only", chainId: 1 });
+
+    const { walletDelete } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDelete();
+
+    expect(result.isError).toBe(false);
+    const payload = parseTextPayload(result);
+    expect(payload.mode).toBe("read-only");
+    expect(payload.message).toContain("Permanently deleted");
+    expect(mockDeletePersistedWallet).toHaveBeenCalled();
+  });
+
+  it("returns error when deletePersistedWallet throws", async () => {
+    mockDeletePersistedWallet.mockRejectedValueOnce(new Error("fs error"));
+
+    const { walletDelete } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDelete();
+
+    expect(result.isError).toBe(true);
+    const payload = parseTextPayload(result);
+    expect(payload.error).toBe("WALLET_DELETE_FAILED");
   });
 });
 
@@ -157,7 +234,7 @@ describe("wallet_set_confirmation tool handler", () => {
     const result = await walletSetConfirmation({ enabled: "yes" });
 
     expect(result.isError).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
@@ -174,7 +251,7 @@ describe("wallet_set_confirmation tool handler", () => {
     const result = await walletSetConfirmation({ enabled: false });
 
     expect(result.isError).toBe(false);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.status).toBe("pending_confirmation");
     expect(payload.id).toBe("test-op-id");
   });
@@ -187,7 +264,7 @@ describe("wallet_set_confirmation tool handler", () => {
 
     expect(result.isError).toBe(false);
     expect(mockConfirmationQueue.enabled).toBe(true);
-    const payload = JSON.parse(result.content[0].text as string);
+    const payload = parseTextPayload(result);
     expect(payload.confirmationRequired).toBe(true);
   });
 });
