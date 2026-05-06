@@ -43,6 +43,7 @@ describe("wallet persistence backend delegation", () => {
       }) => Promise<WalletState>
     >(async () => TEST_STATE);
     const deactivate = vi.fn<() => Promise<void>>(async () => undefined);
+    const deletePersistedWallet = vi.fn<() => Promise<void>>(async () => undefined);
     const getKeyForSubprocess = vi.fn<() => Promise<string | null>>(async () => "0xfeed");
 
     vi.doMock("../../src/wallet/backend-selector.js", () => {
@@ -54,6 +55,7 @@ describe("wallet persistence backend delegation", () => {
         getAccount: vi.fn(() => TEST_ACCOUNT),
         activate,
         deactivate,
+        deletePersistedWallet,
         getKeyForSubprocess,
       };
 
@@ -98,6 +100,8 @@ describe("wallet persistence backend delegation", () => {
     expect(getKeyForSubprocess).toHaveBeenCalledTimes(1);
     await persistence.deactivateWallet();
     expect(deactivate).toHaveBeenCalledTimes(1);
+    await persistence.deletePersistedWallet();
+    expect(deletePersistedWallet).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to internal persistence when no backend has been selected yet", async () => {
@@ -123,6 +127,7 @@ describe("wallet persistence backend delegation", () => {
       initializeWalletInternal,
       activateWalletInternal: vi.fn(),
       deactivateWalletInternal: vi.fn(),
+      deletePersistedWalletInternal: vi.fn(),
       getActiveAccountInternal: vi.fn(),
       getPersistedKeyForSubprocessInternal: vi.fn(),
       getWalletStateInternal: vi.fn(() => TEST_STATE),
@@ -208,12 +213,24 @@ describe("wallet persistence", () => {
     expect(data.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
   });
 
-  it("deactivate removes wallet file and reverts to read-only", async () => {
+  it("deactivate keeps wallet file and reverts to read-only", async () => {
     const { activateWallet, deactivateWallet, getWalletState } = await import(
       "../../src/wallet/persistence.js"
     );
     await activateWallet({ privateKey: VALID_PRIVATE_KEY });
     await deactivateWallet();
+
+    const walletPath = join(TEST_HOME, ".web3agent", "wallet.json");
+    expect(existsSync(walletPath)).toBe(true);
+    expect(getWalletState().mode).toBe("read-only");
+  });
+
+  it("deletePersistedWallet removes wallet file and reverts to read-only", async () => {
+    const { activateWallet, deletePersistedWallet, getWalletState } = await import(
+      "../../src/wallet/persistence.js"
+    );
+    await activateWallet({ privateKey: VALID_PRIVATE_KEY });
+    await deletePersistedWallet();
 
     const walletPath = join(TEST_HOME, ".web3agent", "wallet.json");
     expect(existsSync(walletPath)).toBe(false);

@@ -2,6 +2,7 @@ import type { WalletBackend } from "./backend.js";
 import {
   activateWalletInternal,
   deactivateWalletInternal,
+  deletePersistedWalletInternal,
   getActiveAccountInternal,
   getPersistedKeyForSubprocessInternal,
   getWalletStateInternal,
@@ -43,6 +44,10 @@ export class LegacyWalletBackend implements WalletBackend {
 
   async deactivate(): Promise<void> {
     await deactivateWalletInternal();
+  }
+
+  async deletePersistedWallet(): Promise<void> {
+    await deletePersistedWalletInternal();
   }
 
   async getKeyForSubprocess(): Promise<string | null> {

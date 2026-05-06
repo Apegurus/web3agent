@@ -1,11 +1,10 @@
 import type { Account } from "viem";
 import type { WalletState } from "../types/wallet.js";
 
-export type WalletCredential = string | undefined;
-
 export interface WalletBackendInfo {
   readonly type: "ows" | "legacy";
   readonly reason: string;
+  readonly vaultPath?: string;
 }
 
 export interface WalletBackend {
@@ -26,5 +25,6 @@ export interface WalletBackend {
     addressIndex?: number;
   }): Promise<WalletState>;
   deactivate(): Promise<void>;
+  deletePersistedWallet(): Promise<void>;
   getKeyForSubprocess(): Promise<string | null>;
 }

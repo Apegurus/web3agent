@@ -4,6 +4,7 @@ import { NO_WALLET_BACKEND_SELECTED_MESSAGE, getWalletBackend } from "./backend-
 import {
   activateWalletInternal,
   deactivateWalletInternal,
+  deletePersistedWalletInternal,
   getActiveAccountInternal,
   getPersistedKeyForSubprocessInternal,
   getWalletStateInternal,
@@ -75,6 +76,15 @@ export async function deactivateWallet(): Promise<void> {
     return;
   }
   await deactivateWalletInternal();
+}
+
+export async function deletePersistedWallet(): Promise<void> {
+  const backend = getSelectedWalletBackendOrNull();
+  if (backend) {
+    await backend.deletePersistedWallet();
+    return;
+  }
+  await deletePersistedWalletInternal();
 }
 
 export function hasPersistedWalletKey(): boolean {

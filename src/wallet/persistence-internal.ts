@@ -297,6 +297,10 @@ export async function deactivateWalletInternal(): Promise<void> {
   currentAccount = ephemeral.account;
   currentState = ephemeral.state;
   walletEvents.emit("wallet-changed", currentState);
+}
+
+export async function deletePersistedWalletInternal(): Promise<void> {
+  await deactivateWalletInternal();
 
   const walletPath = getWalletPath();
   if (existsSync(walletPath)) {
