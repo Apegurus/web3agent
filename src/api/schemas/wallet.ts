@@ -42,10 +42,15 @@ export const walletSetConfirmationSchema = z.object({
 
 export const walletInfoSchema = z.object({});
 
+export const walletDeleteSchema = z.object({});
+
 export const walletInfoOutputSchema = z.object({
   backend: z.enum(["ows", "legacy"]).describe("Active wallet backend type"),
   backendReason: z.string().describe("Human-readable reason this backend was selected"),
-  vaultPath: z.string().nullable().describe("OWS vault path, or null when using legacy storage"),
+  vaultPath: z
+    .string()
+    .nullable()
+    .describe("Effective OWS vault path from the selected backend, or null for legacy storage"),
   supportedChains: z
     .array(z.string())
     .describe("Wallet backend chain families supported by web3agent"),
@@ -58,7 +63,12 @@ export const walletInfoOutputSchema = z.object({
   state: z
     .object({
       mode: z.enum(["private-key", "mnemonic", "read-only"]).describe("Current wallet mode"),
-      address: z.string().nullable().describe("Active wallet address, or null in read-only mode"),
+      address: z
+        .string()
+        .nullable()
+        .describe(
+          "Active wallet address, or the ephemeral non-persistent read-only address when mode is read-only"
+        ),
       chainId: z.number().describe("Active chain ID"),
       accountIndex: z.number().describe("BIP-44 account index"),
       addressIndex: z.number().describe("BIP-44 address index"),

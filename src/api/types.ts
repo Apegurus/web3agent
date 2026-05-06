@@ -131,6 +131,7 @@ import type {
   transactionSimulateSchema,
   typedDataPayloadSchema,
   walletActivateSchema,
+  walletDeleteSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
   walletInfoOutputSchema,
@@ -292,6 +293,7 @@ export type WalletFromMnemonicInput = z.infer<typeof walletFromMnemonicSchema>;
 export type WalletDeriveAddressesInput = z.infer<typeof walletDeriveAddressesSchema>;
 export type WalletInfoInput = z.infer<typeof walletInfoSchema>;
 export type WalletInfoResult = z.infer<typeof walletInfoOutputSchema>;
+export type WalletDeleteInput = z.infer<typeof walletDeleteSchema>;
 export type TransactionConfirmInput = z.infer<typeof transactionConfirmSchema>;
 export type TransactionDenyInput = z.infer<typeof transactionDenySchema>;
 export type SimulateTransactionInput = z.infer<typeof transactionSimulateSchema>;
@@ -410,6 +412,8 @@ export interface WalletDeactivationResult {
   mode: WalletState["mode"];
   message: string;
 }
+
+export type WalletDeleteResult = PendingConfirmationResult | WalletDeactivationResult;
 
 export interface WalletConfirmationResult {
   confirmationRequired: boolean;
