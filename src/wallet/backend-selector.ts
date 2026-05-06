@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import type { WalletBackend } from "./backend.js";
 import { LegacyWalletBackend } from "./legacy-backend.js";
+import { hasConfiguredOwsPassphrase } from "./wallet-utils.js";
 
 const defaultRequire = createRequire(import.meta.url);
 
@@ -12,17 +13,15 @@ let cachedBackend: WalletBackend | undefined;
 export const NO_WALLET_BACKEND_SELECTED_MESSAGE =
   "[wallet] No wallet backend selected. Call selectWalletBackend() first.";
 
-function hasConfiguredOwsPassphrase(): boolean {
-  const passphrase = process.env.OWS_PASSPHRASE;
-  return passphrase !== undefined && passphrase.trim() !== "";
-}
-
 export function setOwsPackageResolverForTests(resolver?: PackageResolver): void {
   testResolver = resolver;
 }
 
 export function detectOwsAvailability(): boolean {
   if (process.env.OWS_FORCE_LEGACY === "1") {
+    return false;
+  }
+  if (process.platform === "win32") {
     return false;
   }
   if (!hasConfiguredOwsPassphrase()) {
@@ -50,6 +49,7 @@ function isWalletBackend(value: unknown): value is WalletBackend {
   if (typeof value !== "object" || value === null) return false;
   if (!("info" in value && "initialize" in value && "getState" in value)) return false;
   if (!("getAccount" in value && "activate" in value && "deactivate" in value)) return false;
+  if (!("deletePersistedWallet" in value)) return false;
   if (!("getKeyForSubprocess" in value)) return false;
   const info: unknown = value.info;
   return (
@@ -62,6 +62,7 @@ function isWalletBackend(value: unknown): value is WalletBackend {
     typeof value.getAccount === "function" &&
     typeof value.activate === "function" &&
     typeof value.deactivate === "function" &&
+    typeof value.deletePersistedWallet === "function" &&
     typeof value.getKeyForSubprocess === "function"
   );
 }

@@ -59,6 +59,25 @@ describe("backend-selector", () => {
       expect(detectOwsAvailability()).toBe(false);
     });
 
+    it("returns false on Windows even when OWS package and passphrase are available", async () => {
+      process.env.OWS_PASSPHRASE = SELECTOR_TEST_PASSPHRASE;
+      const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+      Object.defineProperty(process, "platform", { value: "win32" });
+
+      try {
+        const { detectOwsAvailability, setOwsPackageResolverForTests } = await import(
+          "../../src/wallet/backend-selector.js"
+        );
+        setOwsPackageResolverForTests(() => "/node_modules/@open-wallet-standard/core/index.js");
+
+        expect(detectOwsAvailability()).toBe(false);
+      } finally {
+        if (platformDescriptor !== undefined) {
+          Object.defineProperty(process, "platform", platformDescriptor);
+        }
+      }
+    });
+
     it("returns false when passphrase is missing even if resolver succeeds", async () => {
       const { detectOwsAvailability, setOwsPackageResolverForTests } = await import(
         "../../src/wallet/backend-selector.js"
@@ -140,6 +159,36 @@ describe("backend-selector", () => {
       const first = await selectWalletBackend();
       const second = await selectWalletBackend();
       expect(first).toBe(second);
+    });
+
+    it("rejects OWS backend instances missing permanent delete support", async () => {
+      process.env.OWS_PASSPHRASE = SELECTOR_TEST_PASSPHRASE;
+      vi.resetModules();
+      vi.doMock("../../src/wallet/ows-backend.js", () => ({
+        OwsWalletBackend: class IncompleteOwsWalletBackend {
+          info = { type: "ows" };
+          initialize = vi.fn();
+          getState = vi.fn();
+          getAccount = vi.fn();
+          activate = vi.fn();
+          deactivate = vi.fn();
+          getKeyForSubprocess = vi.fn();
+        },
+      }));
+
+      try {
+        const { selectWalletBackend, setOwsPackageResolverForTests } = await import(
+          "../../src/wallet/backend-selector.js"
+        );
+        setOwsPackageResolverForTests(() => "/node_modules/@open-wallet-standard/core/index.js");
+
+        await expect(selectWalletBackend()).rejects.toThrow(
+          "OwsWalletBackend instance does not satisfy WalletBackend interface"
+        );
+      } finally {
+        vi.doUnmock("../../src/wallet/ows-backend.js");
+        vi.resetModules();
+      }
     });
   });
 
