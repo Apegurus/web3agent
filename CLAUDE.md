@@ -84,10 +84,13 @@ Never duplicate utility functions. Canonical locations:
 ## Wallet Backends
 
 - Wallet persistence is selected at runtime through `selectWalletBackend()` in `src/wallet/backend-selector.ts`; call it before wallet initialization and use `getWalletBackend()`/`src/wallet/persistence.ts` afterward.
-- OWS is the preferred backend on supported platforms when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is set to a non-empty value. Set `OWS_FORCE_LEGACY=1` to force the legacy JSON backend.
-- The OWS backend stores the active wallet under `web3agent-active` in the encrypted vault at `~/.web3agent/ows` by default, with metadata in `web3agent-metadata.json`.
-- If OWS starts with no active encrypted wallet, it migrates an existing legacy `~/.web3agent/wallet.json` into the OWS vault, writes metadata, copies the legacy file to `wallet.json.migrated`, and removes the original only after import and backup succeed.
-- Never log or expose wallet secrets. `wallet_info`/`getWalletInfo()` report backend type, wallet mode, chain, address, and fallback reason only.
+- OWS is the preferred backend on supported platforms (macOS/Linux) when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is set to a non-empty value. Windows falls back to the legacy JSON backend. Set `OWS_FORCE_LEGACY=1` to force the legacy backend.
+- The OWS backend stores the active wallet under `web3agent-active` in the encrypted vault at `~/.web3agent/ows` by default, with metadata in `wallet-metadata.json`.
+- If OWS starts with no active encrypted wallet, it migrates an existing legacy `~/.web3agent/wallet.json` into the OWS vault, writes metadata, copies the legacy file to `wallet.json.migrated`, and removes the original only after import, metadata, and backup succeed. Tell users to delete `wallet.json.migrated` after verifying OWS access because it is a plaintext backup.
+- `wallet_deactivate` is session-local/read-only only. `wallet_delete` is the destructive permanent removal path and remains confirmation-gated.
+- Never log or expose wallet secrets. `wallet_info`/`getWalletInfo()` report backend type, effective vault path, wallet mode, chain, address, and fallback reason only; read-only addresses can be ephemeral/non-persistent.
+- MCP tools that accept or return secrets are disabled by default unless `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` is set. Prefer the local TTY-only `web3agent wallet ...` commands for secret generation/import.
+- OWS encrypts at rest but runs inside the trusted host process. Raw-key export for subprocess compatibility and non-default mnemonic derivation may decrypt/export secrets in-process; never return or log those values.
 
 ## Testing
 

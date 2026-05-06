@@ -2,7 +2,12 @@
 
 ## Wallet Key Storage
 
-web3agent stores wallet credentials in `~/.web3agent/wallet.json` with file permissions `0600` (owner read/write only). This follows the same model as `~/.ssh/id_rsa` — plaintext protected by filesystem permissions, not encryption.
+web3agent uses two wallet storage backends:
+
+- **OWS encrypted vault** — preferred on macOS/Linux when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is non-empty. The active wallet is stored as `web3agent-active` under `~/.web3agent/ows` by default, with metadata in `wallet-metadata.json`.
+- **Legacy JSON fallback** — used when OWS is unavailable, `OWS_FORCE_LEGACY=1` is set, no OWS passphrase is configured, or the platform is Windows. It stores `~/.web3agent/wallet.json` with file permissions `0600` (owner read/write only). This follows the same model as `~/.ssh/id_rsa` — plaintext protected by filesystem permissions, not encryption.
+
+OWS encrypts wallet material at rest, but it is not a hardware enclave or sandbox. web3agent, MCP tools, and subprocess integrations run in the same trusted host process boundary and can request decrypted/exported material when signing or compatibility requires it.
 
 **Startup resolution order:**
 1. `PRIVATE_KEY` env var (takes precedence — CI/CD override)
@@ -10,7 +15,26 @@ web3agent stores wallet credentials in `~/.web3agent/wallet.json` with file perm
 3. `~/.web3agent/wallet.json` (loaded if file exists)
 4. Ephemeral read-only mode (fresh key per session, never persisted)
 
-The `wallet_activate` tool writes credentials atomically (temp file, fsync, rename) to prevent partial writes. `wallet_deactivate` deletes the file and reverts to read-only mode.
+`wallet_deactivate` is session-local: it leaves persisted wallet material intact and reverts the current runtime to read-only ephemeral mode. `wallet_delete` is the destructive operation that permanently removes persisted wallet material and is confirmation-gated.
+
+When a legacy `wallet.json` is migrated into OWS, web3agent copies it to `wallet.json.migrated` before removing the original. That backup is still plaintext. After verifying OWS wallet access, delete `~/.web3agent/wallet.json.migrated` to remove the plaintext backup.
+
+## Keeping secrets out of inference APIs
+
+By default, MCP tools that would expose or accept wallet secrets return `AGENT_VISIBLE_SECRETS_DISABLED` so private keys and mnemonics do not enter an AI agent's inference context. This applies to `wallet_generate`, `wallet_generate_mnemonic`, `wallet_activate` with `privateKey` or `mnemonic`, `wallet_from_mnemonic`, and `wallet_derive_addresses`.
+
+Use the local-only CLI flow when you need to generate or import a wallet without showing the secret to the agent:
+
+```bash
+OWS_PASSPHRASE='...' web3agent wallet generate
+OWS_PASSPHRASE='...' web3agent wallet generate --mnemonic
+OWS_PASSPHRASE='...' web3agent wallet activate --from-file ./secret.txt --type private-key
+OWS_PASSPHRASE='...' web3agent wallet activate --from-file ./mnemonic.txt --type mnemonic
+```
+
+These commands require OWS, a non-empty `OWS_PASSPHRASE`, and an interactive TTY. They refuse `--json` for secret display.
+
+If you explicitly accept that wallet secrets may be visible to the agent and inference provider, set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` to restore the legacy MCP behavior.
 
 ## Write Confirmation
 
@@ -44,9 +68,10 @@ Confirmed, denied, and expired operations are logged to `~/.web3agent/audit.log`
 
 ## Private Key Handling
 
-- Private keys are never logged to stderr or included in MCP tool responses (except `wallet_generate` which returns the key once by design)
-- The EVM MCP subprocess receives the active private key via environment variables — it is not stored on disk by the subprocess
+- Private keys are never logged to stderr or included in MCP tool responses unless agent-visible secret tools are explicitly enabled with `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1`.
+- The EVM MCP subprocess may receive the active private key via environment variables for GOAT/EVM compatibility. This raw-key export is logged as a warning only when a key is actually returned, and it stays inside the trusted host/subprocess boundary.
 - Ephemeral keys (generated for read-only mode) are never persisted or returned to the user
+- With the OWS backend, non-default mnemonic derivation (`accountIndex` or `addressIndex` other than `0`) may require decrypting/exporting the stored mnemonic inside the trusted host process so web3agent can derive the same address/key as viem. This plaintext material must not be logged or returned through MCP responses.
 
 ## Reporting Vulnerabilities
 
