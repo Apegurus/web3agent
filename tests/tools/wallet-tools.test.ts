@@ -16,6 +16,7 @@ const configMocks = vi.hoisted(() => ({
 const persistenceMocks = vi.hoisted(() => ({
   activateWallet: vi.fn(),
   deactivateWallet: vi.fn(),
+  deletePersistedWallet: vi.fn(),
   getWalletState: vi.fn(),
   getActiveAccount: vi.fn(),
   hasPersistedWalletKey: vi.fn().mockReturnValue(false),
@@ -61,6 +62,15 @@ const spendTrackerMocks = vi.hoisted(() => ({
   recordSpend: vi.fn(),
   releaseReservation: vi.fn(),
   reserveSpend: vi.fn(),
+}));
+
+const agentVisibleSecretsMocks = vi.hoisted(() => ({
+  isAgentVisibleSecretsEnabled: vi.fn().mockReturnValue(true),
+  getAgentVisibleSecretsDisabledMessage: vi
+    .fn()
+    .mockReturnValue(
+      "Exposing wallet secrets to an AI agent's inference context is disabled by default. Set WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 to allow secrets to be returned in API responses visible to the agent."
+    ),
 }));
 
 function mockPendingOperation(
@@ -126,15 +136,41 @@ vi.mock("../../src/policy/spend-tracker.js", () => ({
   reserveSpend: (...args: unknown[]) => spendTrackerMocks.reserveSpend(...args),
 }));
 
+vi.mock("../../src/wallet/agent-visible-secrets.js", () => ({
+  isAgentVisibleSecretsEnabled: (...args: unknown[]) =>
+    agentVisibleSecretsMocks.isAgentVisibleSecretsEnabled(...args),
+  getAgentVisibleSecretsDisabledMessage: (...args: unknown[]) =>
+    agentVisibleSecretsMocks.getAgentVisibleSecretsDisabledMessage(...args),
+}));
+
 describe("wallet tool handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    persistenceMocks.activateWallet.mockReset();
+    persistenceMocks.deactivateWallet.mockReset();
+    persistenceMocks.deletePersistedWallet.mockReset();
+    persistenceMocks.getWalletState.mockReset();
+    persistenceMocks.getActiveAccount.mockReset();
+    persistenceMocks.hasPersistedWalletKey.mockReset();
+    confirmationQueueMock.enqueue.mockReset();
+    confirmationQueueMock.confirm.mockReset();
+    confirmationQueueMock.complete.mockReset();
+    confirmationQueueMock.releaseExecuting.mockReset();
+    confirmationQueueMock.fail.mockReset();
+    confirmationQueueMock.expire.mockReset();
+    confirmationQueueMock.deny.mockReset();
+    confirmationQueueMock.list.mockReset();
+    confirmationQueueMock.pruneExpired.mockReset();
+    agentVisibleSecretsMocks.isAgentVisibleSecretsEnabled.mockReturnValue(true);
     confirmationQueueMock.enabled = true;
     confirmationQueueMock.enqueue.mockReturnValue({
       queued: true,
       id: "pending-op-id",
       summary: "Queued [wallet_set_confirmation]: Disable write confirmation",
     });
+    confirmationQueueMock.confirm.mockReturnValue(null);
+    confirmationQueueMock.list.mockReturnValue([]);
+    confirmationQueueMock.deny.mockReturnValue(false);
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "private-key",
       chainId: 8453,
@@ -143,6 +179,7 @@ describe("wallet tool handlers", () => {
     persistenceMocks.getActiveAccount.mockReturnValue({
       address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     });
+    persistenceMocks.hasPersistedWalletKey.mockReturnValue(false);
     backendSelectorMocks.getWalletBackend.mockReturnValue({
       info: {
         type: "legacy",
@@ -252,6 +289,7 @@ describe("wallet tool handlers", () => {
       info: {
         type: "ows",
         reason: "OWS wallet backend available with encrypted vault support",
+        vaultPath: "~/.web3agent/ows/",
       },
     });
     persistenceMocks.getWalletState.mockReturnValue({
@@ -295,6 +333,34 @@ describe("wallet tool handlers", () => {
         process.env.OWS_PASSPHRASE = originalPassphrase;
       }
     }
+  });
+
+  it("walletInfo reports the effective OWS vault path from the selected backend", async () => {
+    backendSelectorMocks.getWalletBackend.mockReturnValue({
+      info: {
+        type: "ows",
+        reason: "OWS wallet backend available with encrypted vault support",
+        vaultPath: "/tmp/web3agent-custom-ows-vault",
+      },
+    });
+    persistenceMocks.getWalletState.mockReturnValue({
+      mode: "read-only",
+      address: "0x1111111111111111111111111111111111111111",
+      chainId: 8453,
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+
+    const { walletInfo } = await import("../../src/tools/wallet/index.js");
+    const result = await walletInfo();
+
+    expect(result.isError).toBe(false);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.vaultPath).toBe("/tmp/web3agent-custom-ows-vault");
+    expect(payload.state).toMatchObject({
+      mode: "read-only",
+      address: "0x1111111111111111111111111111111111111111",
+    });
   });
 
   it("walletInfo reports legacy backend metadata with null vault path", async () => {
@@ -530,7 +596,7 @@ describe("wallet tool handlers", () => {
     expect(confirmationQueueMock.enqueue).not.toHaveBeenCalled();
   });
 
-  it("walletDeactivate routes through the confirmation queue when read-only mode has a stale persisted key file", async () => {
+  it("walletDeactivate stays session-local and skips confirmation even when persisted wallet material exists", async () => {
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "read-only",
       chainId: 8453,
@@ -539,22 +605,81 @@ describe("wallet tool handlers", () => {
       addressIndex: 0,
     });
     persistenceMocks.deactivateWallet.mockResolvedValue(undefined);
-    // Stale key file present — filesystem deletion must still go through the gate.
     persistenceMocks.hasPersistedWalletKey.mockReturnValue(true);
     confirmationQueueMock.enabled = true;
-    confirmationQueueMock.enqueue.mockReturnValue({
-      queued: true,
-      id: "pending-deactivate-id",
-      summary: "Confirm wallet deactivation",
-    });
 
     const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
 
     expect(result.isError).toBe(false);
-    expect(confirmationQueueMock.enqueue).toHaveBeenCalledTimes(1);
-    // Direct executor must NOT have run — the queue gate is in charge now.
-    expect(persistenceMocks.deactivateWallet).not.toHaveBeenCalled();
+    expect(confirmationQueueMock.enqueue).not.toHaveBeenCalled();
+    expect(persistenceMocks.deactivateWallet).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.message).toContain("session");
+  });
+
+  it("walletDelete returns pending_confirmation when confirmation is enabled", async () => {
+    confirmationQueueMock.enabled = true;
+    confirmationQueueMock.enqueue.mockReturnValueOnce({
+      queued: true,
+      id: "wallet-delete-op",
+      summary: "Delete persisted wallet",
+    });
+
+    const { walletDelete } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDelete();
+
+    expect(result.isError).toBe(false);
+    expect(persistenceMocks.deletePersistedWallet).not.toHaveBeenCalled();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.status).toBe("pending_confirmation");
+    expect(payload.id).toBe("wallet-delete-op");
+  });
+
+  it("walletDelete deletes persisted wallet material and returns read-only state", async () => {
+    confirmationQueueMock.enabled = false;
+    confirmationQueueMock.enqueue.mockReturnValue({
+      queued: false,
+      id: null,
+      summary: "Confirmation bypassed",
+    });
+    persistenceMocks.deletePersistedWallet.mockResolvedValue(undefined);
+    persistenceMocks.getWalletState.mockReturnValueOnce({
+      mode: "read-only",
+      chainId: 8453,
+      address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+
+    const { walletDelete } = await import("../../src/tools/wallet/index.js");
+    const result = await walletDelete();
+
+    expect(result.isError).toBe(false);
+    expect(persistenceMocks.deletePersistedWallet).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.mode).toBe("read-only");
+    expect(payload.message).toContain("Permanently deleted");
+  });
+
+  it("registers wallet_delete as destructive and keeps wallet_deactivate session-local", async () => {
+    const { getWalletToolDefinitions } = await import("../../src/tools/register.js");
+
+    const deactivateDefinition = getWalletToolDefinitions().find(
+      (tool) => tool.name === "wallet_deactivate"
+    );
+    const deleteDefinition = getWalletToolDefinitions().find(
+      (tool) => tool.name === "wallet_delete"
+    );
+
+    expect(deactivateDefinition?.description).toContain("current runtime/session");
+    expect(deactivateDefinition?.description).not.toContain("delete persisted key file");
+    expect(deactivateDefinition?.riskLevel).toBeUndefined();
+    expect(deactivateDefinition?.annotations).toEqual({ idempotentHint: true });
+
+    expect(deleteDefinition?.description).toContain("Permanently delete persisted wallet material");
+    expect(deleteDefinition?.riskLevel).toBe("destructive");
+    expect(deleteDefinition?.annotations).toEqual({ destructiveHint: true });
   });
 
   it("walletSetConfirmation enables confirmation directly without queueing", async () => {
@@ -624,24 +749,21 @@ describe("wallet tool handlers", () => {
   });
 
   it("transactionConfirm releases executing state after policy deny so retries are not stranded", async () => {
+    const deniedOperation = {
+      id: "policy-denied-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: { chainId: 8453 },
+      executor: vi.fn(),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "financial" as const,
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
     const retryExecutor = vi
       .fn()
       .mockResolvedValue({ isError: false, content: [{ type: "text", text: "{}" }] });
-    mockPendingOperation(
-      {
-        id: "policy-denied-op",
-        type: "wallet_activate",
-        description: "Activate wallet",
-        params: { chainId: 8453 },
-        executor: vi.fn(),
-        createdAt: new Date(),
-        ttlMs: 60_000,
-        riskLevel: "financial",
-        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { confirmable: false }
-    );
-    mockPendingOperation({
+    const retryOperation = {
       id: "policy-denied-op",
       type: "wallet_activate",
       description: "Activate wallet",
@@ -649,9 +771,13 @@ describe("wallet tool handlers", () => {
       executor: retryExecutor,
       createdAt: new Date(),
       ttlMs: 60_000,
-      riskLevel: "financial",
+      riskLevel: "financial" as const,
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    });
+    };
+    confirmationQueueMock.list
+      .mockReturnValueOnce([deniedOperation])
+      .mockReturnValueOnce([retryOperation]);
+    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: false, operation: retryOperation });
     policyEngineMocks.evaluatePolicy
       .mockReturnValueOnce({
         action: "deny",
@@ -679,24 +805,21 @@ describe("wallet tool handlers", () => {
       chainId: 8453,
       address: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     });
+    const mismatchOperation = {
+      id: "wallet-mismatch-op",
+      type: "wallet_activate",
+      description: "Activate wallet",
+      params: {},
+      executor: vi.fn(),
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "destructive" as const,
+      walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
     const retryExecutor = vi
       .fn()
       .mockResolvedValue({ isError: false, content: [{ type: "text", text: '{"done":true}' }] });
-    mockPendingOperation(
-      {
-        id: "wallet-mismatch-op",
-        type: "wallet_activate",
-        description: "Activate wallet",
-        params: {},
-        executor: vi.fn(),
-        createdAt: new Date(),
-        ttlMs: 60_000,
-        riskLevel: "destructive",
-        walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { confirmable: false }
-    );
-    mockPendingOperation({
+    const retryOperation = {
       id: "wallet-mismatch-op",
       type: "wallet_activate",
       description: "Activate wallet",
@@ -704,9 +827,13 @@ describe("wallet tool handlers", () => {
       executor: retryExecutor,
       createdAt: new Date(),
       ttlMs: 60_000,
-      riskLevel: "destructive",
+      riskLevel: "destructive" as const,
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    });
+    };
+    confirmationQueueMock.list
+      .mockReturnValueOnce([mismatchOperation])
+      .mockReturnValueOnce([retryOperation]);
+    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: false, operation: retryOperation });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
 
@@ -921,5 +1048,104 @@ describe("wallet tool handlers", () => {
     expect(payload.error).toBe("OPERATION_EXPIRED");
     expect(spendTrackerMocks.releaseReservation).toHaveBeenCalledWith(888);
     expect(spendTrackerMocks.commitReservation).not.toHaveBeenCalled();
+  });
+
+  describe("agent-visible secrets gating", () => {
+    beforeEach(() => {
+      agentVisibleSecretsMocks.isAgentVisibleSecretsEnabled.mockReturnValue(false);
+    });
+
+    it("walletGenerate returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
+      const { walletGenerate } = await import("../../src/tools/wallet/index.js");
+      const result = await walletGenerate();
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
+    });
+
+    it("walletGenerateMnemonic returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
+      const { walletGenerateMnemonic } = await import("../../src/tools/wallet/index.js");
+      const result = await walletGenerateMnemonic();
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
+    });
+
+    it("walletFromMnemonic returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
+      const { walletFromMnemonic } = await import("../../src/tools/wallet/index.js");
+      const result = await walletFromMnemonic({
+        mnemonic: "test test test test test test test test test test test junk",
+      });
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
+    });
+
+    it("walletDeriveAddresses returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
+      const { walletDeriveAddresses } = await import("../../src/tools/wallet/index.js");
+      const result = await walletDeriveAddresses({
+        mnemonic: "test test test test test test test test test test test junk",
+        count: 3,
+      });
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
+    });
+
+    it("walletActivate returns AGENT_VISIBLE_SECRETS_DISABLED when input includes privateKey", async () => {
+      const { walletActivate } = await import("../../src/tools/wallet/index.js");
+      const result = await walletActivate({
+        privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      });
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
+    });
+
+    it("walletActivate returns AGENT_VISIBLE_SECRETS_DISABLED when input includes mnemonic", async () => {
+      const { walletActivate } = await import("../../src/tools/wallet/index.js");
+      const result = await walletActivate({
+        mnemonic: "test test test test test test test test test test test junk",
+      });
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
+    });
+
+    it("gated tools include the disabled message mentioning the env var", async () => {
+      const { walletGenerate } = await import("../../src/tools/wallet/index.js");
+      const result = await walletGenerate();
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.message).toContain("WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS");
+    });
+
+    it("walletInfo is not gated by agent-visible secrets", async () => {
+      const { walletInfo } = await import("../../src/tools/wallet/index.js");
+      const result = await walletInfo();
+      expect(result.isError).toBe(false);
+    });
+
+    it("walletGetActive is not gated by agent-visible secrets", async () => {
+      const { walletGetActive } = await import("../../src/tools/wallet/index.js");
+      const result = await walletGetActive();
+      expect(result.isError).toBe(false);
+    });
+
+    it("walletDeactivate is not gated by agent-visible secrets", async () => {
+      persistenceMocks.getWalletState.mockReturnValue({
+        mode: "read-only",
+        chainId: 8453,
+        address: null,
+        accountIndex: 0,
+        addressIndex: 0,
+      });
+      persistenceMocks.deactivateWallet.mockResolvedValue(undefined);
+      persistenceMocks.hasPersistedWalletKey.mockReturnValue(false);
+
+      const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
+      const result = await walletDeactivate();
+      expect(result.isError).toBe(false);
+    });
   });
 });

@@ -212,7 +212,9 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
     vi.clearAllMocks();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    const { confirmationQueue } = await import("../../src/wallet/confirmation.js");
+    await confirmationQueue.flushPendingPersists();
     process.env.HOME = originalHome;
     rmSync(homeDir, { recursive: true, force: true });
   });
@@ -290,28 +292,34 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
   });
 
   it("T1-integration: wallet_activate → transaction_confirm succeeds from read-only state (CONFIRM_WRITES=true)", async () => {
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
-    const runtime = await createRuntime({
-      config: buildTestConfig({ confirmWrites: true }),
-    });
+    vi.stubEnv("WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS", "1");
 
     try {
-      const enqueue = await runtime.invokeTool("wallet_activate", {
-        privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+      const runtime = await createRuntime({
+        config: buildTestConfig({ confirmWrites: true }),
       });
-      expect(enqueue.isError).toBe(false);
-      const enqueuePayload = parseToolText(enqueue);
-      expect(enqueuePayload.status).toBe("pending_confirmation");
-      const pendingId = enqueuePayload.id;
-      expect(typeof pendingId).toBe("string");
 
-      const confirm = await runtime.invokeTool("transaction_confirm", { id: pendingId });
-      expect(confirm.isError).toBe(false);
-      const confirmPayload = parseToolText(confirm);
-      expect(typeof confirmPayload.address).toBe("string");
-      expect(confirmPayload.mode).toBe("private-key");
+      try {
+        const enqueue = await runtime.invokeTool("wallet_activate", {
+          privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        });
+        expect(enqueue.isError).toBe(false);
+        const enqueuePayload = parseToolText(enqueue);
+        expect(enqueuePayload.status).toBe("pending_confirmation");
+        const pendingId = enqueuePayload.id;
+        expect(typeof pendingId).toBe("string");
+
+        const confirm = await runtime.invokeTool("transaction_confirm", { id: pendingId });
+        expect(confirm.isError).toBe(false);
+        const confirmPayload = parseToolText(confirm);
+        expect(typeof confirmPayload.address).toBe("string");
+        expect(confirmPayload.mode).toBe("private-key");
+      } finally {
+        await runtime.shutdown();
+      }
     } finally {
-      await runtime.shutdown();
+      vi.unstubAllEnvs();
     }
   });
 });
