@@ -107,7 +107,7 @@ export {
 } from "./api/erc8004.js";
 export { x402CheckRequirements, x402Fetch } from "./api/x402.js";
 export { policyGet } from "./api/policy.js";
-export { getWalletInfo } from "./api/wallet.js";
+export { deleteWallet, getWalletInfo } from "./api/wallet.js";
 export type { WalletBackendInfo } from "./wallet/backend.js";
 export type {
   ApprovalStep,
@@ -256,6 +256,8 @@ export type {
   WalletActivateInput,
   WalletAddressDerivationResult,
   WalletConfirmationResult,
+  WalletDeleteInput,
+  WalletDeleteResult,
   WalletDeactivationResult,
   WalletDeriveAddressesInput,
   WalletDerivedAddressEntry,
@@ -615,6 +617,7 @@ export {
   transactionDenySchema,
   transactionSimulateSchema,
   walletActivateSchema,
+  walletDeleteSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
   walletInfoOutputSchema,

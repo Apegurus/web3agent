@@ -47,10 +47,33 @@ describe("wallet SDK functions", () => {
     expect(runtimeMocks.invokeTool).toHaveBeenCalledWith("wallet_info", {});
   });
 
-  it("root index exports wallet_info SDK function and schemas", async () => {
+  it("deleteWallet invokes wallet_delete through the runtime", async () => {
+    const deleteResult = {
+      mode: "read-only",
+      message: "Permanently deleted persisted wallet material.",
+    };
+    runtimeMocks.invokeTool.mockResolvedValueOnce({
+      isError: false,
+      structuredContent: {
+        ok: true,
+        data: deleteResult,
+      },
+      content: [{ type: "text", text: JSON.stringify(deleteResult) }],
+    });
+
+    const { deleteWallet } = await import("../../src/api/wallet.js");
+    const result = await deleteWallet();
+
+    expect(result).toEqual(deleteResult);
+    expect(runtimeMocks.invokeTool).toHaveBeenCalledWith("wallet_delete", {});
+  });
+
+  it("root index exports wallet SDK functions and schemas", async () => {
     const root = await import("../../src/index.js");
 
     expect(typeof root.getWalletInfo).toBe("function");
+    expect(typeof root.deleteWallet).toBe("function");
+    expect(root.walletDeleteSchema).toBeDefined();
     expect(root.walletInfoSchema).toBeDefined();
     expect(root.walletInfoOutputSchema).toBeDefined();
   });
