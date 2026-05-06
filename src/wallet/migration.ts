@@ -1,11 +1,15 @@
 import { constants, existsSync } from "node:fs";
-import { copyFile, readFile, unlink } from "node:fs/promises";
+import { copyFile, mkdir, readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { importWalletMnemonic, importWalletPrivateKey } from "@open-wallet-standard/core";
-import { type Hex, isHex } from "viem";
+import {
+  deleteWallet,
+  importWalletMnemonic,
+  importWalletPrivateKey,
+} from "@open-wallet-standard/core";
 import { atomicWriteJson } from "../utils/atomic-write.js";
 import { OWS_ACTIVE_WALLET_NAME, OWS_METADATA_FILE_NAME } from "./ows-constants.js";
+import { isRecord, requirePrivateKey } from "./wallet-utils.js";
 
 interface MigrationOptions {
   legacyWalletPath?: string;
@@ -31,18 +35,6 @@ function defaultLegacyWalletPath(): string {
   return join(homedir(), ".web3agent", "wallet.json");
 }
 
-function normalizePrivateKey(privateKey: string): Hex {
-  const normalized = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
-  if (!isHex(normalized, { strict: true }) || normalized.length !== 66) {
-    throw new Error("[wallet] Legacy wallet.json contains an invalid private key");
-  }
-  return normalized;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function parseLegacyWallet(value: unknown): LegacyWallet | null {
   if (!isRecord(value)) return null;
   if (value.type === "private-key" && typeof value.privateKey === "string") {
@@ -62,7 +54,24 @@ function parseLegacyWallet(value: unknown): LegacyWallet | null {
 async function readLegacyWallet(walletPath: string): Promise<LegacyWallet | null> {
   if (!existsSync(walletPath)) return null;
   const raw = await readFile(walletPath, "utf-8");
-  return parseLegacyWallet(JSON.parse(raw));
+  try {
+    return parseLegacyWallet(JSON.parse(raw));
+  } catch (error: unknown) {
+    process.stderr.write(
+      `[wallet] Could not parse legacy wallet.json; skipping OWS migration: ${error instanceof Error ? error.message : String(error)}\n`
+    );
+    return null;
+  }
+}
+
+function cleanupImportedWallet(vaultPath: string): void {
+  try {
+    deleteWallet(OWS_ACTIVE_WALLET_NAME, vaultPath);
+  } catch (error: unknown) {
+    process.stderr.write(
+      `[wallet] Could not clean up incomplete OWS migration wallet: ${error instanceof Error ? error.message : String(error)}\n`
+    );
+  }
 }
 
 export async function migrateLegacyWalletToOws(options: MigrationOptions): Promise<boolean> {
@@ -76,41 +85,55 @@ export async function migrateLegacyWalletToOws(options: MigrationOptions): Promi
   }
 
   process.stderr.write("[wallet] Found legacy wallet.json — importing into OWS vault...\n");
+  await mkdir(options.vaultPath, { recursive: true, mode: 0o700 });
 
-  if (legacyWallet.type === "private-key") {
-    importWalletPrivateKey(
-      OWS_ACTIVE_WALLET_NAME,
-      normalizePrivateKey(legacyWallet.privateKey),
-      options.passphrase,
-      options.vaultPath,
-      "evm"
-    );
-    await atomicWriteJson(join(options.vaultPath, OWS_METADATA_FILE_NAME), {
-      activeMode: "private-key",
-      activeAccountIndex: 0,
-      activeAddressIndex: 0,
-    });
-  } else {
-    const accountIndex = legacyWallet.accountIndex ?? 0;
-    const addressIndex = legacyWallet.addressIndex ?? 0;
-    importWalletMnemonic(
-      OWS_ACTIVE_WALLET_NAME,
-      legacyWallet.mnemonic,
-      options.passphrase,
-      accountIndex,
-      options.vaultPath
-    );
-    await atomicWriteJson(join(options.vaultPath, OWS_METADATA_FILE_NAME), {
-      activeMode: "mnemonic",
-      activeAccountIndex: accountIndex,
-      activeAddressIndex: addressIndex,
-    });
+  let importedWallet = false;
+  try {
+    if (legacyWallet.type === "private-key") {
+      importWalletPrivateKey(
+        OWS_ACTIVE_WALLET_NAME,
+        requirePrivateKey(
+          legacyWallet.privateKey,
+          "[wallet] Legacy wallet.json contains an invalid private key"
+        ),
+        options.passphrase,
+        options.vaultPath,
+        "evm"
+      );
+      importedWallet = true;
+      await atomicWriteJson(join(options.vaultPath, OWS_METADATA_FILE_NAME), {
+        activeMode: "private-key",
+        activeAccountIndex: 0,
+        activeAddressIndex: 0,
+      });
+    } else {
+      const accountIndex = legacyWallet.accountIndex ?? 0;
+      const addressIndex = legacyWallet.addressIndex ?? 0;
+      importWalletMnemonic(
+        OWS_ACTIVE_WALLET_NAME,
+        legacyWallet.mnemonic,
+        options.passphrase,
+        accountIndex,
+        options.vaultPath
+      );
+      importedWallet = true;
+      await atomicWriteJson(join(options.vaultPath, OWS_METADATA_FILE_NAME), {
+        activeMode: "mnemonic",
+        activeAccountIndex: accountIndex,
+        activeAddressIndex: addressIndex,
+      });
+    }
+  } catch (error: unknown) {
+    if (importedWallet) {
+      cleanupImportedWallet(options.vaultPath);
+    }
+    throw error;
   }
 
   await copyFile(walletPath, migratedPath, constants.COPYFILE_EXCL);
   await unlink(walletPath);
   process.stderr.write(
-    "[wallet] Migration complete. Legacy wallet backed up to wallet.json.migrated\n"
+    `[wallet] Migration complete. Legacy wallet backed up to wallet.json.migrated\n[wallet] After verifying OWS wallet access, delete ${migratedPath} to remove the plaintext backup.\n`
   );
   return true;
 }

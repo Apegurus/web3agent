@@ -96,10 +96,79 @@ describe("legacy wallet migration to OWS", () => {
       const loggedOutput = stderrSpy.mock.calls.flat().join("");
       expect(loggedOutput).toContain("Found legacy wallet.json");
       expect(loggedOutput).toContain("Migration complete");
+      expect(loggedOutput).toContain(
+        `After verifying OWS wallet access, delete ${walletPath}.migrated to remove the plaintext backup.`
+      );
       expect(loggedOutput).not.toContain(TEST_PRIVATE_KEY);
     } finally {
       stderrSpy.mockRestore();
     }
+  });
+
+  it("treats corrupted wallet.json as non-migratable without leaking file contents", async () => {
+    const homePath = createTempPath("wallet-migration-home-");
+    const vaultPath = createTempPath("wallet-migration-vault-");
+    tempPaths.push(homePath, vaultPath);
+    const walletDir = join(homePath, ".web3agent");
+    await mkdir(walletDir, { recursive: true });
+    const walletPath = join(walletDir, "wallet.json");
+    await writeFile(walletPath, `{ "privateKey": "${TEST_PRIVATE_KEY}",`, { mode: 0o600 });
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    try {
+      const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
+      const migrated = await migrateLegacyWalletToOws({
+        legacyWalletPath: walletPath,
+        passphrase: TEST_PASSPHRASE,
+        vaultPath,
+      });
+
+      expect(migrated).toBe(false);
+      expect(existsSync(walletPath)).toBe(true);
+      expect(listWallets(vaultPath)).toHaveLength(0);
+      const loggedOutput = stderrSpy.mock.calls.flat().join("");
+      expect(loggedOutput).toContain("Could not parse legacy wallet.json");
+      expect(loggedOutput).not.toContain(TEST_PRIVATE_KEY);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it("creates the OWS vault directory before importing a legacy private key", async () => {
+    const homePath = createTempPath("wallet-migration-home-");
+    const vaultRoot = createTempPath("wallet-migration-vault-root-");
+    const vaultPath = join(vaultRoot, "nested", "ows");
+    tempPaths.push(homePath, vaultRoot);
+    const walletPath = await writeLegacyWallet(homePath, {
+      type: "private-key",
+      privateKey: TEST_PRIVATE_KEY,
+      address: privateKeyToAccount(TEST_PRIVATE_KEY).address,
+    });
+    let vaultExistedBeforeImport = false;
+
+    vi.doMock("@open-wallet-standard/core", async () => {
+      const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+        "@open-wallet-standard/core"
+      );
+      return {
+        ...actual,
+        importWalletPrivateKey: (
+          ...args: Parameters<typeof actual.importWalletPrivateKey>
+        ): ReturnType<typeof actual.importWalletPrivateKey> => {
+          vaultExistedBeforeImport = existsSync(vaultPath);
+          return actual.importWalletPrivateKey(...args);
+        },
+      };
+    });
+
+    const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
+    await migrateLegacyWalletToOws({
+      legacyWalletPath: walletPath,
+      passphrase: TEST_PASSPHRASE,
+      vaultPath,
+    });
+
+    expect(vaultExistedBeforeImport).toBe(true);
   });
 
   it("does not re-migrate when only wallet.json.migrated exists", async () => {
@@ -219,6 +288,7 @@ describe("legacy wallet migration to OWS", () => {
     ).rejects.toThrow("metadata failed");
     expect(existsSync(walletPath)).toBe(true);
     expect(existsSync(`${walletPath}.migrated`)).toBe(false);
+    expect(listWallets(vaultPath).some((wallet) => wallet.name === "web3agent-active")).toBe(false);
   });
 
   it("refuses to overwrite an existing migrated backup", async () => {
