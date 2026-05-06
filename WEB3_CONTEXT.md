@@ -13,13 +13,15 @@ Tools: `blockscout_get_address_info`, `blockscout_get_tokens_by_address`, `block
 Live on-chain state: current balances, contract reads, gas estimation, ENS resolution, multicall, signing. Writes require a configured wallet.
 
 ### Wallet tools (prefix: `wallet_`)
-- `wallet_generate` — generate new wallet (key shown once, never stored)
-- `wallet_generate_mnemonic` — generate BIP-39 mnemonic
-- `wallet_from_mnemonic` — derive address from mnemonic
-- `wallet_derive_addresses` — batch derive 1-20 addresses
+- `wallet_generate` — generate new wallet key material; disabled by default because the key would be visible to the agent/inference context. Prefer `web3agent wallet generate` locally, or set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` to opt in.
+- `wallet_generate_mnemonic` — generate a BIP-39 mnemonic; disabled by default for the same agent-visible secret reason. Prefer `web3agent wallet generate --mnemonic` locally.
+- `wallet_from_mnemonic` — derive address from mnemonic; disabled by default unless `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` is set.
+- `wallet_derive_addresses` — batch derive 1-20 addresses; disabled by default unless `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` is set.
 - `wallet_get_active` — get current wallet address, chain, mode
-- `wallet_activate` — activate wallet from private key or mnemonic, persists to disk (mode 0600)
-- `wallet_deactivate` — deactivate current wallet, delete key file, revert to read-only
+- `wallet_info` — inspect backend type, vault path, security posture, passphrase presence, and wallet state without secret material. In read-only mode the address may be an ephemeral non-persistent address.
+- `wallet_activate` — activate wallet from private key or mnemonic; secret inputs are disabled by default unless `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` is set. Prefer `web3agent wallet activate --from-file ...` locally for secrets.
+- `wallet_deactivate` — session-local runtime deactivate; persisted wallet material remains intact and the runtime reverts to read-only ephemeral mode.
+- `wallet_delete` — permanently delete persisted wallet material and revert to read-only mode; destructive and confirmation-gated.
 - `wallet_set_confirmation` — toggle write confirmation at runtime (enabled/disabled)
 
 ### Transaction management
@@ -175,6 +177,9 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `WALLET_ADDRESS_INDEX` | 0 | HD address index |
 | `RPC_URL` | — | Custom RPC for default chain |
 | `CONFIRM_WRITES` | true | Require confirmation for writes |
+| `OWS_PASSPHRASE` | — | Enables the OWS encrypted wallet vault on macOS/Linux when non-empty |
+| `OWS_FORCE_LEGACY` | — | Set `1` to force legacy `wallet.json` storage instead of OWS |
+| `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS` | — | Set `1` to allow MCP wallet tools to accept/return private keys or mnemonics visible to the agent |
 | `BLOCKSCOUT_MCP_URL` | https://mcp.blockscout.com/mcp | Blockscout MCP endpoint |
 | `ETHERSCAN_API_KEY` | — | Etherscan API key |
 | `LIFI_API_KEY` | — | LI.Fi API key |

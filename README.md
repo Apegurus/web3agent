@@ -108,10 +108,23 @@ npx web3agent tools list --json
 npx web3agent tools call resolve_token --input '{"symbol":"USDC","chainId":8453}' --json
 npx web3agent doctor --json
 
+# Local-only wallet secret flows (requires OWS_PASSPHRASE and an interactive TTY)
+OWS_PASSPHRASE='...' npx web3agent wallet generate
+OWS_PASSPHRASE='...' npx web3agent wallet generate --mnemonic
+OWS_PASSPHRASE='...' npx web3agent wallet activate --from-file ./secret.txt --type private-key
+
 # Options
 npx web3agent --help
 npx web3agent --version
 ```
+
+Wallet secret MCP tools are disabled by default so private keys and mnemonics do not enter an AI agent's inference context. Use the local `web3agent wallet ...` commands above for safe generation/import. If you explicitly accept the risk of agent-visible secrets, set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` to re-enable the legacy MCP behavior.
+
+`wallet_deactivate` only deactivates the current runtime session and returns to read-only ephemeral mode. Use confirmation-gated `wallet_delete` when you intentionally want to permanently remove persisted wallet material.
+
+### Wallet security defaults
+
+By default, web3agent keeps wallet secrets out of MCP tool responses and agent-visible inputs. The local `web3agent wallet ...` commands are the recommended way to generate or import private keys and mnemonics because they require an interactive TTY and refuse JSON secret output. Set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` only if you explicitly accept that private keys or mnemonics can be sent through the MCP host and visible to the agent/inference provider.
 
 ---
 
