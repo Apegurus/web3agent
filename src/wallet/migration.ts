@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, unlink } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,7 +8,7 @@ import {
   importWalletPrivateKey,
   listWallets,
 } from "@open-wallet-standard/core";
-import { atomicWriteJson, writeBytesSecure } from "../utils/atomic-write.js";
+import { atomicWriteJson, ensureSecureDir, writeBytesSecure } from "../utils/atomic-write.js";
 import { OWS_ACTIVE_WALLET_NAME, OWS_METADATA_FILE_NAME } from "./ows-constants.js";
 import { isRecord, requirePrivateKey } from "./wallet-utils.js";
 
@@ -100,7 +100,7 @@ export async function migrateLegacyWalletToOws(options: MigrationOptions): Promi
   }
 
   process.stderr.write("[wallet] Found legacy wallet.json — importing into OWS vault...\n");
-  await mkdir(options.vaultPath, { recursive: true, mode: 0o700 });
+  await ensureSecureDir(options.vaultPath);
 
   let importedWallet = false;
   try {

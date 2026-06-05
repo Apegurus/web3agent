@@ -1,5 +1,5 @@
 import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { importWalletPrivateKey, listWallets } from "@open-wallet-standard/core";
@@ -273,11 +273,18 @@ describe("legacy wallet migration to OWS", () => {
       address: privateKeyToAccount(TEST_PRIVATE_KEY).address,
     });
 
-    vi.doMock("../../src/utils/atomic-write.js", () => ({
-      atomicWriteJson: vi.fn(async () => {
-        throw new Error("metadata failed");
-      }),
-    }));
+    vi.doMock("../../src/utils/atomic-write.js", async () => {
+      const actual = await vi.importActual<typeof import("../../src/utils/atomic-write.js")>(
+        "../../src/utils/atomic-write.js"
+      );
+      return {
+        ...actual,
+        ensureSecureDir: actual.ensureSecureDir,
+        atomicWriteJson: vi.fn(async () => {
+          throw new Error("metadata failed");
+        }),
+      };
+    });
 
     const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
 
@@ -397,6 +404,49 @@ describe("legacy wallet migration to OWS", () => {
       migrateLegacyWalletToOws({ legacyWalletPath: walletPath, passphrase: "p", vaultPath })
     ).rejects.toThrow(/Refusing to overwrite existing wallet.json.migrated/);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "repairs a pre-existing 0o755 vault dir to 0o700 during migration",
+    async () => {
+      const homePath = createTempPath("wallet-migration-home-");
+      const vaultPath = createTempPath("wallet-migration-vault-");
+      tempPaths.push(homePath, vaultPath);
+      await mkdir(vaultPath, { recursive: true });
+      await chmod(vaultPath, 0o755);
+      const legacyDir = join(homePath, ".web3agent");
+      await mkdir(legacyDir, { recursive: true });
+      const walletPath = join(legacyDir, "wallet.json");
+      await writeFile(
+        walletPath,
+        JSON.stringify({
+          type: "private-key",
+          privateKey: TEST_PRIVATE_KEY,
+          address: privateKeyToAccount(TEST_PRIVATE_KEY).address,
+        }),
+        { mode: 0o600 }
+      );
+      let modeDuringImport: number | null = null;
+      vi.doMock("@open-wallet-standard/core", async () => {
+        const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+          "@open-wallet-standard/core"
+        );
+        return {
+          ...actual,
+          importWalletPrivateKey: (
+            ...args: Parameters<typeof actual.importWalletPrivateKey>
+          ): ReturnType<typeof actual.importWalletPrivateKey> => {
+            modeDuringImport = statSync(args[3]).mode & 0o777;
+            return actual.importWalletPrivateKey(...args);
+          },
+        };
+      });
+      const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
+      await migrateLegacyWalletToOws({ legacyWalletPath: walletPath, passphrase: "p", vaultPath });
+      const mode = statSync(vaultPath).mode & 0o777;
+      expect(modeDuringImport).toBe(0o700);
+      expect(mode).toBe(0o700);
+    }
+  );
 
   it("OwsWalletBackend.initialize migrates a legacy wallet before loading state", async () => {
     const homePath = createTempPath("wallet-migration-home-");

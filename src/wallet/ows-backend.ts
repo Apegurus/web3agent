@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { owsToViemAccount } from "@open-wallet-standard/adapters/viem";
@@ -14,7 +14,7 @@ import {
 import type { Account, Hex } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import type { WalletMode, WalletState } from "../types/wallet.js";
-import { atomicWriteJson } from "../utils/atomic-write.js";
+import { atomicWriteJson, ensureSecureDir } from "../utils/atomic-write.js";
 import type { WalletBackend } from "./backend.js";
 import { walletEvents } from "./events.js";
 import { migrateLegacyWalletToOws } from "./migration.js";
@@ -125,10 +125,6 @@ function extractSecp256k1Key(value: unknown): string | null {
 function warnAndReturnRawKey(privateKey: string): string {
   process.stderr.write("[wallet] WARNING: Raw key exported for subprocess (GOAT compatibility)\n");
   return privateKey;
-}
-
-async function ensureDirectory(path: string): Promise<void> {
-  await mkdir(path, { recursive: true });
 }
 
 export class OwsWalletBackend implements WalletBackend {
@@ -380,7 +376,7 @@ export class OwsWalletBackend implements WalletBackend {
     create: (walletName: string) => unknown,
     metadata: OwsWalletMetadata
   ): Promise<void> {
-    await ensureDirectory(this.vaultPath);
+    await ensureSecureDir(this.vaultPath);
 
     const backupWalletName = `${walletName}-backup-${randomUUID()}`;
     const hasExistingWallet = this.hasWalletNamed(walletName);

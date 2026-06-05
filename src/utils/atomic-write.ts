@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 
 const IS_POSIX = process.platform !== "win32";
 
-async function ensureSecureDir(dir: string): Promise<void> {
+export async function ensureSecureDir(dir: string): Promise<void> {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true, mode: 0o700 });
     return;

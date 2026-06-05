@@ -1,5 +1,5 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { chmod, mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { exportWallet, importWalletPrivateKey, listWallets } from "@open-wallet-standard/core";
@@ -256,6 +256,67 @@ describe("OwsWalletBackend", () => {
     expect(backend.getState().mode).toBe("read-only");
     expect(listWallets(vaultPath)).toHaveLength(0);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "creates the OWS vault directory with mode 0o700 on first activate",
+    async () => {
+      let modeDuringImport: number | null = null;
+      vi.doMock("@open-wallet-standard/core", async () => {
+        const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+          "@open-wallet-standard/core"
+        );
+        return {
+          ...actual,
+          importWalletPrivateKey: (
+            ...args: Parameters<typeof actual.importWalletPrivateKey>
+          ): ReturnType<typeof actual.importWalletPrivateKey> => {
+            modeDuringImport = statSync(args[3]).mode & 0o777;
+            return actual.importWalletPrivateKey(...args);
+          },
+        };
+      });
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const vaultPath = join(await mkdtemp(join(tmpdir(), "ows-")), "ows-vault");
+      vaultPaths.push(vaultPath);
+      expect(existsSync(vaultPath)).toBe(false);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath });
+      await backend.activate({ privateKey: TEST_PRIVATE_KEY });
+      const mode = statSync(vaultPath).mode & 0o777;
+      expect(modeDuringImport).toBe(0o700);
+      expect(mode).toBe(0o700);
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "repairs a pre-existing 0o755 vault dir to 0o700 on activate",
+    async () => {
+      let modeDuringImport: number | null = null;
+      vi.doMock("@open-wallet-standard/core", async () => {
+        const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+          "@open-wallet-standard/core"
+        );
+        return {
+          ...actual,
+          importWalletPrivateKey: (
+            ...args: Parameters<typeof actual.importWalletPrivateKey>
+          ): ReturnType<typeof actual.importWalletPrivateKey> => {
+            modeDuringImport = statSync(args[3]).mode & 0o777;
+            return actual.importWalletPrivateKey(...args);
+          },
+        };
+      });
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const vaultPath = join(await mkdtemp(join(tmpdir(), "ows-")), "ows-vault");
+      vaultPaths.push(vaultPath);
+      await mkdir(vaultPath, { recursive: true });
+      await chmod(vaultPath, 0o755);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath });
+      await backend.activate({ privateKey: TEST_PRIVATE_KEY });
+      const mode = statSync(vaultPath).mode & 0o777;
+      expect(modeDuringImport).toBe(0o700);
+      expect(mode).toBe(0o700);
+    }
+  );
 
   describe("startup PRIVATE_KEY under OWS", () => {
     it("does not call importWalletPrivateKey", async () => {
