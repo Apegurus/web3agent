@@ -78,3 +78,19 @@ Confirmed, denied, and expired operations are logged to `~/.web3agent/audit.log`
 If you discover a security vulnerability, please report it privately via GitHub Security Advisories at https://github.com/apegurus/web3agent/security/advisories/new.
 
 Do not open public issues for security vulnerabilities.
+
+## Known constraint (v0.5.x): single wallet-using runtime per process
+
+`createRuntime` is safe to call multiple times in one Node process, but only one
+wallet-using runtime per process is supported.
+
+- The OWS wallet backend cache in `selectWalletBackend` is keyed by
+  `(OWS_PASSPHRASE, OWS_FORCE_LEGACY, vaultPath)`, so two runtimes with
+  different OWS env get different backends.
+- The legacy backend (`src/wallet/persistence-internal.ts`) uses module-level
+  singleton state for the active wallet, so two runtimes that both end up on
+  legacy will share that state.
+
+Downstream SDK consumers that spawn multiple wallet-using runtimes in one
+process (e.g., trading-arena) MUST currently isolate them into separate
+processes. Multi-runtime wallet isolation is tracked for a future release.
