@@ -37,6 +37,23 @@ describe("runtime config parsing", () => {
     expect(config.privateKey).toBe("0xdeadbeef");
   });
 
+  it("parseEnv parses OWS_PASSPHRASE and OWS_FORCE_LEGACY", () => {
+    const cfg = parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "secret", OWS_FORCE_LEGACY: "1" });
+    expect(cfg.owsPassphrase).toBe("secret");
+    expect(cfg.owsForceLegacy).toBe(true);
+  });
+
+  it("parseEnv normalizes empty/whitespace OWS_PASSPHRASE to undefined", () => {
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "" }).owsPassphrase).toBeUndefined();
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "   " }).owsPassphrase).toBeUndefined();
+  });
+
+  it("parseEnv accepts OWS_FORCE_LEGACY only when exactly '1' (matching selector convention)", () => {
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "1" }).owsForceLegacy).toBe(true);
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "true" }).owsForceLegacy).toBe(false);
+    expect(parseEnv({ CHAIN_ID: "8453" }).owsForceLegacy).toBe(false);
+  });
+
   it("accepts optional API keys", () => {
     const config = parseEnv({ LIFI_API_KEY: "abc123" });
     expect(config.lifiApiKey).toBe("abc123");

@@ -322,4 +322,46 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
       vi.unstubAllEnvs();
     }
   });
+
+  it("createRuntime({ env: { OWS_PASSPHRASE } }) selects ows without reading process.env", async () => {
+    Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
+    const { resetWalletBackend, setOwsPackageResolverForTests } = await import(
+      "../../src/wallet/backend-selector.js"
+    );
+    setOwsPackageResolverForTests(() => "/fake/ows/path");
+    resetWalletBackend();
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "from-options" },
+    });
+    try {
+      const result = await runtime.invokeTool("wallet_info", {});
+      const payload = JSON.parse(result.content[0].text);
+      expect(payload.backend).toBe("ows");
+      expect(payload.passphraseConfigured).toBe(true);
+    } finally {
+      await runtime.shutdown();
+    }
+  });
+
+  it("two createRuntime calls with different OWS env each get the right backend", async () => {
+    Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
+    const { resetWalletBackend, setOwsPackageResolverForTests } = await import(
+      "../../src/wallet/backend-selector.js"
+    );
+    setOwsPackageResolverForTests(() => "/fake/ows/path");
+    resetWalletBackend();
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const r1 = await createRuntime({ env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-1" } });
+    const r2 = await createRuntime({ env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-2" } });
+    try {
+      const info1 = JSON.parse((await r1.invokeTool("wallet_info", {})).content[0].text);
+      const info2 = JSON.parse((await r2.invokeTool("wallet_info", {})).content[0].text);
+      expect(info1.backend).toBe("ows");
+      expect(info2.backend).toBe("ows");
+    } finally {
+      await r1.shutdown();
+      await r2.shutdown();
+    }
+  });
 });

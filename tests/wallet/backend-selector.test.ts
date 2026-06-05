@@ -161,6 +161,51 @@ describe("backend-selector", () => {
       expect(first).toBe(second);
     });
 
+    it("selectWalletBackend({ owsPassphrase }) honors the argument over process.env", async () => {
+      Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
+      const { resetWalletBackend, selectWalletBackend, setOwsPackageResolverForTests } =
+        await import("../../src/wallet/backend-selector.js");
+      setOwsPackageResolverForTests(() => "/fake/ows/path");
+      resetWalletBackend();
+      const backend = await selectWalletBackend({ owsPassphrase: "from-arg" });
+      expect(backend.info.type).toBe("ows");
+    });
+
+    it("selectWalletBackend cache distinguishes runtimes with different OWS env signatures", async () => {
+      const { selectWalletBackend, setOwsPackageResolverForTests } = await import(
+        "../../src/wallet/backend-selector.js"
+      );
+      setOwsPackageResolverForTests(() => "/fake/ows/path");
+      const a = await selectWalletBackend({ owsPassphrase: "a" });
+      const b = await selectWalletBackend({ owsPassphrase: "b" });
+      expect(a).not.toBe(b);
+    });
+
+    it("selectWalletBackend returns the same instance for identical env signatures", async () => {
+      const { selectWalletBackend, setOwsPackageResolverForTests } = await import(
+        "../../src/wallet/backend-selector.js"
+      );
+      setOwsPackageResolverForTests(() => "/fake/ows/path");
+      const a = await selectWalletBackend({ owsPassphrase: "same" });
+      const b = await selectWalletBackend({ owsPassphrase: "same" });
+      expect(a).toBe(b);
+    });
+
+    describe("LegacyWalletBackend reasons", () => {
+      it.each([
+        [{ owsForceLegacy: true }, /OWS_FORCE_LEGACY/],
+        [{ owsPassphrase: undefined }, /OWS_PASSPHRASE not configured/],
+      ])("selectWalletBackend(%j) yields legacy with reason matching %s", async (args, pattern) => {
+        const { resetWalletBackend, selectWalletBackend } = await import(
+          "../../src/wallet/backend-selector.js"
+        );
+        resetWalletBackend();
+        const backend = await selectWalletBackend(args);
+        expect(backend.info.type).toBe("legacy");
+        expect(backend.info.reason).toMatch(pattern);
+      });
+    });
+
     it("rejects OWS backend instances missing permanent delete support", async () => {
       process.env.OWS_PASSPHRASE = SELECTOR_TEST_PASSPHRASE;
       vi.resetModules();

@@ -423,6 +423,25 @@ describe("wallet tool handlers", () => {
     }
   });
 
+  it("walletInfo reports passphraseConfigured from runtime config when set", async () => {
+    Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
+    configMocks.getConfig.mockReturnValue({ chainId: 1, owsPassphrase: "from-config" });
+    const { walletInfo } = await import("../../src/tools/wallet/index.js");
+    const result = await walletInfo();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.passphraseConfigured).toBe(true);
+  });
+
+  it("walletInfo falls back to process.env for the CLI/MCP server path", async () => {
+    process.env.OWS_PASSPHRASE = "from-env";
+    configMocks.getConfig.mockReturnValue({ chainId: 1, owsPassphrase: undefined });
+    const { walletInfo } = await import("../../src/tools/wallet/index.js");
+    const result = await walletInfo();
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.passphraseConfigured).toBe(true);
+    Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
+  });
+
   it("walletInfo returns WALLET_INFO_FAILED when backend metadata cannot be read", async () => {
     backendSelectorMocks.getWalletBackend.mockImplementation(() => {
       throw new Error("backend selection failed");

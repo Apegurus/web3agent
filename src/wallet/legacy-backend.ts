@@ -10,10 +10,11 @@ import {
 } from "./persistence-internal.js";
 
 export class LegacyWalletBackend implements WalletBackend {
-  readonly info = {
-    type: "legacy",
-    reason: "OWS wallet backend unavailable; using legacy persistence fallback",
-  } as const;
+  readonly info: { type: "legacy"; reason: string };
+
+  constructor(reason = "OWS wallet backend unavailable; using legacy persistence fallback") {
+    this.info = { type: "legacy", reason };
+  }
 
   async initialize(config: {
     chainId: number;

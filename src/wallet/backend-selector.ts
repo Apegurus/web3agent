@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { tryGetConfig } from "../config/env.js";
 import type { WalletBackend } from "./backend.js";
 import { LegacyWalletBackend } from "./legacy-backend.js";
 import { hasConfiguredOwsPassphrase } from "./wallet-utils.js";
@@ -8,7 +9,20 @@ const defaultRequire = createRequire(import.meta.url);
 type PackageResolver = (id: string) => string;
 
 let testResolver: PackageResolver | undefined;
-let cachedBackend: WalletBackend | undefined;
+
+export interface SelectWalletBackendOptions {
+  owsPassphrase?: string;
+  owsForceLegacy?: boolean;
+  vaultPath?: string;
+}
+
+interface WalletBackendCacheEntry {
+  key: string;
+  backend: WalletBackend;
+}
+
+let cachedBackends: WalletBackendCacheEntry[] = [];
+let lastSelectedBackend: WalletBackend | undefined;
 
 export const NO_WALLET_BACKEND_SELECTED_MESSAGE =
   "[wallet] No wallet backend selected. Call selectWalletBackend() first.";
@@ -17,14 +31,31 @@ export function setOwsPackageResolverForTests(resolver?: PackageResolver): void 
   testResolver = resolver;
 }
 
-export function detectOwsAvailability(): boolean {
-  if (process.env.OWS_FORCE_LEGACY === "1") {
+function cacheKey(opts: SelectWalletBackendOptions): string {
+  return JSON.stringify({
+    p: opts.owsPassphrase ?? null,
+    f: opts.owsForceLegacy ?? false,
+    v: opts.vaultPath ?? null,
+  });
+}
+
+function optionsFromCurrentConfig(): SelectWalletBackendOptions | undefined {
+  const config = tryGetConfig();
+  if (config === undefined) return undefined;
+  return {
+    owsPassphrase: config.owsPassphrase,
+    owsForceLegacy: config.owsForceLegacy,
+  };
+}
+
+export function detectOwsAvailability(opts: SelectWalletBackendOptions = {}): boolean {
+  if (opts.owsForceLegacy || process.env.OWS_FORCE_LEGACY === "1") {
     return false;
   }
   if (process.platform === "win32") {
     return false;
   }
-  if (!hasConfiguredOwsPassphrase()) {
+  if (!hasConfiguredOwsPassphrase(opts.owsPassphrase)) {
     return false;
   }
   const resolve = testResolver ?? defaultRequire.resolve;
@@ -37,7 +68,7 @@ export function detectOwsAvailability(): boolean {
 }
 
 interface OwsBackendModule {
-  OwsWalletBackend: new () => WalletBackend;
+  OwsWalletBackend: new (options?: { passphrase?: string; vaultPath?: string }) => WalletBackend;
 }
 
 function isOwsBackendModule(value: unknown): value is OwsBackendModule {
@@ -74,7 +105,9 @@ function isModuleNotFoundError(error: unknown): boolean {
   return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }
 
-async function tryLoadOwsBackend(): Promise<WalletBackend | null> {
+async function tryLoadOwsBackend(
+  opts: SelectWalletBackendOptions = {}
+): Promise<WalletBackend | null> {
   const owsBackendPath = new URL("./ows-backend.js", import.meta.url).href;
 
   let mod: unknown;
@@ -96,42 +129,85 @@ async function tryLoadOwsBackend(): Promise<WalletBackend | null> {
     return null;
   }
 
-  const instance: unknown = new mod.OwsWalletBackend();
+  const instance: unknown = new mod.OwsWalletBackend({
+    passphrase: opts.owsPassphrase,
+    vaultPath: opts.vaultPath,
+  });
   if (!isWalletBackend(instance)) {
     throw new Error("[wallet] OwsWalletBackend instance does not satisfy WalletBackend interface");
   }
   return instance;
 }
 
-export async function selectWalletBackend(): Promise<WalletBackend> {
-  if (cachedBackend !== undefined) {
-    return cachedBackend;
+function chooseLegacyReason(opts: SelectWalletBackendOptions): string {
+  if (opts.owsForceLegacy) {
+    return "[wallet] Legacy backend selected via OWS_FORCE_LEGACY=1";
+  }
+  if (process.platform === "win32") {
+    return "[wallet] OWS not supported on Windows; using legacy persistence";
+  }
+  if (!hasConfiguredOwsPassphrase(opts.owsPassphrase)) {
+    return "[wallet] OWS_PASSPHRASE not configured; using legacy persistence";
+  }
+  return "OWS wallet backend unavailable; using legacy persistence fallback";
+}
+
+export async function selectWalletBackend(
+  opts: SelectWalletBackendOptions = {}
+): Promise<WalletBackend> {
+  const key = cacheKey(opts);
+  const hit = cachedBackends.find((entry) => entry.key === key);
+  if (hit) {
+    lastSelectedBackend = hit.backend;
+    return hit.backend;
   }
 
-  if (process.env.OWS_FORCE_LEGACY !== "1" && !hasConfiguredOwsPassphrase()) {
+  const forceLegacyViaEnv = process.env.OWS_FORCE_LEGACY === "1";
+  if (
+    !opts.owsForceLegacy &&
+    !forceLegacyViaEnv &&
+    !hasConfiguredOwsPassphrase(opts.owsPassphrase)
+  ) {
     process.stderr.write("[wallet] OWS passphrase missing or empty; using legacy wallet backend\n");
   }
 
-  if (detectOwsAvailability()) {
-    const owsBackend = await tryLoadOwsBackend();
+  if (detectOwsAvailability(opts)) {
+    const owsBackend = await tryLoadOwsBackend(opts);
     if (owsBackend !== null) {
-      cachedBackend = owsBackend;
-      return cachedBackend;
+      cachedBackends.push({ key, backend: owsBackend });
+      lastSelectedBackend = owsBackend;
+      return owsBackend;
     }
+    const fallback = new LegacyWalletBackend(
+      "[wallet] OWS module unavailable despite OWS_PASSPHRASE being set; using legacy fallback"
+    );
+    cachedBackends.push({ key, backend: fallback });
+    lastSelectedBackend = fallback;
+    return fallback;
   }
 
-  cachedBackend = new LegacyWalletBackend();
-  return cachedBackend;
+  const legacy = new LegacyWalletBackend(
+    chooseLegacyReason({ ...opts, owsForceLegacy: opts.owsForceLegacy || forceLegacyViaEnv })
+  );
+  cachedBackends.push({ key, backend: legacy });
+  lastSelectedBackend = legacy;
+  return legacy;
 }
 
 export function getWalletBackend(): WalletBackend {
-  if (cachedBackend === undefined) {
+  const opts = optionsFromCurrentConfig();
+  if (opts !== undefined) {
+    const hit = cachedBackends.find((entry) => entry.key === cacheKey(opts));
+    if (hit) return hit.backend;
+  }
+  if (lastSelectedBackend === undefined) {
     throw new Error(NO_WALLET_BACKEND_SELECTED_MESSAGE);
   }
-  return cachedBackend;
+  return lastSelectedBackend;
 }
 
 export function resetWalletBackend(): void {
-  cachedBackend = undefined;
+  cachedBackends = [];
+  lastSelectedBackend = undefined;
   testResolver = undefined;
 }

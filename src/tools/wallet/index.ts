@@ -169,6 +169,12 @@ export async function walletInfo(): Promise<CallToolResult> {
     const backendInfo = backend.info;
     const state = getWalletState();
     const isOws = backendInfo.type === "ows";
+    let configPassphrase: string | undefined;
+    try {
+      configPassphrase = getConfig().owsPassphrase;
+    } catch {
+      configPassphrase = undefined;
+    }
 
     return formatToolResponse({
       backend: backendInfo.type,
@@ -176,7 +182,7 @@ export async function walletInfo(): Promise<CallToolResult> {
       vaultPath: isOws ? (backendInfo.vaultPath ?? null) : null,
       supportedChains: ["evm"],
       securityPosture: isOws ? "encrypted-at-rest" : "legacy-wallet-json",
-      passphraseConfigured: hasConfiguredOwsPassphrase(),
+      passphraseConfigured: hasConfiguredOwsPassphrase(configPassphrase),
       state: {
         mode: state.mode,
         address: state.address ?? null,

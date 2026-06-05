@@ -1,8 +1,8 @@
 import { type Hex, isHex } from "viem";
 
-export function hasConfiguredOwsPassphrase(): boolean {
-  const passphrase = process.env.OWS_PASSPHRASE;
-  return passphrase !== undefined && passphrase.trim() !== "";
+export function hasConfiguredOwsPassphrase(passphrase?: string): boolean {
+  const resolved = passphrase ?? process.env.OWS_PASSPHRASE;
+  return resolved !== undefined && resolved.trim() !== "";
 }
 
 export function normalizePrivateKey(privateKey: string): Hex | null {

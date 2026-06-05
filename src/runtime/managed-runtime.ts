@@ -135,7 +135,10 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   confirmationQueue.enabled = config.confirmWrites;
   confirmationQueue.ttlMs = config.confirmTtlMinutes * 60 * 1000;
 
-  await selectWalletBackend();
+  await selectWalletBackend({
+    owsPassphrase: config.owsPassphrase,
+    owsForceLegacy: config.owsForceLegacy,
+  });
   await initializeWallet({
     chainId: config.chainId,
     accountIndex: config.walletAccountIndex,
