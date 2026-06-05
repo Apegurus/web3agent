@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listWallets } from "@open-wallet-standard/core";
+import { exportWallet, importWalletPrivateKey, listWallets } from "@open-wallet-standard/core";
 import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OWS_METADATA_FILE_NAME } from "../../src/wallet/ows-constants.js";
@@ -255,6 +255,170 @@ describe("OwsWalletBackend", () => {
     await expect(backend.deletePersistedWallet()).resolves.toBeUndefined();
     expect(backend.getState().mode).toBe("read-only");
     expect(listWallets(vaultPath)).toHaveLength(0);
+  });
+
+  describe("startup PRIVATE_KEY under OWS", () => {
+    it("does not call importWalletPrivateKey", async () => {
+      type ImportWalletPrivateKey = typeof import(
+        "@open-wallet-standard/core"
+      ).importWalletPrivateKey;
+      const unexpectedImportWalletPrivateKey: ImportWalletPrivateKey = (name) => {
+        throw new Error(`Unexpected call before mock setup: ${name}`);
+      };
+      let importWalletPrivateKeyImplementation = unexpectedImportWalletPrivateKey;
+      const importWalletPrivateKeyMock = vi.fn(
+        (...args: Parameters<ImportWalletPrivateKey>): ReturnType<ImportWalletPrivateKey> =>
+          importWalletPrivateKeyImplementation(...args)
+      );
+      vi.doMock("@open-wallet-standard/core", async () => {
+        const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+          "@open-wallet-standard/core"
+        );
+        importWalletPrivateKeyImplementation = actual.importWalletPrivateKey;
+        return {
+          ...actual,
+          importWalletPrivateKey: importWalletPrivateKeyMock,
+        };
+      });
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 0,
+        addressIndex: 0,
+        privateKey: TEST_PRIVATE_KEY,
+      });
+      expect(importWalletPrivateKeyMock).not.toHaveBeenCalled();
+    });
+
+    it("does not create a wallet in the vault", async () => {
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 0,
+        addressIndex: 0,
+        privateKey: TEST_PRIVATE_KEY,
+      });
+      expect(listWallets(tmpVault)).toHaveLength(0);
+    });
+
+    it("preserves an existing vault wallet", async () => {
+      const { OwsWalletBackend, OWS_ACTIVE_WALLET_NAME } = await import(
+        "../../src/wallet/ows-backend.js"
+      );
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      importWalletPrivateKey(
+        OWS_ACTIVE_WALLET_NAME,
+        TEST_REPLACEMENT_PRIVATE_KEY,
+        "p",
+        tmpVault,
+        "evm"
+      );
+      const before = exportWallet(OWS_ACTIVE_WALLET_NAME, "p", tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 0,
+        addressIndex: 0,
+        privateKey: TEST_PRIVATE_KEY,
+      });
+      const after = exportWallet(OWS_ACTIVE_WALLET_NAME, "p", tmpVault);
+      expect(after).toBe(before);
+    });
+
+    it("getKeyForSubprocess returns the startup private key", async () => {
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 0,
+        addressIndex: 0,
+        privateKey: TEST_PRIVATE_KEY,
+      });
+      expect(await backend.getKeyForSubprocess()).toBe(TEST_PRIVATE_KEY);
+    });
+
+    it("getState returns mode=private-key with the correct address", async () => {
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 0,
+        addressIndex: 0,
+        privateKey: TEST_PRIVATE_KEY,
+      });
+      const state = backend.getState();
+      expect(state.mode).toBe("private-key");
+      expect(state.address).toBe(privateKeyToAccount(TEST_PRIVATE_KEY).address);
+    });
+  });
+
+  describe("startup MNEMONIC under OWS", () => {
+    it("does not call importWalletMnemonic", async () => {
+      type ImportWalletMnemonic = typeof import("@open-wallet-standard/core").importWalletMnemonic;
+      const unexpectedImportWalletMnemonic: ImportWalletMnemonic = (name) => {
+        throw new Error(`Unexpected call before mock setup: ${name}`);
+      };
+      let importWalletMnemonicImplementation = unexpectedImportWalletMnemonic;
+      const importWalletMnemonicMock = vi.fn(
+        (...args: Parameters<ImportWalletMnemonic>): ReturnType<ImportWalletMnemonic> =>
+          importWalletMnemonicImplementation(...args)
+      );
+      vi.doMock("@open-wallet-standard/core", async () => {
+        const actual = await vi.importActual<typeof import("@open-wallet-standard/core")>(
+          "@open-wallet-standard/core"
+        );
+        importWalletMnemonicImplementation = actual.importWalletMnemonic;
+        return {
+          ...actual,
+          importWalletMnemonic: importWalletMnemonicMock,
+        };
+      });
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 1,
+        addressIndex: 2,
+        mnemonic: TEST_MNEMONIC,
+      });
+      expect(importWalletMnemonicMock).not.toHaveBeenCalled();
+    });
+
+    it("getKeyForSubprocess returns the derived key for indices", async () => {
+      const { OwsWalletBackend } = await import("../../src/wallet/ows-backend.js");
+      const tmpVault = createVaultPath();
+      vaultPaths.push(tmpVault);
+      const backend = new OwsWalletBackend({ passphrase: "p", vaultPath: tmpVault });
+      await backend.initialize({
+        chainId: 8453,
+        accountIndex: 1,
+        addressIndex: 2,
+        mnemonic: TEST_MNEMONIC,
+      });
+      const expected = mnemonicToAccount(TEST_MNEMONIC, {
+        accountIndex: 1,
+        addressIndex: 2,
+      }).getHdKey().privateKey;
+      if (expected === null) {
+        throw new Error("Expected derived private key");
+      }
+      expect(await backend.getKeyForSubprocess()).toBe(
+        `0x${Buffer.from(expected).toString("hex")}`
+      );
+    });
   });
 
   it("getKeyForSubprocess returns null in read-only mode without logging a raw-key warning", async () => {

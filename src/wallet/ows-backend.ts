@@ -11,7 +11,7 @@ import {
   listWallets,
   renameWallet,
 } from "@open-wallet-standard/core";
-import type { Account } from "viem";
+import type { Account, Hex } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import type { WalletMode, WalletState } from "../types/wallet.js";
 import { atomicWriteJson } from "../utils/atomic-write.js";
@@ -143,6 +143,8 @@ export class OwsWalletBackend implements WalletBackend {
   private currentAccount: Account | null = null;
   private currentWalletName: string | null = null;
   private metadataWriteChain: Promise<void> = Promise.resolve();
+  private currentPrivateKey: Hex | null = null;
+  private currentMnemonic: string | null = null;
 
   constructor(options: OwsWalletBackendOptions = {}) {
     this.passphrase = resolvePassphrase(options.passphrase);
@@ -172,16 +174,17 @@ export class OwsWalletBackend implements WalletBackend {
     };
 
     if (config.privateKey) {
-      await this.activate({ privateKey: config.privateKey });
+      this.loadInMemoryKey(requirePrivateKey(config.privateKey), this.currentState.chainId);
       return;
     }
 
     if (config.mnemonic) {
-      await this.activate({
-        mnemonic: config.mnemonic,
-        accountIndex: config.accountIndex,
-        addressIndex: config.addressIndex,
-      });
+      this.loadInMemoryMnemonic(
+        config.mnemonic,
+        this.currentState.chainId,
+        config.accountIndex,
+        config.addressIndex
+      );
       return;
     }
 
@@ -303,6 +306,8 @@ export class OwsWalletBackend implements WalletBackend {
   }
 
   async deactivate(): Promise<void> {
+    this.currentPrivateKey = null;
+    this.currentMnemonic = null;
     this.loadReadOnlyAccount({
       chainId: this.currentState.chainId,
       accountIndex: 0,
@@ -320,6 +325,22 @@ export class OwsWalletBackend implements WalletBackend {
   }
 
   async getKeyForSubprocess(): Promise<string | null> {
+    if (this.currentPrivateKey !== null) {
+      return warnAndReturnRawKey(this.currentPrivateKey);
+    }
+    if (this.currentMnemonic !== null) {
+      const account = mnemonicToAccount(this.currentMnemonic, {
+        accountIndex: this.currentState.accountIndex,
+        addressIndex: this.currentState.addressIndex,
+      });
+      const hdKey = account.getHdKey();
+      if (hdKey.privateKey === null) {
+        return null;
+      }
+      const normalizedKey = normalizePrivateKey(Buffer.from(hdKey.privateKey).toString("hex"));
+      return normalizedKey === null ? null : warnAndReturnRawKey(normalizedKey);
+    }
+
     if (
       this.currentState.mode === "read-only" ||
       this.currentWalletName !== OWS_ACTIVE_WALLET_NAME
@@ -390,6 +411,43 @@ export class OwsWalletBackend implements WalletBackend {
     }
   }
 
+  private loadInMemoryKey(privateKey: Hex, chainId: number): void {
+    const account = privateKeyToAccount(privateKey);
+    this.currentAccount = account;
+    this.currentWalletName = null;
+    this.currentPrivateKey = privateKey;
+    this.currentMnemonic = null;
+    this.currentState = {
+      mode: "private-key",
+      address: account.address,
+      chainId,
+      accountIndex: 0,
+      addressIndex: 0,
+    };
+    walletEvents.emit("wallet-changed", this.currentState);
+  }
+
+  private loadInMemoryMnemonic(
+    mnemonic: string,
+    chainId: number,
+    accountIndex: number,
+    addressIndex: number
+  ): void {
+    const account = mnemonicToAccount(mnemonic, { accountIndex, addressIndex });
+    this.currentAccount = account;
+    this.currentWalletName = null;
+    this.currentPrivateKey = null;
+    this.currentMnemonic = mnemonic;
+    this.currentState = {
+      mode: "mnemonic",
+      address: account.address,
+      chainId,
+      accountIndex,
+      addressIndex,
+    };
+    walletEvents.emit("wallet-changed", this.currentState);
+  }
+
   private loadReadOnlyAccount(config: {
     chainId: number;
     accountIndex: number;
@@ -398,6 +456,8 @@ export class OwsWalletBackend implements WalletBackend {
     const account = privateKeyToAccount(generatePrivateKey());
     this.currentAccount = account;
     this.currentWalletName = null;
+    this.currentPrivateKey = null;
+    this.currentMnemonic = null;
     this.currentState = {
       mode: "read-only",
       address: account.address,
@@ -424,6 +484,8 @@ export class OwsWalletBackend implements WalletBackend {
     );
     this.currentAccount = account;
     this.currentWalletName = config.walletName;
+    this.currentPrivateKey = null;
+    this.currentMnemonic = null;
     this.currentState = {
       mode: config.mode,
       address: account.address,
