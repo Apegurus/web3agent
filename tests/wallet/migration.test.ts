@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -314,6 +314,31 @@ describe("legacy wallet migration to OWS", () => {
     expect(await readFile(`${walletPath}.migrated`, "utf-8")).toBe("already migrated");
     expect(existsSync(walletPath)).toBe(true);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "creates wallet.json.migrated with mode 0o600 even when wallet.json was 0o644",
+    async () => {
+      const homePath = createTempPath("wallet-migration-home-");
+      const vaultPath = createTempPath("wallet-migration-vault-");
+      tempPaths.push(homePath, vaultPath);
+      const legacyDir = join(homePath, ".web3agent");
+      await mkdir(legacyDir, { recursive: true });
+      const walletPath = join(legacyDir, "wallet.json");
+      await writeFile(
+        walletPath,
+        JSON.stringify({
+          type: "private-key",
+          privateKey: TEST_PRIVATE_KEY,
+          address: privateKeyToAccount(TEST_PRIVATE_KEY).address,
+        }),
+        { mode: 0o644 }
+      );
+      const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
+      await migrateLegacyWalletToOws({ legacyWalletPath: walletPath, passphrase: "p", vaultPath });
+      const mode = statSync(`${walletPath}.migrated`).mode & 0o777;
+      expect(mode).toBe(0o600);
+    }
+  );
 
   it("OwsWalletBackend.initialize migrates a legacy wallet before loading state", async () => {
     const homePath = createTempPath("wallet-migration-home-");

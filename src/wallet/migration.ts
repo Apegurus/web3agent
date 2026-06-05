@@ -1,5 +1,5 @@
-import { constants, existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, unlink } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -7,7 +7,7 @@ import {
   importWalletMnemonic,
   importWalletPrivateKey,
 } from "@open-wallet-standard/core";
-import { atomicWriteJson } from "../utils/atomic-write.js";
+import { atomicWriteJson, writeBytesSecure } from "../utils/atomic-write.js";
 import { OWS_ACTIVE_WALLET_NAME, OWS_METADATA_FILE_NAME } from "./ows-constants.js";
 import { isRecord, requirePrivateKey } from "./wallet-utils.js";
 
@@ -130,7 +130,8 @@ export async function migrateLegacyWalletToOws(options: MigrationOptions): Promi
     throw error;
   }
 
-  await copyFile(walletPath, migratedPath, constants.COPYFILE_EXCL);
+  const raw = await readFile(walletPath);
+  await writeBytesSecure(migratedPath, raw, { excl: true, mode: 0o600 });
   await unlink(walletPath);
   process.stderr.write(
     `[wallet] Migration complete. Legacy wallet backed up to wallet.json.migrated\n[wallet] After verifying OWS wallet access, delete ${migratedPath} to remove the plaintext backup.\n`

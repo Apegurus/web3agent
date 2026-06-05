@@ -46,3 +46,22 @@ export async function atomicWriteJson(filePath: string, data: unknown): Promise<
     throw renameError;
   }
 }
+
+/**
+ * Write raw bytes to a file with explicit mode, atomically.
+ * Uses open(... 'wx', mode) when excl=true to enforce O_EXCL with the desired mode in one syscall.
+ */
+export async function writeBytesSecure(
+  filePath: string,
+  bytes: Buffer | Uint8Array,
+  opts: { excl: boolean; mode: number }
+): Promise<void> {
+  const flag = opts.excl ? "wx" : "w";
+  const fd = await open(filePath, flag, opts.mode);
+  try {
+    await fd.writeFile(bytes);
+    await fd.sync();
+  } finally {
+    await fd.close();
+  }
+}
