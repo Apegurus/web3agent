@@ -2,9 +2,11 @@ import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listWallets } from "@open-wallet-standard/core";
+import { importWalletPrivateKey, listWallets } from "@open-wallet-standard/core";
 import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { writeBytesSecure } from "../../src/utils/atomic-write.js";
+import { OWS_ACTIVE_WALLET_NAME } from "../../src/wallet/ows-constants.js";
 
 const TEST_PASSPHRASE = "migration-passphrase";
 const TEST_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -339,6 +341,62 @@ describe("legacy wallet migration to OWS", () => {
       expect(mode).toBe(0o600);
     }
   );
+
+  it("recovers from half-migration: vault populated + both files present", async () => {
+    const homePath = createTempPath("wallet-migration-home-");
+    const vaultPath = createTempPath("wallet-migration-vault-");
+    tempPaths.push(homePath, vaultPath);
+    const legacyDir = join(homePath, ".web3agent");
+    await mkdir(legacyDir, { recursive: true });
+    const walletPath = join(legacyDir, "wallet.json");
+    const legacyWallet = {
+      type: "private-key",
+      privateKey: TEST_PRIVATE_KEY,
+      address: privateKeyToAccount(TEST_PRIVATE_KEY).address,
+    };
+    importWalletPrivateKey(OWS_ACTIVE_WALLET_NAME, TEST_PRIVATE_KEY, "p", vaultPath, "evm");
+    await writeFile(walletPath, JSON.stringify(legacyWallet), { mode: 0o600 });
+    await writeBytesSecure(`${walletPath}.migrated`, Buffer.from("leftover"), {
+      excl: true,
+      mode: 0o600,
+    });
+
+    const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
+    const result = await migrateLegacyWalletToOws({
+      legacyWalletPath: walletPath,
+      passphrase: "p",
+      vaultPath,
+    });
+
+    expect(result).toBe(false);
+    expect(existsSync(walletPath)).toBe(false);
+    expect(existsSync(`${walletPath}.migrated`)).toBe(true);
+    expect(listWallets(vaultPath).some((w) => w.name === OWS_ACTIVE_WALLET_NAME)).toBe(true);
+  });
+
+  it("still throws when both files exist AND vault is empty (don't overwrite unknown state)", async () => {
+    const homePath = createTempPath("wallet-migration-home-");
+    const vaultPath = createTempPath("wallet-migration-vault-");
+    tempPaths.push(homePath, vaultPath);
+    const legacyDir = join(homePath, ".web3agent");
+    await mkdir(legacyDir, { recursive: true });
+    const walletPath = join(legacyDir, "wallet.json");
+    const legacyWallet = {
+      type: "private-key",
+      privateKey: TEST_PRIVATE_KEY,
+      address: privateKeyToAccount(TEST_PRIVATE_KEY).address,
+    };
+    await writeFile(walletPath, JSON.stringify(legacyWallet), { mode: 0o600 });
+    await writeBytesSecure(`${walletPath}.migrated`, Buffer.from("leftover"), {
+      excl: true,
+      mode: 0o600,
+    });
+
+    const { migrateLegacyWalletToOws } = await import("../../src/wallet/migration.js");
+    await expect(
+      migrateLegacyWalletToOws({ legacyWalletPath: walletPath, passphrase: "p", vaultPath })
+    ).rejects.toThrow(/Refusing to overwrite existing wallet.json.migrated/);
+  });
 
   it("OwsWalletBackend.initialize migrates a legacy wallet before loading state", async () => {
     const homePath = createTempPath("wallet-migration-home-");

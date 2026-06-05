@@ -6,6 +6,7 @@ import {
   deleteWallet,
   importWalletMnemonic,
   importWalletPrivateKey,
+  listWallets,
 } from "@open-wallet-standard/core";
 import { atomicWriteJson, writeBytesSecure } from "../utils/atomic-write.js";
 import { OWS_ACTIVE_WALLET_NAME, OWS_METADATA_FILE_NAME } from "./ows-constants.js";
@@ -81,6 +82,20 @@ export async function migrateLegacyWalletToOws(options: MigrationOptions): Promi
   if (legacyWallet === null) return false;
 
   if (existsSync(migratedPath)) {
+    const vaultHasActive = listWallets(options.vaultPath).some(
+      (w) =>
+        typeof w === "object" &&
+        w !== null &&
+        "name" in w &&
+        (w as { name: unknown }).name === OWS_ACTIVE_WALLET_NAME
+    );
+    if (vaultHasActive) {
+      process.stderr.write(
+        "[wallet] Detected half-migration (vault populated, wallet.json still present, .migrated already exists). Cleaning up wallet.json; backup preserved.\n"
+      );
+      await unlink(walletPath);
+      return false;
+    }
     throw new Error("[wallet] Refusing to overwrite existing wallet.json.migrated");
   }
 
