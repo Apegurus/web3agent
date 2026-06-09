@@ -126,6 +126,10 @@ Wallet secret MCP tools are disabled by default so private keys and mnemonics do
 
 By default, web3agent keeps wallet secrets out of MCP tool responses and agent-visible inputs. The local `web3agent wallet ...` commands are the recommended way to generate or import private keys and mnemonics because they require an interactive TTY and refuse JSON secret output. Set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` only if you explicitly accept that private keys or mnemonics can be sent through the MCP host and visible to the agent/inference provider.
 
+For persisted server-side wallets, setting `OWS_PASSPHRASE` is **not mandatory, but strongly recommended**. When it is set on macOS/Linux, web3agent uses the Open Wallet Standard encrypted vault instead of the legacy filesystem-protected wallet store. Configure it in the process that runs web3agent, whether that is `npx web3agent` as an MCP server or an app/service using `createRuntime({ env: { OWS_PASSPHRASE: "..." } })`.
+
+If `OWS_PASSPHRASE` is missing, empty, OWS is unavailable, the platform is Windows, or `OWS_FORCE_LEGACY=1` is set, web3agent falls back to legacy wallet storage protected by file permissions only. For multi-agent services, run separate wallet-using runtimes in separate processes until per-runtime wallet isolation is supported.
+
 ---
 
 ## Programmatic usage

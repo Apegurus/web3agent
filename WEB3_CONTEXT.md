@@ -177,8 +177,8 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `WALLET_ADDRESS_INDEX` | 0 | HD address index |
 | `RPC_URL` | — | Custom RPC for default chain |
 | `CONFIRM_WRITES` | true | Require confirmation for writes |
-| `OWS_PASSPHRASE` | — | Enables the OWS encrypted wallet vault on macOS/Linux when non-empty |
-| `OWS_FORCE_LEGACY` | — | Set `1` to force legacy `wallet.json` storage instead of OWS |
+| `OWS_PASSPHRASE` | — | Strongly recommended for persisted server-side wallets. Enables the OWS encrypted wallet vault on macOS/Linux when non-empty; configure it in each app/service/process that runs web3agent. |
+| `OWS_FORCE_LEGACY` | — | Set `1` to force legacy filesystem-protected wallet storage instead of OWS |
 | `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS` | — | Set `1` to allow MCP wallet tools to accept/return private keys or mnemonics visible to the agent |
 | `BLOCKSCOUT_MCP_URL` | https://mcp.blockscout.com/mcp | Blockscout MCP endpoint |
 | `ETHERSCAN_API_KEY` | — | Etherscan API key |
