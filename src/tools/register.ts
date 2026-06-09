@@ -117,7 +117,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       name: "wallet_activate",
       category: "wallet",
       description:
-        "Activate a wallet from a private key or mnemonic. Persists to disk (mode 0600) and emits wallet-changed. Gated when secrets are in input: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1. Prefer local CLI: npx web3agent wallet activate.",
+        "Activate a wallet from a private key or mnemonic using the selected backend (encrypted OWS vault when available, otherwise legacy wallet storage) and emits wallet-changed. Gated when secrets are in input: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1. Prefer local CLI: npx web3agent wallet activate.",
       inputSchema: zodToJsonSchema(walletActivateSchema) as Record<string, unknown>,
       handler: (params) => walletActivate(params),
       riskLevel: "destructive",

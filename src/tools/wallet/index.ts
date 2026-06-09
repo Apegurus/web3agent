@@ -200,14 +200,13 @@ export async function walletInfo(): Promise<CallToolResult> {
 }
 
 export async function walletActivate(params: Record<string, unknown>): Promise<CallToolResult> {
-  if ("privateKey" in params || "mnemonic" in params) {
-    const gate = requireAgentVisibleSecrets();
-    if (gate) return gate;
-  }
-
   try {
     const v = validateInput(walletActivateSchema, params);
     if (!v.success) return v.error;
+    if (v.data.privateKey || v.data.mnemonic) {
+      const gate = requireAgentVisibleSecrets();
+      if (gate) return gate;
+    }
     const description = v.data.mnemonic
       ? "Activate wallet from mnemonic phrase"
       : "Activate wallet from private key";

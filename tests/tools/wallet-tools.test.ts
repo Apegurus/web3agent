@@ -1131,6 +1131,17 @@ describe("wallet tool handlers", () => {
       expect(payload.error).toBe("AGENT_VISIBLE_SECRETS_DISABLED");
     });
 
+    it("walletActivate validates undefined secret fields before agent-visible secret gating", async () => {
+      const { walletActivate } = await import("../../src/tools/wallet/index.js");
+      const result = await walletActivate({
+        privateKey: undefined,
+      });
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse((result.content[0] as { text: string }).text);
+      expect(payload.error).toBe("INVALID_PARAMS");
+      expect(payload.message).toContain("Either privateKey or mnemonic must be provided");
+    });
+
     it("gated tools include the disabled message mentioning the env var", async () => {
       const { walletGenerate } = await import("../../src/tools/wallet/index.js");
       const result = await walletGenerate();
