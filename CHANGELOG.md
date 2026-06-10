@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **fix(wallet)** — Thread `OWS_PASSPHRASE` / `OWS_FORCE_LEGACY` through `RuntimeConfig` so SDK consumers calling `createRuntime({ env })` are no longer silently downgraded to the legacy wallet backend. `wallet_info.passphraseConfigured` now reflects per-runtime config rather than the host `process.env`. (PR #20 finding 1)
+- **fix(wallet)** — Startup `PRIVATE_KEY` / `MNEMONIC` under OWS is now kept in-memory only and does not write to the encrypted vault, matching the legacy backend's documented "env-as-session-override" semantics. Prevents accidental vault overwrite on multi-agent SDK consumers. (PR #20 finding 2)
+- **fix(wallet)** — `wallet.json.migrated` plaintext backup is now created with explicit `0o600` mode regardless of the source file's mode. (PR #20 finding 3a)
+- **fix(wallet)** — Migration recovers gracefully when both `wallet.json` and `wallet.json.migrated` are present and the OWS vault is already populated, instead of throwing on every subsequent boot. (PR #20 finding 3b)
+- **fix(wallet)** — OWS vault directory creation goes through the shared `ensureSecureDir` helper, ensuring `0o700` on first write and chmod-repair for pre-existing `0o755` dirs on POSIX. (PR #20 finding 4)
+- Added `LegacyWalletBackend` constructor reason so `wallet_info.backendReason` distinguishes between operator opt-out (`OWS_FORCE_LEGACY=1`), missing passphrase, Windows, and OWS module load failure.
+- Documented single-wallet-per-process constraint in `SECURITY.md`.
+
 ## [0.5.0] - 2026-04-22
 
 ### Changed
@@ -42,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI `tools` validation errors outside JSON mode.** `web3agent tools describe` and `web3agent tools call` now print human-readable validation failures and set exit code `1` unless `--json` is requested; JSON mode continues to throw structured `CliExitError` envelopes.
 - **CLI runtime setup JSON envelope (L1)** — `withCliRuntime` setup failures raised raw exceptions under `--json`, so machine-readable CLI consumers got a stack trace instead of a structured envelope. Now wraps setup failures as `CliExitError("RUNTIME_SETUP_FAILED", ...)` when `options.json` is true. Shutdown failures are now explicitly best-effort: logged to stderr with `[web3agent]` prefix, never rethrown, so a successful operation's result is preserved when only the cleanup fails.
 - **x402 executor payload validation.** Internal `x402_fetch` confirmation payloads now use a dedicated Zod executor schema for the resolved `paymentChainId`, keeping internal queue data validated without exposing that field as public tool input.
-- **`wallet_deactivate` in read-only mode (L6)** — was blocked by `executeWrite()`'s read-only gate. Deactivation is an idempotent cleanup (reverts to read-only + removes any persisted key file), so it must succeed from read-only state. Now short-circuits to the executor when `state.mode === "read-only"`; the `executeWrite()` path applies only when an active wallet is being torn down.
+- **`wallet_deactivate` in read-only mode (L6)** — was blocked by `executeWrite()`'s read-only gate. Deactivation is now session-local idempotent cleanup: it reverts the runtime to read-only mode without removing persisted wallet material. Permanent removal is handled by the separate confirmation-gated `wallet_delete` tool.
 - **`serverStatus` guard for missing `_health.ccxt` (L8)** — matched the adjacent `agenticEconomy?.status ?? "not_initialized"` pattern; previously threw `TypeError` when `setHealthStatus` was invoked with a partial health object lacking the `ccxt` key.
 - **Codex TOML writer (L9)** — `mergeManagedBlock` used non-start-anchored `indexOf(MARKER_END)`, so a literal `# web3agent:end` string in user comments before the managed block matched as the block terminator, producing garbage output. Now passes `startIdx + MARKER_START.length` as the search origin, plus an `endIdx > startIdx` sanity check. Additionally, `encodeTomlSection` now preserves `boolean` and finite `number` values (previously silently dropped); unsupported types emit a `[hosts/codex]` stderr warning.
 - **`create-web3agent` symlink invocation (L10)** — the bin entrypoint compared `fileURLToPath(import.meta.url)` to `process.argv[1]` directly, so when invoked via `node_modules/.bin/create-web3agent` (a symlink) the two paths differed by realpath indirection, `isMain` was `false`, and the CLI silently exited. Now `realpathSync`-normalizes both sides before comparing; wrapped in `try/catch` so unexpected stat failures fall back to `isMain=false` (safe default — programmatic `runCreateCli` still works).

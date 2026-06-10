@@ -25,14 +25,20 @@ import {
 } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
+import {
+  getAgentVisibleSecretsDisabledMessage,
+  isAgentVisibleSecretsEnabled,
+} from "../../wallet/agent-visible-secrets.js";
+import { getWalletBackend } from "../../wallet/backend-selector.js";
 import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
 import {
   activateWallet,
   deactivateWallet,
+  deletePersistedWallet,
   getActiveAccount,
   getWalletState,
-  hasPersistedWalletKey,
 } from "../../wallet/persistence.js";
+import { hasConfiguredOwsPassphrase } from "../../wallet/wallet-utils.js";
 import {
   transactionConfirmSchema,
   transactionDenySchema,
@@ -43,7 +49,15 @@ import {
   walletSetConfirmationSchema,
 } from "./schemas.js";
 
+function requireAgentVisibleSecrets(): CallToolResult | null {
+  if (isAgentVisibleSecretsEnabled()) return null;
+  return formatToolError("AGENT_VISIBLE_SECRETS_DISABLED", getAgentVisibleSecretsDisabledMessage());
+}
+
 export async function walletGenerate(): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const key = generatePrivateKey();
     const account = privateKeyToAccount(key);
@@ -61,6 +75,9 @@ export async function walletGenerate(): Promise<CallToolResult> {
 }
 
 export async function walletGenerateMnemonic(): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const mnemonic = generateMnemonic(english);
     const account = mnemonicToAccount(mnemonic);
@@ -79,6 +96,9 @@ export async function walletGenerateMnemonic(): Promise<CallToolResult> {
 }
 
 export async function walletFromMnemonic(params: Record<string, unknown>): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const v = validateInput(walletFromMnemonicSchema, params);
     if (!v.success) return v.error;
@@ -104,6 +124,9 @@ export async function walletFromMnemonic(params: Record<string, unknown>): Promi
 export async function walletDeriveAddresses(
   params: Record<string, unknown>
 ): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const v = validateInput(walletDeriveAddressesSchema, params);
     if (!v.success) return v.error;
@@ -140,10 +163,50 @@ export async function walletGetActive(): Promise<CallToolResult> {
   }
 }
 
+export async function walletInfo(): Promise<CallToolResult> {
+  try {
+    const backend = getWalletBackend();
+    const backendInfo = backend.info;
+    const state = getWalletState();
+    const isOws = backendInfo.type === "ows";
+    let configPassphrase: string | undefined;
+    try {
+      configPassphrase = getConfig().owsPassphrase;
+    } catch {
+      configPassphrase = undefined;
+    }
+
+    return formatToolResponse({
+      backend: backendInfo.type,
+      backendReason: backendInfo.reason,
+      vaultPath: isOws ? (backendInfo.vaultPath ?? null) : null,
+      supportedChains: ["evm"],
+      securityPosture: isOws ? "encrypted-at-rest" : "legacy-wallet-json",
+      passphraseConfigured: hasConfiguredOwsPassphrase(configPassphrase),
+      state: {
+        mode: state.mode,
+        address: state.address ?? null,
+        chainId: state.chainId,
+        accountIndex: state.accountIndex,
+        addressIndex: state.addressIndex,
+      },
+    });
+  } catch (err: unknown) {
+    return formatToolError(
+      "WALLET_INFO_FAILED",
+      err instanceof Error ? err.message : "Unknown error"
+    );
+  }
+}
+
 export async function walletActivate(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const v = validateInput(walletActivateSchema, params);
     if (!v.success) return v.error;
+    if (v.data.privateKey || v.data.mnemonic) {
+      const gate = requireAgentVisibleSecrets();
+      if (gate) return gate;
+    }
     const description = v.data.mnemonic
       ? "Activate wallet from mnemonic phrase"
       : "Activate wallet from private key";
@@ -194,52 +257,51 @@ async function walletDeactivateExecutor(_params: Record<string, unknown>): Promi
   const state = getWalletState();
   return formatToolResponse({
     mode: state.mode,
-    message: "Wallet deactivated. Reverted to read-only ephemeral wallet.",
+    message:
+      "Wallet deactivated for the current runtime/session. Reverted to read-only ephemeral wallet.",
   });
 }
 
 export async function walletDeactivate(): Promise<CallToolResult> {
   try {
-    const state = getWalletState();
-
-    // Read-only mode bypasses executeWrite()'s read-only gate (which exists
-    // to block writes that REQUIRE a signer; deactivate is the inverse — the
-    // transition AWAY from a signer). Two sub-paths:
-    if (state.mode === "read-only") {
-      if (!hasPersistedWalletKey()) {
-        // True no-op: nothing to unlink, already ephemeral. Skip the queue.
-        return walletDeactivateExecutor({});
-      }
-      // Stale key file present (e.g., prior crashed session). Filesystem
-      // deletion is still a destructive write, so route through the
-      // confirmation queue when enabled — but with `walletAddress: undefined`
-      // so transaction_confirm's read-only gate doesn't reject it.
-      if (confirmationQueue.enabled) {
-        const { queued, id, summary } = confirmationQueue.enqueue(
-          "wallet_deactivate",
-          "Deactivate wallet and delete persisted key file",
-          {},
-          walletDeactivateExecutor,
-          undefined,
-          "destructive"
-        );
-        if (queued) {
-          return formatToolResponse({ status: "pending_confirmation", id, summary });
-        }
-      }
-      return walletDeactivateExecutor({});
-    }
-
-    return await executeWrite({
-      toolName: "wallet_deactivate",
-      description: "Deactivate wallet and delete persisted key file",
-      params: {},
-      executor: walletDeactivateExecutor,
-      riskLevel: "destructive",
-    });
+    return await walletDeactivateExecutor({});
   } catch (err: unknown) {
     return formatToolError(
       "WALLET_DEACTIVATE_FAILED",
+      err instanceof Error ? err.message : "Unknown error"
+    );
+  }
+}
+
+async function walletDeleteExecutor(_params: Record<string, unknown>): Promise<CallToolResult> {
+  await deletePersistedWallet();
+  const state = getWalletState();
+  return formatToolResponse({
+    mode: state.mode,
+    message:
+      "Permanently deleted persisted wallet material. Reverted to read-only ephemeral wallet.",
+  });
+}
+
+export async function walletDelete(): Promise<CallToolResult> {
+  try {
+    const { queued, id, summary } = confirmationQueue.enqueue(
+      "wallet_delete",
+      "Permanently delete persisted wallet material and revert to read-only ephemeral mode",
+      {},
+      walletDeleteExecutor,
+      undefined,
+      "destructive"
+    );
+
+    if (queued) {
+      return formatToolResponse({ status: "pending_confirmation", id, summary });
+    }
+
+    return await walletDeleteExecutor({});
+  } catch (err: unknown) {
+    return formatToolError(
+      "WALLET_DELETE_FAILED",
       err instanceof Error ? err.message : "Unknown error"
     );
   }

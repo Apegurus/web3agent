@@ -92,6 +92,9 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     chainId,
     privateKey: env.PRIVATE_KEY || undefined,
     mnemonic: env.MNEMONIC || undefined,
+    owsPassphrase:
+      env.OWS_PASSPHRASE && env.OWS_PASSPHRASE.trim() !== "" ? env.OWS_PASSPHRASE : undefined,
+    owsForceLegacy: env.OWS_FORCE_LEGACY === "1",
     walletAccountIndex: parseIntStrict("WALLET_ACCOUNT_INDEX", env.WALLET_ACCOUNT_INDEX, 0),
     walletAddressIndex: parseIntStrict("WALLET_ADDRESS_INDEX", env.WALLET_ADDRESS_INDEX, 0),
     rpcUrl: env.RPC_URL || undefined,

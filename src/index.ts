@@ -107,6 +107,8 @@ export {
 } from "./api/erc8004.js";
 export { x402CheckRequirements, x402Fetch } from "./api/x402.js";
 export { policyGet } from "./api/policy.js";
+export { deleteWallet, getWalletInfo } from "./api/wallet.js";
+export type { WalletBackendInfo } from "./wallet/backend.js";
 export type {
   ApprovalStep,
   AcpClaimRefundInput,
@@ -254,12 +256,16 @@ export type {
   WalletActivateInput,
   WalletAddressDerivationResult,
   WalletConfirmationResult,
+  WalletDeleteInput,
+  WalletDeleteResult,
   WalletDeactivationResult,
   WalletDeriveAddressesInput,
   WalletDerivedAddressEntry,
   WalletFromMnemonicInput,
   WalletGenerateMnemonicResult,
   WalletGenerateResult,
+  WalletInfoInput,
+  WalletInfoResult,
   WalletSetConfirmationInput,
   WalletState,
   Web3AgentRuntime,
@@ -611,8 +617,11 @@ export {
   transactionDenySchema,
   transactionSimulateSchema,
   walletActivateSchema,
+  walletDeleteSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
+  walletInfoOutputSchema,
+  walletInfoSchema,
   walletSetConfirmationSchema,
 } from "./tools/wallet/schemas.js";
 export {

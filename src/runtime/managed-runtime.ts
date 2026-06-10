@@ -54,6 +54,7 @@ import type { HealthStatus } from "../types/health.js";
 import { formatToolError } from "../utils/errors.js";
 import { sanitizeToolInput } from "../utils/sanitize.js";
 import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
+import { selectWalletBackend } from "../wallet/backend-selector.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { walletEvents } from "../wallet/events.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
@@ -134,6 +135,10 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   confirmationQueue.enabled = config.confirmWrites;
   confirmationQueue.ttlMs = config.confirmTtlMinutes * 60 * 1000;
 
+  await selectWalletBackend({
+    owsPassphrase: config.owsPassphrase,
+    owsForceLegacy: config.owsForceLegacy,
+  });
   await initializeWallet({
     chainId: config.chainId,
     accountIndex: config.walletAccountIndex,

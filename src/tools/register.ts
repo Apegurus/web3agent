@@ -11,11 +11,13 @@ import {
   transactionSimulate,
   walletActivate,
   walletDeactivate,
+  walletDelete,
   walletDeriveAddresses,
   walletFromMnemonic,
   walletGenerate,
   walletGenerateMnemonic,
   walletGetActive,
+  walletInfo,
   walletSetConfirmation,
 } from "./wallet/index.js";
 import {
@@ -25,6 +27,7 @@ import {
   walletActivateSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
+  walletInfoSchema,
   walletSetConfirmationSchema,
 } from "./wallet/schemas.js";
 
@@ -60,7 +63,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       name: "wallet_generate",
       category: "wallet",
       description:
-        "Generate a new random Ethereum wallet. Returns address and private key once — never stored.",
+        "Generate a new random Ethereum wallet. Returns address and private key once — never stored. Gated: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1. Prefer local CLI: npx web3agent wallet generate.",
       inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletGenerate(),
       annotations: { readOnlyHint: true },
@@ -68,7 +71,8 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
     {
       name: "wallet_generate_mnemonic",
       category: "wallet",
-      description: "Generate a new BIP-39 mnemonic phrase with its first derived address.",
+      description:
+        "Generate a new BIP-39 mnemonic phrase with its first derived address. Gated: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1. Prefer local CLI: npx web3agent wallet generate --mnemonic.",
       inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletGenerateMnemonic(),
       annotations: { readOnlyHint: true },
@@ -77,7 +81,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       name: "wallet_from_mnemonic",
       category: "wallet",
       description:
-        "Derive an address from a BIP-39 mnemonic at optional account/address index. Does NOT return private key.",
+        "Derive an address from a BIP-39 mnemonic at optional account/address index. Does NOT return private key. Gated: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 (mnemonic in agent context). Prefer local CLI.",
       inputSchema: zodToJsonSchema(walletFromMnemonicSchema) as Record<string, unknown>,
       handler: (params) => walletFromMnemonic(params),
       annotations: { readOnlyHint: true },
@@ -86,7 +90,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       name: "wallet_derive_addresses",
       category: "wallet",
       description:
-        "Derive multiple addresses from a mnemonic (1-20). Returns index, address, and derivation path.",
+        "Derive multiple addresses from a mnemonic (1-20). Returns index, address, and derivation path. Gated: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 (mnemonic in agent context). Prefer local CLI.",
       inputSchema: zodToJsonSchema(walletDeriveAddressesSchema) as Record<string, unknown>,
       handler: (params) => walletDeriveAddresses(params),
       annotations: { readOnlyHint: true },
@@ -101,10 +105,19 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       annotations: { readOnlyHint: true },
     },
     {
+      name: "wallet_info",
+      category: "wallet",
+      description:
+        "Get wallet backend metadata, storage security posture, and current wallet state without exposing secrets.",
+      inputSchema: zodToJsonSchema(walletInfoSchema) as Record<string, unknown>,
+      handler: () => walletInfo(),
+      annotations: { readOnlyHint: true },
+    },
+    {
       name: "wallet_activate",
       category: "wallet",
       description:
-        "Activate a wallet from a private key or mnemonic. Persists to disk (mode 0600) and emits wallet-changed.",
+        "Activate a wallet from a private key or mnemonic using the selected backend (encrypted OWS vault when available, otherwise legacy wallet storage) and emits wallet-changed. Gated when secrets are in input: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1. Prefer local CLI: npx web3agent wallet activate.",
       inputSchema: zodToJsonSchema(walletActivateSchema) as Record<string, unknown>,
       handler: (params) => walletActivate(params),
       riskLevel: "destructive",
@@ -114,9 +127,18 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       name: "wallet_deactivate",
       category: "wallet",
       description:
-        "Deactivate the current wallet, delete persisted key file, and revert to read-only ephemeral mode.",
+        "Deactivate the current runtime/session wallet and revert to read-only ephemeral mode without deleting persisted wallet material.",
       inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
       handler: () => walletDeactivate(),
+      annotations: { idempotentHint: true },
+    },
+    {
+      name: "wallet_delete",
+      category: "wallet",
+      description:
+        "Permanently delete persisted wallet material through the active backend or legacy storage, then revert to read-only ephemeral mode. Destructive: requires explicit confirmation.",
+      inputSchema: zodToJsonSchema(emptyInputSchema) as Record<string, unknown>,
+      handler: () => walletDelete(),
       riskLevel: "destructive",
       annotations: { destructiveHint: true },
     },
