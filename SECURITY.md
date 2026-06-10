@@ -4,10 +4,10 @@
 
 web3agent uses two wallet storage backends:
 
-- **OWS encrypted vault** — preferred on macOS/Linux when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is non-empty. The active wallet is stored as `web3agent-active` under `~/.web3agent/ows` by default, with metadata in `wallet-metadata.json`.
+- **OWS encrypted vault** — preferred on macOS/Linux when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is configured. The active wallet is stored as `web3agent-active` under `~/.web3agent/ows` by default, with metadata in `wallet-metadata.json`. The OWS spec requires passphrases to be at least 12 characters; web3agent warns on weak runtime passphrases and the local wallet CLI rejects values below that floor when creating/importing wallet material. Use 16+ mixed characters where possible.
 - **Legacy JSON fallback** — used when OWS is unavailable, `OWS_FORCE_LEGACY=1` is set, no OWS passphrase is configured, or the platform is Windows. It stores `~/.web3agent/wallet.json` with file permissions `0600` (owner read/write only). This follows the same model as `~/.ssh/id_rsa` — plaintext protected by filesystem permissions, not encryption.
 
-OWS encrypts wallet material at rest, but it is not a hardware enclave or sandbox. web3agent, MCP tools, and subprocess integrations run in the same trusted host process boundary and can request decrypted/exported material when signing or compatibility requires it.
+OWS encrypts wallet material at rest only when that backend is selected. The legacy fallback is plaintext protected by file permissions. OWS is also not a hardware enclave or sandbox: web3agent, MCP tools, and subprocess integrations run in the same trusted host process boundary and can request decrypted/exported material when signing or compatibility requires it.
 
 **Startup resolution order:**
 
@@ -33,7 +33,7 @@ OWS_PASSPHRASE='...' web3agent wallet activate --from-file ./secret.txt --type p
 OWS_PASSPHRASE='...' web3agent wallet activate --from-file ./mnemonic.txt --type mnemonic
 ```
 
-These commands require OWS, a non-empty `OWS_PASSPHRASE`, and an interactive TTY. They refuse `--json` for secret display.
+These commands require OWS, an `OWS_PASSPHRASE` of at least 12 characters, and an interactive TTY. They refuse `--json` for secret display.
 
 If you explicitly accept that wallet secrets may be visible to the agent and inference provider, set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` to restore the legacy MCP behavior.
 

@@ -14,6 +14,7 @@ const mockTty = vi.hoisted(() => ({
 
 const mockUtils = vi.hoisted(() => ({
   hasConfiguredOwsPassphrase: vi.fn(),
+  assertOwsPassphraseMeetsMinimum: vi.fn(),
   detectOwsAvailability: vi.fn(),
 }));
 
@@ -53,6 +54,8 @@ vi.mock("../../src/cli/tty-secret.js", () => ({
 
 vi.mock("../../src/wallet/wallet-utils.js", () => ({
   hasConfiguredOwsPassphrase: (...args: unknown[]) => mockUtils.hasConfiguredOwsPassphrase(...args),
+  assertOwsPassphraseMeetsMinimum: (...args: unknown[]) =>
+    mockUtils.assertOwsPassphraseMeetsMinimum(...args),
 }));
 
 vi.mock("viem/accounts", () => ({
@@ -76,6 +79,7 @@ function setAllTty(value: boolean): void {
 function setupHappyPath(): void {
   setAllTty(true);
   mockUtils.hasConfiguredOwsPassphrase.mockReturnValue(true);
+  mockUtils.assertOwsPassphraseMeetsMinimum.mockImplementation(() => undefined);
   mockUtils.detectOwsAvailability.mockReturnValue(true);
   mockWallet.selectWalletBackend.mockResolvedValue({
     info: { type: "ows", reason: "configured" },
@@ -168,6 +172,17 @@ describe("runWalletCommand", () => {
       mockUtils.detectOwsAvailability.mockReturnValue(false);
       const { runWalletCommand } = await import("../../src/cli/commands/wallet.js");
       await expect(runWalletCommand(["generate"])).rejects.toThrow(/OWS/i);
+    });
+
+    it("throws when OWS passphrase is below the OWS minimum", async () => {
+      setupHappyPath();
+      mockUtils.assertOwsPassphraseMeetsMinimum.mockImplementation(() => {
+        throw new Error("OWS_PASSPHRASE must be at least 12 characters");
+      });
+      const { runWalletCommand } = await import("../../src/cli/commands/wallet.js");
+
+      await expect(runWalletCommand(["generate"])).rejects.toThrow(/at least 12/);
+      expect(mockWallet.selectWalletBackend).not.toHaveBeenCalled();
     });
   });
 

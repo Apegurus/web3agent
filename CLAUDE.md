@@ -85,7 +85,7 @@ Never duplicate utility functions. Canonical locations:
 ## Wallet Backends
 
 - Wallet persistence is selected at runtime through `selectWalletBackend()` in `src/wallet/backend-selector.ts`; call it before wallet initialization and use `getWalletBackend()`/`src/wallet/persistence.ts` afterward.
-- OWS is the preferred backend on supported platforms (macOS/Linux) when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is set to a non-empty value. Windows falls back to the legacy JSON backend. Set `OWS_FORCE_LEGACY=1` to force the legacy backend.
+- OWS is the preferred backend on supported platforms (macOS/Linux) when `@open-wallet-standard/core` is available and `OWS_PASSPHRASE` is configured. The OWS spec requires at least 12 characters; web3agent warns on weak runtime passphrases and local wallet generation/import rejects shorter values. Windows falls back to the legacy JSON backend. Set `OWS_FORCE_LEGACY=1` to force the legacy backend.
 - The OWS backend stores the active wallet under `web3agent-active` in the encrypted vault at `~/.web3agent/ows` by default, with metadata in `wallet-metadata.json`.
 - If OWS starts with no active encrypted wallet, it migrates an existing legacy `~/.web3agent/wallet.json` into the OWS vault, writes metadata, copies the legacy file to `wallet.json.migrated`, and removes the original only after import, metadata, and backup succeed. Tell users to delete `wallet.json.migrated` after verifying OWS access because it is a plaintext backup.
 - `wallet_deactivate` is session-local/read-only only. `wallet_delete` is the destructive permanent removal path and remains confirmation-gated.

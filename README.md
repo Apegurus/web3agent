@@ -108,7 +108,7 @@ npx web3agent tools list --json
 npx web3agent tools call resolve_token --input '{"symbol":"USDC","chainId":8453}' --json
 npx web3agent doctor --json
 
-# Local-only wallet secret flows (requires OWS_PASSPHRASE and an interactive TTY)
+# Local-only wallet secret flows (requires OWS_PASSPHRASE >= 12 chars and an interactive TTY)
 OWS_PASSPHRASE='...' npx web3agent wallet generate
 OWS_PASSPHRASE='...' npx web3agent wallet generate --mnemonic
 OWS_PASSPHRASE='...' npx web3agent wallet activate --from-file ./secret.txt --type private-key
@@ -126,9 +126,9 @@ Wallet secret MCP tools are disabled by default so private keys and mnemonics do
 
 By default, web3agent keeps wallet secrets out of MCP tool responses and agent-visible inputs. The local `web3agent wallet ...` commands are the recommended way to generate or import private keys and mnemonics because they require an interactive TTY and refuse JSON secret output. Set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` only if you explicitly accept that private keys or mnemonics can be sent through the MCP host and visible to the agent/inference provider.
 
-For persisted server-side wallets, setting `OWS_PASSPHRASE` is **not mandatory, but strongly recommended**. When it is set on macOS/Linux, web3agent uses the Open Wallet Standard encrypted vault instead of the legacy filesystem-protected wallet store. Configure it in the process that runs web3agent, whether that is `npx web3agent` as an MCP server or an app/service using `createRuntime({ env: { OWS_PASSPHRASE: "..." } })`.
+For persisted server-side wallets, setting `OWS_PASSPHRASE` is **not mandatory, but strongly recommended**. When it is set on macOS/Linux and OWS is available, web3agent uses the Open Wallet Standard encrypted vault instead of the legacy filesystem-protected wallet store. The OWS spec minimum is 12 characters; web3agent warns on weak runtime passphrases and local wallet generation/import rejects shorter values. Use a 16+ character mixed passphrase in production. Configure it in the process that runs web3agent, whether that is `npx web3agent` as an MCP server or an app/service using `createRuntime({ env: { OWS_PASSPHRASE: "..." } })`.
 
-If `OWS_PASSPHRASE` is missing, empty, OWS is unavailable, the platform is Windows, or `OWS_FORCE_LEGACY=1` is set, web3agent falls back to legacy wallet storage protected by file permissions only. For multi-agent services, run separate wallet-using runtimes in separate processes until per-runtime wallet isolation is supported.
+If `OWS_PASSPHRASE` is missing, empty, OWS is unavailable, the platform is Windows, or `OWS_FORCE_LEGACY=1` is set, web3agent falls back to legacy wallet storage protected by file permissions only. Migrating a legacy `wallet.json` leaves a plaintext `wallet.json.migrated` rollback backup; delete it after verifying OWS access. For multi-agent services, run separate wallet-using runtimes in separate processes until per-runtime wallet isolation is supported.
 
 ---
 

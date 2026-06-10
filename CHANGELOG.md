@@ -14,8 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **fix(wallet)** — `wallet.json.migrated` plaintext backup is now created with explicit `0o600` mode regardless of the source file's mode. (PR #20 finding 3a)
 - **fix(wallet)** — Migration recovers gracefully when both `wallet.json` and `wallet.json.migrated` are present and the OWS vault is already populated, instead of throwing on every subsequent boot. (PR #20 finding 3b)
 - **fix(wallet)** — OWS vault directory creation goes through the shared `ensureSecureDir` helper, ensuring `0o700` on first write and chmod-repair for pre-existing `0o755` dirs on POSIX. (PR #20 finding 4)
+- **fix(config)** — Removed the unused `ETHERSCAN_API_URL` / `etherscanApiUrl` runtime config field so Etherscan explorer tools no longer imply a custom API endpoint override that was never used.
+- **fix(wallet)** — `wallet_activate` now rejects ambiguous activation requests that include both `privateKey` and `mnemonic`, or private-key mode with mnemonic-only derivation indexes.
+- **fix(wallet)** — Weak `OWS_PASSPHRASE` values now emit runtime config warnings; local wallet generation/import rejects passphrases below the OWS 12-character minimum before creating encrypted wallet material.
 - Added `LegacyWalletBackend` constructor reason so `wallet_info.backendReason` distinguishes between operator opt-out (`OWS_FORCE_LEGACY=1`), missing passphrase, Windows, and OWS module load failure.
-- Documented single-wallet-per-process constraint in `SECURITY.md`.
+- Clarified OWS security wording in `SECURITY.md`/`README.md`: encrypted-at-rest applies only when the OWS backend is selected, legacy fallback and `wallet.json.migrated` are plaintext file-permission-protected material, raw-key subprocess export is a trusted-process exception, and wallet-using runtimes should be isolated by process until per-runtime wallet isolation lands.
 
 ## [0.5.0] - 2026-04-22
 

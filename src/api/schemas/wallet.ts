@@ -32,6 +32,34 @@ export const walletActivateSchema = z
   })
   .refine((data) => data.privateKey || data.mnemonic, {
     message: "Either privateKey or mnemonic must be provided",
+  })
+  .superRefine((data, ctx) => {
+    const hasPrivateKey = Boolean(data.privateKey);
+    const hasMnemonic = Boolean(data.mnemonic);
+
+    if (hasPrivateKey && hasMnemonic) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "privateKey and mnemonic cannot both be provided; choose one",
+        path: ["privateKey"],
+      });
+    }
+
+    if (hasPrivateKey && data.accountIndex !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "accountIndex is only valid with mnemonic mode, not privateKey",
+        path: ["accountIndex"],
+      });
+    }
+
+    if (hasPrivateKey && data.addressIndex !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "addressIndex is only valid with mnemonic mode, not privateKey",
+        path: ["addressIndex"],
+      });
+    }
   });
 
 export const walletSetConfirmationSchema = z.object({
