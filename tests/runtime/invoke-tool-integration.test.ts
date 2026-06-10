@@ -161,7 +161,6 @@ function buildTestConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig 
     confirmWrites: false,
     confirmTtlMinutes: 30,
     etherscanApiKey: undefined,
-    etherscanApiUrl: "https://api.etherscan.io",
     lifiApiKey: undefined,
     zeroxApiKey: undefined,
     coingeckoApiKey: undefined,

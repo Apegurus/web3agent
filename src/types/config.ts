@@ -15,7 +15,6 @@ export interface RuntimeConfig {
   chainRpcUrls: Record<number, string>;
   confirmWrites: boolean;
   confirmTtlMinutes: number;
-  etherscanApiUrl: string;
   etherscanApiKey?: string;
   lifiApiKey?: string;
   zeroxApiKey?: string;

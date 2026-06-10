@@ -5,8 +5,6 @@ import type { RuntimeConfig } from "../types/config.js";
 export const BLOCKSCOUT_DEFAULT_URL = "https://mcp.blockscout.com/mcp";
 export const ETHERSCAN_DEFAULT_URL = "https://mcp.etherscan.io/mcp";
 
-const ETHERSCAN_DEFAULT_API_URL = "https://api.etherscan.io";
-
 export class ValidationError extends Error {
   readonly field: string;
   readonly rawValue: string;
@@ -101,7 +99,6 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     chainRpcUrls: parseChainRpcUrls(env),
     confirmWrites: parseBoolean(env.CONFIRM_WRITES, true),
     confirmTtlMinutes: parseIntStrict("CONFIRM_TTL_MINUTES", env.CONFIRM_TTL_MINUTES, 30),
-    etherscanApiUrl: env.ETHERSCAN_API_URL || ETHERSCAN_DEFAULT_API_URL,
     etherscanApiKey: env.ETHERSCAN_API_KEY || undefined,
     lifiApiKey: env.LIFI_API_KEY || undefined,
     zeroxApiKey: env.ZEROX_API_KEY || undefined,
