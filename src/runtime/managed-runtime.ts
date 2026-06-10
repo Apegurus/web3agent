@@ -258,7 +258,9 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.transactions = {
       list: async () => this.requireToolData<TransactionListResult>("transaction_list"),
       confirm: async (id: string) =>
-        this.requireToolData<TransactionConfirmResult>("transaction_confirm", { id }),
+        this.requireToolData<TransactionConfirmResult>("transaction_confirm", {
+          id,
+        }),
       deny: async (id: string) =>
         this.requireToolData<TransactionDenyResult>("transaction_deny", { id }),
     };
@@ -727,7 +729,7 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
 
   const explorerBlockscout = new ExplorerBlockscoutClient();
   const explorerEtherscan = config.etherscanApiKey
-    ? new ExplorerEtherscanClient(config.etherscanApiKey, config.etherscanApiUrl)
+    ? new ExplorerEtherscanClient(config.etherscanApiKey)
     : undefined;
   const explorerRouter = new ExplorerRouter(
     explorerBlockscout.getSupportedChainIds(),

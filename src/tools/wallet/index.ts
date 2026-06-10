@@ -235,7 +235,11 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
     );
 
     if (queued) {
-      return formatToolResponse({ status: "pending_confirmation", id, summary });
+      return formatToolResponse({
+        status: "pending_confirmation",
+        id,
+        summary,
+      });
     }
 
     const state = await activateWallet(activateData);
@@ -295,7 +299,11 @@ export async function walletDelete(): Promise<CallToolResult> {
     );
 
     if (queued) {
-      return formatToolResponse({ status: "pending_confirmation", id, summary });
+      return formatToolResponse({
+        status: "pending_confirmation",
+        id,
+        summary,
+      });
     }
 
     return await walletDeleteExecutor({});

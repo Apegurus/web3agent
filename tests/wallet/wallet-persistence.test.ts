@@ -85,7 +85,11 @@ describe("wallet persistence backend delegation", () => {
       addressIndex: 2,
       privateKey: VALID_PRIVATE_KEY,
     };
-    const activateParams = { mnemonic: "test test", accountIndex: 3, addressIndex: 4 };
+    const activateParams = {
+      mnemonic: "test test",
+      accountIndex: 3,
+      addressIndex: 4,
+    };
 
     await selector.selectWalletBackend();
 

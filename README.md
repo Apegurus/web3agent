@@ -37,14 +37,14 @@ For a step-by-step guide covering both human and agent setups, see [docs/guides/
 
 ## Supported hosts
 
-| Host | Config location |
-|------|-----------------|
-| Claude Code | `~/.claude/mcp.json` |
-| Cursor | `.cursor/mcp.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
-| OpenCode | `.opencode/config.json` |
-| Codex | `.codex/config.toml` |
-| OpenClaw | agent-mediated self-install via canonical guide |
+| Host        | Config location                                 |
+| ----------- | ----------------------------------------------- |
+| Claude Code | `~/.claude/mcp.json`                            |
+| Cursor      | `.cursor/mcp.json`                              |
+| Windsurf    | `~/.codeium/windsurf/mcp_config.json`           |
+| OpenCode    | `.opencode/config.json`                         |
+| Codex       | `.codex/config.toml`                            |
+| OpenClaw    | agent-mediated self-install via canonical guide |
 
 ---
 
@@ -58,23 +58,23 @@ Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, 
 
 ## What's included
 
-| Capability | Provider | Notes |
-|------------|----------|-------|
-| On-chain state | EVM MCP | Balances, contract reads/writes, gas, ENS, multicall (25 tools) |
-| Swaps | GOAT / Uniswap / Balancer | Same-chain, ERC-20/721 |
-| Aggregated swaps | Orbs Liquidity Hub | Optimal pricing via solver network |
-| Cross-chain bridges | LI.FI | 20+ chains |
-| Advanced orders | Orbs | dTWAP, dLIMIT |
-| Exchange trading | CCXT | Public/private access across 100+ exchanges (6 tools) |
-| Block explorer | Blockscout + Etherscan | Address info, tx history, NFTs, contract ABIs, network stats (35 tools) |
-| Market data | DefiLlama / CoinGecko / Binance | TVL, prices, DEX volume, stablecoin stats, sentiment (20 tools) |
-| Research | DefiLlama / on-chain | Contract security, yield analysis, whale tracking, governance (13 tools) |
-| Token resolution | Built-in registry + DexScreener | Symbol-to-address, long-tail assets |
-| Wallet management | Built-in | Generate, persist, activate, derive, sign |
-| Confirmation queue | Built-in | Write operations require explicit approval |
-| Agent protocols | AGDP / ACP / x402 / ERC-8004 | Agent marketplace, cooperation, payments |
-| Price data | CoinGecko | Requires `COINGECKO_API_KEY` |
-| 0x swaps | 0x | Requires `ZEROX_API_KEY` |
+| Capability          | Provider                        | Notes                                                                    |
+| ------------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| On-chain state      | EVM MCP                         | Balances, contract reads/writes, gas, ENS, multicall (25 tools)          |
+| Swaps               | GOAT / Uniswap / Balancer       | Same-chain, ERC-20/721                                                   |
+| Aggregated swaps    | Orbs Liquidity Hub              | Optimal pricing via solver network                                       |
+| Cross-chain bridges | LI.FI                           | 20+ chains                                                               |
+| Advanced orders     | Orbs                            | dTWAP, dLIMIT                                                            |
+| Exchange trading    | CCXT                            | Public/private access across 100+ exchanges (6 tools)                    |
+| Block explorer      | Blockscout + Etherscan          | Address info, tx history, NFTs, contract ABIs, network stats (35 tools)  |
+| Market data         | DefiLlama / CoinGecko / Binance | TVL, prices, DEX volume, stablecoin stats, sentiment (20 tools)          |
+| Research            | DefiLlama / on-chain            | Contract security, yield analysis, whale tracking, governance (13 tools) |
+| Token resolution    | Built-in registry + DexScreener | Symbol-to-address, long-tail assets                                      |
+| Wallet management   | Built-in                        | Generate, persist, activate, derive, sign                                |
+| Confirmation queue  | Built-in                        | Write operations require explicit approval                               |
+| Agent protocols     | AGDP / ACP / x402 / ERC-8004    | Agent marketplace, cooperation, payments                                 |
+| Price data          | CoinGecko                       | Requires `COINGECKO_API_KEY`                                             |
+| 0x swaps            | 0x                              | Requires `ZEROX_API_KEY`                                                 |
 
 ---
 
@@ -143,7 +143,7 @@ import {
   getChain,
   listChainTokens,
   resolveCanonicalTokenSync,
-  resolveToken
+  resolveToken,
 } from "web3agent";
 
 const chain = getChain(8453);
@@ -151,7 +151,12 @@ const usdc = resolveCanonicalTokenSync({ symbol: "USDC", chainId: 8453 });
 const tokens = listChainTokens({ chainId: 8453 });
 const discovered = await resolveToken({ symbol: "DEGEN", chainId: 8453 });
 
-console.log(chain?.name, usdc?.address, discovered.address, tokens.tokens.length);
+console.log(
+  chain?.name,
+  usdc?.address,
+  discovered.address,
+  tokens.tokens.length,
+);
 ```
 
 Use `resolveCanonicalToken()` for well-known registry tokens and native-token aliases. Use `resolveToken()` when you also want DexScreener discovery fallback for long-tail assets.
@@ -161,7 +166,11 @@ Use `resolveCanonicalToken()` for well-known registry tokens and native-token al
 Use the root API when your app owns the signer (e.g. a browser wallet via wagmi or AppKit).
 
 ```javascript
-import { prepareOperation, resumeOperation, simulateTransaction } from "web3agent";
+import {
+  prepareOperation,
+  resumeOperation,
+  simulateTransaction,
+} from "web3agent";
 ```
 
 1. `prepareOperation(...)` returns the next wallet actions plus `resumeState`
@@ -189,7 +198,12 @@ const runtime = await createRuntime();
 
 try {
   console.log(runtime.getHealth());
-  console.log(runtime.listTools().slice(0, 5).map((tool) => tool.name));
+  console.log(
+    runtime
+      .listTools()
+      .slice(0, 5)
+      .map((tool) => tool.name),
+  );
   const result = await runtime.invokeTool("list_supported_chains");
   console.log(result.structuredContent);
 } finally {

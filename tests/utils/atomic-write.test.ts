@@ -75,7 +75,10 @@ describe("writeBytesSecure", () => {
     async () => {
       const dir = await mkdtemp(join(tmpdir(), "wbs-"));
       const dst = join(dir, "out.json");
-      await writeBytesSecure(dst, Buffer.from("hello"), { excl: true, mode: 0o600 });
+      await writeBytesSecure(dst, Buffer.from("hello"), {
+        excl: true,
+        mode: 0o600,
+      });
       expect(statSync(dst).mode & 0o777).toBe(0o600);
     }
   );

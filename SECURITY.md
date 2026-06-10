@@ -10,6 +10,7 @@ web3agent uses two wallet storage backends:
 OWS encrypts wallet material at rest, but it is not a hardware enclave or sandbox. web3agent, MCP tools, and subprocess integrations run in the same trusted host process boundary and can request decrypted/exported material when signing or compatibility requires it.
 
 **Startup resolution order:**
+
 1. `PRIVATE_KEY` env var (takes precedence — CI/CD override)
 2. `MNEMONIC` env var
 3. `~/.web3agent/wallet.json` (loaded if file exists)

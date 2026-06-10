@@ -184,7 +184,10 @@ function parseToolText(result: {
 // formatToolError writes the legacy flat shape ({ error: code, message }) to
 // content[0].text, and the nested envelope ({ ok: false, error: { code, message } })
 // to structuredContent. Tests that consume content[0].text use the flat shape.
-function getFlatErrorFields(parsed: Record<string, unknown>): { code: string; message: string } {
+function getFlatErrorFields(parsed: Record<string, unknown>): {
+  code: string;
+  message: string;
+} {
   const code = parsed.error;
   const message = parsed.message;
   if (typeof code !== "string") {
@@ -310,7 +313,9 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
         const pendingId = enqueuePayload.id;
         expect(typeof pendingId).toBe("string");
 
-        const confirm = await runtime.invokeTool("transaction_confirm", { id: pendingId });
+        const confirm = await runtime.invokeTool("transaction_confirm", {
+          id: pendingId,
+        });
         expect(confirm.isError).toBe(false);
         const confirmPayload = parseToolText(confirm);
         expect(typeof confirmPayload.address).toBe("string");
@@ -352,8 +357,12 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
     setOwsPackageResolverForTests(() => "/fake/ows/path");
     resetWalletBackend();
     const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
-    const r1 = await createRuntime({ env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-1" } });
-    const r2 = await createRuntime({ env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-2" } });
+    const r1 = await createRuntime({
+      env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-1" },
+    });
+    const r2 = await createRuntime({
+      env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-2" },
+    });
     try {
       const info1 = JSON.parse((await r1.invokeTool("wallet_info", {})).content[0].text);
       const info2 = JSON.parse((await r2.invokeTool("wallet_info", {})).content[0].text);

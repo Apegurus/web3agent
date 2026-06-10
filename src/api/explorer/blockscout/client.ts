@@ -59,13 +59,12 @@ export class BlockscoutClient {
 
   async getAddressTransactions(
     chainId: number,
-    address: string,
-    params?: { page?: number }
+    address: string
   ): Promise<BlockscoutTransactionList> {
     const base = this.getBaseUrl(chainId);
-    const url = new URL(`${base}/api/v2/addresses/${encodeURIComponent(address)}/transactions`);
-    if (params?.page) url.searchParams.set("page", String(params.page));
-    return this.fetch<BlockscoutTransactionList>(url.toString());
+    return this.fetch<BlockscoutTransactionList>(
+      `${base}/api/v2/addresses/${encodeURIComponent(address)}/transactions`
+    );
   }
 
   async getTransaction(chainId: number, txHash: string): Promise<BlockscoutTransaction> {

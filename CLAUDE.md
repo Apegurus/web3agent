@@ -31,18 +31,19 @@ This package serves **two audiences** and every feature must work for both:
 
 **SDK entry points by domain:**
 
-| Domain | File | Pattern | Example |
-|--------|------|---------|---------|
-| Swaps & bridge | `src/api/swaps.ts` | Runtime → tool invocation | `getSwapQuote()`, `executeSameChainSwap()` |
-| Intents (external signing) | `src/api/intents.ts` | Wraps `operations.ts` | `prepareSwapIntent()`, `prepareOrderIntent()` |
-| Orders | `src/api/orders.ts` | Runtime → tool invocation | `listOrders()`, `placeOrder()`, `cancelOrder()` |
-| Operations (staged) | `src/api/operations.ts` | Multi-integration dispatch | `prepareOperation()`, `resumeOperation()` |
-| Chains | `src/api/chains.ts` | Direct + runtime | `getChain()`, `listSupportedChains()` |
-| Tokens | `src/api/tokens.ts` | Direct | `resolveToken()`, `listChainTokens()` |
-| Simulation | `src/api/simulation.ts` | Direct | `simulateTransaction()` |
-| Explorer | `src/api/explorer.ts` | Runtime → tool invocation | `getAddressInfo()`, `getTransactionHistory()` |
+| Domain                     | File                    | Pattern                    | Example                                         |
+| -------------------------- | ----------------------- | -------------------------- | ----------------------------------------------- |
+| Swaps & bridge             | `src/api/swaps.ts`      | Runtime → tool invocation  | `getSwapQuote()`, `executeSameChainSwap()`      |
+| Intents (external signing) | `src/api/intents.ts`    | Wraps `operations.ts`      | `prepareSwapIntent()`, `prepareOrderIntent()`   |
+| Orders                     | `src/api/orders.ts`     | Runtime → tool invocation  | `listOrders()`, `placeOrder()`, `cancelOrder()` |
+| Operations (staged)        | `src/api/operations.ts` | Multi-integration dispatch | `prepareOperation()`, `resumeOperation()`       |
+| Chains                     | `src/api/chains.ts`     | Direct + runtime           | `getChain()`, `listSupportedChains()`           |
+| Tokens                     | `src/api/tokens.ts`     | Direct                     | `resolveToken()`, `listChainTokens()`           |
+| Simulation                 | `src/api/simulation.ts` | Direct                     | `simulateTransaction()`                         |
+| Explorer                   | `src/api/explorer.ts`   | Runtime → tool invocation  | `getAddressInfo()`, `getTransactionHistory()`   |
 
 **When adding or removing tools, you must update both layers:**
+
 - Add/remove the MCP tool handler in `src/tools/<group>/index.ts`
 - Add/remove the corresponding SDK function in the appropriate `src/api/` file
 - Export the function, schemas, and types from `src/index.ts`
@@ -69,17 +70,17 @@ This package serves **two audiences** and every feature must work for both:
 
 Never duplicate utility functions. Canonical locations:
 
-| Utility | Location |
-|---------|----------|
-| `formatToolError`, `formatToolResponse`, `formatToolErrorFromUnknown` | `src/utils/errors.ts` |
-| `resolveToolChainId`, `resolveToolChain`, `isChainResolved` | `src/tools/shared/chain-context.ts` |
-| `buildWriteContext`, `isWriteContext` | `src/tools/shared/write-context.ts` |
-| `createToolHandler` | `src/tools/shared/handler-factory.ts` |
-| `validateInput`, `validateAddress` | `src/utils/validation.ts` |
-| `executeWrite` | `src/utils/write.ts` |
-| Chain registry | `src/chains/registry.ts` |
-| Wallet state | `src/wallet/persistence.ts` |
-| `ttlCache`, `clearCache` | `src/tools/shared/cache.ts` |
+| Utility                                                               | Location                              |
+| --------------------------------------------------------------------- | ------------------------------------- |
+| `formatToolError`, `formatToolResponse`, `formatToolErrorFromUnknown` | `src/utils/errors.ts`                 |
+| `resolveToolChainId`, `resolveToolChain`, `isChainResolved`           | `src/tools/shared/chain-context.ts`   |
+| `buildWriteContext`, `isWriteContext`                                 | `src/tools/shared/write-context.ts`   |
+| `createToolHandler`                                                   | `src/tools/shared/handler-factory.ts` |
+| `validateInput`, `validateAddress`                                    | `src/utils/validation.ts`             |
+| `executeWrite`                                                        | `src/utils/write.ts`                  |
+| Chain registry                                                        | `src/chains/registry.ts`              |
+| Wallet state                                                          | `src/wallet/persistence.ts`           |
+| `ttlCache`, `clearCache`                                              | `src/tools/shared/cache.ts`           |
 
 ## Wallet Backends
 
@@ -103,5 +104,6 @@ Never duplicate utility functions. Canonical locations:
 ## Biome
 
 Key rules beyond `recommended`:
+
 - `noEmptyBlockStatements: "warn"` — prevents silent error swallowing
 - `noExplicitAny` — enforced, requires `biome-ignore` with justification

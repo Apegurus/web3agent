@@ -57,9 +57,17 @@ function parseTextPayload(result: CallToolResult): Record<string, unknown> {
 describe("wallet_activate tool handler", () => {
   beforeEach(() => {
     resetWalletMocks();
-    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockGetWalletState.mockReturnValue({
+      mode: "private-key",
+      address: "0xABCD",
+      chainId: 1,
+    });
     mockConfirmationQueue.enabled = false;
-    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+    mockConfirmationQueue.enqueue.mockReturnValue({
+      queued: false,
+      id: null,
+      summary: "",
+    });
   });
 
   it("rejects when neither privateKey nor mnemonic provided", async () => {
@@ -132,9 +140,17 @@ describe("wallet_activate tool handler", () => {
 describe("wallet_deactivate tool handler", () => {
   beforeEach(() => {
     resetWalletMocks();
-    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockGetWalletState.mockReturnValue({
+      mode: "private-key",
+      address: "0xABCD",
+      chainId: 1,
+    });
     mockConfirmationQueue.enabled = false;
-    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+    mockConfirmationQueue.enqueue.mockReturnValue({
+      queued: false,
+      id: null,
+      summary: "",
+    });
   });
 
   it("calls deactivateWallet and returns read-only state", async () => {
@@ -179,9 +195,17 @@ describe("wallet_deactivate tool handler", () => {
 describe("wallet_delete tool handler", () => {
   beforeEach(() => {
     resetWalletMocks();
-    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockGetWalletState.mockReturnValue({
+      mode: "private-key",
+      address: "0xABCD",
+      chainId: 1,
+    });
     mockConfirmationQueue.enabled = false;
-    mockConfirmationQueue.enqueue.mockReturnValue({ queued: false, id: null, summary: "" });
+    mockConfirmationQueue.enqueue.mockReturnValue({
+      queued: false,
+      id: null,
+      summary: "",
+    });
   });
 
   it("queues permanent deletion when confirmation is enabled", async () => {
@@ -240,7 +264,11 @@ describe("wallet_set_confirmation tool handler", () => {
 
   it("queues disable-confirmation when confirmation is currently enabled", async () => {
     mockConfirmationQueue.enabled = true;
-    mockGetWalletState.mockReturnValue({ mode: "private-key", address: "0xABCD", chainId: 1 });
+    mockGetWalletState.mockReturnValue({
+      mode: "private-key",
+      address: "0xABCD",
+      chainId: 1,
+    });
     mockConfirmationQueue.enqueue.mockReturnValue({
       queued: true,
       id: "test-op-id",

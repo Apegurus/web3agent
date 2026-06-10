@@ -44,6 +44,15 @@ describe("BlockscoutClient", () => {
     it("throws for unsupported chain", async () => {
       await expect(client.getAddress(56, "0xabc")).rejects.toThrow(/not supported/);
     });
+
+    it("does not append page params for address transactions", async () => {
+      mockJsonResponse({ items: [], next_page_params: null });
+
+      await client.getAddressTransactions(8453, "0xabc");
+
+      const url = mockFetch.mock.calls[0][0] as string;
+      expect(url).toBe("https://base.blockscout.com/api/v2/addresses/0xabc/transactions");
+    });
   });
 
   describe("response handling", () => {

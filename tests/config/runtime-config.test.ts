@@ -38,7 +38,11 @@ describe("runtime config parsing", () => {
   });
 
   it("parseEnv parses OWS_PASSPHRASE and OWS_FORCE_LEGACY", () => {
-    const cfg = parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "secret", OWS_FORCE_LEGACY: "1" });
+    const cfg = parseEnv({
+      CHAIN_ID: "8453",
+      OWS_PASSPHRASE: "secret",
+      OWS_FORCE_LEGACY: "1",
+    });
     expect(cfg.owsPassphrase).toBe("secret");
     expect(cfg.owsForceLegacy).toBe(true);
   });
@@ -60,7 +64,10 @@ describe("runtime config parsing", () => {
   });
 
   it("accepts an optional CCXT_CONFIG_PATH", () => {
-    const config = parseEnv({ CHAIN_ID: "8453", CCXT_CONFIG_PATH: "/tmp/ccxt.json" });
+    const config = parseEnv({
+      CHAIN_ID: "8453",
+      CCXT_CONFIG_PATH: "/tmp/ccxt.json",
+    });
     expect(config.ccxtConfigPath).toBe("/tmp/ccxt.json");
   });
 

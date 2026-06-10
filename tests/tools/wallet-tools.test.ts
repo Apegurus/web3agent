@@ -425,7 +425,10 @@ describe("wallet tool handlers", () => {
 
   it("walletInfo reports passphraseConfigured from runtime config when set", async () => {
     Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
-    configMocks.getConfig.mockReturnValue({ chainId: 1, owsPassphrase: "from-config" });
+    configMocks.getConfig.mockReturnValue({
+      chainId: 1,
+      owsPassphrase: "from-config",
+    });
     const { walletInfo } = await import("../../src/tools/wallet/index.js");
     const result = await walletInfo();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -434,7 +437,10 @@ describe("wallet tool handlers", () => {
 
   it("walletInfo falls back to process.env for the CLI/MCP server path", async () => {
     process.env.OWS_PASSPHRASE = "from-env";
-    configMocks.getConfig.mockReturnValue({ chainId: 1, owsPassphrase: undefined });
+    configMocks.getConfig.mockReturnValue({
+      chainId: 1,
+      owsPassphrase: undefined,
+    });
     const { walletInfo } = await import("../../src/tools/wallet/index.js");
     const result = await walletInfo();
     const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -779,9 +785,10 @@ describe("wallet tool handlers", () => {
       riskLevel: "financial" as const,
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     };
-    const retryExecutor = vi
-      .fn()
-      .mockResolvedValue({ isError: false, content: [{ type: "text", text: "{}" }] });
+    const retryExecutor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: "{}" }],
+    });
     const retryOperation = {
       id: "policy-denied-op",
       type: "wallet_activate",
@@ -796,7 +803,10 @@ describe("wallet tool handlers", () => {
     confirmationQueueMock.list
       .mockReturnValueOnce([deniedOperation])
       .mockReturnValueOnce([retryOperation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: false, operation: retryOperation });
+    confirmationQueueMock.confirm.mockReturnValueOnce({
+      stale: false,
+      operation: retryOperation,
+    });
     policyEngineMocks.evaluatePolicy
       .mockReturnValueOnce({
         action: "deny",
@@ -835,9 +845,10 @@ describe("wallet tool handlers", () => {
       riskLevel: "destructive" as const,
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     };
-    const retryExecutor = vi
-      .fn()
-      .mockResolvedValue({ isError: false, content: [{ type: "text", text: '{"done":true}' }] });
+    const retryExecutor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: '{"done":true}' }],
+    });
     const retryOperation = {
       id: "wallet-mismatch-op",
       type: "wallet_activate",
@@ -852,7 +863,10 @@ describe("wallet tool handlers", () => {
     confirmationQueueMock.list
       .mockReturnValueOnce([mismatchOperation])
       .mockReturnValueOnce([retryOperation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: false, operation: retryOperation });
+    confirmationQueueMock.confirm.mockReturnValueOnce({
+      stale: false,
+      operation: retryOperation,
+    });
 
     const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
 
@@ -923,7 +937,11 @@ describe("wallet tool handlers", () => {
       id: "exec-error-op",
       type: "ccxt_private_write",
       description: "CCXT createOrder on account binance_main",
-      params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+      params: {
+        method: "createOrder",
+        account: "binance_main",
+        estimatedUsd: 50,
+      },
       executor: vi.fn().mockResolvedValue({
         isError: true,
         content: [{ type: "text", text: '{"error":"EXCHANGE_REJECTED"}' }],
@@ -959,7 +977,11 @@ describe("wallet tool handlers", () => {
       id: "ccxt-read-only-op",
       type: "ccxt_private_write",
       description: "CCXT createOrder on account binance_main",
-      params: { method: "createOrder", account: "binance_main", estimatedUsd: 50 },
+      params: {
+        method: "createOrder",
+        account: "binance_main",
+        estimatedUsd: 50,
+      },
       executor: ccxtExecutor,
       createdAt: new Date(),
       ttlMs: 60_000,
@@ -1054,7 +1076,10 @@ describe("wallet tool handlers", () => {
     // but by the time confirm() is called, result.stale is true (clock skew
     // or the window expired during async policy eval).
     confirmationQueueMock.list.mockReturnValueOnce([operation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce({ stale: true, operation });
+    confirmationQueueMock.confirm.mockReturnValueOnce({
+      stale: true,
+      operation,
+    });
 
     extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
     spendTrackerMocks.reserveSpend.mockReturnValueOnce(888);

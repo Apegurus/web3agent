@@ -542,8 +542,17 @@ describe("managed runtime", () => {
       message: "financial_test: USD estimation failed",
       riskLevel: "financial",
       toolName: "financial_test",
-      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
-      appliedPolicy: { maxSingleTransactionUsd: 100, maxHourlyUsd: 100, maxDailyUsd: 100 },
+      currentSpend: {
+        hourlyUsd: 0,
+        dailyUsd: 0,
+        hourlyCount: 0,
+        dailyCount: 0,
+      },
+      appliedPolicy: {
+        maxSingleTransactionUsd: 100,
+        maxHourlyUsd: 100,
+        maxDailyUsd: 100,
+      },
     });
 
     const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
@@ -664,8 +673,17 @@ describe("managed runtime", () => {
       message: "ccxt_private_write: USD estimation failed",
       riskLevel: "financial",
       toolName: "ccxt_private_write",
-      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
-      appliedPolicy: { maxSingleTransactionUsd: 100, maxHourlyUsd: 100, maxDailyUsd: 100 },
+      currentSpend: {
+        hourlyUsd: 0,
+        dailyUsd: 0,
+        hourlyCount: 0,
+        dailyCount: 0,
+      },
+      appliedPolicy: {
+        maxSingleTransactionUsd: 100,
+        maxHourlyUsd: 100,
+        maxDailyUsd: 100,
+      },
     });
 
     const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
@@ -689,7 +707,9 @@ describe("managed runtime", () => {
       },
     });
 
-    const result = await runtime.invokeTool("ccxt_private_write", { method: "createOrder" });
+    const result = await runtime.invokeTool("ccxt_private_write", {
+      method: "createOrder",
+    });
     const firstContent = result.content[0];
     if (firstContent?.type !== "text") {
       throw new Error("Expected text error content");
