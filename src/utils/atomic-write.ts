@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 
 const IS_POSIX = process.platform !== "win32";
 
-async function ensureSecureDir(dir: string): Promise<void> {
+export async function ensureSecureDir(dir: string): Promise<void> {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true, mode: 0o700 });
     return;
@@ -17,12 +17,15 @@ async function ensureSecureDir(dir: string): Promise<void> {
     await chmod(dir, 0o700);
   } catch (e: unknown) {
     process.stderr.write(
-      `[atomic-write] Could not tighten permissions on ${dir}: ${e instanceof Error ? e.message : String(e)}\n`
+      `[atomic-write] Could not tighten permissions on ${dir}: ${e instanceof Error ? e.message : String(e)}\n`,
     );
   }
 }
 
-export async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
+export async function atomicWriteJson(
+  filePath: string,
+  data: unknown,
+): Promise<void> {
   const dir = dirname(filePath);
   await ensureSecureDir(dir);
 
@@ -44,5 +47,24 @@ export async function atomicWriteJson(filePath: string, data: unknown): Promise<
     // biome-ignore lint/suspicious/noEmptyBlockStatements: best-effort temp file cleanup
     await unlink(tmpPath).catch(() => {});
     throw renameError;
+  }
+}
+
+/**
+ * Write raw bytes to a file with explicit mode, atomically.
+ * Uses open(... 'wx', mode) when excl=true to enforce O_EXCL with the desired mode in one syscall.
+ */
+export async function writeBytesSecure(
+  filePath: string,
+  bytes: Buffer | Uint8Array,
+  opts: { excl: boolean; mode: number },
+): Promise<void> {
+  const flag = opts.excl ? "wx" : "w";
+  const fd = await open(filePath, flag, opts.mode);
+  try {
+    await fd.writeFile(bytes);
+    await fd.sync();
+  } finally {
+    await fd.close();
   }
 }

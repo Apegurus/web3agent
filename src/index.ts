@@ -16,9 +16,16 @@ export {
   submitSignedSwap,
   submitSignedTwapOrder,
 } from "./api/intents.js";
-export { getRequiredApprovals, prepareOperation, resumeOperation } from "./api/operations.js";
+export {
+  getRequiredApprovals,
+  prepareOperation,
+  resumeOperation,
+} from "./api/operations.js";
 export { cancelOrder, listOrders, placeOrder } from "./api/orders.js";
-export { clearTraceSupportCache, simulateTransaction } from "./api/simulation.js";
+export {
+  clearTraceSupportCache,
+  simulateTransaction,
+} from "./api/simulation.js";
 export {
   getAddressFundedBy,
   getAddressInfo,
@@ -107,6 +114,8 @@ export {
 } from "./api/erc8004.js";
 export { x402CheckRequirements, x402Fetch } from "./api/x402.js";
 export { policyGet } from "./api/policy.js";
+export { deleteWallet, getWalletInfo } from "./api/wallet.js";
+export type { WalletBackendInfo } from "./wallet/backend.js";
 export type {
   ApprovalStep,
   AcpClaimRefundInput,
@@ -254,12 +263,16 @@ export type {
   WalletActivateInput,
   WalletAddressDerivationResult,
   WalletConfirmationResult,
+  WalletDeleteInput,
+  WalletDeleteResult,
   WalletDeactivationResult,
   WalletDeriveAddressesInput,
   WalletDerivedAddressEntry,
   WalletFromMnemonicInput,
   WalletGenerateMnemonicResult,
   WalletGenerateResult,
+  WalletInfoInput,
+  WalletInfoResult,
   WalletSetConfirmationInput,
   WalletState,
   Web3AgentRuntime,
@@ -430,7 +443,10 @@ export {
   agdpSearchOfferingsInputSchema,
 } from "./agdp/schemas.js";
 export { x402ProbeResultSchema } from "./x402/schemas.js";
-export { normalizeEip712ForSigning, pollSwapStatus } from "./orbs/liquidity-hub.js";
+export {
+  normalizeEip712ForSigning,
+  pollSwapStatus,
+} from "./orbs/liquidity-hub.js";
 export {
   addressSchema,
   chainIdOptionalSchema,
@@ -605,14 +621,20 @@ export {
   explorerTxHistorySchema,
   explorerTxReceiptSchema,
 } from "./api/schemas/explorer-outputs.js";
-export { listChainTokensSchema, resolveTokenSchema } from "./tools/tokens/schemas.js";
+export {
+  listChainTokensSchema,
+  resolveTokenSchema,
+} from "./tools/tokens/schemas.js";
 export {
   transactionConfirmSchema,
   transactionDenySchema,
   transactionSimulateSchema,
   walletActivateSchema,
+  walletDeleteSchema,
   walletDeriveAddressesSchema,
   walletFromMnemonicSchema,
+  walletInfoOutputSchema,
+  walletInfoSchema,
   walletSetConfirmationSchema,
 } from "./tools/wallet/schemas.js";
 export {

@@ -26,6 +26,12 @@ async function runCli(args: string[]): Promise<void> {
     return;
   }
 
+  if (args[0] === "wallet") {
+    const { runWalletCommand } = await import("./cli/commands/wallet.js");
+    await runWalletCommand(args.slice(1));
+    return;
+  }
+
   if (args[0] === "doctor") {
     const { runDoctorCommand } = await import("./cli/commands/doctor.js");
     await runDoctorCommand(args.slice(1));
@@ -54,13 +60,14 @@ async function runCli(args: string[]): Promise<void> {
         "  web3agent policy        Show or update treasury spending limits",
         "  web3agent tools         List or describe tools",
         "  web3agent tool call     Invoke a tool with JSON input",
+        "  web3agent wallet        Generate and manage local wallets",
         "  web3agent doctor        Show runtime health diagnostics",
         "  web3agent create        Scaffold a starter project",
         "",
         "Options:",
         "  --version        Print version",
         "  --help           Print this help",
-      ].join("\n")}\n`
+      ].join("\n")}\n`,
     );
     process.exit(0);
   }
@@ -75,7 +82,9 @@ void runCli(process.argv.slice(2)).catch((e: unknown) => {
     process.exit(e.exitCode);
   }
   const prefix = process.argv.slice(2).length > 0 ? "Error" : "Fatal";
-  process.stderr.write(`${prefix}: ${e instanceof Error ? e.message : String(e)}\n`);
+  process.stderr.write(
+    `${prefix}: ${e instanceof Error ? e.message : String(e)}\n`,
+  );
   process.exit(1);
 });
 

@@ -26,11 +26,19 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   return !FALSE_VALUES.has(value.toLowerCase());
 }
 
-function parseIntStrict(field: string, value: string | undefined, fallback: number): number {
+function parseIntStrict(
+  field: string,
+  value: string | undefined,
+  fallback: number,
+): number {
   if (value === undefined || value === "") return fallback;
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
-    throw new ValidationError(field, value, `${field} must be an integer, got "${value}"`);
+    throw new ValidationError(
+      field,
+      value,
+      `${field} must be an integer, got "${value}"`,
+    );
   }
   return parsed;
 }
@@ -43,20 +51,23 @@ function parsePolicyBoolean(value: string | undefined): boolean | undefined {
   if (FALSE_VALUES.has(lower)) return false;
   if (!TRUE_VALUES.has(lower)) {
     process.stderr.write(
-      `[config] Unrecognized policy boolean "${value}" — treating as true. Use true/false/yes/no/on/off/enabled/disabled.\n`
+      `[config] Unrecognized policy boolean "${value}" — treating as true. Use true/false/yes/no/on/off/enabled/disabled.\n`,
     );
   }
   return true;
 }
 
-function parsePositiveFloat(field: string, value: string | undefined): number | undefined {
+function parsePositiveFloat(
+  field: string,
+  value: string | undefined,
+): number | undefined {
   if (value === undefined || value === "") return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new ValidationError(
       field,
       value,
-      `${field} must be a finite non-negative number, got "${value}"`
+      `${field} must be a finite non-negative number, got "${value}"`,
     );
   }
   return parsed;
@@ -64,7 +75,9 @@ function parsePositiveFloat(field: string, value: string | undefined): number | 
 
 const RPC_URL_PREFIX = "RPC_URL_";
 
-function parseChainRpcUrls(env: Partial<Record<string, string>>): Record<number, string> {
+function parseChainRpcUrls(
+  env: Partial<Record<string, string>>,
+): Record<number, string> {
   const urls: Record<number, string> = {};
   for (const [key, value] of Object.entries(env)) {
     if (key.startsWith(RPC_URL_PREFIX) && value) {
@@ -77,14 +90,16 @@ function parseChainRpcUrls(env: Partial<Record<string, string>>): Record<number,
   return urls;
 }
 
-export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConfig {
+export function parseEnv(
+  env: Partial<Record<string, string>> = {},
+): RuntimeConfig {
   const chainId = parseIntStrict("CHAIN_ID", env.CHAIN_ID, 8453);
 
   if (!isSupported(chainId)) {
     throw new ValidationError(
       "CHAIN_ID",
       env.CHAIN_ID ?? String(chainId),
-      `Unsupported chain ID: ${chainId}`
+      `Unsupported chain ID: ${chainId}`,
     );
   }
 
@@ -92,12 +107,29 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     chainId,
     privateKey: env.PRIVATE_KEY || undefined,
     mnemonic: env.MNEMONIC || undefined,
-    walletAccountIndex: parseIntStrict("WALLET_ACCOUNT_INDEX", env.WALLET_ACCOUNT_INDEX, 0),
-    walletAddressIndex: parseIntStrict("WALLET_ADDRESS_INDEX", env.WALLET_ADDRESS_INDEX, 0),
+    owsPassphrase:
+      env.OWS_PASSPHRASE && env.OWS_PASSPHRASE.trim() !== ""
+        ? env.OWS_PASSPHRASE
+        : undefined,
+    owsForceLegacy: env.OWS_FORCE_LEGACY === "1",
+    walletAccountIndex: parseIntStrict(
+      "WALLET_ACCOUNT_INDEX",
+      env.WALLET_ACCOUNT_INDEX,
+      0,
+    ),
+    walletAddressIndex: parseIntStrict(
+      "WALLET_ADDRESS_INDEX",
+      env.WALLET_ADDRESS_INDEX,
+      0,
+    ),
     rpcUrl: env.RPC_URL || undefined,
     chainRpcUrls: parseChainRpcUrls(env),
     confirmWrites: parseBoolean(env.CONFIRM_WRITES, true),
-    confirmTtlMinutes: parseIntStrict("CONFIRM_TTL_MINUTES", env.CONFIRM_TTL_MINUTES, 30),
+    confirmTtlMinutes: parseIntStrict(
+      "CONFIRM_TTL_MINUTES",
+      env.CONFIRM_TTL_MINUTES,
+      30,
+    ),
     etherscanApiUrl: env.ETHERSCAN_API_URL || ETHERSCAN_DEFAULT_API_URL,
     etherscanApiKey: env.ETHERSCAN_API_KEY || undefined,
     lifiApiKey: env.LIFI_API_KEY || undefined,
@@ -113,12 +145,24 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     policyEnabled: parsePolicyBoolean(env.POLICY_ENABLED),
     policyMaxSingleTransactionUsd: parsePositiveFloat(
       "POLICY_MAX_SINGLE_TX_USD",
-      env.POLICY_MAX_SINGLE_TX_USD
+      env.POLICY_MAX_SINGLE_TX_USD,
     ),
-    policyMaxHourlyUsd: parsePositiveFloat("POLICY_MAX_HOURLY_USD", env.POLICY_MAX_HOURLY_USD),
-    policyMaxDailyUsd: parsePositiveFloat("POLICY_MAX_DAILY_USD", env.POLICY_MAX_DAILY_USD),
-    policyMinReserveUsd: parsePositiveFloat("POLICY_MIN_RESERVE_USD", env.POLICY_MIN_RESERVE_USD),
-    policyMaxX402PaymentUsd: parsePositiveFloat("POLICY_MAX_X402_USD", env.POLICY_MAX_X402_USD),
+    policyMaxHourlyUsd: parsePositiveFloat(
+      "POLICY_MAX_HOURLY_USD",
+      env.POLICY_MAX_HOURLY_USD,
+    ),
+    policyMaxDailyUsd: parsePositiveFloat(
+      "POLICY_MAX_DAILY_USD",
+      env.POLICY_MAX_DAILY_USD,
+    ),
+    policyMinReserveUsd: parsePositiveFloat(
+      "POLICY_MIN_RESERVE_USD",
+      env.POLICY_MIN_RESERVE_USD,
+    ),
+    policyMaxX402PaymentUsd: parsePositiveFloat(
+      "POLICY_MAX_X402_USD",
+      env.POLICY_MAX_X402_USD,
+    ),
   };
 }
 
@@ -153,7 +197,10 @@ export function tryGetConfig(): RuntimeConfig | undefined {
   return configStore.getStore() ?? cached;
 }
 
-export async function withConfig<T>(config: RuntimeConfig, fn: () => Promise<T>): Promise<T> {
+export async function withConfig<T>(
+  config: RuntimeConfig,
+  fn: () => Promise<T>,
+): Promise<T> {
   return configStore.run(config, fn);
 }
 

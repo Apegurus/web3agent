@@ -8,7 +8,10 @@ import {
 } from "viem/accounts";
 import { simulateTransaction } from "../../api/simulation.js";
 import { getConfig } from "../../config/env.js";
-import { getCachedBalanceUsd, refreshBalanceUsd } from "../../policy/balance-cache.js";
+import {
+  getCachedBalanceUsd,
+  refreshBalanceUsd,
+} from "../../policy/balance-cache.js";
 import { resolvePolicy } from "../../policy/config.js";
 import { evaluatePolicy } from "../../policy/engine.js";
 import { extractEstimatedUsd } from "../../policy/extract-usd.js";
@@ -25,14 +28,23 @@ import {
 } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
-import { confirmationQueue, registerExecutor } from "../../wallet/confirmation.js";
+import {
+  getAgentVisibleSecretsDisabledMessage,
+  isAgentVisibleSecretsEnabled,
+} from "../../wallet/agent-visible-secrets.js";
+import { getWalletBackend } from "../../wallet/backend-selector.js";
+import {
+  confirmationQueue,
+  registerExecutor,
+} from "../../wallet/confirmation.js";
 import {
   activateWallet,
   deactivateWallet,
+  deletePersistedWallet,
   getActiveAccount,
   getWalletState,
-  hasPersistedWalletKey,
 } from "../../wallet/persistence.js";
+import { hasConfiguredOwsPassphrase } from "../../wallet/wallet-utils.js";
 import {
   transactionConfirmSchema,
   transactionDenySchema,
@@ -43,7 +55,18 @@ import {
   walletSetConfirmationSchema,
 } from "./schemas.js";
 
+function requireAgentVisibleSecrets(): CallToolResult | null {
+  if (isAgentVisibleSecretsEnabled()) return null;
+  return formatToolError(
+    "AGENT_VISIBLE_SECRETS_DISABLED",
+    getAgentVisibleSecretsDisabledMessage(),
+  );
+}
+
 export async function walletGenerate(): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const key = generatePrivateKey();
     const account = privateKeyToAccount(key);
@@ -55,12 +78,15 @@ export async function walletGenerate(): Promise<CallToolResult> {
   } catch (err: unknown) {
     return formatToolError(
       "WALLET_GENERATE_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
 
 export async function walletGenerateMnemonic(): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const mnemonic = generateMnemonic(english);
     const account = mnemonicToAccount(mnemonic);
@@ -73,12 +99,17 @@ export async function walletGenerateMnemonic(): Promise<CallToolResult> {
   } catch (err: unknown) {
     return formatToolError(
       "MNEMONIC_GENERATE_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
 
-export async function walletFromMnemonic(params: Record<string, unknown>): Promise<CallToolResult> {
+export async function walletFromMnemonic(
+  params: Record<string, unknown>,
+): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const v = validateInput(walletFromMnemonicSchema, params);
     if (!v.success) return v.error;
@@ -96,14 +127,17 @@ export async function walletFromMnemonic(params: Record<string, unknown>): Promi
   } catch (err: unknown) {
     return formatToolError(
       "MNEMONIC_RESOLVE_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
 
 export async function walletDeriveAddresses(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
 ): Promise<CallToolResult> {
+  const gate = requireAgentVisibleSecrets();
+  if (gate) return gate;
+
   try {
     const v = validateInput(walletDeriveAddressesSchema, params);
     if (!v.success) return v.error;
@@ -120,7 +154,10 @@ export async function walletDeriveAddresses(
 
     return formatToolResponse(addresses);
   } catch (err: unknown) {
-    return formatToolError("DERIVE_FAILED", err instanceof Error ? err.message : "Unknown error");
+    return formatToolError(
+      "DERIVE_FAILED",
+      err instanceof Error ? err.message : "Unknown error",
+    );
   }
 }
 
@@ -135,15 +172,57 @@ export async function walletGetActive(): Promise<CallToolResult> {
   } catch (err: unknown) {
     return formatToolError(
       "WALLET_STATE_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
 
-export async function walletActivate(params: Record<string, unknown>): Promise<CallToolResult> {
+export async function walletInfo(): Promise<CallToolResult> {
+  try {
+    const backend = getWalletBackend();
+    const backendInfo = backend.info;
+    const state = getWalletState();
+    const isOws = backendInfo.type === "ows";
+    let configPassphrase: string | undefined;
+    try {
+      configPassphrase = getConfig().owsPassphrase;
+    } catch {
+      configPassphrase = undefined;
+    }
+
+    return formatToolResponse({
+      backend: backendInfo.type,
+      backendReason: backendInfo.reason,
+      vaultPath: isOws ? (backendInfo.vaultPath ?? null) : null,
+      supportedChains: ["evm"],
+      securityPosture: isOws ? "encrypted-at-rest" : "legacy-wallet-json",
+      passphraseConfigured: hasConfiguredOwsPassphrase(configPassphrase),
+      state: {
+        mode: state.mode,
+        address: state.address ?? null,
+        chainId: state.chainId,
+        accountIndex: state.accountIndex,
+        addressIndex: state.addressIndex,
+      },
+    });
+  } catch (err: unknown) {
+    return formatToolError(
+      "WALLET_INFO_FAILED",
+      err instanceof Error ? err.message : "Unknown error",
+    );
+  }
+}
+
+export async function walletActivate(
+  params: Record<string, unknown>,
+): Promise<CallToolResult> {
   try {
     const v = validateInput(walletActivateSchema, params);
     if (!v.success) return v.error;
+    if (v.data.privateKey || v.data.mnemonic) {
+      const gate = requireAgentVisibleSecrets();
+      if (gate) return gate;
+    }
     const description = v.data.mnemonic
       ? "Activate wallet from mnemonic phrase"
       : "Activate wallet from private key";
@@ -168,11 +247,15 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
         });
       },
       undefined, // wallet_activate is the transition INTO a signing wallet — no pre-existing address requirement
-      "destructive"
+      "destructive",
     );
 
     if (queued) {
-      return formatToolResponse({ status: "pending_confirmation", id, summary });
+      return formatToolResponse({
+        status: "pending_confirmation",
+        id,
+        summary,
+      });
     }
 
     const state = await activateWallet(activateData);
@@ -184,63 +267,70 @@ export async function walletActivate(params: Record<string, unknown>): Promise<C
   } catch (err: unknown) {
     return formatToolError(
       "WALLET_ACTIVATE_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
 
-async function walletDeactivateExecutor(_params: Record<string, unknown>): Promise<CallToolResult> {
+async function walletDeactivateExecutor(
+  _params: Record<string, unknown>,
+): Promise<CallToolResult> {
   await deactivateWallet();
   const state = getWalletState();
   return formatToolResponse({
     mode: state.mode,
-    message: "Wallet deactivated. Reverted to read-only ephemeral wallet.",
+    message:
+      "Wallet deactivated for the current runtime/session. Reverted to read-only ephemeral wallet.",
   });
 }
 
 export async function walletDeactivate(): Promise<CallToolResult> {
   try {
-    const state = getWalletState();
-
-    // Read-only mode bypasses executeWrite()'s read-only gate (which exists
-    // to block writes that REQUIRE a signer; deactivate is the inverse — the
-    // transition AWAY from a signer). Two sub-paths:
-    if (state.mode === "read-only") {
-      if (!hasPersistedWalletKey()) {
-        // True no-op: nothing to unlink, already ephemeral. Skip the queue.
-        return walletDeactivateExecutor({});
-      }
-      // Stale key file present (e.g., prior crashed session). Filesystem
-      // deletion is still a destructive write, so route through the
-      // confirmation queue when enabled — but with `walletAddress: undefined`
-      // so transaction_confirm's read-only gate doesn't reject it.
-      if (confirmationQueue.enabled) {
-        const { queued, id, summary } = confirmationQueue.enqueue(
-          "wallet_deactivate",
-          "Deactivate wallet and delete persisted key file",
-          {},
-          walletDeactivateExecutor,
-          undefined,
-          "destructive"
-        );
-        if (queued) {
-          return formatToolResponse({ status: "pending_confirmation", id, summary });
-        }
-      }
-      return walletDeactivateExecutor({});
-    }
-
-    return await executeWrite({
-      toolName: "wallet_deactivate",
-      description: "Deactivate wallet and delete persisted key file",
-      params: {},
-      executor: walletDeactivateExecutor,
-      riskLevel: "destructive",
-    });
+    return await walletDeactivateExecutor({});
   } catch (err: unknown) {
     return formatToolError(
       "WALLET_DEACTIVATE_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
+    );
+  }
+}
+
+async function walletDeleteExecutor(
+  _params: Record<string, unknown>,
+): Promise<CallToolResult> {
+  await deletePersistedWallet();
+  const state = getWalletState();
+  return formatToolResponse({
+    mode: state.mode,
+    message:
+      "Permanently deleted persisted wallet material. Reverted to read-only ephemeral wallet.",
+  });
+}
+
+export async function walletDelete(): Promise<CallToolResult> {
+  try {
+    const { queued, id, summary } = confirmationQueue.enqueue(
+      "wallet_delete",
+      "Permanently delete persisted wallet material and revert to read-only ephemeral mode",
+      {},
+      walletDeleteExecutor,
+      undefined,
+      "destructive",
+    );
+
+    if (queued) {
+      return formatToolResponse({
+        status: "pending_confirmation",
+        id,
+        summary,
+      });
+    }
+
+    return await walletDeleteExecutor({});
+  } catch (err: unknown) {
+    return formatToolError(
+      "WALLET_DELETE_FAILED",
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
@@ -250,7 +340,7 @@ export async function walletDeactivate(): Promise<CallToolResult> {
 //  2. enabled=false, already disabled → no-op response
 //  3. enabled=false, currently enabled → queue via executeWrite (weakens security)
 export async function walletSetConfirmation(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
 ): Promise<CallToolResult> {
   try {
     const v = validateInput(walletSetConfirmationSchema, params);
@@ -262,20 +352,23 @@ export async function walletSetConfirmation(
 
       return formatToolResponse({
         confirmationRequired: true,
-        message: "Write confirmation enabled. Transactions will require explicit confirmation.",
+        message:
+          "Write confirmation enabled. Transactions will require explicit confirmation.",
       });
     }
 
     if (!confirmationQueue.enabled) {
       return formatToolResponse({
         confirmationRequired: false,
-        message: "Write confirmation already disabled. Transactions execute immediately.",
+        message:
+          "Write confirmation already disabled. Transactions execute immediately.",
       });
     }
 
     return executeWrite({
       toolName: "wallet_set_confirmation",
-      description: "Disable write confirmation — all future writes will execute immediately",
+      description:
+        "Disable write confirmation — all future writes will execute immediately",
       params: { enabled: false } as unknown as Record<string, unknown>,
       executor: walletSetConfirmationExecutor,
       riskLevel: "destructive",
@@ -283,12 +376,14 @@ export async function walletSetConfirmation(
   } catch (err: unknown) {
     return formatToolError(
       "SET_CONFIRMATION_FAILED",
-      err instanceof Error ? err.message : "Unknown error"
+      err instanceof Error ? err.message : "Unknown error",
     );
   }
 }
 
-export async function transactionConfirm(params: Record<string, unknown>): Promise<CallToolResult> {
+export async function transactionConfirm(
+  params: Record<string, unknown>,
+): Promise<CallToolResult> {
   let reservationId: number | null = null;
   let confirmedId: string | undefined;
 
@@ -298,9 +393,14 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     if (!v.success) return v.error;
     const { id } = v.data;
 
-    const pendingOperation = confirmationQueue.list().find((operation) => operation.id === id);
+    const pendingOperation = confirmationQueue
+      .list()
+      .find((operation) => operation.id === id);
     if (!pendingOperation) {
-      return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
+      return formatToolError(
+        "NOT_FOUND",
+        `No pending operation with ID: ${id}`,
+      );
     }
 
     const elapsed = Date.now() - pendingOperation.createdAt.getTime();
@@ -308,7 +408,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       confirmationQueue.pruneExpired();
       return formatToolError(
         "OPERATION_EXPIRED",
-        `Operation ${id} was confirmed after TTL expiry and will not be executed.`
+        `Operation ${id} was confirmed after TTL expiry and will not be executed.`,
       );
     }
 
@@ -316,39 +416,53 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     if (requiresWalletBalance && walletState.mode === "read-only") {
       return formatToolError(
         "WALLET_READ_ONLY",
-        "transaction_confirm requires an active wallet. Activate a wallet first."
+        "transaction_confirm requires an active wallet. Activate a wallet first.",
       );
     }
 
     if (
       pendingOperation.walletAddress &&
       walletState.address &&
-      pendingOperation.walletAddress.toLowerCase() !== walletState.address.toLowerCase()
+      pendingOperation.walletAddress.toLowerCase() !==
+        walletState.address.toLowerCase()
     ) {
       return formatToolError(
         "WALLET_MISMATCH",
-        `Operation ${id} was queued for wallet ${pendingOperation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`
+        `Operation ${id} was queued for wallet ${pendingOperation.walletAddress} but active wallet is ${walletState.address}. Deny this operation and re-submit.`,
       );
     }
 
     const opRiskLevel = pendingOperation.riskLevel ?? "financial";
     const opParams = pendingOperation.params;
-    const rawEstimatedUsd = opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
+    const rawEstimatedUsd =
+      opRiskLevel === "safe" ? 0 : await extractEstimatedUsd(opParams);
     const spendWalletAddress = pendingOperation.walletAddress;
 
     if (opRiskLevel === "financial") {
       const policyChainId =
-        typeof opParams.chainId === "number" ? (opParams.chainId as number) : walletState.chainId;
+        typeof opParams.chainId === "number"
+          ? (opParams.chainId as number)
+          : walletState.chainId;
       let walletBalanceUsd: number | null = null;
       if (requiresWalletBalance && spendWalletAddress) {
-        walletBalanceUsd = getCachedBalanceUsd(spendWalletAddress, policyChainId);
+        walletBalanceUsd = getCachedBalanceUsd(
+          spendWalletAddress,
+          policyChainId,
+        );
         if (walletBalanceUsd === null) {
-          walletBalanceUsd = await refreshBalanceUsd(spendWalletAddress, policyChainId);
+          walletBalanceUsd = await refreshBalanceUsd(
+            spendWalletAddress,
+            policyChainId,
+          );
         }
       }
 
       if (rawEstimatedUsd !== null && rawEstimatedUsd > 0) {
-        reservationId = reserveSpend(pendingOperation.type, rawEstimatedUsd, spendWalletAddress);
+        reservationId = reserveSpend(
+          pendingOperation.type,
+          rawEstimatedUsd,
+          spendWalletAddress,
+        );
       }
 
       const config = getConfig();
@@ -376,7 +490,10 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
     if (!result) {
       if (reservationId !== null) releaseReservation(reservationId);
       reservationId = null;
-      return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
+      return formatToolError(
+        "NOT_FOUND",
+        `No pending operation with ID: ${id}`,
+      );
     }
     confirmedId = id;
 
@@ -387,7 +504,7 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       reservationId = null;
       return formatToolError(
         "OPERATION_EXPIRED",
-        `Operation ${id} was confirmed after TTL expiry and will not be executed.`
+        `Operation ${id} was confirmed after TTL expiry and will not be executed.`,
       );
     }
 
@@ -418,11 +535,16 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
   } catch (err: unknown) {
     if (reservationId !== null) releaseReservation(reservationId);
     if (confirmedId) confirmationQueue.fail(confirmedId);
-    return formatToolError("CONFIRM_FAILED", err instanceof Error ? err.message : "Unknown error");
+    return formatToolError(
+      "CONFIRM_FAILED",
+      err instanceof Error ? err.message : "Unknown error",
+    );
   }
 }
 
-export async function transactionDeny(params: Record<string, unknown>): Promise<CallToolResult> {
+export async function transactionDeny(
+  params: Record<string, unknown>,
+): Promise<CallToolResult> {
   try {
     const v = validateInput(transactionDenySchema, params);
     if (!v.success) return v.error;
@@ -430,7 +552,10 @@ export async function transactionDeny(params: Record<string, unknown>): Promise<
 
     const removed = confirmationQueue.deny(id);
     if (!removed) {
-      return formatToolError("NOT_FOUND", `No pending operation with ID: ${id}`);
+      return formatToolError(
+        "NOT_FOUND",
+        `No pending operation with ID: ${id}`,
+      );
     }
 
     return formatToolResponse({
@@ -439,7 +564,10 @@ export async function transactionDeny(params: Record<string, unknown>): Promise<
       message: "Operation denied and removed from queue.",
     });
   } catch (err: unknown) {
-    return formatToolError("DENY_FAILED", err instanceof Error ? err.message : "Unknown error");
+    return formatToolError(
+      "DENY_FAILED",
+      err instanceof Error ? err.message : "Unknown error",
+    );
   }
 }
 
@@ -455,16 +583,22 @@ export async function transactionList(): Promise<CallToolResult> {
         type: op.type,
         description: op.description,
         createdAt: op.createdAt.toISOString(),
-        expiresIn: Math.max(0, op.ttlMs - (Date.now() - op.createdAt.getTime())),
+        expiresIn: Math.max(
+          0,
+          op.ttlMs - (Date.now() - op.createdAt.getTime()),
+        ),
       })),
     });
   } catch (err: unknown) {
-    return formatToolError("LIST_FAILED", err instanceof Error ? err.message : "Unknown error");
+    return formatToolError(
+      "LIST_FAILED",
+      err instanceof Error ? err.message : "Unknown error",
+    );
   }
 }
 
 export async function transactionSimulate(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
 ): Promise<CallToolResult> {
   const v = validateInput(transactionSimulateSchema, params);
   if (!v.success) return v.error;
@@ -472,12 +606,16 @@ export async function transactionSimulate(
   try {
     return formatToolResponse(await simulateTransaction(v.data));
   } catch (error: unknown) {
-    return formatToolErrorFromUnknown("SIMULATION_ERROR", error, "Failed to simulate transaction");
+    return formatToolErrorFromUnknown(
+      "SIMULATION_ERROR",
+      error,
+      "Failed to simulate transaction",
+    );
   }
 }
 
 async function walletSetConfirmationExecutor(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
 ): Promise<CallToolResult> {
   confirmationQueue.enabled = (params as { enabled: boolean }).enabled;
   const enabled = confirmationQueue.enabled;

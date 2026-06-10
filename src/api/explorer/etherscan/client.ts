@@ -13,7 +13,7 @@ export class EtherscanClient {
     chainId: number,
     module: string,
     action: string,
-    params: Record<string, string> = {}
+    params: Record<string, string> = {},
   ): Promise<T> {
     const baseUrl = getEtherscanApiUrl(chainId);
     if (!baseUrl) {
@@ -40,7 +40,7 @@ export class EtherscanClient {
       {
         retry: { maxRetries: 3, baseDelayMs: 200 },
         label: `etherscan:${module}.${action}`,
-      }
+      },
     );
 
     if (!response.ok) {
@@ -58,7 +58,7 @@ export class EtherscanClient {
       const proxy = body as EtherscanProxyResponse<T>;
       if (proxy.error) {
         throw new Error(
-          `Etherscan proxy error: ${proxy.error.message ?? JSON.stringify(proxy.error)}`
+          `Etherscan proxy error: ${proxy.error.message ?? JSON.stringify(proxy.error)}`,
         );
       }
       if (proxy.result == null) {
@@ -70,7 +70,10 @@ export class EtherscanClient {
     // Standard endpoints return { status, message, result }
     const standard = body as EtherscanStandardResponse<T>;
     if (standard.status === "0") {
-      const msg = typeof standard.result === "string" ? standard.result : standard.message;
+      const msg =
+        typeof standard.result === "string"
+          ? standard.result
+          : standard.message;
       // "No transactions/records found" is a normal empty result, not an error
       if (/no (?:transactions|records|token|data) found/i.test(msg)) {
         return [] as unknown as T;

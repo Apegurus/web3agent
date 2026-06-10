@@ -1,9 +1,19 @@
 import { existsSync, statSync } from "node:fs";
-import { chmod, mkdir, readFile, rm } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { atomicWriteJson } from "../../src/utils/atomic-write.js";
+import {
+  atomicWriteJson,
+  writeBytesSecure,
+} from "../../src/utils/atomic-write.js";
 
 const TEST_DIR = join(tmpdir(), `web3agent-atomic-write-test-${process.pid}`);
 
@@ -50,7 +60,7 @@ describe("atomicWriteJson", () => {
 
       const parentMode = statSync(join(TEST_DIR, "nested")).mode & 0o777;
       expect(parentMode).toBe(0o700);
-    }
+    },
   );
 
   it.skipIf(process.platform === "win32")(
@@ -65,6 +75,30 @@ describe("atomicWriteJson", () => {
       // Next atomic write must repair the mode to 0o700.
       await atomicWriteJson(join(preExistingDir, "data.json"), { ok: true });
       expect(statSync(preExistingDir).mode & 0o777).toBe(0o700);
-    }
+    },
   );
+});
+
+describe("writeBytesSecure", () => {
+  it.skipIf(process.platform === "win32")(
+    "creates the file with mode 0o600 even if source bytes came from a 0o644 file",
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), "wbs-"));
+      const dst = join(dir, "out.json");
+      await writeBytesSecure(dst, Buffer.from("hello"), {
+        excl: true,
+        mode: 0o600,
+      });
+      expect(statSync(dst).mode & 0o777).toBe(0o600);
+    },
+  );
+
+  it("throws EEXIST when excl=true and destination exists", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wbs-"));
+    const dst = join(dir, "out.json");
+    await writeFile(dst, "existing");
+    await expect(
+      writeBytesSecure(dst, Buffer.from("new"), { excl: true, mode: 0o600 }),
+    ).rejects.toThrow(/EEXIST/);
+  });
 });

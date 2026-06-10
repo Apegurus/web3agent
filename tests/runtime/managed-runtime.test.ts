@@ -13,6 +13,9 @@ const mockState = vi.hoisted(() => {
 
   return {
     goatProviders,
+    selectWalletBackend: vi
+      .fn()
+      .mockResolvedValue({ info: { type: "legacy", reason: "test" } }),
     dispatchGoatTool: vi.fn(),
     initializeWallet: vi.fn().mockResolvedValue(undefined),
     getWalletState: vi.fn().mockReturnValue({
@@ -42,7 +45,9 @@ const registerToolMocks = vi.hoisted(() => ({
 
 const policyMocks = vi.hoisted(() => ({
   resolvePolicy: vi.fn().mockImplementation((config: unknown) => config),
-  evaluatePolicy: vi.fn().mockReturnValue({ action: "allow", reasonCode: "ALLOWED" }),
+  evaluatePolicy: vi
+    .fn()
+    .mockReturnValue({ action: "allow", reasonCode: "ALLOWED" }),
   extractEstimatedUsd: vi.fn().mockResolvedValue(null),
   recordSpend: vi.fn(),
   loadSpendLog: vi.fn().mockResolvedValue(0),
@@ -59,14 +64,21 @@ vi.mock("../../src/wallet/persistence.js", () => ({
   getWalletState: (...args: unknown[]) => mockState.getWalletState(...args),
 }));
 
+vi.mock("../../src/wallet/backend-selector.js", () => ({
+  selectWalletBackend: (...args: unknown[]) =>
+    mockState.selectWalletBackend(...args),
+}));
+
 vi.mock("../../src/tools/orbs/index.js", () => ({
   getOrbsToolDefinitions: vi.fn().mockReturnValue([]),
-  registerOrbsExecutors: (...args: unknown[]) => mockState.registerOrbsExecutors(...args),
+  registerOrbsExecutors: (...args: unknown[]) =>
+    mockState.registerOrbsExecutors(...args),
 }));
 
 vi.mock("../../src/tools/lifi/index.js", () => ({
   getLifiToolDefinitions: vi.fn().mockReturnValue([]),
-  registerLifiExecutors: (...args: unknown[]) => mockState.registerLifiExecutors(...args),
+  registerLifiExecutors: (...args: unknown[]) =>
+    mockState.registerLifiExecutors(...args),
 }));
 
 vi.mock("../../src/tools/evm/index.js", () => ({
@@ -79,12 +91,15 @@ vi.mock("../../src/tools/evm/index.js", () => ({
       handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
     },
   ]),
-  registerEvmExecutors: (...args: unknown[]) => mockState.registerEvmExecutors(...args),
+  registerEvmExecutors: (...args: unknown[]) =>
+    mockState.registerEvmExecutors(...args),
 }));
 
 vi.mock("../../src/tools/register.js", () => ({
   getWalletToolDefinitions: vi.fn(() => registerToolMocks.walletTools),
-  getTransactionToolDefinitions: vi.fn(() => registerToolMocks.transactionTools),
+  getTransactionToolDefinitions: vi.fn(
+    () => registerToolMocks.transactionTools,
+  ),
   getUtilityToolDefinitions: vi.fn(() => registerToolMocks.utilityTools),
 }));
 
@@ -133,7 +148,8 @@ vi.mock("../../src/policy/engine.js", () => ({
 }));
 
 vi.mock("../../src/policy/extract-usd.js", () => ({
-  extractEstimatedUsd: (...args: unknown[]) => policyMocks.extractEstimatedUsd(...args),
+  extractEstimatedUsd: (...args: unknown[]) =>
+    policyMocks.extractEstimatedUsd(...args),
 }));
 
 vi.mock("../../src/policy/spend-tracker.js", () => ({
@@ -145,9 +161,12 @@ vi.mock("../../src/policy/spend-tracker.js", () => ({
 }));
 
 vi.mock("../../src/policy/balance-cache.js", () => ({
-  getCachedBalanceUsd: (...args: unknown[]) => balanceCacheMocks.getCachedBalanceUsd(...args),
-  refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
-  resetBalanceCache: (...args: unknown[]) => balanceCacheMocks.resetBalanceCache(...args),
+  getCachedBalanceUsd: (...args: unknown[]) =>
+    balanceCacheMocks.getCachedBalanceUsd(...args),
+  refreshBalanceUsd: (...args: unknown[]) =>
+    balanceCacheMocks.refreshBalanceUsd(...args),
+  resetBalanceCache: (...args: unknown[]) =>
+    balanceCacheMocks.resetBalanceCache(...args),
 }));
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
@@ -247,6 +266,9 @@ describe("managed runtime", () => {
       structuredContent: { ok: true, data: { status: "ok" } },
       content: [{ type: "text", text: '{"status":"ok"}' }],
     });
+    mockState.selectWalletBackend.mockReset().mockResolvedValue({
+      info: { type: "legacy", reason: "test" },
+    });
     mockState.initializeWallet.mockClear();
     mockState.registerOrbsExecutors.mockClear();
     mockState.registerLifiExecutors.mockClear();
@@ -260,7 +282,9 @@ describe("managed runtime", () => {
     registerToolMocks.transactionTools = [];
     registerToolMocks.utilityTools = [];
     registerToolMocks.ccxtTools = [];
-    policyMocks.resolvePolicy.mockReset().mockImplementation((config: unknown) => config);
+    policyMocks.resolvePolicy
+      .mockReset()
+      .mockImplementation((config: unknown) => config);
     policyMocks.evaluatePolicy
       .mockReset()
       .mockReturnValue({ action: "allow", reasonCode: "ALLOWED" });
@@ -273,7 +297,8 @@ describe("managed runtime", () => {
   });
 
   it("uses a runtime-local goat provider and config for goat dispatch", async () => {
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
 
     const runtimeA = await createRuntime({
       config: {
@@ -348,7 +373,8 @@ describe("managed runtime", () => {
         handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
       },
     ];
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
 
     const runtime = await createRuntime({
       config: {
@@ -387,8 +413,48 @@ describe("managed runtime", () => {
     await runtime.shutdown();
   });
 
+  it("selects the wallet backend before initializing wallet state during startup", async () => {
+    const order: string[] = [];
+    mockState.selectWalletBackend.mockImplementationOnce(async () => {
+      order.push("select");
+      return { info: { type: "legacy", reason: "test" } };
+    });
+    mockState.initializeWallet.mockImplementationOnce(async () => {
+      order.push("initialize");
+    });
+
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
+    const runtime = await createRuntime({
+      config: {
+        chainId: 1,
+        privateKey: undefined,
+        mnemonic: undefined,
+        walletAccountIndex: 0,
+        walletAddressIndex: 0,
+        rpcUrl: undefined,
+        chainRpcUrls: {},
+        confirmWrites: true,
+        confirmTtlMinutes: 30,
+        etherscanApiKey: undefined,
+        etherscanApiUrl: "https://api.etherscan.io",
+        lifiApiKey: undefined,
+        zeroxApiKey: undefined,
+        coingeckoApiKey: undefined,
+        orbsPartner: undefined,
+      },
+    });
+
+    expect(order).toEqual(["select", "initialize"]);
+    expect(mockState.selectWalletBackend).toHaveBeenCalledTimes(1);
+    expect(mockState.initializeWallet).toHaveBeenCalledTimes(1);
+
+    await runtime.shutdown();
+  });
+
   it("does not initialize LI.FI during runtime bootstrap", async () => {
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
 
     const runtime = await createRuntime({
       config: {
@@ -433,7 +499,8 @@ describe("managed runtime", () => {
     balanceCacheMocks.getCachedBalanceUsd.mockReturnValueOnce(null);
     balanceCacheMocks.refreshBalanceUsd.mockResolvedValueOnce(125);
 
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: {
         chainId: 1,
@@ -464,12 +531,15 @@ describe("managed runtime", () => {
     });
 
     expect(result.isError).toBe(false);
-    expect(balanceCacheMocks.refreshBalanceUsd).toHaveBeenCalledWith("0xabc", 8453);
+    expect(balanceCacheMocks.refreshBalanceUsd).toHaveBeenCalledWith(
+      "0xabc",
+      8453,
+    );
     expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         walletBalanceUsd: 125,
-      })
+      }),
     );
 
     await runtime.shutdown();
@@ -496,11 +566,21 @@ describe("managed runtime", () => {
       message: "financial_test: USD estimation failed",
       riskLevel: "financial",
       toolName: "financial_test",
-      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
-      appliedPolicy: { maxSingleTransactionUsd: 100, maxHourlyUsd: 100, maxDailyUsd: 100 },
+      currentSpend: {
+        hourlyUsd: 0,
+        dailyUsd: 0,
+        hourlyCount: 0,
+        dailyCount: 0,
+      },
+      appliedPolicy: {
+        maxSingleTransactionUsd: 100,
+        maxHourlyUsd: 100,
+        maxDailyUsd: 100,
+      },
     });
 
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: {
         chainId: 1,
@@ -533,7 +613,7 @@ describe("managed runtime", () => {
     expect(balanceCacheMocks.refreshBalanceUsd).not.toHaveBeenCalled();
     expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ estimatedUsd: 0, walletBalanceUsd: null })
+      expect.objectContaining({ estimatedUsd: 0, walletBalanceUsd: null }),
     );
 
     await runtime.shutdown();
@@ -555,7 +635,8 @@ describe("managed runtime", () => {
     ];
     policyMocks.extractEstimatedUsd.mockResolvedValueOnce(50);
 
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: {
         chainId: 1,
@@ -591,7 +672,7 @@ describe("managed runtime", () => {
         estimatedUsd: 50,
         walletBalanceUsd: null,
         requiresWalletBalance: false,
-      })
+      }),
     );
 
     await runtime.shutdown();
@@ -618,11 +699,21 @@ describe("managed runtime", () => {
       message: "ccxt_private_write: USD estimation failed",
       riskLevel: "financial",
       toolName: "ccxt_private_write",
-      currentSpend: { hourlyUsd: 0, dailyUsd: 0, hourlyCount: 0, dailyCount: 0 },
-      appliedPolicy: { maxSingleTransactionUsd: 100, maxHourlyUsd: 100, maxDailyUsd: 100 },
+      currentSpend: {
+        hourlyUsd: 0,
+        dailyUsd: 0,
+        hourlyCount: 0,
+        dailyCount: 0,
+      },
+      appliedPolicy: {
+        maxSingleTransactionUsd: 100,
+        maxHourlyUsd: 100,
+        maxDailyUsd: 100,
+      },
     });
 
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: {
         chainId: 1,
@@ -643,7 +734,9 @@ describe("managed runtime", () => {
       },
     });
 
-    const result = await runtime.invokeTool("ccxt_private_write", { method: "createOrder" });
+    const result = await runtime.invokeTool("ccxt_private_write", {
+      method: "createOrder",
+    });
     const firstContent = result.content[0];
     if (firstContent?.type !== "text") {
       throw new Error("Expected text error content");
@@ -655,7 +748,7 @@ describe("managed runtime", () => {
     expect(payload.details.reasonCode).toBe("USD_ESTIMATION_FAILED");
     expect(policyMocks.evaluatePolicy).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ estimatedUsd: 0 })
+      expect.objectContaining({ estimatedUsd: 0 }),
     );
 
     await runtime.shutdown();
@@ -678,7 +771,8 @@ describe("managed runtime", () => {
       },
     ];
 
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: {
         chainId: 1,
@@ -735,7 +829,8 @@ describe("managed runtime", () => {
       },
     ];
 
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } =
+      await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: {
         chainId: 1,

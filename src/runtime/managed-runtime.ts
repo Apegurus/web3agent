@@ -3,7 +3,12 @@ import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/bl
 import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
 import { ExplorerRouter } from "../api/explorer/router.js";
 import { getCcxtRuntimeState } from "../ccxt/runtime-state.js";
-import { ValidationError, parseEnv, setConfig, withConfig } from "../config/env.js";
+import {
+  ValidationError,
+  parseEnv,
+  setConfig,
+  withConfig,
+} from "../config/env.js";
 import { createDefaultHealthStatus } from "../config/health.js";
 import { dispatchGoatTool } from "../goat/dispatch.js";
 import { GoatProvider } from "../goat/provider.js";
@@ -27,16 +32,40 @@ import {
   getAcpToolDefinitions as getAcpVirtualsToolDefinitions,
   registerAcpExecutors as registerAcpVirtualsExecutors,
 } from "../tools/acp-virtuals/index.js";
-import { getErc8183ToolDefinitions, registerErc8183Executors } from "../tools/acp/index.js";
-import { getAgdpToolDefinitions, registerAgdpExecutors } from "../tools/agdp/index.js";
-import { getCcxtToolDefinitions, registerCcxtExecutors } from "../tools/ccxt/index.js";
-import { getErc8004ToolDefinitions, registerErc8004Executors } from "../tools/erc8004/index.js";
-import { getEvmToolDefinitions, registerEvmExecutors } from "../tools/evm/index.js";
-import { type ExplorerDeps, getExplorerToolDefinitions } from "../tools/explorer/index.js";
-import { getLifiToolDefinitions, registerLifiExecutors } from "../tools/lifi/index.js";
+import {
+  getErc8183ToolDefinitions,
+  registerErc8183Executors,
+} from "../tools/acp/index.js";
+import {
+  getAgdpToolDefinitions,
+  registerAgdpExecutors,
+} from "../tools/agdp/index.js";
+import {
+  getCcxtToolDefinitions,
+  registerCcxtExecutors,
+} from "../tools/ccxt/index.js";
+import {
+  getErc8004ToolDefinitions,
+  registerErc8004Executors,
+} from "../tools/erc8004/index.js";
+import {
+  getEvmToolDefinitions,
+  registerEvmExecutors,
+} from "../tools/evm/index.js";
+import {
+  type ExplorerDeps,
+  getExplorerToolDefinitions,
+} from "../tools/explorer/index.js";
+import {
+  getLifiToolDefinitions,
+  registerLifiExecutors,
+} from "../tools/lifi/index.js";
 import { getMarketToolDefinitions } from "../tools/market/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
-import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
+import {
+  getOrbsToolDefinitions,
+  registerOrbsExecutors,
+} from "../tools/orbs/index.js";
 import { getPolicyToolDefinitions } from "../tools/policy/index.js";
 import {
   type ToolDefinition,
@@ -48,16 +77,26 @@ import { getResearchToolDefinitions } from "../tools/research/index.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
 import { registerWalletExecutors } from "../tools/wallet/index.js";
-import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
+import {
+  getX402ToolDefinitions,
+  registerX402Executors,
+} from "../tools/x402/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
 import { formatToolError } from "../utils/errors.js";
 import { sanitizeToolInput } from "../utils/sanitize.js";
-import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
+import {
+  getToolResultPayload,
+  normalizeCallToolResult,
+} from "../utils/tool-results.js";
+import { selectWalletBackend } from "../wallet/backend-selector.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { walletEvents } from "../wallet/events.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
-import { createGoatToolMetadata, normalizeInputSchema } from "./tool-metadata.js";
+import {
+  createGoatToolMetadata,
+  normalizeInputSchema,
+} from "./tool-metadata.js";
 import {
   type CreateRuntimeOptions,
   type RuntimeHealth,
@@ -79,11 +118,15 @@ import {
   toHealthStatus,
 } from "./types.js";
 
-type RuntimeToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult | unknown>;
+type RuntimeToolHandler = (
+  args: Record<string, unknown>,
+) => Promise<CallToolResult | unknown>;
 
 interface RuntimeToolRecord extends ToolCatalogEntry {
   handler: RuntimeToolHandler;
-  originalRiskLevel?: RiskLevel | ((args: Record<string, unknown>) => RiskLevel);
+  originalRiskLevel?:
+    | RiskLevel
+    | ((args: Record<string, unknown>) => RiskLevel);
 }
 
 function toCatalogEntry(
@@ -96,7 +139,7 @@ function toCatalogEntry(
     annotations?: Tool["annotations"];
   },
   source: ToolSource,
-  dynamic = false
+  dynamic = false,
 ): ToolCatalogEntry {
   return {
     name: tool.name,
@@ -105,7 +148,10 @@ function toCatalogEntry(
     source,
     category: tool.category,
     dynamic,
-    riskLevel: typeof tool.riskLevel === "function" ? "financial" : (tool.riskLevel ?? "safe"),
+    riskLevel:
+      typeof tool.riskLevel === "function"
+        ? "financial"
+        : (tool.riskLevel ?? "safe"),
     ...(tool.annotations ? { annotations: tool.annotations } : {}),
   };
 }
@@ -115,14 +161,14 @@ function resolveRiskLevel(
     name: string;
     riskLevel?: RiskLevel | ((args: Record<string, unknown>) => RiskLevel);
   },
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
 ): RiskLevel {
   if (typeof tool.riskLevel === "function") {
     try {
       return tool.riskLevel(args);
     } catch (e: unknown) {
       process.stderr.write(
-        `[web3agent] riskLevel classifier threw for ${tool.name}: ${e instanceof Error ? e.message : String(e)}. Defaulting to 'financial' (conservative).\n`
+        `[web3agent] riskLevel classifier threw for ${tool.name}: ${e instanceof Error ? e.message : String(e)}. Defaulting to 'financial' (conservative).\n`,
       );
       return "financial";
     }
@@ -134,6 +180,10 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   confirmationQueue.enabled = config.confirmWrites;
   confirmationQueue.ttlMs = config.confirmTtlMinutes * 60 * 1000;
 
+  await selectWalletBackend({
+    owsPassphrase: config.owsPassphrase,
+    owsForceLegacy: config.owsForceLegacy,
+  });
   await initializeWallet({
     chainId: config.chainId,
     accountIndex: config.walletAccountIndex,
@@ -157,7 +207,9 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   const wallet = getWalletState();
   if (wallet.address) {
     refreshBalanceUsd(wallet.address, wallet.chainId).catch((e: unknown) => {
-      process.stderr.write(`[web3agent] Initial balance refresh failed: ${e}\n`);
+      process.stderr.write(
+        `[web3agent] Initial balance refresh failed: ${e}\n`,
+      );
     });
   }
 
@@ -210,7 +262,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     readonly config: RuntimeConfig,
     goatProvider: GoatProvider,
     explorerDeps: ExplorerDeps,
-    pendingOpsRestored: number
+    pendingOpsRestored: number,
   ) {
     this.goatProvider = goatProvider;
     this.explorerDeps = explorerDeps;
@@ -235,39 +287,57 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
-      generate: async () => this.requireToolData<WalletGenerateResult>("wallet_generate"),
+      generate: async () =>
+        this.requireToolData<WalletGenerateResult>("wallet_generate"),
       generateMnemonic: async () =>
-        this.requireToolData<WalletGenerateMnemonicResult>("wallet_generate_mnemonic"),
+        this.requireToolData<WalletGenerateMnemonicResult>(
+          "wallet_generate_mnemonic",
+        ),
       fromMnemonic: async (params: Record<string, unknown>) =>
-        this.requireToolData<WalletAddressDerivationResult>("wallet_from_mnemonic", params),
+        this.requireToolData<WalletAddressDerivationResult>(
+          "wallet_from_mnemonic",
+          params,
+        ),
       deriveAddresses: async (params: Record<string, unknown>) =>
-        this.requireToolData<WalletDerivedAddressEntry[]>("wallet_derive_addresses", params),
-      getActive: async () => this.requireToolData<WalletActiveResult>("wallet_get_active"),
+        this.requireToolData<WalletDerivedAddressEntry[]>(
+          "wallet_derive_addresses",
+          params,
+        ),
+      getActive: async () =>
+        this.requireToolData<WalletActiveResult>("wallet_get_active"),
       activate: async (params: Record<string, unknown>) =>
         this.requireToolData<WalletActiveResult>("wallet_activate", params),
-      deactivate: async () => this.requireToolData<WalletDeactivationResult>("wallet_deactivate"),
+      deactivate: async () =>
+        this.requireToolData<WalletDeactivationResult>("wallet_deactivate"),
       setConfirmation: async (params: Record<string, unknown>) =>
-        this.requireToolData<WalletConfirmationResult>("wallet_set_confirmation", params),
+        this.requireToolData<WalletConfirmationResult>(
+          "wallet_set_confirmation",
+          params,
+        ),
     };
 
     this.transactions = {
-      list: async () => this.requireToolData<TransactionListResult>("transaction_list"),
+      list: async () =>
+        this.requireToolData<TransactionListResult>("transaction_list"),
       confirm: async (id: string) =>
-        this.requireToolData<TransactionConfirmResult>("transaction_confirm", { id }),
+        this.requireToolData<TransactionConfirmResult>("transaction_confirm", {
+          id,
+        }),
       deny: async (id: string) =>
         this.requireToolData<TransactionDenyResult>("transaction_deny", { id }),
     };
 
     this.status = {
       server: async () => this.getHealth(),
-      supportedChains: async () => this.requireToolData("list_supported_chains"),
+      supportedChains: async () =>
+        this.requireToolData("list_supported_chains"),
     };
   }
 
   initialize(): void {
     if (!this.config.etherscanApiKey) {
       process.stderr.write(
-        "[web3agent] ETHERSCAN_API_KEY not set — Etherscan-backed explorer tools will be unavailable\n"
+        "[web3agent] ETHERSCAN_API_KEY not set — Etherscan-backed explorer tools will be unavailable\n",
       );
     }
     this.rebuildToolRegistry();
@@ -276,15 +346,19 @@ export class ManagedRuntime implements Web3AgentRuntime {
       const flushed = confirmationQueue.flushAll();
       if (flushed > 0) {
         process.stderr.write(
-          `[web3agent] Wallet changed — flushed ${flushed} pending operation(s) from confirmation queue\n`
+          `[web3agent] Wallet changed — flushed ${flushed} pending operation(s) from confirmation queue\n`,
         );
       }
       resetBalanceCache();
       const wallet = getWalletState();
       if (wallet.address) {
-        refreshBalanceUsd(wallet.address, wallet.chainId).catch((e: unknown) => {
-          process.stderr.write(`[web3agent] Failed to refresh wallet balance: ${e}\n`);
-        });
+        refreshBalanceUsd(wallet.address, wallet.chainId).catch(
+          (e: unknown) => {
+            process.stderr.write(
+              `[web3agent] Failed to refresh wallet balance: ${e}\n`,
+            );
+          },
+        );
       }
       this.goatProvider
         .waitForRebuild()
@@ -294,7 +368,9 @@ export class ManagedRuntime implements Web3AgentRuntime {
           this.emitToolsChanged();
         })
         .catch((e: unknown) => {
-          process.stderr.write(`[web3agent] Failed to refresh runtime tools: ${e}\n`);
+          process.stderr.write(
+            `[web3agent] Failed to refresh runtime tools: ${e}\n`,
+          );
         });
     };
     walletEvents.on("wallet-changed", this.walletChangeHandler);
@@ -302,14 +378,19 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
   listTools(): ToolCatalogEntry[] {
     return [...this.toolRecords.values()].map(
-      ({ handler: _handler, originalRiskLevel: _originalRiskLevel, ...tool }) => tool
+      ({ handler: _handler, originalRiskLevel: _originalRiskLevel, ...tool }) =>
+        tool,
     );
   }
 
   getTool(name: string): ToolCatalogEntry | undefined {
     const tool = this.toolRecords.get(name);
     if (!tool) return undefined;
-    const { handler: _handler, originalRiskLevel: _originalRiskLevel, ...rest } = tool;
+    const {
+      handler: _handler,
+      originalRiskLevel: _originalRiskLevel,
+      ...rest
+    } = tool;
     return rest;
   }
 
@@ -322,7 +403,10 @@ export class ManagedRuntime implements Web3AgentRuntime {
     }));
   }
 
-  async invokeTool(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
+  async invokeTool(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<CallToolResult> {
     const tool = this.toolRecords.get(name);
     if (!tool) {
       return formatToolError("UNKNOWN_TOOL", `Unknown tool: ${name}`);
@@ -333,27 +417,33 @@ export class ManagedRuntime implements Web3AgentRuntime {
         name: tool.name,
         riskLevel: tool.originalRiskLevel,
       },
-      args
+      args,
     );
 
     const sanitization = sanitizeToolInput(args, resolvedRiskLevel);
     if (!sanitization.safe) {
-      return formatToolError("INPUT_BLOCKED", "Input blocked by injection defense", {
-        threats: sanitization.threats.map((t) => ({
-          check: t.check,
-          severity: t.severity,
-          detail: t.detail,
-        })),
-      });
+      return formatToolError(
+        "INPUT_BLOCKED",
+        "Input blocked by injection defense",
+        {
+          threats: sanitization.threats.map((t) => ({
+            check: t.check,
+            severity: t.severity,
+            detail: t.detail,
+          })),
+        },
+      );
     }
     if (sanitization.threats.length > 0) {
       process.stderr.write(
-        `[web3agent] Input warning for ${name}: ${sanitization.threats.map((t) => t.check).join(", ")}\n`
+        `[web3agent] Input warning for ${name}: ${sanitization.threats.map((t) => t.check).join(", ")}\n`,
       );
     }
 
     const isFinancial = resolvedRiskLevel === "financial";
-    const rawEstimatedUsd = isFinancial ? await extractEstimatedUsd(args) : null;
+    const rawEstimatedUsd = isFinancial
+      ? await extractEstimatedUsd(args)
+      : null;
     let reservationId: number | null = null;
     let spendWalletAddress: string | undefined;
 
@@ -362,12 +452,17 @@ export class ManagedRuntime implements Web3AgentRuntime {
       const requiresWalletBalance = name !== "ccxt_private_write";
       spendWalletAddress = requiresWalletBalance ? wallet.address : undefined;
       const policyChainId =
-        typeof args.chainId === "number" ? (args.chainId as number) : wallet.chainId;
+        typeof args.chainId === "number"
+          ? (args.chainId as number)
+          : wallet.chainId;
       let walletBalanceUsd: number | null = null;
       if (requiresWalletBalance && rawEstimatedUsd !== 0) {
         walletBalanceUsd = getCachedBalanceUsd(wallet.address, policyChainId);
         if (walletBalanceUsd === null && wallet.address) {
-          walletBalanceUsd = await refreshBalanceUsd(wallet.address, policyChainId);
+          walletBalanceUsd = await refreshBalanceUsd(
+            wallet.address,
+            policyChainId,
+          );
         }
       }
 
@@ -389,7 +484,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
           reasonCode: decision.reasonCode,
           currentSpend: decision.currentSpend,
           limits: {
-            maxSingleTransactionUsd: decision.appliedPolicy.maxSingleTransactionUsd,
+            maxSingleTransactionUsd:
+              decision.appliedPolicy.maxSingleTransactionUsd,
             maxHourlyUsd: decision.appliedPolicy.maxHourlyUsd,
             maxDailyUsd: decision.appliedPolicy.maxDailyUsd,
           },
@@ -425,7 +521,10 @@ export class ManagedRuntime implements Web3AgentRuntime {
       return normalized;
     } catch (e: unknown) {
       if (reservationId !== null) releaseReservation(reservationId);
-      return formatToolError("TOOL_INVOCATION_FAILED", e instanceof Error ? e.message : String(e));
+      return formatToolError(
+        "TOOL_INVOCATION_FAILED",
+        e instanceof Error ? e.message : String(e),
+      );
     }
   }
 
@@ -463,12 +562,14 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
   private async requireToolData<T = unknown>(
     name: string,
-    args: Record<string, unknown> = {}
+    args: Record<string, unknown> = {},
   ): Promise<T> {
     const result = await this.invokeTool(name, args);
     const payload = getToolResultPayload(result);
     if (!payload.ok) {
-      throw new Error(payload.error.message ?? `Tool invocation failed: ${name}`);
+      throw new Error(
+        payload.error.message ?? `Tool invocation failed: ${name}`,
+      );
     }
     return payload.data as T;
   }
@@ -482,12 +583,19 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private refreshHealthStatus(): void {
     // Unified explorer health (tool count cached from registration)
     const explorerToolCount = this.explorerToolCount;
-    const bsChainCount = this.explorerDeps.blockscout.getSupportedChainIds().length;
-    const esChainCount = this.explorerDeps.etherscan?.getSupportedChainIds().length ?? 0;
+    const bsChainCount =
+      this.explorerDeps.blockscout.getSupportedChainIds().length;
+    const esChainCount =
+      this.explorerDeps.etherscan?.getSupportedChainIds().length ?? 0;
     const esConfigured = this.explorerDeps.etherscan != null;
     const bsStatus = bsChainCount > 0 ? "ok" : "degraded";
-    const esStatus = esConfigured ? (esChainCount > 0 ? "ok" : "degraded") : "not_configured";
-    const overallStatus = bsChainCount > 0 || esChainCount > 0 ? "ok" : "unavailable";
+    const esStatus = esConfigured
+      ? esChainCount > 0
+        ? "ok"
+        : "degraded"
+      : "not_configured";
+    const overallStatus =
+      bsChainCount > 0 || esChainCount > 0 ? "ok" : "unavailable";
     this.health.explorer = {
       name: "block-explorer",
       status: overallStatus,
@@ -669,7 +777,9 @@ export class ManagedRuntime implements Web3AgentRuntime {
 
     for (const tool of goatSnapshot.listOfTools) {
       const goatTool = createGoatToolMetadata(tool);
-      const goatRiskLevel: RiskLevel = goatTool.annotations?.destructiveHint ? "financial" : "safe";
+      const goatRiskLevel: RiskLevel = goatTool.annotations?.destructiveHint
+        ? "financial"
+        : "safe";
 
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(
@@ -682,7 +792,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
             annotations: goatTool.annotations,
           },
           "goat",
-          true
+          true,
         ),
         handler: async (args) =>
           dispatchGoatTool(tool.name, args, {
@@ -702,14 +812,19 @@ export class ManagedRuntime implements Web3AgentRuntime {
   }
 }
 
-export async function createRuntime(options: CreateRuntimeOptions = {}): Promise<ManagedRuntime> {
+export async function createRuntime(
+  options: CreateRuntimeOptions = {},
+): Promise<ManagedRuntime> {
   let config: RuntimeConfig;
   try {
     config =
-      options.config ?? parseEnv(options.env ?? (process.env as Partial<Record<string, string>>));
+      options.config ??
+      parseEnv(options.env ?? (process.env as Partial<Record<string, string>>));
   } catch (error: unknown) {
     if (error instanceof ValidationError) {
-      process.stderr.write(`[web3agent] Invalid config ${error.field}: ${error.message}\n`);
+      process.stderr.write(
+        `[web3agent] Invalid config ${error.field}: ${error.message}\n`,
+      );
     }
     throw error;
   }
@@ -722,11 +837,14 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
 
   const explorerBlockscout = new ExplorerBlockscoutClient();
   const explorerEtherscan = config.etherscanApiKey
-    ? new ExplorerEtherscanClient(config.etherscanApiKey)
+    ? new ExplorerEtherscanClient(
+        config.etherscanApiKey,
+        config.etherscanApiUrl,
+      )
     : undefined;
   const explorerRouter = new ExplorerRouter(
     explorerBlockscout.getSupportedChainIds(),
-    explorerEtherscan?.getSupportedChainIds() ?? []
+    explorerEtherscan?.getSupportedChainIds() ?? [],
   );
   const explorerDeps: ExplorerDeps = {
     router: explorerRouter,
@@ -734,7 +852,12 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     etherscan: explorerEtherscan,
   };
 
-  const runtime = new ManagedRuntime(config, runtimeGoatProvider, explorerDeps, pendingOpsRestored);
+  const runtime = new ManagedRuntime(
+    config,
+    runtimeGoatProvider,
+    explorerDeps,
+    pendingOpsRestored,
+  );
   runtime.initialize();
   return runtime;
 }

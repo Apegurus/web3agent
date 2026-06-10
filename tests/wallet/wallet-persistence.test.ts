@@ -1,10 +1,178 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { privateKeyToAccount } from "viem/accounts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WalletState } from "../../src/types/wallet.js";
 
 const TEST_HOME = join(process.cwd(), "tests/tmp/home-wallet");
-const VALID_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const VALID_PRIVATE_KEY =
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const TEST_ACCOUNT = privateKeyToAccount(VALID_PRIVATE_KEY);
+const TEST_STATE = {
+  mode: "private-key",
+  address: TEST_ACCOUNT.address,
+  chainId: 8453,
+  accountIndex: 0,
+  addressIndex: 0,
+} satisfies WalletState;
+
+describe("wallet persistence backend delegation", () => {
+  afterEach(() => {
+    vi.doUnmock("../../src/wallet/backend-selector.js");
+    vi.doUnmock("../../src/wallet/persistence-internal.js");
+    vi.resetModules();
+  });
+
+  it("delegates public persistence APIs to the selected backend after backend selection", async () => {
+    const initialize =
+      vi.fn<
+        (config: {
+          chainId: number;
+          accountIndex: number;
+          addressIndex: number;
+          privateKey?: string;
+          mnemonic?: string;
+        }) => Promise<void>
+      >();
+    const activate = vi.fn<
+      (params: {
+        privateKey?: string;
+        mnemonic?: string;
+        accountIndex?: number;
+        addressIndex?: number;
+      }) => Promise<WalletState>
+    >(async () => TEST_STATE);
+    const deactivate = vi.fn<() => Promise<void>>(async () => undefined);
+    const deletePersistedWallet = vi.fn<() => Promise<void>>(
+      async () => undefined,
+    );
+    const getKeyForSubprocess = vi.fn<() => Promise<string | null>>(
+      async () => "0xfeed",
+    );
+
+    vi.doMock("../../src/wallet/backend-selector.js", () => {
+      let selected = false;
+      const backend = {
+        info: { type: "legacy" as const, reason: "test backend" },
+        initialize,
+        getState: vi.fn(() => TEST_STATE),
+        getAccount: vi.fn(() => TEST_ACCOUNT),
+        activate,
+        deactivate,
+        deletePersistedWallet,
+        getKeyForSubprocess,
+      };
+
+      return {
+        selectWalletBackend: vi.fn(async () => {
+          selected = true;
+          return backend;
+        }),
+        getWalletBackend: vi.fn(() => {
+          if (!selected) {
+            throw new Error(
+              "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
+            );
+          }
+          return backend;
+        }),
+        NO_WALLET_BACKEND_SELECTED_MESSAGE:
+          "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
+      };
+    });
+
+    const selector = await import("../../src/wallet/backend-selector.js");
+    const persistence = await import("../../src/wallet/persistence.js");
+    const initConfig = {
+      chainId: 8453,
+      accountIndex: 1,
+      addressIndex: 2,
+      privateKey: VALID_PRIVATE_KEY,
+    };
+    const activateParams = {
+      mnemonic: "test test",
+      accountIndex: 3,
+      addressIndex: 4,
+    };
+
+    await selector.selectWalletBackend();
+
+    await persistence.initializeWallet(initConfig);
+    expect(initialize).toHaveBeenCalledWith(initConfig);
+
+    expect(persistence.getWalletState()).toEqual(TEST_STATE);
+    expect(persistence.getActiveAccount()).toBe(TEST_ACCOUNT);
+    await expect(persistence.activateWallet(activateParams)).resolves.toEqual(
+      TEST_STATE,
+    );
+    expect(activate).toHaveBeenCalledWith(activateParams);
+    await expect(persistence.getPersistedKeyForSubprocess()).resolves.toBe(
+      "0xfeed",
+    );
+    expect(getKeyForSubprocess).toHaveBeenCalledTimes(1);
+    await persistence.deactivateWallet();
+    expect(deactivate).toHaveBeenCalledTimes(1);
+    await persistence.deletePersistedWallet();
+    expect(deletePersistedWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to internal persistence when no backend has been selected yet", async () => {
+    const initializeWalletInternal = vi.fn<
+      (config: {
+        chainId: number;
+        accountIndex: number;
+        addressIndex: number;
+        privateKey?: string;
+        mnemonic?: string;
+      }) => Promise<void>
+    >(async () => undefined);
+
+    vi.doMock("../../src/wallet/backend-selector.js", () => ({
+      NO_WALLET_BACKEND_SELECTED_MESSAGE:
+        "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
+      getWalletBackend: vi.fn(() => {
+        throw new Error(
+          "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
+        );
+      }),
+    }));
+
+    vi.doMock("../../src/wallet/persistence-internal.js", () => ({
+      initializeWalletInternal,
+      activateWalletInternal: vi.fn(),
+      deactivateWalletInternal: vi.fn(),
+      deletePersistedWalletInternal: vi.fn(),
+      getActiveAccountInternal: vi.fn(),
+      getPersistedKeyForSubprocessInternal: vi.fn(),
+      getWalletStateInternal: vi.fn(() => TEST_STATE),
+      hasPersistedWalletKeyInternal: vi.fn(() => false),
+    }));
+
+    const persistence = await import("../../src/wallet/persistence.js");
+    const initConfig = { chainId: 1, accountIndex: 0, addressIndex: 0 };
+
+    await persistence.initializeWallet(initConfig);
+
+    expect(initializeWalletInternal).toHaveBeenCalledWith(initConfig);
+  });
+
+  it("rethrows backend selector errors that are not the no-backend-selected sentinel", async () => {
+    vi.doMock("../../src/wallet/backend-selector.js", () => ({
+      NO_WALLET_BACKEND_SELECTED_MESSAGE:
+        "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
+      getWalletBackend: vi.fn(() => {
+        throw new Error("backend selector failed");
+      }),
+    }));
+
+    const persistence = await import("../../src/wallet/persistence.js");
+
+    expect(() => persistence.getWalletState()).toThrow(
+      "backend selector failed",
+    );
+  });
+});
 
 describe("wallet persistence", () => {
   let origHome: string | undefined;
@@ -62,12 +230,22 @@ describe("wallet persistence", () => {
     expect(data.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
   });
 
-  it("deactivate removes wallet file and reverts to read-only", async () => {
-    const { activateWallet, deactivateWallet, getWalletState } = await import(
-      "../../src/wallet/persistence.js"
-    );
+  it("deactivate keeps wallet file and reverts to read-only", async () => {
+    const { activateWallet, deactivateWallet, getWalletState } =
+      await import("../../src/wallet/persistence.js");
     await activateWallet({ privateKey: VALID_PRIVATE_KEY });
     await deactivateWallet();
+
+    const walletPath = join(TEST_HOME, ".web3agent", "wallet.json");
+    expect(existsSync(walletPath)).toBe(true);
+    expect(getWalletState().mode).toBe("read-only");
+  });
+
+  it("deletePersistedWallet removes wallet file and reverts to read-only", async () => {
+    const { activateWallet, deletePersistedWallet, getWalletState } =
+      await import("../../src/wallet/persistence.js");
+    await activateWallet({ privateKey: VALID_PRIVATE_KEY });
+    await deletePersistedWallet();
 
     const walletPath = join(TEST_HOME, ".web3agent", "wallet.json");
     expect(existsSync(walletPath)).toBe(false);
@@ -75,7 +253,8 @@ describe("wallet persistence", () => {
   });
 
   it("startup resolves PRIVATE_KEY env first", async () => {
-    const { initializeWallet, getWalletState } = await import("../../src/wallet/persistence.js");
+    const { initializeWallet, getWalletState } =
+      await import("../../src/wallet/persistence.js");
     await initializeWallet({
       chainId: 1,
       accountIndex: 0,
@@ -107,7 +286,8 @@ describe("wallet persistence", () => {
   });
 
   it("startup falls through to read-only when nothing configured", async () => {
-    const { initializeWallet, getWalletState } = await import("../../src/wallet/persistence.js");
+    const { initializeWallet, getWalletState } =
+      await import("../../src/wallet/persistence.js");
     await initializeWallet({
       chainId: 42161,
       accountIndex: 0,

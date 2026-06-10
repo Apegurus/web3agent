@@ -10,10 +10,13 @@ coverage/
 .argus/
 .sisyphus/
 .opencode/
+.claude/
 opencode.json
 
-# Review artifacts
+# Internal artifacts
+.reviews/
+.worktrees/
+docs/superpowers/
 PR*-REVIEW.md
 ASSESSMENT.md
 *_SPEC.md
-.worktrees

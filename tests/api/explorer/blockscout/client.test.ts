@@ -14,7 +14,7 @@ function mockJsonResponse(data: unknown) {
     new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
-    })
+    }),
   );
 }
 
@@ -42,7 +42,9 @@ describe("BlockscoutClient", () => {
     });
 
     it("throws for unsupported chain", async () => {
-      await expect(client.getAddress(56, "0xabc")).rejects.toThrow(/not supported/);
+      await expect(client.getAddress(56, "0xabc")).rejects.toThrow(
+        /not supported/,
+      );
     });
 
     it("does not append page params for address transactions", async () => {
@@ -51,7 +53,9 @@ describe("BlockscoutClient", () => {
       await client.getAddressTransactions(8453, "0xabc");
 
       const url = mockFetch.mock.calls[0][0] as string;
-      expect(url).toBe("https://base.blockscout.com/api/v2/addresses/0xabc/transactions");
+      expect(url).toBe(
+        "https://base.blockscout.com/api/v2/addresses/0xabc/transactions",
+      );
     });
   });
 
@@ -64,7 +68,9 @@ describe("BlockscoutClient", () => {
     });
 
     it("throws on HTTP error", async () => {
-      mockFetch.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+      mockFetch.mockResolvedValueOnce(
+        new Response("Not Found", { status: 404 }),
+      );
       await expect(client.getAddress(1, "0xabc")).rejects.toThrow(/404/);
     });
   });
