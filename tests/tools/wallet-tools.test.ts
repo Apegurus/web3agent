@@ -69,13 +69,13 @@ const agentVisibleSecretsMocks = vi.hoisted(() => ({
   getAgentVisibleSecretsDisabledMessage: vi
     .fn()
     .mockReturnValue(
-      "Exposing wallet secrets to an AI agent's inference context is disabled by default. Set WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 to allow secrets to be returned in API responses visible to the agent.",
+      "Exposing wallet secrets to an AI agent's inference context is disabled by default. Set WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 to allow secrets to be returned in API responses visible to the agent."
     ),
 }));
 
 function mockPendingOperation(
   operation: Record<string, unknown>,
-  options?: { confirmable?: boolean },
+  options?: { confirmable?: boolean }
 ) {
   confirmationQueueMock.list.mockReturnValueOnce([operation]);
   if (options?.confirmable === false) return;
@@ -87,14 +87,10 @@ function mockPendingOperation(
 
 vi.mock("viem/accounts", () => ({
   english: viemAccountMocks.english,
-  generatePrivateKey: (...args: unknown[]) =>
-    viemAccountMocks.generatePrivateKey(...args),
-  privateKeyToAccount: (...args: unknown[]) =>
-    viemAccountMocks.privateKeyToAccount(...args),
-  generateMnemonic: (...args: unknown[]) =>
-    viemAccountMocks.generateMnemonic(...args),
-  mnemonicToAccount: (...args: unknown[]) =>
-    viemAccountMocks.mnemonicToAccount(...args),
+  generatePrivateKey: (...args: unknown[]) => viemAccountMocks.generatePrivateKey(...args),
+  privateKeyToAccount: (...args: unknown[]) => viemAccountMocks.privateKeyToAccount(...args),
+  generateMnemonic: (...args: unknown[]) => viemAccountMocks.generateMnemonic(...args),
+  mnemonicToAccount: (...args: unknown[]) => viemAccountMocks.mnemonicToAccount(...args),
 }));
 
 vi.mock("../../src/wallet/persistence.js", () => persistenceMocks);
@@ -103,8 +99,7 @@ vi.mock("../../src/wallet/backend-selector.js", () => backendSelectorMocks);
 
 vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: confirmationQueueMock,
-  registerExecutor: (...args: unknown[]) =>
-    confirmationQueueMock.registerExecutor(...args),
+  registerExecutor: (...args: unknown[]) => confirmationQueueMock.registerExecutor(...args),
 }));
 
 vi.mock("../../src/tools/utility/index.js", () => ({
@@ -118,33 +113,26 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 vi.mock("../../src/policy/balance-cache.js", () => ({
-  getCachedBalanceUsd: (...args: unknown[]) =>
-    balanceCacheMocks.getCachedBalanceUsd(...args),
-  refreshBalanceUsd: (...args: unknown[]) =>
-    balanceCacheMocks.refreshBalanceUsd(...args),
+  getCachedBalanceUsd: (...args: unknown[]) => balanceCacheMocks.getCachedBalanceUsd(...args),
+  refreshBalanceUsd: (...args: unknown[]) => balanceCacheMocks.refreshBalanceUsd(...args),
 }));
 
 vi.mock("../../src/policy/config.js", () => ({
-  resolvePolicy: (...args: unknown[]) =>
-    policyConfigMocks.resolvePolicy(...args),
+  resolvePolicy: (...args: unknown[]) => policyConfigMocks.resolvePolicy(...args),
 }));
 
 vi.mock("../../src/policy/engine.js", () => ({
-  evaluatePolicy: (...args: unknown[]) =>
-    policyEngineMocks.evaluatePolicy(...args),
+  evaluatePolicy: (...args: unknown[]) => policyEngineMocks.evaluatePolicy(...args),
 }));
 
 vi.mock("../../src/policy/extract-usd.js", () => ({
-  extractEstimatedUsd: (...args: unknown[]) =>
-    extractUsdMocks.extractEstimatedUsd(...args),
+  extractEstimatedUsd: (...args: unknown[]) => extractUsdMocks.extractEstimatedUsd(...args),
 }));
 
 vi.mock("../../src/policy/spend-tracker.js", () => ({
-  commitReservation: (...args: unknown[]) =>
-    spendTrackerMocks.commitReservation(...args),
+  commitReservation: (...args: unknown[]) => spendTrackerMocks.commitReservation(...args),
   recordSpend: (...args: unknown[]) => spendTrackerMocks.recordSpend(...args),
-  releaseReservation: (...args: unknown[]) =>
-    spendTrackerMocks.releaseReservation(...args),
+  releaseReservation: (...args: unknown[]) => spendTrackerMocks.releaseReservation(...args),
   reserveSpend: (...args: unknown[]) => spendTrackerMocks.reserveSpend(...args),
 }));
 
@@ -195,8 +183,7 @@ describe("wallet tool handlers", () => {
     backendSelectorMocks.getWalletBackend.mockReturnValue({
       info: {
         type: "legacy",
-        reason:
-          "OWS wallet backend unavailable; using legacy persistence fallback",
+        reason: "OWS wallet backend unavailable; using legacy persistence fallback",
       },
     });
     balanceCacheMocks.getCachedBalanceUsd.mockReturnValue(null);
@@ -209,7 +196,7 @@ describe("wallet tool handlers", () => {
 
   it("walletGenerate returns address, privateKey, and warning", async () => {
     viemAccountMocks.generatePrivateKey.mockReturnValue(
-      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     );
     viemAccountMocks.privateKeyToAccount.mockReturnValue({
       address: "0x1111111111111111111111111111111111111111",
@@ -222,31 +209,26 @@ describe("wallet tool handlers", () => {
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(payload.address).toBe("0x1111111111111111111111111111111111111111");
     expect(payload.privateKey).toBe(
-      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     );
     expect(payload.warning).toContain("Private key returned once");
   });
 
   it("walletGenerateMnemonic returns mnemonic, firstAddress, and warning", async () => {
     viemAccountMocks.generateMnemonic.mockReturnValue(
-      "test test test test test test test test test test test junk",
+      "test test test test test test test test test test test junk"
     );
     viemAccountMocks.mnemonicToAccount.mockReturnValue({
       address: "0x2222222222222222222222222222222222222222",
     });
 
-    const { walletGenerateMnemonic } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletGenerateMnemonic } = await import("../../src/tools/wallet/index.js");
     const result = await walletGenerateMnemonic();
 
     expect(result.isError).toBe(false);
     const payload = JSON.parse((result.content[0] as { text: string }).text);
-    expect(payload.mnemonic).toBe(
-      "test test test test test test test test test test test junk",
-    );
-    expect(payload.firstAddress).toBe(
-      "0x2222222222222222222222222222222222222222",
-    );
+    expect(payload.mnemonic).toBe("test test test test test test test test test test test junk");
+    expect(payload.firstAddress).toBe("0x2222222222222222222222222222222222222222");
     expect(payload.warning).toContain("Mnemonic returned once");
   });
 
@@ -255,8 +237,7 @@ describe("wallet tool handlers", () => {
       address: "0x3333333333333333333333333333333333333333",
     });
 
-    const { walletFromMnemonic } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletFromMnemonic } = await import("../../src/tools/wallet/index.js");
     const result = await walletFromMnemonic({
       mnemonic: "test test test test test test test test test test test junk",
       accountIndex: 1,
@@ -274,8 +255,7 @@ describe("wallet tool handlers", () => {
       throw new Error("Invalid mnemonic");
     });
 
-    const { walletFromMnemonic } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletFromMnemonic } = await import("../../src/tools/wallet/index.js");
     const result = await walletFromMnemonic({ mnemonic: "invalid words" });
 
     expect(result.isError).toBe(true);
@@ -328,8 +308,7 @@ describe("wallet tool handlers", () => {
       const payload = JSON.parse((result.content[0] as { text: string }).text);
       expect(payload).toEqual({
         backend: "ows",
-        backendReason:
-          "OWS wallet backend available with encrypted vault support",
+        backendReason: "OWS wallet backend available with encrypted vault support",
         vaultPath: "~/.web3agent/ows/",
         supportedChains: ["evm"],
         securityPosture: "encrypted-at-rest",
@@ -403,8 +382,7 @@ describe("wallet tool handlers", () => {
       const payload = JSON.parse((result.content[0] as { text: string }).text);
       expect(payload).toEqual({
         backend: "legacy",
-        backendReason:
-          "OWS wallet backend unavailable; using legacy persistence fallback",
+        backendReason: "OWS wallet backend unavailable; using legacy persistence fallback",
         vaultPath: null,
         supportedChains: ["evm"],
         securityPosture: "legacy-wallet-json",
@@ -485,12 +463,9 @@ describe("wallet tool handlers", () => {
   });
 
   it("registers wallet_info as a read-only wallet tool", async () => {
-    const { getWalletToolDefinitions } =
-      await import("../../src/tools/register.js");
+    const { getWalletToolDefinitions } = await import("../../src/tools/register.js");
 
-    const definition = getWalletToolDefinitions().find(
-      (tool) => tool.name === "wallet_info",
-    );
+    const definition = getWalletToolDefinitions().find((tool) => tool.name === "wallet_info");
 
     expect(definition).toBeDefined();
     expect(definition?.category).toBe("wallet");
@@ -503,8 +478,7 @@ describe("wallet tool handlers", () => {
 
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletActivate({
-      privateKey:
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
 
     expect(result.isError).toBe(false);
@@ -537,8 +511,7 @@ describe("wallet tool handlers", () => {
 
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletActivate({
-      privateKey:
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
 
     expect(result.isError).toBe(false);
@@ -565,13 +538,12 @@ describe("wallet tool handlers", () => {
           id: "pending-op-id",
           summary: "Confirmation queued",
         };
-      },
+      }
     );
 
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletActivate({
-      privateKey:
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
 
     expect(result.isError).toBe(false);
@@ -583,12 +555,10 @@ describe("wallet tool handlers", () => {
 
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     await walletActivate({
-      privateKey:
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
 
-    const enqueueParams = confirmationQueueMock.enqueue.mock
-      .calls[0][2] as Record<string, unknown>;
+    const enqueueParams = confirmationQueueMock.enqueue.mock.calls[0][2] as Record<string, unknown>;
     expect(enqueueParams).not.toHaveProperty("privateKey");
     expect(enqueueParams).not.toHaveProperty("mnemonic");
     expect(enqueueParams.source).toBe("private-key");
@@ -609,15 +579,13 @@ describe("wallet tool handlers", () => {
 
     const { walletActivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletActivate({
-      privateKey:
-        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      privateKey: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     });
 
     expect(result.isError).toBe(false);
     expect(confirmationQueueMock.enqueue).toHaveBeenCalledTimes(1);
     expect(persistenceMocks.activateWallet).toHaveBeenCalledWith({
-      privateKey:
-        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      privateKey: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       mnemonic: undefined,
       accountIndex: undefined,
       addressIndex: undefined,
@@ -642,8 +610,7 @@ describe("wallet tool handlers", () => {
     persistenceMocks.hasPersistedWalletKey.mockReturnValue(false);
     confirmationQueueMock.enabled = true;
 
-    const { walletDeactivate } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
 
     expect(result.isError).toBe(false);
@@ -666,8 +633,7 @@ describe("wallet tool handlers", () => {
     persistenceMocks.hasPersistedWalletKey.mockReturnValue(true);
     confirmationQueueMock.enabled = true;
 
-    const { walletDeactivate } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
     const result = await walletDeactivate();
 
     expect(result.isError).toBe(false);
@@ -722,28 +688,21 @@ describe("wallet tool handlers", () => {
   });
 
   it("registers wallet_delete as destructive and keeps wallet_deactivate session-local", async () => {
-    const { getWalletToolDefinitions } =
-      await import("../../src/tools/register.js");
+    const { getWalletToolDefinitions } = await import("../../src/tools/register.js");
 
     const deactivateDefinition = getWalletToolDefinitions().find(
-      (tool) => tool.name === "wallet_deactivate",
+      (tool) => tool.name === "wallet_deactivate"
     );
     const deleteDefinition = getWalletToolDefinitions().find(
-      (tool) => tool.name === "wallet_delete",
+      (tool) => tool.name === "wallet_delete"
     );
 
-    expect(deactivateDefinition?.description).toContain(
-      "current runtime/session",
-    );
-    expect(deactivateDefinition?.description).not.toContain(
-      "delete persisted key file",
-    );
+    expect(deactivateDefinition?.description).toContain("current runtime/session");
+    expect(deactivateDefinition?.description).not.toContain("delete persisted key file");
     expect(deactivateDefinition?.riskLevel).toBeUndefined();
     expect(deactivateDefinition?.annotations).toEqual({ idempotentHint: true });
 
-    expect(deleteDefinition?.description).toContain(
-      "Permanently delete persisted wallet material",
-    );
+    expect(deleteDefinition?.description).toContain("Permanently delete persisted wallet material");
     expect(deleteDefinition?.riskLevel).toBe("destructive");
     expect(deleteDefinition?.annotations).toEqual({ destructiveHint: true });
   });
@@ -751,8 +710,7 @@ describe("wallet tool handlers", () => {
   it("walletSetConfirmation enables confirmation directly without queueing", async () => {
     confirmationQueueMock.enabled = false;
 
-    const { walletSetConfirmation } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
     const result = await walletSetConfirmation({ enabled: true });
 
     expect(result.isError).toBe(false);
@@ -766,8 +724,7 @@ describe("wallet tool handlers", () => {
   it("walletSetConfirmation returns a no-op response when confirmation is already disabled", async () => {
     confirmationQueueMock.enabled = false;
 
-    const { walletSetConfirmation } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
     const result = await walletSetConfirmation({ enabled: false });
 
     expect(result.isError).toBe(false);
@@ -781,8 +738,7 @@ describe("wallet tool handlers", () => {
   it("walletSetConfirmation queues disabling confirmation when it is currently enabled", async () => {
     confirmationQueueMock.enabled = true;
 
-    const { walletSetConfirmation } =
-      await import("../../src/tools/wallet/index.js");
+    const { walletSetConfirmation } = await import("../../src/tools/wallet/index.js");
     const result = await walletSetConfirmation({ enabled: false });
 
     expect(result.isError).toBe(false);
@@ -829,12 +785,10 @@ describe("wallet tool handlers", () => {
       riskLevel: "financial" as const,
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     };
-    const retryExecutor = vi
-      .fn()
-      .mockResolvedValue({
-        isError: false,
-        content: [{ type: "text", text: "{}" }],
-      });
+    const retryExecutor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: "{}" }],
+    });
     const retryOperation = {
       id: "policy-denied-op",
       type: "wallet_activate",
@@ -862,19 +816,14 @@ describe("wallet tool handlers", () => {
       })
       .mockReturnValueOnce({ action: "allow" });
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
 
     const denied = await transactionConfirm({ id: "policy-denied-op" });
-    const deniedPayload = JSON.parse(
-      (denied.content[0] as { text: string }).text,
-    );
+    const deniedPayload = JSON.parse((denied.content[0] as { text: string }).text);
     expect(deniedPayload.error).toBe("POLICY_DENIED");
 
     const retried = await transactionConfirm({ id: "policy-denied-op" });
-    const retriedPayload = JSON.parse(
-      (retried.content[0] as { text: string }).text,
-    );
+    const retriedPayload = JSON.parse((retried.content[0] as { text: string }).text);
     expect(retriedPayload.error).not.toBe("NOT_FOUND");
     expect(retryExecutor).toHaveBeenCalledTimes(1);
   });
@@ -896,12 +845,10 @@ describe("wallet tool handlers", () => {
       riskLevel: "destructive" as const,
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     };
-    const retryExecutor = vi
-      .fn()
-      .mockResolvedValue({
-        isError: false,
-        content: [{ type: "text", text: '{"done":true}' }],
-      });
+    const retryExecutor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: '{"done":true}' }],
+    });
     const retryOperation = {
       id: "wallet-mismatch-op",
       type: "wallet_activate",
@@ -921,17 +868,12 @@ describe("wallet tool handlers", () => {
       operation: retryOperation,
     });
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
 
     const mismatch = await transactionConfirm({ id: "wallet-mismatch-op" });
-    const mismatchPayload = JSON.parse(
-      (mismatch.content[0] as { text: string }).text,
-    );
+    const mismatchPayload = JSON.parse((mismatch.content[0] as { text: string }).text);
     expect(mismatchPayload.error).toBe("WALLET_MISMATCH");
-    expect(confirmationQueueMock.fail).not.toHaveBeenCalledWith(
-      "wallet-mismatch-op",
-    );
+    expect(confirmationQueueMock.fail).not.toHaveBeenCalledWith("wallet-mismatch-op");
 
     persistenceMocks.getWalletState.mockReturnValue({
       mode: "private-key",
@@ -942,9 +884,7 @@ describe("wallet tool handlers", () => {
 
     expect(retried.isError).toBe(false);
     expect(retryExecutor).toHaveBeenCalledTimes(1);
-    expect(confirmationQueueMock.complete).toHaveBeenCalledWith(
-      "wallet-mismatch-op",
-    );
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("wallet-mismatch-op");
   });
 
   it("transactionConfirm fails queued operation when executor throws", async () => {
@@ -959,8 +899,7 @@ describe("wallet tool handlers", () => {
       riskLevel: "destructive",
     });
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "throwing-op" });
 
     const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -983,8 +922,7 @@ describe("wallet tool handlers", () => {
       },
     ]);
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "stale-op" });
 
     const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -1013,8 +951,7 @@ describe("wallet tool handlers", () => {
       riskLevel: "financial",
     });
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "exec-error-op" });
 
     expect(result.isError).toBe(true);
@@ -1052,15 +989,12 @@ describe("wallet tool handlers", () => {
       // walletAddress intentionally omitted — off-chain op
     });
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "ccxt-read-only-op" });
 
     expect(result.isError).toBe(false);
     expect(ccxtExecutor).toHaveBeenCalledTimes(1);
-    expect(confirmationQueueMock.complete).toHaveBeenCalledWith(
-      "ccxt-read-only-op",
-    );
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("ccxt-read-only-op");
   });
 
   it("transactionConfirm still rejects wallet-backed ops when wallet is read-only", async () => {
@@ -1084,8 +1018,7 @@ describe("wallet tool handlers", () => {
       },
     ]);
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "evm-read-only-op" });
 
     expect(result.isError).toBe(true);
@@ -1116,8 +1049,7 @@ describe("wallet tool handlers", () => {
     extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
     spendTrackerMocks.reserveSpend.mockReturnValueOnce(999);
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "race-op" });
 
     expect(result.isError).toBe(true);
@@ -1152,8 +1084,7 @@ describe("wallet tool handlers", () => {
     extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
     spendTrackerMocks.reserveSpend.mockReturnValueOnce(888);
 
-    const { transactionConfirm } =
-      await import("../../src/tools/wallet/index.js");
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
     const result = await transactionConfirm({ id: "stale-race-op" });
 
     expect(result.isError).toBe(true);
@@ -1165,14 +1096,11 @@ describe("wallet tool handlers", () => {
 
   describe("agent-visible secrets gating", () => {
     beforeEach(() => {
-      agentVisibleSecretsMocks.isAgentVisibleSecretsEnabled.mockReturnValue(
-        false,
-      );
+      agentVisibleSecretsMocks.isAgentVisibleSecretsEnabled.mockReturnValue(false);
     });
 
     it("walletGenerate returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
-      const { walletGenerate } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletGenerate } = await import("../../src/tools/wallet/index.js");
       const result = await walletGenerate();
       expect(result.isError).toBe(true);
       const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -1180,8 +1108,7 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletGenerateMnemonic returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
-      const { walletGenerateMnemonic } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletGenerateMnemonic } = await import("../../src/tools/wallet/index.js");
       const result = await walletGenerateMnemonic();
       expect(result.isError).toBe(true);
       const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -1189,8 +1116,7 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletFromMnemonic returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
-      const { walletFromMnemonic } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletFromMnemonic } = await import("../../src/tools/wallet/index.js");
       const result = await walletFromMnemonic({
         mnemonic: "test test test test test test test test test test test junk",
       });
@@ -1200,8 +1126,7 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletDeriveAddresses returns AGENT_VISIBLE_SECRETS_DISABLED when secrets are disabled", async () => {
-      const { walletDeriveAddresses } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletDeriveAddresses } = await import("../../src/tools/wallet/index.js");
       const result = await walletDeriveAddresses({
         mnemonic: "test test test test test test test test test test test junk",
         count: 3,
@@ -1212,11 +1137,9 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletActivate returns AGENT_VISIBLE_SECRETS_DISABLED when input includes privateKey", async () => {
-      const { walletActivate } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletActivate } = await import("../../src/tools/wallet/index.js");
       const result = await walletActivate({
-        privateKey:
-          "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       });
       expect(result.isError).toBe(true);
       const payload = JSON.parse((result.content[0] as { text: string }).text);
@@ -1224,8 +1147,7 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletActivate returns AGENT_VISIBLE_SECRETS_DISABLED when input includes mnemonic", async () => {
-      const { walletActivate } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletActivate } = await import("../../src/tools/wallet/index.js");
       const result = await walletActivate({
         mnemonic: "test test test test test test test test test test test junk",
       });
@@ -1235,28 +1157,22 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletActivate validates undefined secret fields before agent-visible secret gating", async () => {
-      const { walletActivate } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletActivate } = await import("../../src/tools/wallet/index.js");
       const result = await walletActivate({
         privateKey: undefined,
       });
       expect(result.isError).toBe(true);
       const payload = JSON.parse((result.content[0] as { text: string }).text);
       expect(payload.error).toBe("INVALID_PARAMS");
-      expect(payload.message).toContain(
-        "Either privateKey or mnemonic must be provided",
-      );
+      expect(payload.message).toContain("Either privateKey or mnemonic must be provided");
     });
 
     it("gated tools include the disabled message mentioning the env var", async () => {
-      const { walletGenerate } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletGenerate } = await import("../../src/tools/wallet/index.js");
       const result = await walletGenerate();
       expect(result.isError).toBe(true);
       const payload = JSON.parse((result.content[0] as { text: string }).text);
-      expect(payload.message).toContain(
-        "WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS",
-      );
+      expect(payload.message).toContain("WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS");
     });
 
     it("walletInfo is not gated by agent-visible secrets", async () => {
@@ -1266,8 +1182,7 @@ describe("wallet tool handlers", () => {
     });
 
     it("walletGetActive is not gated by agent-visible secrets", async () => {
-      const { walletGetActive } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletGetActive } = await import("../../src/tools/wallet/index.js");
       const result = await walletGetActive();
       expect(result.isError).toBe(false);
     });
@@ -1283,8 +1198,7 @@ describe("wallet tool handlers", () => {
       persistenceMocks.deactivateWallet.mockResolvedValue(undefined);
       persistenceMocks.hasPersistedWalletKey.mockReturnValue(false);
 
-      const { walletDeactivate } =
-        await import("../../src/tools/wallet/index.js");
+      const { walletDeactivate } = await import("../../src/tools/wallet/index.js");
       const result = await walletDeactivate();
       expect(result.isError).toBe(false);
     });

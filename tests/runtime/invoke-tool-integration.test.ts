@@ -1,15 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RuntimeConfig } from "../../src/types/config.js";
 
 const mockState = vi.hoisted(() => {
@@ -134,9 +126,7 @@ vi.mock("../../src/ccxt/runtime-state.js", () => {
   };
 
   const registry = {
-    accounts: [
-      { name: "test-account", exchangeId: "mock", apiKey: "x", secret: "y" },
-    ],
+    accounts: [{ name: "test-account", exchangeId: "mock", apiKey: "x", secret: "y" }],
     warnings: [],
     insecurePermissions: false,
     configPath: undefined,
@@ -150,9 +140,7 @@ vi.mock("../../src/ccxt/runtime-state.js", () => {
 vi.mock("../../src/ccxt/accounts.js", () => ({
   accountHasCredentials: () => true,
   resolveExchangeIdFromAccount: () => "mock",
-  listAccountSummaries: () => [
-    { name: "test-account", exchangeId: "mock", sandbox: false },
-  ],
+  listAccountSummaries: () => [{ name: "test-account", exchangeId: "mock", sandbox: false }],
   getAccountByName: () => ({
     name: "test-account",
     exchangeId: "mock",
@@ -161,9 +149,7 @@ vi.mock("../../src/ccxt/accounts.js", () => ({
   }),
 }));
 
-function buildTestConfig(
-  overrides: Partial<RuntimeConfig> = {},
-): RuntimeConfig {
+function buildTestConfig(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
   return {
     chainId: 1,
     privateKey: undefined,
@@ -206,7 +192,7 @@ function getFlatErrorFields(parsed: Record<string, unknown>): {
   const message = parsed.message;
   if (typeof code !== "string") {
     throw new Error(
-      `Expected error code at parsed.error to be a string, got ${typeof code}: ${JSON.stringify(parsed)}`,
+      `Expected error code at parsed.error to be a string, got ${typeof code}: ${JSON.stringify(parsed)}`
     );
   }
   return {
@@ -230,16 +216,14 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
   });
 
   afterAll(async () => {
-    const { confirmationQueue } =
-      await import("../../src/wallet/confirmation.js");
+    const { confirmationQueue } = await import("../../src/wallet/confirmation.js");
     await confirmationQueue.flushPendingPersists();
     process.env.HOME = originalHome;
     rmSync(homeDir, { recursive: true, force: true });
   });
 
   it("T2-integration: ccxt_private_write cancelOrder passes the policy gate (destructive classification)", async () => {
-    const { createRuntime } =
-      await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: buildTestConfig({ confirmWrites: false }),
     });
@@ -265,8 +249,7 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
       // not from upstream policy. Either a CCXT_*-prefixed code OR a message
       // tagged with our mock sentinel is acceptable evidence.
       const reachedExchange =
-        code.startsWith("CCXT_") ||
-        message.includes("MOCK_EXCHANGE_NO_NETWORK");
+        code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
       expect(reachedExchange).toBe(true);
     } finally {
       await runtime.shutdown();
@@ -274,8 +257,7 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
   });
 
   it("T2-integration: ccxt_private_write createOrder is correctly gated as financial", async () => {
-    const { createRuntime } =
-      await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       config: buildTestConfig({ confirmWrites: false }),
     });
@@ -304,8 +286,7 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
         "POLICY_DENIED",
       ]);
       const reachedExchange =
-        code.startsWith("CCXT_") ||
-        message.includes("MOCK_EXCHANGE_NO_NETWORK");
+        code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
 
       expect(gateCodes.has(code) || reachedExchange).toBe(true);
     } finally {
@@ -317,16 +298,14 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
     vi.stubEnv("WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS", "1");
 
     try {
-      const { createRuntime } =
-        await import("../../src/runtime/managed-runtime.js");
+      const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
       const runtime = await createRuntime({
         config: buildTestConfig({ confirmWrites: true }),
       });
 
       try {
         const enqueue = await runtime.invokeTool("wallet_activate", {
-          privateKey:
-            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          privateKey: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         });
         expect(enqueue.isError).toBe(false);
         const enqueuePayload = parseToolText(enqueue);
@@ -351,12 +330,12 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
 
   it("createRuntime({ env: { OWS_PASSPHRASE } }) selects ows without reading process.env", async () => {
     Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
-    const { resetWalletBackend, setOwsPackageResolverForTests } =
-      await import("../../src/wallet/backend-selector.js");
+    const { resetWalletBackend, setOwsPackageResolverForTests } = await import(
+      "../../src/wallet/backend-selector.js"
+    );
     setOwsPackageResolverForTests(() => "/fake/ows/path");
     resetWalletBackend();
-    const { createRuntime } =
-      await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
     const runtime = await createRuntime({
       env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "from-options" },
     });
@@ -372,12 +351,12 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
 
   it("two createRuntime calls with different OWS env each get the right backend", async () => {
     Reflect.deleteProperty(process.env, "OWS_PASSPHRASE");
-    const { resetWalletBackend, setOwsPackageResolverForTests } =
-      await import("../../src/wallet/backend-selector.js");
+    const { resetWalletBackend, setOwsPackageResolverForTests } = await import(
+      "../../src/wallet/backend-selector.js"
+    );
     setOwsPackageResolverForTests(() => "/fake/ows/path");
     resetWalletBackend();
-    const { createRuntime } =
-      await import("../../src/runtime/managed-runtime.js");
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
     const r1 = await createRuntime({
       env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-1" },
     });
@@ -385,12 +364,8 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
       env: { CHAIN_ID: "8453", OWS_PASSPHRASE: "agent-2" },
     });
     try {
-      const info1 = JSON.parse(
-        (await r1.invokeTool("wallet_info", {})).content[0].text,
-      );
-      const info2 = JSON.parse(
-        (await r2.invokeTool("wallet_info", {})).content[0].text,
-      );
+      const info1 = JSON.parse((await r1.invokeTool("wallet_info", {})).content[0].text);
+      const info2 = JSON.parse((await r2.invokeTool("wallet_info", {})).content[0].text);
       expect(info1.backend).toBe("ows");
       expect(info2.backend).toBe("ows");
     } finally {

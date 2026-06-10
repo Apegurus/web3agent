@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WalletState } from "../../src/types/wallet.js";
 
 const TEST_HOME = join(process.cwd(), "tests/tmp/home-wallet");
-const VALID_PRIVATE_KEY =
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const VALID_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const TEST_ACCOUNT = privateKeyToAccount(VALID_PRIVATE_KEY);
 const TEST_STATE = {
   mode: "private-key",
@@ -44,12 +43,8 @@ describe("wallet persistence backend delegation", () => {
       }) => Promise<WalletState>
     >(async () => TEST_STATE);
     const deactivate = vi.fn<() => Promise<void>>(async () => undefined);
-    const deletePersistedWallet = vi.fn<() => Promise<void>>(
-      async () => undefined,
-    );
-    const getKeyForSubprocess = vi.fn<() => Promise<string | null>>(
-      async () => "0xfeed",
-    );
+    const deletePersistedWallet = vi.fn<() => Promise<void>>(async () => undefined);
+    const getKeyForSubprocess = vi.fn<() => Promise<string | null>>(async () => "0xfeed");
 
     vi.doMock("../../src/wallet/backend-selector.js", () => {
       let selected = false;
@@ -72,7 +67,7 @@ describe("wallet persistence backend delegation", () => {
         getWalletBackend: vi.fn(() => {
           if (!selected) {
             throw new Error(
-              "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
+              "[wallet] No wallet backend selected. Call selectWalletBackend() first."
             );
           }
           return backend;
@@ -103,13 +98,9 @@ describe("wallet persistence backend delegation", () => {
 
     expect(persistence.getWalletState()).toEqual(TEST_STATE);
     expect(persistence.getActiveAccount()).toBe(TEST_ACCOUNT);
-    await expect(persistence.activateWallet(activateParams)).resolves.toEqual(
-      TEST_STATE,
-    );
+    await expect(persistence.activateWallet(activateParams)).resolves.toEqual(TEST_STATE);
     expect(activate).toHaveBeenCalledWith(activateParams);
-    await expect(persistence.getPersistedKeyForSubprocess()).resolves.toBe(
-      "0xfeed",
-    );
+    await expect(persistence.getPersistedKeyForSubprocess()).resolves.toBe("0xfeed");
     expect(getKeyForSubprocess).toHaveBeenCalledTimes(1);
     await persistence.deactivateWallet();
     expect(deactivate).toHaveBeenCalledTimes(1);
@@ -132,9 +123,7 @@ describe("wallet persistence backend delegation", () => {
       NO_WALLET_BACKEND_SELECTED_MESSAGE:
         "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
       getWalletBackend: vi.fn(() => {
-        throw new Error(
-          "[wallet] No wallet backend selected. Call selectWalletBackend() first.",
-        );
+        throw new Error("[wallet] No wallet backend selected. Call selectWalletBackend() first.");
       }),
     }));
 
@@ -168,9 +157,7 @@ describe("wallet persistence backend delegation", () => {
 
     const persistence = await import("../../src/wallet/persistence.js");
 
-    expect(() => persistence.getWalletState()).toThrow(
-      "backend selector failed",
-    );
+    expect(() => persistence.getWalletState()).toThrow("backend selector failed");
   });
 });
 
@@ -231,8 +218,9 @@ describe("wallet persistence", () => {
   });
 
   it("deactivate keeps wallet file and reverts to read-only", async () => {
-    const { activateWallet, deactivateWallet, getWalletState } =
-      await import("../../src/wallet/persistence.js");
+    const { activateWallet, deactivateWallet, getWalletState } = await import(
+      "../../src/wallet/persistence.js"
+    );
     await activateWallet({ privateKey: VALID_PRIVATE_KEY });
     await deactivateWallet();
 
@@ -242,8 +230,9 @@ describe("wallet persistence", () => {
   });
 
   it("deletePersistedWallet removes wallet file and reverts to read-only", async () => {
-    const { activateWallet, deletePersistedWallet, getWalletState } =
-      await import("../../src/wallet/persistence.js");
+    const { activateWallet, deletePersistedWallet, getWalletState } = await import(
+      "../../src/wallet/persistence.js"
+    );
     await activateWallet({ privateKey: VALID_PRIVATE_KEY });
     await deletePersistedWallet();
 
@@ -253,8 +242,7 @@ describe("wallet persistence", () => {
   });
 
   it("startup resolves PRIVATE_KEY env first", async () => {
-    const { initializeWallet, getWalletState } =
-      await import("../../src/wallet/persistence.js");
+    const { initializeWallet, getWalletState } = await import("../../src/wallet/persistence.js");
     await initializeWallet({
       chainId: 1,
       accountIndex: 0,
@@ -286,8 +274,7 @@ describe("wallet persistence", () => {
   });
 
   it("startup falls through to read-only when nothing configured", async () => {
-    const { initializeWallet, getWalletState } =
-      await import("../../src/wallet/persistence.js");
+    const { initializeWallet, getWalletState } = await import("../../src/wallet/persistence.js");
     await initializeWallet({
       chainId: 42161,
       accountIndex: 0,

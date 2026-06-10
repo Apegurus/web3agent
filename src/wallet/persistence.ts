@@ -1,9 +1,6 @@
 import type { Account } from "viem";
 import type { WalletMode, WalletState } from "../types/wallet.js";
-import {
-  NO_WALLET_BACKEND_SELECTED_MESSAGE,
-  getWalletBackend,
-} from "./backend-selector.js";
+import { NO_WALLET_BACKEND_SELECTED_MESSAGE, getWalletBackend } from "./backend-selector.js";
 import {
   activateWalletInternal,
   deactivateWalletInternal,
@@ -18,10 +15,7 @@ import {
 export type { WalletMode };
 
 function isNoBackendSelectedError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message === NO_WALLET_BACKEND_SELECTED_MESSAGE
-  );
+  return error instanceof Error && error.message === NO_WALLET_BACKEND_SELECTED_MESSAGE;
 }
 
 function getSelectedWalletBackendOrNull() {
@@ -72,9 +66,7 @@ export async function activateWallet(params: {
 
 export async function getPersistedKeyForSubprocess(): Promise<string | null> {
   const backend = getSelectedWalletBackendOrNull();
-  return backend
-    ? backend.getKeyForSubprocess()
-    : getPersistedKeyForSubprocessInternal();
+  return backend ? backend.getKeyForSubprocess() : getPersistedKeyForSubprocessInternal();
 }
 
 export async function deactivateWallet(): Promise<void> {

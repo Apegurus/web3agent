@@ -67,7 +67,7 @@ async function runCli(args: string[]): Promise<void> {
         "Options:",
         "  --version        Print version",
         "  --help           Print this help",
-      ].join("\n")}\n`,
+      ].join("\n")}\n`
     );
     process.exit(0);
   }
@@ -82,9 +82,7 @@ void runCli(process.argv.slice(2)).catch((e: unknown) => {
     process.exit(e.exitCode);
   }
   const prefix = process.argv.slice(2).length > 0 ? "Error" : "Fatal";
-  process.stderr.write(
-    `${prefix}: ${e instanceof Error ? e.message : String(e)}\n`,
-  );
+  process.stderr.write(`${prefix}: ${e instanceof Error ? e.message : String(e)}\n`);
   process.exit(1);
 });
 

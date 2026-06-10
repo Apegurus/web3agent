@@ -48,21 +48,13 @@ describe("runtime config parsing", () => {
   });
 
   it("parseEnv normalizes empty/whitespace OWS_PASSPHRASE to undefined", () => {
-    expect(
-      parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "" }).owsPassphrase,
-    ).toBeUndefined();
-    expect(
-      parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "   " }).owsPassphrase,
-    ).toBeUndefined();
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "" }).owsPassphrase).toBeUndefined();
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "   " }).owsPassphrase).toBeUndefined();
   });
 
   it("parseEnv accepts OWS_FORCE_LEGACY only when exactly '1' (matching selector convention)", () => {
-    expect(
-      parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "1" }).owsForceLegacy,
-    ).toBe(true);
-    expect(
-      parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "true" }).owsForceLegacy,
-    ).toBe(false);
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "1" }).owsForceLegacy).toBe(true);
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "true" }).owsForceLegacy).toBe(false);
     expect(parseEnv({ CHAIN_ID: "8453" }).owsForceLegacy).toBe(false);
   });
 

@@ -14,7 +14,7 @@ function mockEtherscanResponse(result: unknown, status: "0" | "1" = "1") {
     new Response(JSON.stringify({ status, message: "OK", result }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
-    }),
+    })
   );
 }
 
@@ -80,9 +80,7 @@ describe("EtherscanClient", () => {
     });
 
     it("throws for unsupported chain", async () => {
-      await expect(
-        client.call(999999, "account", "balance", {}),
-      ).rejects.toThrow(/not supported/);
+      await expect(client.call(999999, "account", "balance", {})).rejects.toThrow(/not supported/);
     });
   });
 
@@ -95,15 +93,11 @@ describe("EtherscanClient", () => {
 
     it("throws on NOTOK response", async () => {
       mockEtherscanResponse("Max rate limit reached", "0");
-      await expect(client.call(1, "account", "balance", {})).rejects.toThrow(
-        /rate limit/i,
-      );
+      await expect(client.call(1, "account", "balance", {})).rejects.toThrow(/rate limit/i);
     });
 
     it("throws on non-200 HTTP status", async () => {
-      mockFetch.mockResolvedValueOnce(
-        new Response("Server Error", { status: 500 }),
-      );
+      mockFetch.mockResolvedValueOnce(new Response("Server Error", { status: 500 }));
       await expect(client.call(1, "account", "balance", {})).rejects.toThrow();
     });
   });

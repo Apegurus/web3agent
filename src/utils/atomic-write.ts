@@ -17,15 +17,12 @@ export async function ensureSecureDir(dir: string): Promise<void> {
     await chmod(dir, 0o700);
   } catch (e: unknown) {
     process.stderr.write(
-      `[atomic-write] Could not tighten permissions on ${dir}: ${e instanceof Error ? e.message : String(e)}\n`,
+      `[atomic-write] Could not tighten permissions on ${dir}: ${e instanceof Error ? e.message : String(e)}\n`
     );
   }
 }
 
-export async function atomicWriteJson(
-  filePath: string,
-  data: unknown,
-): Promise<void> {
+export async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   const dir = dirname(filePath);
   await ensureSecureDir(dir);
 
@@ -57,7 +54,7 @@ export async function atomicWriteJson(
 export async function writeBytesSecure(
   filePath: string,
   bytes: Buffer | Uint8Array,
-  opts: { excl: boolean; mode: number },
+  opts: { excl: boolean; mode: number }
 ): Promise<void> {
   const flag = opts.excl ? "wx" : "w";
   const fd = await open(filePath, flag, opts.mode);

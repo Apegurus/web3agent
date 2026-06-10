@@ -82,10 +82,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Derive an address from a BIP-39 mnemonic at optional account/address index. Does NOT return private key. Gated: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 (mnemonic in agent context). Prefer local CLI.",
-      inputSchema: zodToJsonSchema(walletFromMnemonicSchema) as Record<
-        string,
-        unknown
-      >,
+      inputSchema: zodToJsonSchema(walletFromMnemonicSchema) as Record<string, unknown>,
       handler: (params) => walletFromMnemonic(params),
       annotations: { readOnlyHint: true },
     },
@@ -94,10 +91,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Derive multiple addresses from a mnemonic (1-20). Returns index, address, and derivation path. Gated: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1 (mnemonic in agent context). Prefer local CLI.",
-      inputSchema: zodToJsonSchema(walletDeriveAddressesSchema) as Record<
-        string,
-        unknown
-      >,
+      inputSchema: zodToJsonSchema(walletDeriveAddressesSchema) as Record<string, unknown>,
       handler: (params) => walletDeriveAddresses(params),
       annotations: { readOnlyHint: true },
     },
@@ -124,10 +118,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Activate a wallet from a private key or mnemonic using the selected backend (encrypted OWS vault when available, otherwise legacy wallet storage) and emits wallet-changed. Gated when secrets are in input: requires WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1. Prefer local CLI: npx web3agent wallet activate.",
-      inputSchema: zodToJsonSchema(walletActivateSchema) as Record<
-        string,
-        unknown
-      >,
+      inputSchema: zodToJsonSchema(walletActivateSchema) as Record<string, unknown>,
       handler: (params) => walletActivate(params),
       riskLevel: "destructive",
       annotations: { destructiveHint: true },
@@ -156,10 +147,7 @@ export function getWalletToolDefinitions(): ToolDefinition[] {
       category: "wallet",
       description:
         "Toggle write confirmation at runtime. When enabled, write operations are queued and require explicit confirmation.",
-      inputSchema: zodToJsonSchema(walletSetConfirmationSchema) as Record<
-        string,
-        unknown
-      >,
+      inputSchema: zodToJsonSchema(walletSetConfirmationSchema) as Record<string, unknown>,
       handler: (params) => walletSetConfirmation(params),
       riskLevel: "destructive",
       annotations: { idempotentHint: true, destructiveHint: true },
@@ -174,22 +162,15 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       category: "transaction",
       description:
         "Confirm a pending operation by ID. Returns the operation details so the caller can execute it.",
-      inputSchema: zodToJsonSchema(transactionConfirmSchema) as Record<
-        string,
-        unknown
-      >,
+      inputSchema: zodToJsonSchema(transactionConfirmSchema) as Record<string, unknown>,
       handler: (params) => transactionConfirm(params),
       annotations: { destructiveHint: true },
     },
     {
       name: "transaction_deny",
       category: "transaction",
-      description:
-        "Deny and remove a pending operation by ID without executing it.",
-      inputSchema: zodToJsonSchema(transactionDenySchema) as Record<
-        string,
-        unknown
-      >,
+      description: "Deny and remove a pending operation by ID without executing it.",
+      inputSchema: zodToJsonSchema(transactionDenySchema) as Record<string, unknown>,
       handler: (params) => transactionDeny(params),
       annotations: { idempotentHint: true },
     },
@@ -207,10 +188,7 @@ export function getTransactionToolDefinitions(): ToolDefinition[] {
       category: "transaction",
       description:
         "Simulate an unsigned transaction using RPC trace when available, with fallback static decoding for token balance changes.",
-      inputSchema: zodToJsonSchema(transactionSimulateSchema) as Record<
-        string,
-        unknown
-      >,
+      inputSchema: zodToJsonSchema(transactionSimulateSchema) as Record<string, unknown>,
       handler: (params) => transactionSimulate(params),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
