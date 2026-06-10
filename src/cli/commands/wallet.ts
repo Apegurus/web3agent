@@ -4,7 +4,10 @@ import { english, generateMnemonic, generatePrivateKey } from "viem/accounts";
 
 import { detectOwsAvailability, selectWalletBackend } from "../../wallet/backend-selector.js";
 import { activateWallet } from "../../wallet/persistence.js";
-import { hasConfiguredOwsPassphrase } from "../../wallet/wallet-utils.js";
+import {
+  assertOwsPassphraseMeetsMinimum,
+  hasConfiguredOwsPassphrase,
+} from "../../wallet/wallet-utils.js";
 import {
   assertInteractiveTty,
   assertNoJsonModeForSecrets,
@@ -31,11 +34,13 @@ function printHelp(): void {
 }
 
 function assertOwsAvailable(): void {
-  if (!hasConfiguredOwsPassphrase()) {
+  const passphrase = process.env.OWS_PASSPHRASE;
+  if (!hasConfiguredOwsPassphrase(passphrase)) {
     throw new Error(
       "OWS_PASSPHRASE is not set or empty. Wallet generation requires OWS encrypted storage. Set OWS_PASSPHRASE to a non-empty value."
     );
   }
+  assertOwsPassphraseMeetsMinimum(passphrase ?? "");
   if (!detectOwsAvailability()) {
     throw new Error(
       "OWS backend is not available. Wallet generation requires @open-wallet-standard/core and a configured OWS_PASSPHRASE."

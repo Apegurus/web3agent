@@ -41,6 +41,70 @@ describe("wallet-utils", () => {
     });
   });
 
+  describe("assessOwsPassphraseStrength", () => {
+    it("reports an error for passphrases below the OWS minimum", async () => {
+      const { assessOwsPassphraseStrength } = await import("../../src/wallet/wallet-utils.js");
+
+      const result = assessOwsPassphraseStrength("short");
+
+      expect(result.errors).toContain(
+        "OWS_PASSPHRASE must be at least 12 characters for OWS encrypted storage"
+      );
+    });
+
+    it("warns for passphrases below the recommended length", async () => {
+      const { assessOwsPassphraseStrength } = await import("../../src/wallet/wallet-utils.js");
+
+      const result = assessOwsPassphraseStrength("abc123456789");
+
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toContain(
+        "OWS_PASSPHRASE is shorter than the recommended 16 characters"
+      );
+    });
+
+    it("warns for single-character-class passphrases", async () => {
+      const { assessOwsPassphraseStrength } = await import("../../src/wallet/wallet-utils.js");
+
+      const result = assessOwsPassphraseStrength("abcdefghijklmnop");
+
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toContain(
+        "OWS_PASSPHRASE uses only one character class; mix words, case, digits, or symbols"
+      );
+    });
+
+    it("warns for common weak patterns", async () => {
+      const { assessOwsPassphraseStrength } = await import("../../src/wallet/wallet-utils.js");
+
+      const result = assessOwsPassphraseStrength("Password12345!");
+
+      expect(result.warnings).toContain("OWS_PASSPHRASE contains a common weak pattern");
+    });
+
+    it("accepts a longer mixed passphrase without findings", async () => {
+      const { assessOwsPassphraseStrength } = await import("../../src/wallet/wallet-utils.js");
+
+      const result = assessOwsPassphraseStrength("CorrectHorse42!ok");
+
+      expect(result).toEqual({ errors: [], warnings: [] });
+    });
+  });
+
+  describe("assertOwsPassphraseMeetsMinimum", () => {
+    it("throws for passphrases below the OWS minimum", async () => {
+      const { assertOwsPassphraseMeetsMinimum } = await import("../../src/wallet/wallet-utils.js");
+
+      expect(() => assertOwsPassphraseMeetsMinimum("short")).toThrow(/at least 12/);
+    });
+
+    it("allows passphrases that meet the OWS minimum", async () => {
+      const { assertOwsPassphraseMeetsMinimum } = await import("../../src/wallet/wallet-utils.js");
+
+      expect(() => assertOwsPassphraseMeetsMinimum("abc123456789")).not.toThrow();
+    });
+  });
+
   describe("normalizePrivateKey", () => {
     it("returns a valid 32-byte hex key with 0x prefix as-is", async () => {
       const { normalizePrivateKey } = await import("../../src/wallet/wallet-utils.js");

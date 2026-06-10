@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isSupported } from "../chains/registry.js";
 import type { RuntimeConfig } from "../types/config.js";
+import { assessOwsPassphraseStrength } from "../wallet/wallet-utils.js";
 
 export const BLOCKSCOUT_DEFAULT_URL = "https://mcp.blockscout.com/mcp";
 export const ETHERSCAN_DEFAULT_URL = "https://mcp.etherscan.io/mcp";
@@ -60,6 +61,13 @@ function parsePositiveFloat(field: string, value: string | undefined): number | 
   return parsed;
 }
 
+function warnOnWeakOwsPassphrase(passphrase: string): void {
+  const assessment = assessOwsPassphraseStrength(passphrase);
+  for (const message of [...assessment.errors, ...assessment.warnings]) {
+    process.stderr.write(`[config] WARNING: ${message}.\n`);
+  }
+}
+
 const RPC_URL_PREFIX = "RPC_URL_";
 
 function parseChainRpcUrls(env: Partial<Record<string, string>>): Record<number, string> {
@@ -77,6 +85,8 @@ function parseChainRpcUrls(env: Partial<Record<string, string>>): Record<number,
 
 export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConfig {
   const chainId = parseIntStrict("CHAIN_ID", env.CHAIN_ID, 8453);
+  const owsPassphrase =
+    env.OWS_PASSPHRASE && env.OWS_PASSPHRASE.trim() !== "" ? env.OWS_PASSPHRASE : undefined;
 
   if (!isSupported(chainId)) {
     throw new ValidationError(
@@ -86,12 +96,15 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     );
   }
 
+  if (owsPassphrase) {
+    warnOnWeakOwsPassphrase(owsPassphrase);
+  }
+
   return {
     chainId,
     privateKey: env.PRIVATE_KEY || undefined,
     mnemonic: env.MNEMONIC || undefined,
-    owsPassphrase:
-      env.OWS_PASSPHRASE && env.OWS_PASSPHRASE.trim() !== "" ? env.OWS_PASSPHRASE : undefined,
+    owsPassphrase,
     owsForceLegacy: env.OWS_FORCE_LEGACY === "1",
     walletAccountIndex: parseIntStrict("WALLET_ACCOUNT_INDEX", env.WALLET_ACCOUNT_INDEX, 0),
     walletAddressIndex: parseIntStrict("WALLET_ADDRESS_INDEX", env.WALLET_ADDRESS_INDEX, 0),
