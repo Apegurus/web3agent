@@ -78,6 +78,36 @@ describe("wallet_activate tool handler", () => {
     expect(payload.error).toBe("INVALID_PARAMS");
   });
 
+  it("rejects when both privateKey and mnemonic are provided", async () => {
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletActivate({
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      mnemonic: "test test test test test test test test test test test junk",
+    });
+
+    expect(result.isError).toBe(true);
+    const payload = parseTextPayload(result);
+    expect(payload.error).toBe("INVALID_PARAMS");
+    expect(payload.message).toContain("privateKey and mnemonic cannot both be provided");
+    expect(mockActivateWallet).not.toHaveBeenCalled();
+  });
+
+  it("rejects account derivation options with privateKey mode", async () => {
+    const { walletActivate } = await import("../../src/tools/wallet/index.js");
+    const result = await walletActivate({
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      accountIndex: 1,
+      addressIndex: 2,
+    });
+
+    expect(result.isError).toBe(true);
+    const payload = parseTextPayload(result);
+    expect(payload.error).toBe("INVALID_PARAMS");
+    expect(payload.message).toContain("accountIndex is only valid with mnemonic mode");
+    expect(payload.message).toContain("addressIndex is only valid with mnemonic mode");
+    expect(mockActivateWallet).not.toHaveBeenCalled();
+  });
+
   it("calls activateWallet with privateKey and returns state", async () => {
     mockActivateWallet.mockResolvedValueOnce({
       mode: "private-key",
