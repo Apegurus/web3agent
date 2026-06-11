@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseEnv } from "../../src/config/env.js";
 
 describe("runtime config parsing", () => {
@@ -37,13 +37,66 @@ describe("runtime config parsing", () => {
     expect(config.privateKey).toBe("0xdeadbeef");
   });
 
+  it("parseEnv parses OWS_PASSPHRASE and OWS_FORCE_LEGACY", () => {
+    const cfg = parseEnv({
+      CHAIN_ID: "8453",
+      OWS_PASSPHRASE: "CorrectHorse42!ok",
+      OWS_FORCE_LEGACY: "1",
+    });
+    expect(cfg.owsPassphrase).toBe("CorrectHorse42!ok");
+    expect(cfg.owsForceLegacy).toBe(true);
+  });
+
+  it("parseEnv warns for weak OWS_PASSPHRASE values without rejecting them", () => {
+    let stderr = "";
+    const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      stderr += String(chunk);
+      return true;
+    });
+
+    try {
+      const cfg = parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "short" });
+
+      expect(cfg.owsPassphrase).toBe("short");
+      expect(stderr).toContain("OWS_PASSPHRASE must be at least 12 characters");
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
+  it("parseEnv does not warn for stronger OWS_PASSPHRASE values", () => {
+    const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    try {
+      parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "CorrectHorse42!ok" });
+
+      expect(writeSpy).not.toHaveBeenCalled();
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
+  it("parseEnv normalizes empty/whitespace OWS_PASSPHRASE to undefined", () => {
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "" }).owsPassphrase).toBeUndefined();
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_PASSPHRASE: "   " }).owsPassphrase).toBeUndefined();
+  });
+
+  it("parseEnv accepts OWS_FORCE_LEGACY only when exactly '1' (matching selector convention)", () => {
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "1" }).owsForceLegacy).toBe(true);
+    expect(parseEnv({ CHAIN_ID: "8453", OWS_FORCE_LEGACY: "true" }).owsForceLegacy).toBe(false);
+    expect(parseEnv({ CHAIN_ID: "8453" }).owsForceLegacy).toBe(false);
+  });
+
   it("accepts optional API keys", () => {
     const config = parseEnv({ LIFI_API_KEY: "abc123" });
     expect(config.lifiApiKey).toBe("abc123");
   });
 
   it("accepts an optional CCXT_CONFIG_PATH", () => {
-    const config = parseEnv({ CHAIN_ID: "8453", CCXT_CONFIG_PATH: "/tmp/ccxt.json" });
+    const config = parseEnv({
+      CHAIN_ID: "8453",
+      CCXT_CONFIG_PATH: "/tmp/ccxt.json",
+    });
     expect(config.ccxtConfigPath).toBe("/tmp/ccxt.json");
   });
 

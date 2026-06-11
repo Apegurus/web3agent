@@ -39,7 +39,6 @@ const DEFAULT_CONFIG = {
   walletAddressIndex: 0,
   confirmWrites: true,
   confirmTtlMinutes: 30,
-  etherscanApiUrl: "https://api.etherscan.io",
   etherscanApiKey: undefined,
   lifiApiKey: undefined,
   zeroxApiKey: undefined,

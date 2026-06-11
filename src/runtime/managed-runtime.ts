@@ -54,6 +54,7 @@ import type { HealthStatus } from "../types/health.js";
 import { formatToolError } from "../utils/errors.js";
 import { sanitizeToolInput } from "../utils/sanitize.js";
 import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
+import { selectWalletBackend } from "../wallet/backend-selector.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { walletEvents } from "../wallet/events.js";
 import { getWalletState, initializeWallet } from "../wallet/persistence.js";
@@ -134,6 +135,10 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   confirmationQueue.enabled = config.confirmWrites;
   confirmationQueue.ttlMs = config.confirmTtlMinutes * 60 * 1000;
 
+  await selectWalletBackend({
+    owsPassphrase: config.owsPassphrase,
+    owsForceLegacy: config.owsForceLegacy,
+  });
   await initializeWallet({
     chainId: config.chainId,
     accountIndex: config.walletAccountIndex,
@@ -253,7 +258,9 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.transactions = {
       list: async () => this.requireToolData<TransactionListResult>("transaction_list"),
       confirm: async (id: string) =>
-        this.requireToolData<TransactionConfirmResult>("transaction_confirm", { id }),
+        this.requireToolData<TransactionConfirmResult>("transaction_confirm", {
+          id,
+        }),
       deny: async (id: string) =>
         this.requireToolData<TransactionDenyResult>("transaction_deny", { id }),
     };
@@ -722,7 +729,7 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
 
   const explorerBlockscout = new ExplorerBlockscoutClient();
   const explorerEtherscan = config.etherscanApiKey
-    ? new ExplorerEtherscanClient(config.etherscanApiKey, config.etherscanApiUrl)
+    ? new ExplorerEtherscanClient(config.etherscanApiKey)
     : undefined;
   const explorerRouter = new ExplorerRouter(
     explorerBlockscout.getSupportedChainIds(),

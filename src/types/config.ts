@@ -2,6 +2,12 @@ export interface RuntimeConfig {
   chainId: number;
   privateKey?: string;
   mnemonic?: string;
+  /** Passphrase for the OWS encrypted vault backend. When undefined, the legacy
+   *  wallet.json backend is used. Sourced from the OWS_PASSPHRASE env var. */
+  owsPassphrase?: string;
+  /** Force the legacy wallet backend even when OWS is available. Sourced from
+   *  OWS_FORCE_LEGACY === "1". */
+  owsForceLegacy?: boolean;
   walletAccountIndex: number;
   walletAddressIndex: number;
   rpcUrl?: string;
@@ -9,7 +15,6 @@ export interface RuntimeConfig {
   chainRpcUrls: Record<number, string>;
   confirmWrites: boolean;
   confirmTtlMinutes: number;
-  etherscanApiUrl: string;
   etherscanApiKey?: string;
   lifiApiKey?: string;
   zeroxApiKey?: string;

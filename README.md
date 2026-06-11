@@ -37,14 +37,14 @@ For a step-by-step guide covering both human and agent setups, see [docs/guides/
 
 ## Supported hosts
 
-| Host | Config location |
-|------|-----------------|
-| Claude Code | `~/.claude/mcp.json` |
-| Cursor | `.cursor/mcp.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
-| OpenCode | `.opencode/config.json` |
-| Codex | `.codex/config.toml` |
-| OpenClaw | agent-mediated self-install via canonical guide |
+| Host        | Config location                                 |
+| ----------- | ----------------------------------------------- |
+| Claude Code | `~/.claude/mcp.json`                            |
+| Cursor      | `.cursor/mcp.json`                              |
+| Windsurf    | `~/.codeium/windsurf/mcp_config.json`           |
+| OpenCode    | `.opencode/config.json`                         |
+| Codex       | `.codex/config.toml`                            |
+| OpenClaw    | agent-mediated self-install via canonical guide |
 
 ---
 
@@ -58,23 +58,23 @@ Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, 
 
 ## What's included
 
-| Capability | Provider | Notes |
-|------------|----------|-------|
-| On-chain state | EVM MCP | Balances, contract reads/writes, gas, ENS, multicall (25 tools) |
-| Swaps | GOAT / Uniswap / Balancer | Same-chain, ERC-20/721 |
-| Aggregated swaps | Orbs Liquidity Hub | Optimal pricing via solver network |
-| Cross-chain bridges | LI.FI | 20+ chains |
-| Advanced orders | Orbs | dTWAP, dLIMIT |
-| Exchange trading | CCXT | Public/private access across 100+ exchanges (6 tools) |
-| Block explorer | Blockscout + Etherscan | Address info, tx history, NFTs, contract ABIs, network stats (35 tools) |
-| Market data | DefiLlama / CoinGecko / Binance | TVL, prices, DEX volume, stablecoin stats, sentiment (20 tools) |
-| Research | DefiLlama / on-chain | Contract security, yield analysis, whale tracking, governance (13 tools) |
-| Token resolution | Built-in registry + DexScreener | Symbol-to-address, long-tail assets |
-| Wallet management | Built-in | Generate, persist, activate, derive, sign |
-| Confirmation queue | Built-in | Write operations require explicit approval |
-| Agent protocols | AGDP / ACP / x402 / ERC-8004 | Agent marketplace, cooperation, payments |
-| Price data | CoinGecko | Requires `COINGECKO_API_KEY` |
-| 0x swaps | 0x | Requires `ZEROX_API_KEY` |
+| Capability          | Provider                        | Notes                                                                    |
+| ------------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| On-chain state      | EVM MCP                         | Balances, contract reads/writes, gas, ENS, multicall (25 tools)          |
+| Swaps               | GOAT / Uniswap / Balancer       | Same-chain, ERC-20/721                                                   |
+| Aggregated swaps    | Orbs Liquidity Hub              | Optimal pricing via solver network                                       |
+| Cross-chain bridges | LI.FI                           | 20+ chains                                                               |
+| Advanced orders     | Orbs                            | dTWAP, dLIMIT                                                            |
+| Exchange trading    | CCXT                            | Public/private access across 100+ exchanges (6 tools)                    |
+| Block explorer      | Blockscout + Etherscan          | Address info, tx history, NFTs, contract ABIs, network stats (35 tools)  |
+| Market data         | DefiLlama / CoinGecko / Binance | TVL, prices, DEX volume, stablecoin stats, sentiment (20 tools)          |
+| Research            | DefiLlama / on-chain            | Contract security, yield analysis, whale tracking, governance (13 tools) |
+| Token resolution    | Built-in registry + DexScreener | Symbol-to-address, long-tail assets                                      |
+| Wallet management   | Built-in                        | Generate, persist, activate, derive, sign                                |
+| Confirmation queue  | Built-in                        | Write operations require explicit approval                               |
+| Agent protocols     | AGDP / ACP / x402 / ERC-8004    | Agent marketplace, cooperation, payments                                 |
+| Price data          | CoinGecko                       | Requires `COINGECKO_API_KEY`                                             |
+| 0x swaps            | 0x                              | Requires `ZEROX_API_KEY`                                                 |
 
 ---
 
@@ -108,10 +108,27 @@ npx web3agent tools list --json
 npx web3agent tools call resolve_token --input '{"symbol":"USDC","chainId":8453}' --json
 npx web3agent doctor --json
 
+# Local-only wallet secret flows (requires OWS_PASSPHRASE >= 12 chars and an interactive TTY)
+OWS_PASSPHRASE='...' npx web3agent wallet generate
+OWS_PASSPHRASE='...' npx web3agent wallet generate --mnemonic
+OWS_PASSPHRASE='...' npx web3agent wallet activate --from-file ./secret.txt --type private-key
+
 # Options
 npx web3agent --help
 npx web3agent --version
 ```
+
+Wallet secret MCP tools are disabled by default so private keys and mnemonics do not enter an AI agent's inference context. Use the local `web3agent wallet ...` commands above for safe generation/import. If you explicitly accept the risk of agent-visible secrets, set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` to re-enable the legacy MCP behavior.
+
+`wallet_deactivate` only deactivates the current runtime session and returns to read-only ephemeral mode. Use confirmation-gated `wallet_delete` when you intentionally want to permanently remove persisted wallet material.
+
+### Wallet security defaults
+
+By default, web3agent keeps wallet secrets out of MCP tool responses and agent-visible inputs. The local `web3agent wallet ...` commands are the recommended way to generate or import private keys and mnemonics because they require an interactive TTY and refuse JSON secret output. Set `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS=1` only if you explicitly accept that private keys or mnemonics can be sent through the MCP host and visible to the agent/inference provider.
+
+For persisted server-side wallets, setting `OWS_PASSPHRASE` is **not mandatory, but strongly recommended**. When it is set on macOS/Linux and OWS is available, web3agent uses the Open Wallet Standard encrypted vault instead of the legacy filesystem-protected wallet store. The OWS spec minimum is 12 characters; web3agent warns on weak runtime passphrases and local wallet generation/import rejects shorter values. Use a 16+ character mixed passphrase in production. Configure it in the process that runs web3agent, whether that is `npx web3agent` as an MCP server or an app/service using `createRuntime({ env: { OWS_PASSPHRASE: "..." } })`.
+
+If `OWS_PASSPHRASE` is missing, empty, OWS is unavailable, the platform is Windows, or `OWS_FORCE_LEGACY=1` is set, web3agent falls back to legacy wallet storage protected by file permissions only. Migrating a legacy `wallet.json` leaves a plaintext `wallet.json.migrated` rollback backup; delete it after verifying OWS access. For multi-agent services, run separate wallet-using runtimes in separate processes until per-runtime wallet isolation is supported.
 
 ---
 
@@ -126,7 +143,7 @@ import {
   getChain,
   listChainTokens,
   resolveCanonicalTokenSync,
-  resolveToken
+  resolveToken,
 } from "web3agent";
 
 const chain = getChain(8453);
@@ -134,7 +151,12 @@ const usdc = resolveCanonicalTokenSync({ symbol: "USDC", chainId: 8453 });
 const tokens = listChainTokens({ chainId: 8453 });
 const discovered = await resolveToken({ symbol: "DEGEN", chainId: 8453 });
 
-console.log(chain?.name, usdc?.address, discovered.address, tokens.tokens.length);
+console.log(
+  chain?.name,
+  usdc?.address,
+  discovered.address,
+  tokens.tokens.length,
+);
 ```
 
 Use `resolveCanonicalToken()` for well-known registry tokens and native-token aliases. Use `resolveToken()` when you also want DexScreener discovery fallback for long-tail assets.
@@ -144,7 +166,11 @@ Use `resolveCanonicalToken()` for well-known registry tokens and native-token al
 Use the root API when your app owns the signer (e.g. a browser wallet via wagmi or AppKit).
 
 ```javascript
-import { prepareOperation, resumeOperation, simulateTransaction } from "web3agent";
+import {
+  prepareOperation,
+  resumeOperation,
+  simulateTransaction,
+} from "web3agent";
 ```
 
 1. `prepareOperation(...)` returns the next wallet actions plus `resumeState`
@@ -172,7 +198,12 @@ const runtime = await createRuntime();
 
 try {
   console.log(runtime.getHealth());
-  console.log(runtime.listTools().slice(0, 5).map((tool) => tool.name));
+  console.log(
+    runtime
+      .listTools()
+      .slice(0, 5)
+      .map((tool) => tool.name),
+  );
   const result = await runtime.invokeTool("list_supported_chains");
   console.log(result.structuredContent);
 } finally {

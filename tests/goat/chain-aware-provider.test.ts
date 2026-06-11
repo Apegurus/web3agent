@@ -86,7 +86,6 @@ describe("GoatProvider — chain-aware dispatch", () => {
     chainRpcUrls: {},
     confirmWrites: true,
     confirmTtlMinutes: 30,
-    etherscanApiUrl: "https://api.etherscan.io",
     etherscanApiKey: undefined,
     lifiApiKey: undefined,
     zeroxApiKey: undefined,
