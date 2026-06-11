@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-10
+
 ### Security
 
 - **fix(wallet)** — Thread `OWS_PASSPHRASE` / `OWS_FORCE_LEGACY` through `RuntimeConfig` so SDK consumers calling `createRuntime({ env })` are no longer silently downgraded to the legacy wallet backend. `wallet_info.passphraseConfigured` now reflects per-runtime config rather than the host `process.env`. (PR #20 finding 1)
