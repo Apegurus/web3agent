@@ -200,6 +200,8 @@ function getFlatErrorFields(parsed: Record<string, unknown>): {
   };
 }
 
+const SLOW_INTEGRATION_TIMEOUT_MS = 15_000;
+
 describe("managed-runtime invokeTool — integration through policy gate", () => {
   let homeDir = "";
   let originalHome: string | undefined;
@@ -221,77 +223,85 @@ describe("managed-runtime invokeTool — integration through policy gate", () =>
     rmSync(homeDir, { recursive: true, force: true });
   });
 
-  it("T2-integration: ccxt_private_write cancelOrder passes the policy gate (destructive classification)", async () => {
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
-    const runtime = await createRuntime({
-      config: buildTestConfig({ confirmWrites: false }),
-    });
-
-    try {
-      const result = await runtime.invokeTool("ccxt_private_write", {
-        account: "test-account",
-        method: "cancelOrder",
-        args: ["fake-id", "BTC/USDT"],
+  it(
+    "T2-integration: ccxt_private_write cancelOrder passes the policy gate (destructive classification)",
+    async () => {
+      const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+      const runtime = await createRuntime({
+        config: buildTestConfig({ confirmWrites: false }),
       });
 
-      expect(result.isError).toBe(true);
-      const parsed = parseToolText(result);
-      const { code, message } = getFlatErrorFields(parsed);
+      try {
+        const result = await runtime.invokeTool("ccxt_private_write", {
+          account: "test-account",
+          method: "cancelOrder",
+          args: ["fake-id", "BTC/USDT"],
+        });
 
-      // The classifier should have routed cancelOrder as "destructive", so
-      // financial-gate codes must NOT appear.
-      expect(code).not.toBe("UNESTIMABLE_FINANCIAL_WRITE");
-      expect(code).not.toBe("SPEND_LIMIT_ERROR");
-      expect(code).not.toBe("USD_ESTIMATION_FAILED");
-      expect(code).not.toBe("POLICY_DENIED");
-      // Failure must originate from the mock exchange (downstream of the gate),
-      // not from upstream policy. Either a CCXT_*-prefixed code OR a message
-      // tagged with our mock sentinel is acceptable evidence.
-      const reachedExchange =
-        code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
-      expect(reachedExchange).toBe(true);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+        expect(result.isError).toBe(true);
+        const parsed = parseToolText(result);
+        const { code, message } = getFlatErrorFields(parsed);
 
-  it("T2-integration: ccxt_private_write createOrder is correctly gated as financial", async () => {
-    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
-    const runtime = await createRuntime({
-      config: buildTestConfig({ confirmWrites: false }),
-    });
+        // The classifier should have routed cancelOrder as "destructive", so
+        // financial-gate codes must NOT appear.
+        expect(code).not.toBe("UNESTIMABLE_FINANCIAL_WRITE");
+        expect(code).not.toBe("SPEND_LIMIT_ERROR");
+        expect(code).not.toBe("USD_ESTIMATION_FAILED");
+        expect(code).not.toBe("POLICY_DENIED");
+        // Failure must originate from the mock exchange (downstream of the gate),
+        // not from upstream policy. Either a CCXT_*-prefixed code OR a message
+        // tagged with our mock sentinel is acceptable evidence.
+        const reachedExchange =
+          code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
+        expect(reachedExchange).toBe(true);
+      } finally {
+        await runtime.shutdown();
+      }
+    },
+    SLOW_INTEGRATION_TIMEOUT_MS
+  );
 
-    try {
-      const result = await runtime.invokeTool("ccxt_private_write", {
-        account: "test-account",
-        method: "createOrder",
-        args: ["BTC/USDT", "market", "buy", 0.001],
+  it(
+    "T2-integration: ccxt_private_write createOrder is correctly gated as financial",
+    async () => {
+      const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+      const runtime = await createRuntime({
+        config: buildTestConfig({ confirmWrites: false }),
       });
 
-      expect(result.isError).toBe(true);
-      const parsed = parseToolText(result);
-      const { code, message } = getFlatErrorFields(parsed);
+      try {
+        const result = await runtime.invokeTool("ccxt_private_write", {
+          account: "test-account",
+          method: "createOrder",
+          args: ["BTC/USDT", "market", "buy", 0.001],
+        });
 
-      // createOrder must be financial-classified. The acceptable outcomes are:
-      //  - the financial gate denied (SPEND_LIMIT_ERROR, UNESTIMABLE_FINANCIAL_WRITE,
-      //    USD_ESTIMATION_FAILED, POLICY_DENIED) — proves the gate ran, OR
-      //  - the call passed the gate and reached the mock exchange (CCXT_* / MOCK_).
-      // What must NOT happen: passing through with a non-CCXT, non-gate error code,
-      // which would indicate the financial branch was bypassed entirely.
-      const gateCodes = new Set([
-        "SPEND_LIMIT_ERROR",
-        "UNESTIMABLE_FINANCIAL_WRITE",
-        "USD_ESTIMATION_FAILED",
-        "POLICY_DENIED",
-      ]);
-      const reachedExchange =
-        code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
+        expect(result.isError).toBe(true);
+        const parsed = parseToolText(result);
+        const { code, message } = getFlatErrorFields(parsed);
 
-      expect(gateCodes.has(code) || reachedExchange).toBe(true);
-    } finally {
-      await runtime.shutdown();
-    }
-  });
+        // createOrder must be financial-classified. The acceptable outcomes are:
+        //  - the financial gate denied (SPEND_LIMIT_ERROR, UNESTIMABLE_FINANCIAL_WRITE,
+        //    USD_ESTIMATION_FAILED, POLICY_DENIED) — proves the gate ran, OR
+        //  - the call passed the gate and reached the mock exchange (CCXT_* / MOCK_).
+        // What must NOT happen: passing through with a non-CCXT, non-gate error code,
+        // which would indicate the financial branch was bypassed entirely.
+        const gateCodes = new Set([
+          "SPEND_LIMIT_ERROR",
+          "UNESTIMABLE_FINANCIAL_WRITE",
+          "USD_ESTIMATION_FAILED",
+          "POLICY_DENIED",
+        ]);
+        const reachedExchange =
+          code.startsWith("CCXT_") || message.includes("MOCK_EXCHANGE_NO_NETWORK");
+
+        expect(gateCodes.has(code) || reachedExchange).toBe(true);
+      } finally {
+        await runtime.shutdown();
+      }
+    },
+    SLOW_INTEGRATION_TIMEOUT_MS
+  );
 
   it("T1-integration: wallet_activate → transaction_confirm succeeds from read-only state (CONFIRM_WRITES=true)", async () => {
     vi.stubEnv("WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS", "1");

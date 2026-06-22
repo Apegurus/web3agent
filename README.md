@@ -1,8 +1,8 @@
 # web3agent
 
-Give your AI agent full EVM execution. Swaps, bridges, lending, staking, limit orders, exchange trading. 17 chains. 150+ tools. One install.
+Give your AI agent EVM execution and DeFi tooling: swaps, bridges, limit and trigger orders, exchange trading, market data, research, wallet management. 190+ MCP tools. One install.
 
-Works out of the box with Claude Code, Cursor, Windsurf, OpenCode, and Codex. Self-custodial. Every write operation goes through a confirmation queue: nothing executes without your approval.
+Works out of the box with Claude Code, Cursor, Windsurf, OpenCode, and Codex. Self-custodial. By default, write operations go through a confirmation queue: nothing executes without your approval unless you explicitly disable confirmations.
 
 EVM execution is a solved problem. Stop rebuilding it. Plug in and ship.
 
@@ -12,14 +12,14 @@ EVM execution is a solved problem. Stop rebuilding it. Plug in and ship.
 
 Once installed, your AI agent can execute real DeFi operations in plain language:
 
-- **"Swap 0.1 ETH for USDC on Base"** — routed, simulated, confirmed, executed
+- **"Swap 0.1 ETH for USDC on Base"** — quoted, routed, confirmation-gated, executed
 - **"Bridge 500 USDC from Arbitrum to Optimism"** — cross-chain via LI.FI, 20+ chains
-- **"Set a limit order to buy ETH at $2,800"** — decentralized dLIMIT via Orbs
+- **"Set a limit or trigger order to buy ETH at $2,800"** — decentralized Spot orders via Orbs
 - **"Cancel my open orders on Binance"** — CCXT exchange access with per-method risk classification
-- **"What's my wallet balance across all my chains?"** — read-only, no confirmation needed
+- **"What's my USDC balance on Base?"** — read-only EVM and ERC-20 balance checks
 - **"Show me yield opportunities above 5% APY"** — research tools, protocol analysis, due diligence
 
-No ABI. No transaction building. No chain-switching. The agent handles routing, simulation, and the confirmation queue. You approve, it executes.
+Common flows avoid ABI handling and transaction building. Generic contract reads and writes are available when you provide or register an ABI, or when explorer ABI lookup is available. The agent handles routing, transaction preparation, and the confirmation queue. You approve, it executes.
 
 ---
 
@@ -50,7 +50,9 @@ For a step-by-step guide covering both human and agent setups, see [docs/guides/
 
 ## Supported chains
 
-Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, Scroll, Mode, Blast, Mantle, Celo, Gnosis, Sepolia, Base Sepolia.
+Basic EVM operations use viem's chain registry and can target any viem-supported EVM chain when RPC access is available.
+
+Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, Sonic, Mode, Blast, Celo, and Gnosis. Token resolution, explorer, LI.FI, and market/research tools have provider-specific coverage; LI.FI bridge quotes and execution support 20+ chains through LI.FI's own chain list.
 
 **Default:** Base (8453). Override with the `CHAIN_ID` env var or pass `chainId` per call.
 
@@ -60,19 +62,19 @@ Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, zkSync Era, 
 
 | Capability          | Provider                        | Notes                                                                    |
 | ------------------- | ------------------------------- | ------------------------------------------------------------------------ |
-| On-chain state      | EVM MCP                         | Balances, contract reads/writes, gas, ENS, multicall (25 tools)          |
+| On-chain state      | Native EVM tools                | Balances, contract reads/writes, gas, ENS, multicall (27 tools)          |
 | Swaps               | GOAT / Uniswap / Balancer       | Same-chain, ERC-20/721                                                   |
 | Aggregated swaps    | Orbs Liquidity Hub              | Optimal pricing via solver network                                       |
 | Cross-chain bridges | LI.FI                           | 20+ chains                                                               |
-| Advanced orders     | Orbs                            | dTWAP, dLIMIT                                                            |
+| Advanced orders     | Orbs                            | Spot market, limit, TWAP, stop-loss, take-profit, delayed orders         |
 | Exchange trading    | CCXT                            | Public/private access across 100+ exchanges (6 tools)                    |
 | Block explorer      | Blockscout + Etherscan          | Address info, tx history, NFTs, contract ABIs, network stats (35 tools)  |
 | Market data         | DefiLlama / CoinGecko / Binance | TVL, prices, DEX volume, stablecoin stats, sentiment (20 tools)          |
 | Research            | DefiLlama / on-chain            | Contract security, yield analysis, whale tracking, governance (13 tools) |
 | Token resolution    | Built-in registry + DexScreener | Symbol-to-address, long-tail assets                                      |
-| Wallet management   | Built-in                        | Generate, persist, activate, derive, sign                                |
-| Confirmation queue  | Built-in                        | Write operations require explicit approval                               |
-| Agent protocols     | AGDP / ACP / x402 / ERC-8004    | Agent marketplace, cooperation, payments                                 |
+| Wallet management   | web3agent + Open Wallet Standard | CLI/MCP lifecycle, encrypted OWS vault when configured, legacy fallback  |
+| Confirmation queue  | Built-in                        | Write operations require explicit approval by default                    |
+| Agent protocols     | aGDP / ACP / ERC-8183 / x402 / ERC-8004 | Agent marketplace, cooperation, payments                         |
 | Price data          | CoinGecko                       | Requires `COINGECKO_API_KEY`                                             |
 | 0x swaps            | 0x                              | Requires `ZEROX_API_KEY`                                                 |
 
@@ -91,6 +93,28 @@ Scaffolds a ready-to-run project from one of three bundled templates:
 - **MCP-host** — lightweight MCP client
 
 Each starter uses the same `web3agent` lifecycle surfaces as MCP and CLI.
+
+---
+
+## Examples
+
+Root examples are included in the npm package:
+
+```bash
+# Safe import-only previews
+node examples/swap.mjs
+node examples/bridge.mjs
+
+# Read-only live quote examples
+node examples/swap.mjs --quote
+node examples/bridge.mjs --quote
+
+# Prepared external-wallet flows
+WEB3AGENT_EXAMPLE_ACCOUNT=0x... node examples/swap.mjs --prepare
+WEB3AGENT_EXAMPLE_ACCOUNT=0x... node examples/bridge.mjs --prepare
+```
+
+The examples default to small USDC-denominated flows and only prepare wallet actions when you pass `--prepare`.
 
 ---
 
@@ -224,7 +248,7 @@ For authenticated exchange access via CCXT tools, set `CCXT_CONFIG_PATH` to a JS
 ## Known limitations
 
 - Blockscout explorer tools work on 8 chains only (Ethereum, Polygon, Arbitrum, Optimism, Base, Gnosis, Scroll, zkSync Era)
-- Stop-loss and take-profit orders (dSLTP) are not yet available
+- Yield tooling is read-only research; protocol-specific execution beyond first-class tools uses ABI-backed EVM calls
 - 0x and CoinGecko plugins require their respective API keys
 - MCP hosts cannot open a browser wallet prompt directly — MCP can prepare, simulate, and submit signed payloads, but signing requires your app to handle the wallet interaction
 

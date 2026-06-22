@@ -52,9 +52,11 @@
   },
   "files": [
     "dist",
-    "examples/root-api-smoke.mjs",
-    "examples/runtime-smoke.mjs",
+    "examples/*.mjs",
+    "assets/logo.svg",
+    "assets/logo.png",
     "templates/create",
+    "smithery.yaml",
     "WEB3_CONTEXT.md",
     "README.md",
     "LICENSE"

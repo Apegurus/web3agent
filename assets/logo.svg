@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">web3agent logo</title>
+  <desc id="desc">A geometric Web3 agent mark with connected nodes inside a rounded diamond.</desc>
+  <defs>
+    <linearGradient id="edge" x1="90" y1="86" x2="424" y2="428" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="0.45" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="core" x1="155" y1="139" x2="359" y2="375" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#CBD5E1"/>
+    </linearGradient>
+    <filter id="softShadow" x="52" y="56" width="408" height="408" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" flood-color="#020617" flood-opacity="0.18" stdDeviation="18"/>
+    </filter>
+  </defs>
+  <g filter="url(#softShadow)">
+    <path fill="#111827" d="M256 52c16.8 0 32.9 6.7 44.8 18.5l140.7 140.7c24.7 24.7 24.7 64.8 0 89.5L300.8 441.5c-24.7 24.7-64.8 24.7-89.5 0L70.5 300.8c-24.7-24.7-24.7-64.8 0-89.5L211.2 70.5A63.4 63.4 0 0 1 256 52Z"/>
+    <path fill="none" stroke="url(#edge)" stroke-linejoin="round" stroke-width="18" d="M256 80c9.4 0 18.4 3.7 25 10.3L421.7 231c13.8 13.8 13.8 36.2 0 50L281 421.7c-13.8 13.8-36.2 13.8-50 0L90.3 281c-13.8-13.8-13.8-36.2 0-50L231 90.3A35.4 35.4 0 0 1 256 80Z"/>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="#38BDF8" stroke-width="22" d="M166 280h76l52-104h54"/>
+    <path stroke="#34D399" stroke-width="22" d="M166 232h74l62 102h44"/>
+    <path stroke="#F59E0B" stroke-width="22" d="M214 356l84-100-82-100"/>
+  </g>
+  <g>
+    <circle cx="166" cy="280" r="32" fill="url(#core)" stroke="#38BDF8" stroke-width="14"/>
+    <circle cx="166" cy="232" r="32" fill="url(#core)" stroke="#34D399" stroke-width="14"/>
+    <circle cx="216" cy="156" r="32" fill="url(#core)" stroke="#F59E0B" stroke-width="14"/>
+    <circle cx="214" cy="356" r="32" fill="url(#core)" stroke="#F59E0B" stroke-width="14"/>
+    <circle cx="348" cy="176" r="32" fill="url(#core)" stroke="#38BDF8" stroke-width="14"/>
+    <circle cx="346" cy="334" r="32" fill="url(#core)" stroke="#34D399" stroke-width="14"/>
+    <circle cx="256" cy="256" r="42" fill="#111827" stroke="url(#edge)" stroke-width="16"/>
+    <circle cx="256" cy="256" r="14" fill="#F8FAFC"/>
+  </g>
+</svg>
