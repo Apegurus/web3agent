@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added marketplace packaging assets: Smithery project config, square transparent logo files, and root swap/bridge SDK examples.
+- Added marketplace packaging assets: Smithery project config, official site logo files, and root swap/bridge SDK examples.
 
 ### Fixed
 
