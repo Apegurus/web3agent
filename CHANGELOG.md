@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-23
+
 ### Added
 
 - Added marketplace packaging assets: Smithery project config, official site logo files, and root swap/bridge SDK examples.
+
+### Security
+
+- Pinned patched transitive `hono` and `ws` versions so the production audit gate passes without weakening CI.
 
 ### Fixed
 
