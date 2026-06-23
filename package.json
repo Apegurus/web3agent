@@ -100,6 +100,9 @@
   "pnpm": {
     "overrides": {
       "fast-uri": "3.1.2",
+      "hono@<4.12.25": "4.12.25",
+      "ws@>=7.0.0 <7.5.11": "7.5.11",
+      "ws@>=8.0.0 <8.21.0": "8.21.0",
       "path-to-regexp": "8.4.0"
     },
     "peerDependencyRules": {
