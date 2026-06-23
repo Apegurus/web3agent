@@ -1,6 +1,6 @@
 {
   "name": "web3agent",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Web3 MCP proxy server — gives AI agents complete blockchain capabilities through a single install",
   "license": "MIT",
   "author": "Apeguru <hello@apeguru.dev>",
