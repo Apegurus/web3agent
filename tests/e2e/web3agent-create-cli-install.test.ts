@@ -3,23 +3,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ensureBuild } from "../global-setup.js";
-import { withPackLock } from "./pack-mutex.js";
+import { ensurePackedTarballs } from "./pack-fixture.js";
 
 const ROOT = process.cwd();
 const TEMP_ROOT = mkdtempSync(join(tmpdir(), "web3agent-create-cli-install-"));
-const PACK_ROOT = join(TEMP_ROOT, "packs");
-const ROOT_PACKAGE = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8")) as {
-  version: string;
-};
-const CREATE_PACKAGE = JSON.parse(
-  readFileSync(join(ROOT, "packages", "create-web3agent", "package.json"), "utf-8")
-) as {
-  version: string;
-};
-const ROOT_TARBALL = join(PACK_ROOT, `web3agent-${ROOT_PACKAGE.version}.tgz`);
-const CREATE_TARBALL = join(PACK_ROOT, `create-web3agent-${CREATE_PACKAGE.version}.tgz`);
 const EXEC_SYNC_MAX_BUFFER = 10 * 1024 * 1024;
+let rootTarball = "";
+let createTarball = "";
 
 function run(command: string, cwd: string): string {
   return execSync(command, {
@@ -38,7 +28,7 @@ function patchGeneratedPackage(projectDir: string): void {
 
   packageJson.dependencies = {
     ...packageJson.dependencies,
-    web3agent: `file:${ROOT_TARBALL}`,
+    web3agent: `file:${rootTarball}`,
   };
 
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf-8");
@@ -46,20 +36,7 @@ function patchGeneratedPackage(projectDir: string): void {
 
 describe("web3agent create packed CLI", () => {
   beforeAll(() => {
-    ensureBuild();
-    mkdirSync(PACK_ROOT, { recursive: true });
-    withPackLock(() => {
-      execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
-        cwd: ROOT,
-        stdio: "inherit",
-      });
-    });
-    withPackLock(() => {
-      execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
-        cwd: join(ROOT, "packages", "create-web3agent"),
-        stdio: "inherit",
-      });
-    });
+    ({ rootTarball, createTarball } = ensurePackedTarballs());
   });
 
   afterAll(() => {
@@ -77,7 +54,7 @@ describe("web3agent create packed CLI", () => {
       "utf-8"
     );
 
-    run(`npm install ${ROOT_TARBALL}`, cliRoot);
+    run(`npm install ${rootTarball}`, cliRoot);
     run(
       "node node_modules/web3agent/dist/cli.js create starter-app --template vercel-ai-sdk --yes --skip-install --skip-checks",
       cliRoot
@@ -104,8 +81,8 @@ describe("web3agent create packed CLI", () => {
       "utf-8"
     );
 
-    run(`npm install ${ROOT_TARBALL}`, cliRoot);
-    run(`npm install ${CREATE_TARBALL}`, cliRoot);
+    run(`npm install ${rootTarball}`, cliRoot);
+    run(`npm install ${createTarball}`, cliRoot);
     run(
       "node node_modules/create-web3agent/dist/index.js compat-starter --template vercel-ai-sdk --yes --skip-install --skip-checks",
       cliRoot
