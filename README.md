@@ -1,5 +1,7 @@
 # web3agent
 
+> MCP package: `web3agent` | npm: <https://www.npmjs.com/package/web3agent> | GitHub: <https://github.com/Apegurus/web3agent> | Contact: <hello@apeguru.dev>
+
 Give your AI agent EVM execution and DeFi tooling: swaps, bridges, limit and trigger orders, exchange trading, market data, research, wallet management. 190+ MCP tools. One install.
 
 Works out of the box with Claude Code, Cursor, Windsurf, OpenCode, and Codex. Self-custodial. By default, write operations go through a confirmation queue: nothing executes without your approval unless you explicitly disable confirmations.
@@ -23,15 +25,63 @@ Common flows avoid ABI handling and transaction building. Generic contract reads
 
 ---
 
-## Install
+## Quickstart for agent power users
 
 ```bash
 npx web3agent init
 ```
 
-Detects your AI agent host and configures it automatically.
+This detects Claude Code, Cursor, Windsurf, OpenCode, or Codex and configures the MCP server automatically. Restart your host, then ask:
+
+```text
+What Web3 tools do you have available, and what chain are you configured for?
+```
+
+For any other MCP-capable host, configure a stdio server that runs:
+
+```bash
+npx web3agent
+```
+
+The generic MCP config shape is:
+
+```json
+{
+  "web3agent": {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["web3agent"]
+  }
+}
+```
+
+Writes are confirmation-gated by default, and wallet secrets are not exposed through MCP unless explicitly enabled.
 
 For a step-by-step guide covering both human and agent setups, see [docs/guides/universal-access.md](docs/guides/universal-access.md).
+
+### Copy-paste prompts
+
+Use these after installation to get to value quickly:
+
+```text
+List the supported chains and tell me which Web3 tools are safest to try first.
+```
+
+```text
+Resolve USDC, WETH, and DEGEN on Base. Show token addresses and decimals.
+```
+
+```text
+Quote swapping 0.01 ETH to USDC on Base, but do not execute anything.
+```
+
+```text
+Show yield opportunities above 5% APY and explain the main protocol risks.
+```
+
+```text
+Explain this wallet's recent activity on Base: 0x0000000000000000000000000000000000000000
+```
 
 ---
 
@@ -115,6 +165,28 @@ WEB3AGENT_EXAMPLE_ACCOUNT=0x... node examples/bridge.mjs --prepare
 ```
 
 The examples default to small USDC-denominated flows and only prepare wallet actions when you pass `--prepare`.
+
+---
+
+## For crypto teams
+
+Use web3agent when you want AI agents to discover or interact with your protocol without every team rebuilding wallet, chain, token, quote, explorer, and confirmation plumbing.
+
+Integration surfaces:
+
+- **MCP tools** for Claude Code, Cursor, Windsurf, OpenCode, Codex, and other MCP hosts
+- **Programmatic SDK** from `web3agent` for app-owned agents and browser-wallet flows
+- **Prepared operations** for protocols that need users or apps to sign externally
+- **Confirmation-gated writes** so execution never bypasses an explicit approval path by default
+
+Good first integration targets:
+
+- token, market, and position reads
+- quote and simulation tools
+- prepared wallet actions for browser/app signing
+- protocol-specific research or risk tools
+
+For protocol support or integration questions, open an issue at <https://github.com/Apegurus/web3agent/issues> or contact <hello@apeguru.dev>.
 
 ---
 
