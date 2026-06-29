@@ -8,13 +8,20 @@
     "type": "git",
     "url": "https://github.com/apegurus/web3agent.git"
   },
+  "homepage": "https://github.com/Apegurus/web3agent#readme",
+  "bugs": {
+    "url": "https://github.com/Apegurus/web3agent/issues"
+  },
   "keywords": [
     "web3",
     "mcp",
+    "mcp-server",
+    "smithery",
     "blockchain",
     "ethereum",
     "defi",
     "ai-agent",
+    "agent-tools",
     "wallet",
     "evm",
     "claude",
