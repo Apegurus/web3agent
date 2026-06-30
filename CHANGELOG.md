@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-06-30
+
+### Added
+
+- Added official MCP Registry metadata, including `mcpName`, root `server.json`, package `main`/`types`, expanded npm keywords, and registry-ready package inclusion.
+- Expanded Smithery configuration from a stub into a local stdio `npx web3agent` config with optional environment settings for chain selection, confirmation defaults, API keys, CCXT config, and OWS passphrases.
+- Polished the README for marketplace traffic with badges, product links, Arena production callout, quickstart prompts, use-case examples, crypto-team guidance, and clearer differentiation.
+
+### Fixed
+
+- Hardened e2e package/build locking so stale, dead-owner, and non-file lock paths no longer leave future package tests blocked.
+- Reused state-keyed packed tarballs across create/install e2e suites and cached package build setup by source state, reducing duplicated package work while preserving real install coverage.
+
 ## [0.6.1] - 2026-06-23
 
 ### Added
