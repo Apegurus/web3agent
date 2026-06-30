@@ -1,0 +1,93 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "web3agent",
+  "display_name": "Web3Agent",
+  "version": "0.6.2",
+  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, market data, wallets, and confirmation-gated writes.",
+  "author": {
+    "name": "Apeguru",
+    "email": "hello@apeguru.dev",
+    "url": "https://web3agent.fi"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/web3agent.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/web3agent.mjs"],
+      "env": {
+        "CHAIN_ID": "${user_config.chain_id}",
+        "CONFIRM_WRITES": "${user_config.confirm_writes}",
+        "ETHERSCAN_API_KEY": "${user_config.etherscan_api_key}",
+        "ZEROX_API_KEY": "${user_config.zerox_api_key}",
+        "COINGECKO_API_KEY": "${user_config.coingecko_api_key}",
+        "CCXT_CONFIG_PATH": "${user_config.ccxt_config_path}",
+        "OWS_PASSPHRASE": "${user_config.ows_passphrase}"
+      }
+    }
+  },
+  "user_config": {
+    "chain_id": {
+      "type": "number",
+      "title": "Default chain ID",
+      "description": "Default EVM chain ID. Defaults to Base mainnet (8453).",
+      "default": 8453,
+      "required": true
+    },
+    "confirm_writes": {
+      "type": "boolean",
+      "title": "Require write confirmations",
+      "description": "Require explicit confirmation before write operations execute.",
+      "default": true,
+      "required": true
+    },
+    "etherscan_api_key": {
+      "type": "string",
+      "title": "Etherscan API key",
+      "description": "Optional Etherscan API key for Etherscan-backed explorer tools.",
+      "sensitive": true,
+      "required": false
+    },
+    "zerox_api_key": {
+      "type": "string",
+      "title": "0x API key",
+      "description": "Optional 0x API key for 0x swap plugin support.",
+      "sensitive": true,
+      "required": false
+    },
+    "coingecko_api_key": {
+      "type": "string",
+      "title": "CoinGecko API key",
+      "description": "Optional CoinGecko API key for higher-rate market data.",
+      "sensitive": true,
+      "required": false
+    },
+    "ccxt_config_path": {
+      "type": "file",
+      "title": "CCXT config path",
+      "description": "Optional local path to a CCXT account config JSON file.",
+      "required": false
+    },
+    "ows_passphrase": {
+      "type": "string",
+      "title": "OWS passphrase",
+      "description": "Optional Open Wallet Standard vault passphrase for persisted local wallets.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "keywords": ["mcp", "web3", "defi", "ethereum", "evm", "wallet", "ai-agent"],
+  "license": "MIT",
+  "homepage": "https://web3agent.fi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Apegurus/web3agent"
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=22.0.0"
+    }
+  }
+}
