@@ -1,1 +1,55 @@
-runtime: "typescript"
+startCommand:
+  type: stdio
+  commandFunction: |
+    (config) => {
+      const env = {
+        CHAIN_ID: String(config.chainId ?? 8453),
+        CONFIRM_WRITES: String(config.confirmWrites ?? true)
+      };
+
+      for (const [key, value] of Object.entries({
+        ETHERSCAN_API_KEY: config.etherscanApiKey,
+        ZEROX_API_KEY: config.zeroxApiKey,
+        COINGECKO_API_KEY: config.coingeckoApiKey,
+        CCXT_CONFIG_PATH: config.ccxtConfigPath,
+        OWS_PASSPHRASE: config.owsPassphrase
+      })) {
+        if (typeof value === "string" && value.length > 0) env[key] = value;
+      }
+
+      return {
+        command: "npx",
+        args: ["-y", "web3agent"],
+        env
+      };
+    }
+  configSchema:
+    type: object
+    properties:
+      chainId:
+        type: number
+        description: Default EVM chain ID. Defaults to Base mainnet (8453).
+        default: 8453
+      confirmWrites:
+        type: boolean
+        description: Require explicit confirmation before write operations execute.
+        default: true
+      etherscanApiKey:
+        type: string
+        description: Optional Etherscan API key for Etherscan-backed explorer tools.
+      zeroxApiKey:
+        type: string
+        description: Optional 0x API key for 0x swap plugin support.
+      coingeckoApiKey:
+        type: string
+        description: Optional CoinGecko API key for higher-rate market data.
+      ccxtConfigPath:
+        type: string
+        description: Optional local path to a CCXT account config JSON file.
+      owsPassphrase:
+        type: string
+        description: Optional Open Wallet Standard vault passphrase for persisted local wallets.
+    required: []
+  exampleConfig:
+    chainId: 8453
+    confirmWrites: true

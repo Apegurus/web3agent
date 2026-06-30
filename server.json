@@ -1,0 +1,90 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Apegurus/web3agent",
+  "title": "web3agent",
+  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, market data, wallets, and gated writes.",
+  "websiteUrl": "https://web3agent.fi",
+  "repository": {
+    "url": "https://github.com/Apegurus/web3agent",
+    "source": "github"
+  },
+  "version": "0.6.2",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/Apegurus/web3agent/main/assets/logo.png",
+      "mimeType": "image/png",
+      "sizes": ["1024x1024"]
+    },
+    {
+      "src": "https://raw.githubusercontent.com/Apegurus/web3agent/main/assets/logo.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"]
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "web3agent",
+      "version": "0.6.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "npx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "web3agent"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "CHAIN_ID",
+          "description": "Default EVM chain ID. Defaults to Base mainnet (8453).",
+          "format": "number",
+          "isRequired": false
+        },
+        {
+          "name": "CONFIRM_WRITES",
+          "description": "Require explicit confirmation before write operations execute. Defaults to true.",
+          "format": "boolean",
+          "isRequired": false
+        },
+        {
+          "name": "ETHERSCAN_API_KEY",
+          "description": "Optional Etherscan API key for Etherscan-backed explorer tools.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ZEROX_API_KEY",
+          "description": "Optional 0x API key for 0x swap plugin support.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "COINGECKO_API_KEY",
+          "description": "Optional CoinGecko API key for higher-rate market data.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CCXT_CONFIG_PATH",
+          "description": "Optional local path to a CCXT account config JSON file.",
+          "format": "filepath",
+          "isRequired": false
+        },
+        {
+          "name": "OWS_PASSPHRASE",
+          "description": "Optional Open Wallet Standard vault passphrase for persisted local wallets.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

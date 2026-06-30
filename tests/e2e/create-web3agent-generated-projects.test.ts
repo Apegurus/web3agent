@@ -4,17 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createProject } from "../../src/create/create.js";
-import { ensureBuild } from "../global-setup.js";
-import { withPackLock } from "./pack-mutex.js";
+import { ensurePackedTarballs } from "./pack-fixture.js";
 
 const ROOT = process.cwd();
 const TEMP_ROOT = mkdtempSync(join(tmpdir(), "create-web3agent-generated-projects-"));
-const PACK_ROOT = join(TEMP_ROOT, "packs");
-const ROOT_PACKAGE = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8")) as {
-  version: string;
-};
-const ROOT_TARBALL = join(PACK_ROOT, `web3agent-${ROOT_PACKAGE.version}.tgz`);
 const EXEC_SYNC_MAX_BUFFER = 10 * 1024 * 1024;
+let rootTarball = "";
 
 function run(command: string, cwd: string): string {
   return execSync(command, {
@@ -33,7 +28,7 @@ function patchGeneratedPackage(projectDir: string): void {
 
   packageJson.dependencies = {
     ...packageJson.dependencies,
-    web3agent: `file:${ROOT_TARBALL}`,
+    web3agent: `file:${rootTarball}`,
   };
 
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf-8");
@@ -41,13 +36,7 @@ function patchGeneratedPackage(projectDir: string): void {
 
 describe("generated starter projects", () => {
   beforeAll(() => {
-    ensureBuild();
-    withPackLock(() => {
-      execSync(`pnpm pack --pack-destination ${PACK_ROOT}`, {
-        cwd: ROOT,
-        stdio: "inherit",
-      });
-    });
+    ({ rootTarball } = ensurePackedTarballs());
   });
 
   afterAll(() => {

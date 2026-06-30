@@ -1,6 +1,7 @@
 {
   "name": "web3agent",
-  "version": "0.6.1",
+  "version": "0.6.2",
+  "mcpName": "io.github.Apegurus/web3agent",
   "description": "Web3 MCP proxy server — gives AI agents complete blockchain capabilities through a single install",
   "license": "MIT",
   "author": "Apeguru <hello@apeguru.dev>",
@@ -8,19 +9,48 @@
     "type": "git",
     "url": "https://github.com/apegurus/web3agent.git"
   },
+  "homepage": "https://web3agent.fi",
+  "bugs": {
+    "url": "https://github.com/Apegurus/web3agent/issues"
+  },
   "keywords": [
     "web3",
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "blockchain",
     "ethereum",
+    "evm",
     "defi",
     "ai-agent",
+    "agent",
     "wallet",
-    "evm",
+    "self-custodial",
+    "npx",
+    "goat-sdk",
+    "lifi",
+    "orbs",
+    "uniswap",
+    "balancer",
+    "aave",
+    "morpho",
+    "base",
+    "arbitrum",
+    "optimism",
+    "polygon",
+    "dtwap",
+    "dlimit",
+    "defi-agent",
     "claude",
-    "cursor"
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "opencode",
+    "codex"
   ],
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -57,6 +87,7 @@
     "assets/logo.png",
     "templates/create",
     "smithery.yaml",
+    "server.json",
     "WEB3_CONTEXT.md",
     "README.md",
     "LICENSE"
