@@ -68,6 +68,17 @@ Writes are confirmation-gated by default, and wallet secrets are not exposed thr
 
 For a step-by-step guide covering both human and agent setups, see [docs/guides/universal-access.md](docs/guides/universal-access.md).
 
+### Smithery local bundle
+
+Smithery URL publishing requires a hosted Streamable HTTP MCP endpoint. Web3Agent is distributed as a local stdio/npm server, so Smithery distribution uses an MCPB bundle instead:
+
+```bash
+pnpm run mcpb:check
+smithery mcp publish dist/web3agent.mcpb -n Apegurus/web3agent
+```
+
+The generated MCPB is a thin local bundle that launches the published npm package with `npm exec --package web3agent@0.6.2`.
+
 ## Why Web3Agent
 
 - **One-line install.** `npx web3agent init` auto-configures Claude Code, Cursor, Windsurf, OpenCode, or Codex. No manual config edits for supported hosts.
