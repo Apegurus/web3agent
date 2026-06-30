@@ -5,6 +5,7 @@
   "display_name": "Web3Agent",
   "version": "0.6.2",
   "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, market data, wallets, and confirmation-gated writes.",
+  "long_description": "Web3Agent gives local AI agents a single MCP surface for EVM execution and DeFi workflows: token resolution, balances, swaps, bridges, Orbs orders, market data, research, wallet lifecycle, and confirmation-gated writes. It is self-custodial by default and keeps wallet secrets out of agent-visible MCP flows unless explicitly enabled.",
   "author": {
     "name": "Apeguru",
     "email": "hello@apeguru.dev",
@@ -33,14 +34,14 @@
       "title": "Default chain ID",
       "description": "Default EVM chain ID. Defaults to Base mainnet (8453).",
       "default": 8453,
-      "required": true
+      "required": false
     },
     "confirm_writes": {
       "type": "boolean",
       "title": "Require write confirmations",
       "description": "Require explicit confirmation before write operations execute.",
       "default": true,
-      "required": true
+      "required": false
     },
     "etherscan_api_key": {
       "type": "string",
@@ -77,9 +78,37 @@
       "required": false
     }
   },
+  "prompts": [
+    {
+      "name": "safe_first_steps",
+      "description": "Guide a user through safe read-only Web3Agent discovery before attempting any write operation.",
+      "text": "List the available Web3Agent tools, identify the configured chain, and recommend three safe read-only actions to try before any transaction or wallet write."
+    },
+    {
+      "name": "quote_swap_without_execution",
+      "description": "Prepare a cautious swap quote workflow that explicitly avoids execution.",
+      "text": "Ask the user for source token, destination token, amount, and chain if any are missing. Then quote the swap without executing anything, and explain route, expected output, slippage assumptions, and risks."
+    },
+    {
+      "name": "wallet_activity_review",
+      "description": "Review a wallet with read-only explorer and balance tools.",
+      "text": "Ask the user for a wallet address and chain if missing. Then summarize balances, recent transactions, notable counterparties, and risk signals using only read-only Web3Agent tools."
+    },
+    {
+      "name": "yield_due_diligence",
+      "description": "Investigate yield opportunities and explain protocol risks before capital allocation.",
+      "text": "Ask the user for target chain and minimum APY if missing. Then find yield opportunities, compare protocol risk, liquidity, asset exposure, and operational considerations. Do not execute transactions."
+    }
+  ],
+  "tools_generated": true,
+  "prompts_generated": true,
   "keywords": ["mcp", "web3", "defi", "ethereum", "evm", "wallet", "ai-agent"],
   "license": "MIT",
   "homepage": "https://web3agent.fi",
+  "documentation": "https://github.com/Apegurus/web3agent#readme",
+  "support": "https://github.com/Apegurus/web3agent/issues",
+  "icon": "icon.png",
+  "privacy_policies": ["https://web3agent.fi"],
   "repository": {
     "type": "git",
     "url": "https://github.com/Apegurus/web3agent"

@@ -14,6 +14,10 @@ pnpm run mcpb:check
 
 The generated bundle is written to `dist/web3agent.mcpb`.
 
+The manifest keeps all configuration optional or defaulted so users can install
+and inspect read-only tools before adding API keys, exchange configuration, or an
+OWS passphrase.
+
 ## Publish to Smithery
 
 ```bash
