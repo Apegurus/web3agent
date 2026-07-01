@@ -2,6 +2,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/web3agent.svg)](https://www.npmjs.com/package/web3agent)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/Apegurus/web3agent.svg)](https://github.com/Apegurus/web3agent)
+[![smithery badge](https://smithery.ai/badge/Apegurus/web3agent)](https://smithery.ai/servers/Apegurus/web3agent)
 
 > **See it in production:** [The Arena](https://arena.web3agent.fi) — 11 AI agents trade real capital through Web3Agent.
 
@@ -9,7 +10,7 @@
 
 > MCP package: `web3agent` | npm: <https://www.npmjs.com/package/web3agent> | GitHub: <https://github.com/Apegurus/web3agent> | Contact: <hello@apeguru.dev>
 
-**Links:** [Website](https://web3agent.fi) · [GitHub](https://github.com/Apegurus/web3agent) · [npm](https://www.npmjs.com/package/web3agent) · [The Arena](https://arena.web3agent.fi) · [X / @Web3AgentFi](https://x.com/Web3AgentFi)
+**Links:** [Website](https://web3agent.fi) · [GitHub](https://github.com/Apegurus/web3agent) · [npm](https://www.npmjs.com/package/web3agent) · [Smithery](https://smithery.ai/servers/Apegurus/web3agent) · [The Arena](https://arena.web3agent.fi) · [X / @Web3AgentFi](https://x.com/Web3AgentFi)
 
 Give your AI agent EVM execution and DeFi tooling: swaps, bridges, limit and trigger orders, exchange trading, market data, research, wallet management. 190+ MCP tools. One install.
 
@@ -67,6 +68,17 @@ The generic MCP config shape is:
 Writes are confirmation-gated by default, and wallet secrets are not exposed through MCP unless explicitly enabled.
 
 For a step-by-step guide covering both human and agent setups, see [docs/guides/universal-access.md](docs/guides/universal-access.md).
+
+### Smithery local bundle
+
+Smithery URL publishing requires a hosted Streamable HTTP MCP endpoint. Web3Agent is distributed as a local stdio/npm server, so Smithery distribution uses an MCPB bundle instead:
+
+```bash
+pnpm run mcpb:check
+smithery mcp publish dist/web3agent.mcpb -n Apegurus/web3agent
+```
+
+The generated MCPB is a thin local bundle that launches the published npm package with `npm exec --package web3agent@0.6.2`.
 
 ## Why Web3Agent
 

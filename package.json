@@ -153,6 +153,9 @@
     "test:watch": "vitest",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "mcpb:validate": "npx --yes @anthropic-ai/mcpb validate mcpb/manifest.json",
+    "mcpb:pack": "npx --yes @anthropic-ai/mcpb pack mcpb dist/web3agent.mcpb",
+    "mcpb:check": "pnpm run mcpb:validate && pnpm run mcpb:pack && npx --yes @anthropic-ai/mcpb info dist/web3agent.mcpb",
     "typecheck": "pnpm run build:package && pnpm run typecheck:package && pnpm --filter create-web3agent typecheck",
     "typecheck:package": "tsc --noEmit",
     "pack:check": "node -e \"const { execFileSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join } = require('node:path'); const dir = mkdtempSync(join(tmpdir(), 'web3agent-pack-')); try { execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', dir], { stdio: 'inherit' }); } finally { rmSync(dir, { recursive: true, force: true }); }\""
