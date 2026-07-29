@@ -1,3 +1,4 @@
+// allow: SIZE_OK — public SDK output-schema registry intentionally aggregates stable exported contracts.
 import { z } from "zod";
 import {
   addressSchema,
@@ -12,9 +13,43 @@ import {
 
 export const sameChainSwapQuoteResultSchema = z.object({
   kind: z.literal("same-chain").describe("Quote type"),
-  provider: z.literal("orbs").describe("Swap provider"),
+  provider: z.enum(["0x", "lifi", "orbs"]).describe("Swap provider"),
   chainId: z.number().describe("Chain ID"),
-  quote: z.record(z.unknown()).describe("Raw quote object from Orbs SDK"),
+  quote: z.record(z.unknown()).describe("Raw quote object from the selected provider"),
+  adapterSource: z
+    .enum(["goat", "native", "lifi", "orbs"])
+    .optional()
+    .describe("Adapter implementation used for the selected provider"),
+  capabilityDecisionId: z
+    .string()
+    .optional()
+    .describe("Verified capability-decision identifier returned by the actual 0x adapter"),
+  capabilityReason: z
+    .string()
+    .optional()
+    .describe("Automated capability-gate reason for 0x adapter selection"),
+  priceImpactBps: z
+    .object({
+      numerator: z.string().describe("Exact price-impact basis-point numerator"),
+      denominator: z.string().describe("Exact price-impact basis-point denominator"),
+    })
+    .optional()
+    .describe("Exact price impact relative to an optional normalized reference price"),
+  fallbackReason: z
+    .enum(["no-route", "provider-unavailable"])
+    .optional()
+    .describe("0x failure class that explicitly permitted LI.FI fallback"),
+  fallbackHistory: z
+    .array(
+      z.object({
+        provider: z.literal("0x").describe("Primary provider that failed"),
+        reason: z
+          .enum(["no-route", "provider-unavailable"])
+          .describe("Machine-readable fallback reason"),
+      })
+    )
+    .optional()
+    .describe("Ordered provider fallback decisions"),
 });
 
 // fromToken/toToken are overridden to optional because cross-chain quotes may
@@ -139,14 +174,18 @@ export const bridgeIntentSchema = z.object({
 // --- Operations ---
 
 export const preparedOperationSchema = z.object({
-  integration: z.enum(["orbs", "lifi", "goat"]).describe("Integration provider"),
+  integration: z
+    .enum(["orbs", "lifi", "goat", "uniswap-v4", "zeroex"])
+    .describe("Integration provider"),
   kind: z.string().describe("Operation type"),
   summary: z.string().describe("Human-readable summary"),
   actions: z.array(preparedActionSchema).describe("Actions for the caller to execute"),
   resumeState: z
     .object({
       version: z.literal(1).describe("Resume state format version"),
-      integration: z.enum(["orbs", "lifi", "goat"]).describe("Integration provider for resume"),
+      integration: z
+        .enum(["orbs", "lifi", "goat", "uniswap-v4", "zeroex"])
+        .describe("Integration provider for resume"),
       kind: z.string().describe("Operation type identifier"),
       state: z.record(z.unknown()).describe("Internal operation state"),
     })
@@ -168,6 +207,9 @@ export const simulationResultSchema = z.object({
   success: z.literal(true).describe("Simulation succeeded"),
   gasEstimate: z.string().describe("Estimated gas usage"),
   balanceChanges: z.array(balanceChangeSchema).describe("Token balance changes"),
+  balanceChangesSource: z
+    .enum(["trace", "fallback"])
+    .describe("Whether balance changes came from a call trace or static calldata fallback"),
 });
 
 // --- Spot Order Intent ---
@@ -595,7 +637,7 @@ export const swapSubmissionResultSchema = z.object({
 
 export const tokenSwappableResultSchema = z.object({
   swappable: z.boolean().describe("Whether the token pair is swappable"),
-  provider: z.enum(["orbs", "lifi"]).describe("Available swap provider"),
+  provider: z.enum(["0x", "orbs", "lifi"]).describe("Available swap provider"),
   kind: z.enum(["same-chain", "cross-chain"]).describe("Swap type"),
   reason: z.string().optional().describe("Reason if not swappable"),
 });
