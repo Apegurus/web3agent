@@ -1,24 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import type { OperationExecutor, PendingOperation } from "../types/wallet.js";
-import { atomicWriteJson } from "../utils/atomic-write.js";
 import { type AuditAction, appendAuditLog } from "./audit.js";
+import { writePendingOperations } from "./confirmation-persistence.js";
+import { restorePendingOperations } from "./confirmation-restore.js";
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
-
-interface SerializedPendingOperation {
-  id: string;
-  type: string;
-  description: string;
-  params: Record<string, unknown>;
-  createdAt: string;
-  ttlMs: number;
-  walletAddress?: string;
-  riskLevel?: PendingOperation["riskLevel"];
-}
 
 const executorRegistry = new Map<string, OperationExecutor>();
 
@@ -28,10 +14,6 @@ export function registerExecutor(type: string, fn: OperationExecutor): void {
 
 export function getExecutor(type: string): OperationExecutor | undefined {
   return executorRegistry.get(type);
-}
-
-function getPendingOpsPath(): string {
-  return join(homedir(), ".web3agent", "pending-ops.json");
 }
 
 /**
@@ -54,6 +36,9 @@ export class ConfirmationQueueManager {
   private persistChain: Promise<void> = Promise.resolve();
   private persistScheduled = false;
   private persistNeeded = false;
+  private persistVersion = 0;
+  private persistedVersion = 0;
+  private failedPersistVersion = 0;
   public enabled: boolean;
   public ttlMs: number;
 
@@ -62,14 +47,17 @@ export class ConfirmationQueueManager {
     this.ttlMs = ttlMs;
   }
 
-  private schedulePersist(): void {
+  private schedulePersist(): number {
+    const requestedVersion = ++this.persistVersion;
     this.persistNeeded = true;
-    if (this.persistScheduled) return;
+    if (this.persistScheduled) return requestedVersion;
     this.persistScheduled = true;
     this.persistChain = this.persistChain
-      .then(() => {
+      .then(async () => {
+        const targetVersion = this.persistVersion;
         this.persistNeeded = false;
-        return this.persistQueue();
+        await this.persistQueue();
+        this.persistedVersion = targetVersion;
       })
       .then(() => {
         this.persistScheduled = false;
@@ -84,8 +72,10 @@ export class ConfirmationQueueManager {
         // over best-effort retry on failure.
         this.persistScheduled = false;
         this.persistNeeded = false;
+        this.failedPersistVersion = this.persistVersion;
         process.stderr.write(`[confirmation] Failed to persist queue: ${e}\n`);
       });
+    return requestedVersion;
   }
 
   /**
@@ -157,12 +147,26 @@ export class ConfirmationQueueManager {
     return { operation, stale };
   }
 
-  complete(id: string): void {
+  async claimForExecution(
+    id: string
+  ): Promise<{ operation: PendingOperation; stale: boolean } | null> {
+    const confirmed = this.confirm(id);
+    if (!confirmed) return null;
+    const claimVersion = this.schedulePersist();
+    await this.flushPendingPersists();
+    if (this.persistedVersion < claimVersion || this.failedPersistVersion >= claimVersion) {
+      this.executing.delete(id);
+      throw new Error("Failed to persist execution claim");
+    }
+    return confirmed;
+  }
+
+  complete(id: string, metadata?: Readonly<Record<string, unknown>>): void {
     this.executing.delete(id);
     const op = this.queue.get(id);
     this.queue.delete(id);
     this.schedulePersist();
-    if (op) this.audit("CONFIRMED", op);
+    if (op) this.audit("CONFIRMED", op, metadata);
   }
 
   releaseExecuting(id: string): void {
@@ -225,87 +229,33 @@ export class ConfirmationQueueManager {
     return count;
   }
 
-  private audit(action: AuditAction, op: PendingOperation): void {
+  private audit(
+    action: AuditAction,
+    op: PendingOperation,
+    metadata?: Readonly<Record<string, unknown>>
+  ): void {
     appendAuditLog({
       action,
       operationType: op.type,
       operationId: op.id,
       walletAddress: op.walletAddress,
       description: op.description,
+      ...(metadata ? { metadata } : {}),
     }).catch((e: unknown) => {
       process.stderr.write(`[confirmation] Failed to write audit log: ${e}\n`);
     });
   }
 
   private async persistQueue(): Promise<void> {
-    const ops: SerializedPendingOperation[] = [...this.queue.values()].map((op) => ({
-      id: op.id,
-      type: op.type,
-      description: op.description,
-      params: op.params,
-      createdAt: op.createdAt.toISOString(),
-      ttlMs: op.ttlMs,
-      walletAddress: op.walletAddress,
-      riskLevel: op.riskLevel,
-    }));
-
-    await atomicWriteJson(getPendingOpsPath(), ops);
+    await writePendingOperations(this.queue.values(), this.executing);
   }
 
   async loadQueue(): Promise<number> {
-    const filePath = getPendingOpsPath();
-    if (!existsSync(filePath)) return 0;
-
     try {
-      const raw = await readFile(filePath, "utf-8");
-      const ops = JSON.parse(raw) as SerializedPendingOperation[];
-      const now = Date.now();
-      let droppedEntries = false;
-
-      for (const serialized of ops) {
-        const createdAt = new Date(serialized.createdAt);
-        const elapsed = now - createdAt.getTime();
-        if (elapsed > serialized.ttlMs) {
-          droppedEntries = true;
-          appendAuditLog({
-            action: "EXPIRED",
-            operationType: serialized.type,
-            operationId: serialized.id,
-            walletAddress: serialized.walletAddress,
-            description: serialized.description,
-          }).catch((e: unknown) => {
-            process.stderr.write(
-              `[confirmation] Failed to audit expired persisted op ${serialized.id}: ${e}\n`
-            );
-          });
-          continue;
-        }
-
-        const executor = executorRegistry.get(serialized.type);
-        if (!executor) {
-          droppedEntries = true;
-          process.stderr.write(
-            `[confirmation] Skipping persisted op ${serialized.id}: no executor for type '${serialized.type}'\n`
-          );
-          continue;
-        }
-
-        this.queue.set(serialized.id, {
-          id: serialized.id,
-          type: serialized.type,
-          description: serialized.description,
-          params: serialized.params,
-          executor,
-          createdAt,
-          ttlMs: serialized.ttlMs,
-          walletAddress: serialized.walletAddress,
-          riskLevel: serialized.riskLevel,
-        });
-      }
-
-      if (droppedEntries) {
-        this.schedulePersist();
-      }
+      const restored = await restorePendingOperations(getExecutor);
+      if (!restored) return 0;
+      for (const operation of restored.operations) this.queue.set(operation.id, operation);
+      if (restored.droppedEntries) this.schedulePersist();
 
       if (this.queue.size > 0) {
         process.stderr.write(
@@ -314,8 +264,9 @@ export class ConfirmationQueueManager {
       }
       return this.queue.size;
     } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unknown error";
       process.stderr.write(
-        `[confirmation] Failed to load persisted queue (starting fresh): ${e}\n`
+        `[confirmation] Failed to load persisted queue (starting fresh): ${message}\n`
       );
       return 0;
     }
