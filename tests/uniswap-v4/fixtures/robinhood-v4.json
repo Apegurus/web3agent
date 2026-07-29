@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "evidence": {
+    "deployment": ".omo/evidence/robinhood-uniswap-v4/deployment-verification.json",
+    "readSnapshot": ".omo/evidence/robinhood-uniswap-v4/implementation/task-6-snapshot.json",
+    "stateSnapshot": ".omo/evidence/robinhood-uniswap-v4/implementation/task-7-position-snapshot.json",
+    "eventPage": ".omo/evidence/robinhood-uniswap-v4/implementation/task-8-event-pages.json",
+    "zeroEx": ".omo/evidence/robinhood-uniswap-v4/implementation/task-17-zeroex-capability.json"
+  },
+  "chainId": 4663,
+  "sourceBlock": {
+    "chainId": 4663,
+    "blockNumber": "16437583",
+    "blockHash": "0x1832b3e7fdb1110b4321deae270b194cd7afd0905eb5befd06d9766148ca9798"
+  },
+  "deployment": {
+    "chainId": 4663,
+    "poolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+    "positionManager": "0x58daec3116aae6D93017bAAea7749052E8a04fA7",
+    "stateView": "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "poolManagerCodeHash": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+    "positionManagerCodeHash": "0xc873e135dc9aaec88489cfbad146b4cb49d6a32e0d80326377784b7ba17670b2",
+    "stateViewCodeHash": "0x7d9c591e0956fd89d98feb4ffcfe8bf1f7a62bd485edd979fa21d104b49878a6",
+    "permit2CodeHash": "0x5208783f52488f7d3493e5e38311ab707c1d75457fe472a19b0b4d57d66a7fca",
+    "verifiedAt": {
+      "chainId": 4663,
+      "blockNumber": "16437583",
+      "blockHash": "0x1832b3e7fdb1110b4321deae270b194cd7afd0905eb5befd06d9766148ca9798"
+    },
+    "sourceReferences": [
+      "https://developers.uniswap.org/deployments.json",
+      "https://docs.robinhood.com/chain/connecting/"
+    ]
+  },
+  "pool": {
+    "poolId": "0x9a0127f975ca35e0f869527d586ad60f7f83c639f80b9c6d60f2420a148fb62a",
+    "poolKey": {
+      "currency0": {
+        "kind": "native",
+        "chainId": 4663,
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18
+      },
+      "currency1": {
+        "kind": "erc20",
+        "chainId": 4663,
+        "address": "0x2222222222222222222222222222222222222222",
+        "symbol": "FIX",
+        "name": "Fixture Token",
+        "decimals": 18
+      },
+      "fee": 8388608,
+      "tickSpacing": 60,
+      "hooks": "0x4444444444444444444444444444444444444444"
+    }
+  },
+  "token": {
+    "address": "0x2222222222222222222222222222222222222222",
+    "name": "Fixture Token",
+    "symbol": "FIX",
+    "decimals": 18
+  },
+  "position": {
+    "tokenId": "42",
+    "owner": "0x3333333333333333333333333333333333333333",
+    "operator": "0x4444444444444444444444444444444444444444",
+    "liquidity": "77",
+    "tickLower": -120,
+    "tickUpper": 120,
+    "feeGrowthInside0X128": "1020847100762815390390123822295304634368",
+    "feeGrowthInside1X128": "1361129467683753853853498429727072845824",
+    "feeGrowthInside0LastX128": "340282366920938463463374607431768211456",
+    "feeGrowthInside1LastX128": "680564733841876926926749214863536422912"
+  },
+  "eventDeployment": {
+    "chainId": 4663,
+    "poolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+    "positionManager": "0x58daec3116aae6D93017bAAea7749052E8a04fA7"
+  },
+  "eventOtherPoolId": "0x2222222222222222222222222222222222222222222222222222222222222222",
+  "logs": {
+    "otherPoolSalt": "0x0707070707070707070707070707070707070707070707070707070707070707"
+  },
+  "quote": {
+    "request": {
+      "chainId": 4663,
+      "fromToken": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "toToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "fromAmount": "1000000000000000",
+      "taker": "0x3333333333333333333333333333333333333333",
+      "slippageBps": 100,
+      "referencePrice": "1"
+    },
+    "response": {
+      "buyAmount": "950000",
+      "sellAmount": "1000000000000000",
+      "liquidityAvailable": true,
+      "price": "0.95",
+      "issues": {
+        "allowance": {
+          "spender": "0x5555555555555555555555555555555555555555"
+        }
+      },
+      "transaction": {
+        "to": "0x6666666666666666666666666666666666666666",
+        "data": "0x1234",
+        "value": "0"
+      }
+    }
+  },
+  "transactionRequest": {
+    "to": "0x6666666666666666666666666666666666666666",
+    "data": "0x1234",
+    "value": "0"
+  },
+  "normalized": {
+    "pool": {
+      "currentFee": 500,
+      "deployment": {
+        "chainId": 4663,
+        "poolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+        "positionManager": "0x58daec3116aae6D93017bAAea7749052E8a04fA7",
+        "stateView": "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b",
+        "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        "poolManagerCodeHash": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+        "positionManagerCodeHash": "0xc873e135dc9aaec88489cfbad146b4cb49d6a32e0d80326377784b7ba17670b2",
+        "stateViewCodeHash": "0x7d9c591e0956fd89d98feb4ffcfe8bf1f7a62bd485edd979fa21d104b49878a6",
+        "permit2CodeHash": "0x5208783f52488f7d3493e5e38311ab707c1d75457fe472a19b0b4d57d66a7fca",
+        "verifiedAt": {
+          "chainId": 4663,
+          "blockNumber": "16437583",
+          "blockHash": "0x1832b3e7fdb1110b4321deae270b194cd7afd0905eb5befd06d9766148ca9798"
+        },
+        "sourceReferences": [
+          "https://developers.uniswap.org/deployments.json",
+          "https://docs.robinhood.com/chain/connecting/"
+        ]
+      },
+      "dynamicFee": true,
+      "feeGrowthGlobal0X128": "101",
+      "feeGrowthGlobal1X128": "202",
+      "initialized": true,
+      "liquidity": "900",
+      "pool": {
+        "poolId": "0x9a0127f975ca35e0f869527d586ad60f7f83c639f80b9c6d60f2420a148fb62a",
+        "poolKey": {
+          "currency0": {
+            "kind": "native",
+            "chainId": 4663,
+            "symbol": "ETH",
+            "name": "Ether",
+            "decimals": 18
+          },
+          "currency1": {
+            "kind": "erc20",
+            "chainId": 4663,
+            "address": "0x2222222222222222222222222222222222222222",
+            "symbol": "FIX",
+            "name": "Fixture Token",
+            "decimals": 18
+          },
+          "fee": 8388608,
+          "tickSpacing": 60,
+          "hooks": "0x4444444444444444444444444444444444444444"
+        }
+      },
+      "sourceBlock": {
+        "chainId": 4663,
+        "blockNumber": "16437583",
+        "blockHash": "0x1832b3e7fdb1110b4321deae270b194cd7afd0905eb5befd06d9766148ca9798"
+      },
+      "sqrtPriceX96": "79228162514264337593543950336",
+      "tick": 0
+    },
+    "position": {
+      "amount0": "0",
+      "amount1": "0",
+      "feeGrowthInside0LastX128": "340282366920938463463374607431768211456",
+      "feeGrowthInside0X128": "1020847100762815390390123822295304634368",
+      "feeGrowthInside1LastX128": "680564733841876926926749214863536422912",
+      "feeGrowthInside1X128": "1361129467683753853853498429727072845824",
+      "liquidity": "77",
+      "operator": "0x4444444444444444444444444444444444444444",
+      "owner": "0x3333333333333333333333333333333333333333",
+      "pool": {
+        "poolId": "0x9a0127f975ca35e0f869527d586ad60f7f83c639f80b9c6d60f2420a148fb62a",
+        "poolKey": {
+          "currency0": {
+            "kind": "native",
+            "chainId": 4663,
+            "symbol": "ETH",
+            "name": "Ether",
+            "decimals": 18
+          },
+          "currency1": {
+            "kind": "erc20",
+            "chainId": 4663,
+            "address": "0x2222222222222222222222222222222222222222",
+            "symbol": "FIX",
+            "name": "Fixture Token",
+            "decimals": 18
+          },
+          "fee": 8388608,
+          "tickSpacing": 60,
+          "hooks": "0x4444444444444444444444444444444444444444"
+        }
+      },
+      "positionId": "0x75a9e8ea337d7729a9a96679454010f694320609a13c347070cdaa7f0f7e0345",
+      "sourceBlock": {
+        "chainId": 4663,
+        "blockNumber": "16437583",
+        "blockHash": "0x1832b3e7fdb1110b4321deae270b194cd7afd0905eb5befd06d9766148ca9798"
+      },
+      "tickLower": -120,
+      "tickUpper": 120,
+      "tokenId": "42",
+      "tokensOwedAvailability": "not-exposed-by-uniswap-v4-core",
+      "uncollectedFees0": "154",
+      "uncollectedFees1": "154"
+    },
+    "events": [
+      {
+        "kind": "initialize",
+        "poolAssociation": {
+          "kind": "associated",
+          "poolId": "0x9a0127f975ca35e0f869527d586ad60f7f83c639f80b9c6d60f2420a148fb62a",
+          "source": "pool-manager"
+        },
+        "sqrtPriceX96": "1",
+        "tick": 0,
+        "transactionHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00",
+        "blockNumber": "16437583",
+        "transactionIndex": 0,
+        "logIndex": 0
+      }
+    ],
+    "quote": {
+      "provider": "0x",
+      "chainId": 4663,
+      "adapterSource": "native",
+      "capabilityDecisionId": "zeroex-goat-v2-admission-v1",
+      "capabilityReason": "goat-chain-4663-unavailable",
+      "buyAmount": "950000",
+      "sellAmount": "1000000000000000",
+      "transaction": {
+        "to": "0x6666666666666666666666666666666666666666",
+        "data": "0x1234",
+        "value": "0"
+      },
+      "allowance": {
+        "target": "0x5555555555555555555555555555555555555555",
+        "amount": "1000000000000000"
+      },
+      "priceImpactBps": {
+        "numerator": "500",
+        "denominator": "1"
+      }
+    }
+  },
+  "live": {
+    "timeoutMs": 15000,
+    "poolId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "slot0": ["0", 0, 0, 0],
+    "eventPageSize": 10
+  }
+}
