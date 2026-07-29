@@ -5,7 +5,12 @@ import { join } from "node:path";
 
 const IS_POSIX = process.platform !== "win32";
 
-export type AuditAction = "CONFIRMED" | "DENIED" | "EXECUTION_FAILED" | "EXPIRED";
+export type AuditAction =
+  | "CONFIRMED"
+  | "DENIED"
+  | "EXECUTION_FAILED"
+  | "EXECUTION_UNCERTAIN"
+  | "EXPIRED";
 
 export interface AuditEntry {
   action: AuditAction;
@@ -13,6 +18,7 @@ export interface AuditEntry {
   operationId: string;
   walletAddress?: string;
   description: string;
+  metadata?: Readonly<Record<string, unknown>>;
 }
 
 export interface AuditLogEntry extends AuditEntry {
@@ -30,15 +36,30 @@ function getAuditPath(): string {
 function formatEntry(entry: AuditEntry): string {
   const ts = new Date().toISOString();
   const wallet = entry.walletAddress ?? "unknown";
-  return `${ts} | ${entry.action} | ${entry.operationType} | ${wallet} | ${JSON.stringify(entry.description)} | id=${entry.operationId}\n`;
+  const payload = entry.metadata
+    ? { description: entry.description, metadata: entry.metadata }
+    : entry.description;
+  return `${ts} | ${entry.action} | ${entry.operationType} | ${wallet} | ${JSON.stringify(payload)} | id=${entry.operationId}\n`;
 }
 
-function parseDescription(rawDescription: string): string {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseDescription(rawDescription: string): {
+  readonly description: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+} {
   try {
-    const parsed = JSON.parse(rawDescription) as unknown;
-    return typeof parsed === "string" ? parsed : rawDescription;
-  } catch (_error: unknown) {
-    return rawDescription;
+    const parsed: unknown = JSON.parse(rawDescription);
+    if (typeof parsed === "string") return { description: parsed };
+    if (isRecord(parsed) && typeof parsed.description === "string" && isRecord(parsed.metadata)) {
+      return { description: parsed.description, metadata: parsed.metadata };
+    }
+    return { description: rawDescription };
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) return { description: rawDescription };
+    throw error;
   }
 }
 
@@ -89,12 +110,14 @@ export async function readAuditLog(limit?: number): Promise<AuditLogEntry[]> {
       const [, timestamp, action, operationType, walletAddress, descriptionRaw, operationId] =
         match;
 
+      const parsedDescription = parseDescription(descriptionRaw);
       return {
         timestamp: timestamp.trim(),
         action: action.trim() as AuditAction,
         operationType: operationType.trim(),
         walletAddress: walletAddress.trim() === "unknown" ? undefined : walletAddress.trim(),
-        description: parseDescription(descriptionRaw),
+        description: parsedDescription.description,
+        ...(parsedDescription.metadata ? { metadata: parsedDescription.metadata } : {}),
         operationId: operationId.trim(),
       } satisfies AuditLogEntry;
     })
