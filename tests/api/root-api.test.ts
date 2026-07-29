@@ -120,6 +120,7 @@ describe("root API", () => {
     expect(typeof root.placeOrder).toBe("function");
     expect(typeof root.cancelOrder).toBe("function");
     expect(typeof root.simulateTransaction).toBe("function");
+    expect(typeof root.simulateUniswapV4Operation).toBe("function");
     expect(root.orbsPrepareSwapIntentSchema).toBeDefined();
     expect(root.orbsPrepareOrderIntentSchema).toBeDefined();
     expect(root.orbsPlaceOrderSchema).toBeDefined();
@@ -131,5 +132,6 @@ describe("root API", () => {
     expect(root.prepareOperationSchema).toBeDefined();
     expect(root.resumeOperationSchema).toBeDefined();
     expect(root.transactionSimulateSchema).toBeDefined();
+    expect(root.uniswapV4SimulationInputSchema).toBeDefined();
   });
 });
