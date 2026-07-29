@@ -1,3 +1,4 @@
+// allow: SIZE_OK — core runtime state machine keeps lifecycle, policy, and dynamic tool-registry invariants co-located.
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { BlockscoutClient as ExplorerBlockscoutClient } from "../api/explorer/blockscout/client.js";
 import { EtherscanClient as ExplorerEtherscanClient } from "../api/explorer/etherscan/client.js";
@@ -46,11 +47,17 @@ import {
 } from "../tools/register.js";
 import { getResearchToolDefinitions } from "../tools/research/index.js";
 import { getTokenToolDefinitions } from "../tools/tokens/index.js";
+import {
+  getUniswapV4ToolDefinitions,
+  registerUniswapV4Executors,
+} from "../tools/uniswap-v4/index.js";
 import { setHealthStatus } from "../tools/utility/index.js";
 import { registerWalletExecutors } from "../tools/wallet/index.js";
 import { getX402ToolDefinitions, registerX402Executors } from "../tools/x402/index.js";
+import { getZeroExToolDefinitions, registerZeroExExecutors } from "../tools/zerox/index.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { HealthStatus } from "../types/health.js";
+import type { UniswapV4OperationSimulationBackend } from "../uniswap-v4/reconcile-operation.js";
 import { formatToolError } from "../utils/errors.js";
 import { sanitizeToolInput } from "../utils/sanitize.js";
 import { getToolResultPayload, normalizeCallToolResult } from "../utils/tool-results.js";
@@ -157,6 +164,8 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   registerAgdpExecutors();
   registerErc8004Executors();
   registerEvmExecutors();
+  registerUniswapV4Executors();
+  registerZeroExExecutors();
   await loadSpendLog();
 
   const wallet = getWalletState();
@@ -191,6 +200,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly frameworkTools: ToolDefinition[];
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
+  private readonly zeroExTools: ToolDefinition[];
   private readonly tokenTools: ToolDefinition[];
   private readonly x402Tools: ToolDefinition[];
   private readonly erc8183Tools: ToolDefinition[];
@@ -204,6 +214,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private explorerToolCount = 0;
   private readonly marketTools = getMarketToolDefinitions();
   private readonly researchTools = getResearchToolDefinitions();
+  private readonly uniswapV4Tools: ToolDefinition[];
   private readonly goatProvider: GoatProvider;
   private readonly listeners = new Set<RuntimeToolListener>();
   private readonly health: HealthStatus;
@@ -215,7 +226,8 @@ export class ManagedRuntime implements Web3AgentRuntime {
     readonly config: RuntimeConfig,
     goatProvider: GoatProvider,
     explorerDeps: ExplorerDeps,
-    pendingOpsRestored: number
+    pendingOpsRestored: number,
+    uniswapV4SimulationBackend?: UniswapV4OperationSimulationBackend
   ) {
     this.goatProvider = goatProvider;
     this.explorerDeps = explorerDeps;
@@ -228,6 +240,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     ];
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
+    this.zeroExTools = getZeroExToolDefinitions();
     this.tokenTools = getTokenToolDefinitions();
     this.x402Tools = getX402ToolDefinitions();
     this.erc8183Tools = getErc8183ToolDefinitions();
@@ -237,6 +250,9 @@ export class ManagedRuntime implements Web3AgentRuntime {
     this.evmTools = getEvmToolDefinitions();
     this.policyTools = getPolicyToolDefinitions();
     this.ccxtTools = getCcxtToolDefinitions();
+    this.uniswapV4Tools = getUniswapV4ToolDefinitions({
+      simulationBackend: uniswapV4SimulationBackend,
+    });
     this.health = createDefaultHealthStatus();
 
     this.wallet = {
@@ -625,6 +641,14 @@ export class ManagedRuntime implements Web3AgentRuntime {
       });
     }
 
+    for (const tool of this.zeroExTools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "zerox"),
+        handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
+      });
+    }
+
     for (const tool of this.policyTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "utility"),
@@ -642,6 +666,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
       ["ccxt", this.ccxtTools],
       ["market", this.marketTools],
       ["research", this.researchTools],
+      ["uniswap-v4", this.uniswapV4Tools],
     ];
     for (const [source, tools] of toolGroups) {
       for (const tool of tools) {
@@ -741,7 +766,13 @@ export async function createRuntime(options: CreateRuntimeOptions = {}): Promise
     etherscan: explorerEtherscan,
   };
 
-  const runtime = new ManagedRuntime(config, runtimeGoatProvider, explorerDeps, pendingOpsRestored);
+  const runtime = new ManagedRuntime(
+    config,
+    runtimeGoatProvider,
+    explorerDeps,
+    pendingOpsRestored,
+    options.uniswapV4SimulationBackend
+  );
   runtime.initialize();
   return runtime;
 }

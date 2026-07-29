@@ -1,3 +1,4 @@
+// allow: SIZE_OK — canonical token registry is an immutable chain-indexed data table.
 /**
  * Well-known token registry — canonical contract addresses for major tokens
  * across all chains supported by web3agent.
@@ -323,6 +324,39 @@ export const WELL_KNOWN_TOKENS: Record<number, ChainTokens> = {
       decimals: 18,
       name: "Aerodrome",
       symbol: "AERO",
+    },
+  },
+
+  4663: {
+    WETH: {
+      address: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      decimals: 18,
+      name: "WETH",
+      symbol: "WETH",
+    },
+    USDG: {
+      address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      decimals: 6,
+      name: "Global Dollar",
+      symbol: "USDG",
+    },
+    AAPL: {
+      address: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+      decimals: 18,
+      name: "Apple • Robinhood Token",
+      symbol: "AAPL",
+    },
+    TSLA: {
+      address: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+      decimals: 18,
+      name: "Tesla • Robinhood Token",
+      symbol: "TSLA",
+    },
+    NVDA: {
+      address: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+      decimals: 18,
+      name: "NVIDIA • Robinhood Token",
+      symbol: "NVDA",
     },
   },
 

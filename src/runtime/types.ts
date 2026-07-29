@@ -3,6 +3,7 @@ import type { RiskLevel } from "../policy/types.js";
 import type { RuntimeConfig } from "../types/config.js";
 import type { BackendStatus, ExplorerHealth, HealthStatus } from "../types/health.js";
 import type { WalletMode } from "../types/wallet.js";
+import type { UniswapV4OperationSimulationBackend } from "../uniswap-v4/reconcile-operation.js";
 
 export type ToolSource =
   | "wallet"
@@ -23,7 +24,9 @@ export type ToolSource =
   | "explorer"
   | "ccxt"
   | "market"
-  | "research";
+  | "research"
+  | "uniswap-v4"
+  | "zerox";
 
 export type ToolCategory =
   | "wallet"
@@ -210,4 +213,5 @@ export interface Web3AgentRuntime {
 export interface CreateRuntimeOptions {
   config?: RuntimeConfig;
   env?: Partial<Record<string, string>>;
+  uniswapV4SimulationBackend?: UniswapV4OperationSimulationBackend;
 }
