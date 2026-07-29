@@ -6,4 +6,6 @@ export * from "./schemas/operations.js";
 export * from "./schemas/orbs.js";
 export * from "./schemas/research.js";
 export * from "./schemas/tokens.js";
+export * from "./schemas/uniswap-v4.js";
 export * from "./schemas/wallet.js";
+export * from "./schemas/zerox.js";

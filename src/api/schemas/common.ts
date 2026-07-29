@@ -35,6 +35,7 @@ export const preparedTransactionRequestSchema = z.object({
   to: addressSchema.describe("Target contract address"),
   chainId: z.number().int().describe("Chain ID"),
   data: hexSchema.optional().describe("Transaction calldata"),
+  dataHash: hexSchema.optional().describe("Keccak-256 hash of the exact transaction calldata"),
   value: z.string().optional().describe("Native value to send"),
   gasLimit: z.string().optional().describe("Gas limit"),
 });
@@ -52,6 +53,11 @@ export const preparedSignTypedDataActionSchema = z.object({
   label: z.string().describe("Human-readable description"),
   chainId: z.number().int().describe("Chain ID for signing"),
   eip712: typedDataPayloadSchema.describe("EIP-712 typed data payload"),
+  typedDataHash: hexSchema
+    .optional()
+    .describe(
+      "EIP-712 hash of the exact domain, types, primary type, and message when the adapter commits the payload"
+    ),
 });
 
 export const preparedSignMessageActionSchema = z.object({
