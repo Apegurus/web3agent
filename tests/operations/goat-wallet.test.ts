@@ -1,3 +1,4 @@
+import { privateKeyToAccount } from "viem/accounts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const chainMocks = vi.hoisted(() => ({
@@ -96,11 +97,34 @@ describe("PreparedActionGoatWallet", () => {
       await expect(
         wallet.signTypedData({
           domain: {},
-          types: {},
+          types: { Test: [{ name: "message", type: "string" }] },
           primaryType: "Test",
-          message: {},
+          message: { message: "pause for this exact typed payload" },
         })
       ).rejects.toThrow(OperationPauseError);
+    });
+
+    it("rejects a signature from an account other than the prepared account", async () => {
+      const signingAccount = privateKeyToAccount(
+        "0x59c6995e998f97a5a0044966f0945382d700f7d7d4dd2a91957f90fcb3c3d9c1"
+      );
+      const preparedAccount = "0x1234567890123456789012345678901234567890";
+      const typedData = {
+        domain: { name: "GOAT test", version: "1", chainId: 8453 },
+        types: { Test: [{ name: "message", type: "string" }] },
+        primaryType: "Test",
+        message: { message: "sign exactly this payload" },
+      };
+      const signature = await signingAccount.signTypedData(typedData);
+      const wallet = new PreparedActionGoatWallet({
+        account: preparedAccount,
+        chainId: 8453,
+        actionResults: {
+          "sign-typed-data:0": { type: "signature", signature },
+        },
+      });
+
+      await expect(wallet.signTypedData(typedData)).rejects.toThrow("signer does not match");
     });
   });
 
@@ -123,6 +147,38 @@ describe("PreparedActionGoatWallet", () => {
         data: "0x",
       });
       expect(result.hash).toBe("0xabc123");
+    });
+
+    it("verifies the exact nonempty calldata and native value that GOAT prepared", async () => {
+      const wallet = new PreparedActionGoatWallet({
+        account: "0x1234567890123456789012345678901234567890",
+        chainId: 8453,
+        actionResults: {
+          "transaction:0": {
+            type: "transaction",
+            txHash: "0xabc123",
+            status: "confirmed" as const,
+          },
+        },
+      });
+
+      await wallet.sendTransaction({
+        to: "0x9999999999999999999999999999999999999999",
+        data: "0xdeadbeef",
+        value: 42n,
+      });
+
+      expect(sharedMocks.getConfirmedReceipt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tx: expect.objectContaining({
+            chainId: 8453,
+            data: "0xdeadbeef",
+            to: "0x9999999999999999999999999999999999999999",
+            value: "42",
+          }),
+        }),
+        expect.anything()
+      );
     });
 
     it("throws OperationPauseError when no matching result", async () => {
