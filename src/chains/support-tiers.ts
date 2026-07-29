@@ -11,6 +11,7 @@
 import { RESTRICTED_PLUGIN_CHAINS } from "../goat/dispatch.js";
 import { LIQUIDITY_HUB_CHAINS } from "../orbs/chains.js";
 import { getRegisteredChainIds } from "../tokens/registry.js";
+import { ZEROEX_UNISWAP_V4_CHAIN_IDS } from "./capabilities.js";
 
 // DexScreener-supported chain IDs — mirrored from resolver.ts to avoid
 // importing a runtime-only mapping.  Keep in sync with DEXSCREENER_CHAIN_SLUGS.
@@ -30,6 +31,7 @@ const DEXSCREENER_CHAIN_IDS: ReadonlySet<number> = new Set([
   42220, // Celo
   5000, // Mantle
   34443, // Mode
+  ...ZEROEX_UNISWAP_V4_CHAIN_IDS,
 ]);
 
 /**
@@ -41,6 +43,8 @@ const GOAT_CHAIN_IDS: ReadonlySet<number> = new Set(Object.values(RESTRICTED_PLU
  * All chain IDs that have Orbs Liquidity Hub support.
  */
 const ORBS_CHAIN_IDS: ReadonlySet<number> = new Set(LIQUIDITY_HUB_CHAINS);
+
+const ZEROEX_UNISWAP_V4_CHAIN_ID_SET: ReadonlySet<number> = new Set(ZEROEX_UNISWAP_V4_CHAIN_IDS);
 
 /**
  * Chain IDs in the token registry.
@@ -69,8 +73,8 @@ export type SupportTier = "full" | "partial" | "minimal";
 /**
  * Classify a chain's support tier:
  *
- * - **full** — token registry + DexScreener + at least one of Orbs/GOAT
- * - **partial** — token registry + DexScreener but no Orbs/GOAT integration
+ * - **full** — token registry + DexScreener + at least one enhanced provider
+ * - **partial** — token registry + DexScreener but no enhanced provider
  * - **minimal** — anything less (basic EVM support only)
  */
 export function getSupportTier(chainId: number): SupportTier {
@@ -78,8 +82,9 @@ export function getSupportTier(chainId: number): SupportTier {
   const hasDexScreener = DEXSCREENER_CHAIN_IDS.has(chainId);
   const hasOrbs = ORBS_CHAIN_IDS.has(chainId);
   const hasGoat = GOAT_CHAIN_IDS.has(chainId);
+  const hasZeroexUniswapV4 = ZEROEX_UNISWAP_V4_CHAIN_ID_SET.has(chainId);
 
-  if (hasRegistry && hasDexScreener && (hasOrbs || hasGoat)) {
+  if (hasRegistry && hasDexScreener && (hasOrbs || hasGoat || hasZeroexUniswapV4)) {
     return "full";
   }
   if (hasRegistry && hasDexScreener) {
@@ -111,6 +116,7 @@ export function getChainsByTier(): Record<SupportTier, number[]> {
     ...DEXSCREENER_CHAIN_IDS,
     ...ORBS_CHAIN_IDS,
     ...GOAT_CHAIN_IDS,
+    ...ZEROEX_UNISWAP_V4_CHAIN_ID_SET,
   ]);
 
   for (const id of allChainIds) {
