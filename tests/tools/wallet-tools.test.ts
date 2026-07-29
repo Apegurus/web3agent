@@ -29,7 +29,7 @@ const backendSelectorMocks = vi.hoisted(() => ({
 const confirmationQueueMock = vi.hoisted(() => ({
   enabled: true,
   enqueue: vi.fn(),
-  confirm: vi.fn(),
+  claimForExecution: vi.fn(),
   complete: vi.fn(),
   releaseExecuting: vi.fn(),
   fail: vi.fn(),
@@ -79,7 +79,7 @@ function mockPendingOperation(
 ) {
   confirmationQueueMock.list.mockReturnValueOnce([operation]);
   if (options?.confirmable === false) return;
-  confirmationQueueMock.confirm.mockReturnValueOnce({
+  confirmationQueueMock.claimForExecution.mockResolvedValueOnce({
     stale: false,
     operation,
   });
@@ -153,7 +153,7 @@ describe("wallet tool handlers", () => {
     persistenceMocks.getActiveAccount.mockReset();
     persistenceMocks.hasPersistedWalletKey.mockReset();
     confirmationQueueMock.enqueue.mockReset();
-    confirmationQueueMock.confirm.mockReset();
+    confirmationQueueMock.claimForExecution.mockReset();
     confirmationQueueMock.complete.mockReset();
     confirmationQueueMock.releaseExecuting.mockReset();
     confirmationQueueMock.fail.mockReset();
@@ -168,7 +168,7 @@ describe("wallet tool handlers", () => {
       id: "pending-op-id",
       summary: "Queued [wallet_set_confirmation]: Disable write confirmation",
     });
-    confirmationQueueMock.confirm.mockReturnValue(null);
+    confirmationQueueMock.claimForExecution.mockResolvedValue(null);
     confirmationQueueMock.list.mockReturnValue([]);
     confirmationQueueMock.deny.mockReturnValue(false);
     persistenceMocks.getWalletState.mockReturnValue({
@@ -803,7 +803,7 @@ describe("wallet tool handlers", () => {
     confirmationQueueMock.list
       .mockReturnValueOnce([deniedOperation])
       .mockReturnValueOnce([retryOperation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce({
+    confirmationQueueMock.claimForExecution.mockResolvedValueOnce({
       stale: false,
       operation: retryOperation,
     });
@@ -863,7 +863,7 @@ describe("wallet tool handlers", () => {
     confirmationQueueMock.list
       .mockReturnValueOnce([mismatchOperation])
       .mockReturnValueOnce([retryOperation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce({
+    confirmationQueueMock.claimForExecution.mockResolvedValueOnce({
       stale: false,
       operation: retryOperation,
     });
@@ -1041,10 +1041,10 @@ describe("wallet tool handlers", () => {
       walletAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     };
 
-    // list().find() succeeds (pre-check phase), but confirm() returns null
+    // list().find() succeeds (pre-check phase), but claimForExecution() returns null
     // (simulated concurrent race — another caller already marked it executing)
     confirmationQueueMock.list.mockReturnValueOnce([operation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce(null);
+    confirmationQueueMock.claimForExecution.mockResolvedValueOnce(null);
 
     extractUsdMocks.extractEstimatedUsd.mockResolvedValueOnce(100);
     spendTrackerMocks.reserveSpend.mockReturnValueOnce(999);
@@ -1073,10 +1073,10 @@ describe("wallet tool handlers", () => {
     };
 
     // Pre-check elapsed < ttlMs (op looks fresh when list().find() runs),
-    // but by the time confirm() is called, result.stale is true (clock skew
+    // but by the time claimForExecution() is called, result.stale is true (clock skew
     // or the window expired during async policy eval).
     confirmationQueueMock.list.mockReturnValueOnce([operation]);
-    confirmationQueueMock.confirm.mockReturnValueOnce({
+    confirmationQueueMock.claimForExecution.mockResolvedValueOnce({
       stale: true,
       operation,
     });
