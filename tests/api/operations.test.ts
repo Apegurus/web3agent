@@ -5,6 +5,7 @@ import { setupDefaultOperationMocks } from "../helpers/operation-mocks.js";
 const viemMocks = vi.hoisted(() => ({
   createPublicClient: vi.fn(),
   createClient: vi.fn(),
+  recoverTypedDataAddress: vi.fn(),
 }));
 
 const liquidityHubMocks = vi.hoisted(() => ({
@@ -31,6 +32,7 @@ vi.mock("viem", async (importOriginal) => {
     ...actual,
     createPublicClient: (...args: unknown[]) => viemMocks.createPublicClient(...args),
     createClient: (...args: unknown[]) => viemMocks.createClient(...args),
+    recoverTypedDataAddress: (...args: unknown[]) => viemMocks.recoverTypedDataAddress(...args),
   };
 });
 
@@ -60,6 +62,9 @@ vi.mock("../../src/operations/goat.js", () => ({
 describe("generic prepared operations API", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    viemMocks.recoverTypedDataAddress.mockResolvedValue(
+      "0x1234567890123456789012345678901234567890"
+    );
     setupDefaultOperationMocks({ viemMocks, lifiMocks });
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(0n),
@@ -303,6 +308,31 @@ describe("generic prepared operations API", () => {
     ).rejects.toMatchObject({
       code: "INVALID_PARAMS",
     });
+
+    expect(goatMocks.prepareOrResumeGoatOperation).not.toHaveBeenCalled();
+  });
+
+  it("resumeOperation rejects raw GOAT signatures persisted in resume state", async () => {
+    const { resumeOperation } = await import("../../src/api/operations.js");
+
+    await expect(
+      resumeOperation({
+        resumeState: {
+          version: 1,
+          integration: "goat",
+          kind: "tool",
+          state: {
+            toolName: "swap_on_balancer",
+            params: {},
+            chainId: 8453,
+            account: "0x1234567890123456789012345678901234567890",
+            actionResults: {
+              "sign-typed-data:0": { type: "signature", signature: "0xdeadbeef" },
+            },
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "INVALID_PARAMS" });
 
     expect(goatMocks.prepareOrResumeGoatOperation).not.toHaveBeenCalled();
   });
@@ -591,12 +621,29 @@ describe("generic prepared operations API", () => {
       }),
     ]);
 
+    const finalAction = afterSignature.operation.actions[0];
+    if (finalAction?.type !== "transaction") return;
+    viemMocks.createClient.mockReturnValue({
+      extend: vi.fn().mockReturnValue({ readContract: vi.fn().mockResolvedValue(8n) }),
+    });
+    viemMocks.createPublicClient.mockReturnValue({
+      getTransaction: vi.fn().mockResolvedValue({
+        input: finalAction.tx.data,
+        to: finalAction.tx.to,
+        value: 0n,
+      }),
+      getTransactionReceipt: vi
+        .fn()
+        .mockResolvedValue({ status: "success", to: finalAction.tx.to }),
+      readContract: vi.fn().mockResolvedValue(0n),
+    });
+
     const completed = await resumeOperation({
       resumeState: afterSignature.operation.resumeState,
       actionResults: {
         "bridge:execute:0": {
           type: "transaction",
-          txHash: "0xbridge",
+          txHash: `0x${"bb".repeat(32)}`,
           status: "confirmed",
         },
       },
@@ -609,9 +656,16 @@ describe("generic prepared operations API", () => {
       result: {
         status: "completed",
         message: "Bridge steps executed externally",
-        txHash: "0xbridge",
+        txHash: `0x${"bb".repeat(32)}`,
       },
     });
+    expect(viemMocks.recoverTypedDataAddress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: expect.objectContaining({
+          verifyingContract: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        }),
+      })
+    );
   });
 
   it("resumeOperation rejects tampered LI.FI witness final actions", async () => {
@@ -860,7 +914,7 @@ describe("generic prepared operations API", () => {
         actionResults: {
           "bridge:execute:0": {
             type: "transaction",
-            txHash: "0xbridge",
+            txHash: `0x${"bb".repeat(32)}`,
             status: "confirmed",
           },
         },
