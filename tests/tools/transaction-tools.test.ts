@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockQueue = vi.hoisted(() => {
   const queue = {
     enabled: true,
-    confirm: vi.fn(),
+    claimForExecution: vi.fn(),
     complete: vi.fn(),
     expire: vi.fn(),
     fail: vi.fn(),
@@ -44,7 +44,7 @@ function mockPendingOperation(
 ) {
   mockQueue.queue.list.mockReturnValueOnce([operation]);
   if (options?.confirmable === false) return;
-  mockQueue.queue.confirm.mockReturnValueOnce({
+  mockQueue.queue.claimForExecution.mockResolvedValueOnce({
     operation,
     stale: false,
   });
