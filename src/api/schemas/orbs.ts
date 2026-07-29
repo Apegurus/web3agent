@@ -4,6 +4,11 @@ import { addressSchema, chainIdOptionalSchema, hexSchema, tokenAmountSchema } fr
 export const orbsGetQuoteSchema = tokenAmountSchema.extend({
   chainId: chainIdOptionalSchema,
   slippagePct: z.number().optional().describe("Slippage percentage (0.5 = 0.5%, default 0.5)"),
+  referencePrice: z
+    .string()
+    .regex(/^\d+(?:\.\d+)?$/)
+    .optional()
+    .describe("Optional normalized reference price for exact price-impact reporting"),
 });
 
 export const orbsSwapSchema = orbsGetQuoteSchema;
