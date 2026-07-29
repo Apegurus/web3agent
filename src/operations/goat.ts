@@ -39,6 +39,14 @@ function toCompletedResult(result: unknown): CompletedOperationResult {
   };
 }
 
+function withoutRawSignatures(
+  actionResults: Record<string, OperationActionResult>
+): Record<string, OperationActionResult> {
+  return Object.fromEntries(
+    Object.entries(actionResults).filter(([, result]) => result.type === "transaction")
+  );
+}
+
 function loadGoatPluginsForChain(chainId: number) {
   const config = getRuntimeConfigForChain(chainId);
   return loadPlugins({
@@ -70,7 +78,8 @@ function createGoatPreparedOperation(params: {
         params: input.params ?? {},
         chainId: input.chainId,
         account: input.account,
-        actionResults,
+        preparedActions: [pause.action],
+        actionResults: withoutRawSignatures(actionResults),
       },
     },
     meta: {

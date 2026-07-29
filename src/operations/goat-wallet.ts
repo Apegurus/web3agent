@@ -1,6 +1,12 @@
 import type { EvmChain, Signature, Token, ToolBase } from "@goat-sdk/core";
 import type { Abi, Hex } from "viem";
-import { encodeFunctionData, parseAbi } from "viem";
+import {
+  encodeFunctionData,
+  hashTypedData,
+  keccak256,
+  parseAbi,
+  recoverTypedDataAddress,
+} from "viem";
 import { Web3AgentError } from "../api/errors.js";
 import { getConfirmedReceipt } from "../api/operations/shared.js";
 import type {
@@ -12,7 +18,7 @@ import type {
 } from "../api/types.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
 import { createPublicClientForRuntimeChain, getChainForRuntime } from "./chain-access.js";
-import { assertAddress } from "./validation.js";
+import { assertAddress, assertHex } from "./validation.js";
 
 interface EVMTransaction {
   to: string;
@@ -141,8 +147,28 @@ export class PreparedActionGoatWallet {
 
   async signTypedData(data: EVMTypedData): Promise<Signature> {
     const id = `sign-typed-data:${this.signTypedDataIndex++}`;
+    const types = normalizeTypedDataTypes(data.types);
+    const typedDataHash = hashTypedData({
+      domain: data.domain,
+      types,
+      primaryType: data.primaryType,
+      message: data.message,
+    });
     const result = this.options.actionResults[id];
     if (result?.type === "signature") {
+      const signer = await recoverTypedDataAddress({
+        domain: data.domain,
+        types,
+        primaryType: data.primaryType,
+        message: data.message,
+        signature: assertHex(result.signature, `${id}.signature`),
+      });
+      if (signer.toLowerCase() !== this.getAddress().toLowerCase()) {
+        throw new Web3AgentError({
+          code: "INVALID_PARAMS",
+          message: `Typed-data signature signer does not match prepared account for ${id}`,
+        });
+      }
       return { signature: result.signature };
     }
 
@@ -153,31 +179,17 @@ export class PreparedActionGoatWallet {
       chainId: this.options.chainId,
       eip712: {
         domain: data.domain as Record<string, unknown>,
-        types: normalizeTypedDataTypes(data.types),
+        types,
         primaryType: data.primaryType,
         message: data.message,
       },
+      typedDataHash,
     } satisfies PreparedSignTypedDataAction);
   }
 
   async sendTransaction(transaction: EVMTransaction): Promise<{ hash: string }> {
     const id = `transaction:${this.transactionIndex++}`;
     const result = this.options.actionResults[id];
-    if (result?.type === "transaction") {
-      const to = assertAddress(transaction.to, "transaction.to");
-      const action: PreparedTransactionAction = {
-        id,
-        type: "transaction",
-        label: `Execute transaction to ${to}`,
-        tx: {
-          to,
-          chainId: this.options.chainId,
-        },
-      };
-      await getConfirmedReceipt(action, result);
-      return { hash: result.txHash };
-    }
-
     const to = assertAddress(transaction.to, "transaction.to");
     const data =
       transaction.data ??
@@ -187,9 +199,8 @@ export class PreparedActionGoatWallet {
             functionName: transaction.functionName,
             args: transaction.args,
           })
-        : undefined);
-
-    throw new OperationPauseError({
+        : "0x");
+    const action: PreparedTransactionAction = {
       id,
       type: "transaction",
       label: transaction.functionName
@@ -198,10 +209,17 @@ export class PreparedActionGoatWallet {
       tx: {
         to,
         chainId: this.options.chainId,
-        ...(data ? { data } : {}),
-        ...(transaction.value !== undefined ? { value: transaction.value.toString() } : {}),
+        data,
+        dataHash: keccak256(data),
+        value: (transaction.value ?? 0n).toString(),
       },
-    } satisfies PreparedTransactionAction);
+    };
+    if (result?.type === "transaction") {
+      await getConfirmedReceipt(action, result);
+      return { hash: result.txHash };
+    }
+
+    throw new OperationPauseError(action);
   }
 
   async read(request: EVMReadRequest): Promise<EVMReadResult> {
