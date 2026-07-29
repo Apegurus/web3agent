@@ -77,6 +77,23 @@ The older Orbs / LI.FI browser-wallet MCP tools remain available as compatibilit
 
 ## Notes
 
+### Stateless Uniswap v4 resume boundary
+
+Uniswap v4 external-wallet resumes treat all transaction facts in `resumeState` as untrusted.
+Each resume replans from the supplied operation and its pinned source block; a persisted plan is
+only checked for equality with that fresh canonical plan. Signature results return the immediately
+derived Permit2 or PositionManager transaction once, but store neither the signature nor derived
+transaction facts. A later transaction hash is accepted only after the actual chain transaction is
+decoded: Permit2 batches and signer recovery must exactly match the canonical typed data; delegated
+NFT calls must be an exact two-call `multicall(permit, canonical-final-call)` with the recovered NFT
+owner signature. Normal approvals and final calls are byte-compared with canonical calldata.
+
+Without a server-signed opaque state token, a stateless service cannot authenticate that the supplied
+operation is the original operation it prepared. It instead guarantees that every requested or
+executed action is canonical for the operation currently supplied and is wallet-signed where
+authorization requires a signature. Applications requiring original-intent continuity must add an
+authenticated state token outside this protocol.
+
 - `simulateTransaction()` uses the same chain-access layer as prepared operations
 - Trace support is cached with a TTL and can fall back cleanly when `debug_traceCall` is unavailable or unusable
 - Simulation failures are exception-based
@@ -105,3 +122,10 @@ The older Orbs / LI.FI browser-wallet MCP tools remain available as compatibilit
   - `BROWSER_WALLET_E2E_IN_AMOUNT`
   - `BROWSER_WALLET_E2E_SIGNATURE`
 - Runtime wallet persistence, confirmation queues, and CLI startup behavior are unchanged
+
+### Uniswap v4 lifecycle prerequisites and scope
+
+- Prepare the selected `mint`, `increase`, `decrease`, `collect`, or `burn` operation, simulate it at its pinned source block, then present the next action to the user. Simulation is a preflight prerequisite, not execution authority: the caller must still obtain a fresh wallet signature or transaction confirmation.
+- `collect` means collect all currently owed fees for the position under the canonical/pinned plan. It does not support an arbitrary partial amount and does not calculate realized P&L, tax lots, accounting entries, or a liquidity-management strategy.
+- Event reads are deliberately bounded. A caller supplies a finite scope and follows the returned cursor; web3agent does not offer an unbounded historical event stream.
+- A stateless `resumeOperation()` has no authenticated memory of an original user intent. It canonicalizes the operation presented on the current call and verifies submitted facts; applications that require continuity across tabs, restarts, or interrupted signing must bind the operation to their own authenticated state token.

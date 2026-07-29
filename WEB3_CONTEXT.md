@@ -42,6 +42,16 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 
 ### DeFi tools
 
+**Uniswap v4 positions** (prefix: `uniswap_v4_`):
+
+- `uniswap_v4_get_deployment`, `uniswap_v4_get_pool`, and `uniswap_v4_get_position` — verified deployment and point-in-time state reads (read-only)
+- `uniswap_v4_get_events` — bounded event pages; callers must provide a finite block range and continue only with the returned cursor
+- `uniswap_v4_calculate_position` — deterministic expected-delta calculation, not a quote or trading strategy
+- `uniswap_v4_simulate_operation` — preflight a lifecycle operation before collecting signatures or submitting a transaction (read-only)
+- `uniswap_v4_mint_position`, `uniswap_v4_increase_liquidity`, `uniswap_v4_decrease_liquidity`, `uniswap_v4_collect_fees`, and `uniswap_v4_burn_position` — write operations, confirmation-gated; use `operation_prepare` / `operation_resume` for an external signer
+
+`collect` collects **all fees currently owed by the position at the pinned read state**; it is not a partial-collection, P&L, tax, or accounting endpoint. Uniswap v4 is selected only where web3agent has a verified deployment for the requested chain. A Robinhood same-chain swap may fall back to LI.FI only for a provider-unavailable or no-route outcome; the provider/provenance decision is returned to the caller.
+
 **GOAT plugins** (Uniswap, Balancer, ERC-20, ERC-721, ENS, DexScreener):
 
 - All accept optional `chainId` parameter (defaults to active chain)
@@ -99,6 +109,8 @@ These remain available for compatibility, but new exchange integrations should u
 ### Browser-wallet limitation
 
 The browser-wallet tools are MCP-compatible, but generic MCP hosts cannot trigger browser wallet popups themselves. Use MCP to prepare, simulate, and resume operations; perform the actual wallet signing in the surrounding app or host integration.
+
+For Uniswap v4, simulation is a prerequisite for a lifecycle execution flow: treat it as a point-in-time preflight, then display the prepared actions and obtain fresh wallet confirmation. A successful simulation cannot guarantee a later inclusion price, liquidity, hook behavior, gas cost, or transaction outcome.
 
 ### Token resolution (prefix: none)
 
