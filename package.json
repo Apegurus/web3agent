@@ -86,6 +86,7 @@
     "assets/logo.svg",
     "assets/logo.png",
     "templates/create",
+    "docs",
     "smithery.yaml",
     "server.json",
     "WEB3_CONTEXT.md",
@@ -113,11 +114,13 @@
     "@orbs-network/liquidity-hub-sdk": "^1.0.74",
     "@orbs-network/twap-sdk": "^5.0.0",
     "@orbs-network/twap-ui": "4.0.26-fix.1",
+    "@uniswap/sdk-core": "^7.18.0",
+    "@uniswap/v4-sdk": "2.3.0",
     "@x402/core": "^2.6.0",
     "@x402/evm": "^2.6.0",
     "@x402/fetch": "^2.6.0",
     "ccxt": "^4.5.3",
-    "viem": "^2.0.0",
+    "viem": "^2.55.4",
     "zod": "^3.25.0",
     "zod-to-json-schema": "^3.23.5"
   },
@@ -130,8 +133,14 @@
   },
   "pnpm": {
     "overrides": {
-      "fast-uri": "3.1.2",
+      "adm-zip": "0.6.0",
+      "brace-expansion": "5.0.8",
+      "fast-uri": "3.1.4",
       "hono@<4.12.25": "4.12.25",
+      "picomatch": "4.0.4",
+      "serialize-javascript": "7.0.3",
+      "tmp": "0.2.7",
+      "undici": "6.27.0",
       "ws@>=7.0.0 <7.5.11": "7.5.11",
       "ws@>=8.0.0 <8.21.0": "8.21.0",
       "path-to-regexp": "8.4.0"
@@ -139,7 +148,7 @@
     "peerDependencyRules": {
       "allowedVersions": {
         "@goat-sdk/core": "0.5.0",
-        "viem": "2.47.0",
+        "viem": "2.55.4",
         "@goat-sdk/wallet-evm": "0.3.0",
         "utf-8-validate": "6.0.6"
       }
@@ -158,6 +167,8 @@
     "mcpb:check": "pnpm run mcpb:validate && pnpm run mcpb:pack && npx --yes @anthropic-ai/mcpb info dist/web3agent.mcpb",
     "typecheck": "pnpm run build:package && pnpm run typecheck:package && pnpm --filter create-web3agent typecheck",
     "typecheck:package": "tsc --noEmit",
+    "qa:uniswap-v4:evidence": "node scripts/verify-uniswap-v4-evidence.mjs",
+    "qa:uniswap-v4:fixture": "node scripts/qa-uniswap-v4.mjs",
     "pack:check": "node -e \"const { execFileSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join } = require('node:path'); const dir = mkdtempSync(join(tmpdir(), 'web3agent-pack-')); try { execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', dir], { stdio: 'inherit' }); } finally { rmSync(dir, { recursive: true, force: true }); }\""
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
