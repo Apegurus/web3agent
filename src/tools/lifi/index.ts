@@ -1,9 +1,10 @@
-import { type LiFiStep, convertQuoteToRoute, executeRoute, getChains, getQuote } from "@lifi/sdk";
+import { type LiFiStep, getChains, getQuote } from "@lifi/sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { prepareBridgeIntent } from "../../api/intents.js";
 import { emptyInputSchema } from "../../api/schemas/common.js";
 import { ensureLifiInitialized } from "../../lifi/config.js";
+import { executeLifiRoute } from "../../lifi/route-execution.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
@@ -24,7 +25,8 @@ async function lifiGetChains(_params: Record<string, unknown>): Promise<CallTool
     }));
     return formatToolResponse(summary);
   } catch (e: unknown) {
-    return formatToolError("LIFI_ERROR", String(e));
+    if (e instanceof Error) return formatToolError("LIFI_ERROR", e.message);
+    return formatToolError("LIFI_ERROR", "LI.FI chain lookup failed");
   }
 }
 
@@ -67,7 +69,8 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
 
     return formatToolResponse(trimmed);
   } catch (e: unknown) {
-    return formatToolError("LIFI_QUOTE_ERROR", String(e));
+    if (e instanceof Error) return formatToolError("LIFI_QUOTE_ERROR", e.message);
+    return formatToolError("LIFI_QUOTE_ERROR", "LI.FI quote lookup failed");
   }
 }
 
@@ -79,7 +82,13 @@ async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallT
   return executeWrite({
     toolName: "lifi_execute_bridge",
     description: `Bridge ${fromAmount} from chain ${fromChainId} to chain ${toChainId}`,
-    params: v.data as unknown as Record<string, unknown>,
+    params: {
+      fromChainId: v.data.fromChainId,
+      toChainId: v.data.toChainId,
+      fromToken: v.data.fromToken,
+      toToken: v.data.toToken,
+      fromAmount: v.data.fromAmount,
+    },
     executor: executeBridgeNow,
   });
 }
@@ -92,38 +101,18 @@ const lifiPrepareBridgeIntentTool = createToolHandler(
 
 async function executeBridgeNow(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    ensureLifiInitialized();
     const { fromChainId, toChainId, fromToken, toToken, fromAmount } = params;
-    const walletState = getWalletState();
-
-    const quote = await getQuote({
-      fromChain: fromChainId as string | number,
-      toChain: toChainId as string | number,
-      fromToken: fromToken as string,
-      toToken: toToken as string,
-      fromAmount: fromAmount as string,
-      fromAddress: walletState.address ?? "0x0000000000000000000000000000000000000000",
+    const result = await executeLifiRoute({
+      fromChainId: Number(fromChainId),
+      toChainId: Number(toChainId),
+      fromToken: String(fromToken),
+      toToken: String(toToken),
+      fromAmount: String(fromAmount),
     });
-
-    const route = convertQuoteToRoute(quote);
-
-    await executeRoute(route, {
-      updateRouteHook: (updatedRoute) => {
-        const step = updatedRoute.steps?.[0];
-        if (step?.execution) {
-          process.stderr.write(
-            `[web3agent] Bridge progress: ${JSON.stringify(step.execution.process)}\n`
-          );
-        }
-      },
-    });
-
-    return formatToolResponse({
-      status: "completed",
-      message: "Bridge executed successfully",
-    });
+    return formatToolResponse(result);
   } catch (e: unknown) {
-    return formatToolError("BRIDGE_ERROR", String(e));
+    if (e instanceof Error) return formatToolError("BRIDGE_ERROR", e.message);
+    return formatToolError("BRIDGE_ERROR", "LI.FI route execution failed");
   }
 }
 
