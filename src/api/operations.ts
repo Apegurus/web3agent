@@ -1,6 +1,10 @@
 import { assertRecord } from "../operations/validation.js";
 import { Web3AgentError } from "./errors.js";
 import {
+  prepareLifiSameChainSwapOperation,
+  resumeLifiSameChainSwapOperation,
+} from "./operations/lifi-same-chain.js";
+import {
   clearLifiChainsCache,
   prepareBridgeOperation,
   prepareCompatibilityBridgeIntent,
@@ -15,10 +19,13 @@ import {
   submitSignedSwapDirect,
 } from "./operations/orbs.js";
 import { mergeActionResults } from "./operations/shared.js";
+import { prepareUniswapV4Operation, resumeUniswapV4Operation } from "./operations/uniswap-v4.js";
+import { prepareZeroExSwapOperation, resumeZeroExSwapOperation } from "./operations/zerox.js";
 import {
   goatResumeStateStateSchema,
   prepareOperationSchema,
   resumeOperationSchema,
+  uniswapV4LifecycleOperationSchema,
 } from "./schemas.js";
 import type {
   GoatToolOperationInput,
@@ -47,13 +54,24 @@ export async function prepareOperation(
       }
       return prepareOrderOperation(input);
     case "lifi":
-      return prepareBridgeOperation(input);
+      return input.kind === "swap"
+        ? prepareLifiSameChainSwapOperation(input)
+        : prepareBridgeOperation(input);
+    case "zeroex":
+      return prepareZeroExSwapOperation(input);
     case "goat": {
       const { prepareOrResumeGoatOperation } = await import("../operations/goat.js");
       return prepareOrResumeGoatOperation({
         input: input as GoatToolOperationInput,
       });
     }
+    case "uniswap-v4":
+      return prepareUniswapV4Operation(uniswapV4LifecycleOperationSchema.parse(input));
+    default:
+      throw new Web3AgentError({
+        code: "INVALID_PARAMS",
+        message: "Unsupported prepared operation integration",
+      });
   }
 }
 
@@ -101,6 +119,18 @@ export async function resumeOperation(
 
   if (resumeState.integration === "lifi" && resumeState.kind === "bridge") {
     return resumeLifiBridgeOperation(resumeState, actionResults);
+  }
+
+  if (resumeState.integration === "lifi" && resumeState.kind === "swap") {
+    return resumeLifiSameChainSwapOperation(resumeState, actionResults);
+  }
+
+  if (resumeState.integration === "zeroex" && resumeState.kind === "swap") {
+    return resumeZeroExSwapOperation(resumeState, actionResults);
+  }
+
+  if (resumeState.integration === "uniswap-v4") {
+    return resumeUniswapV4Operation(resumeState, actionResults);
   }
 
   throw new Web3AgentError({
