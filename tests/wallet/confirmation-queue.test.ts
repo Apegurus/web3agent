@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConfirmationQueueManager } from "../../src/wallet/confirmation.js";
+import { ConfirmationQueueManager, registerExecutor } from "../../src/wallet/confirmation.js";
 
 vi.mock("../../src/wallet/audit.js", () => ({
   appendAuditLog: vi.fn().mockResolvedValue(undefined),
@@ -84,6 +84,67 @@ describe("confirmation queue", () => {
 
   it("confirm returns null for unknown ID", () => {
     expect(queue.confirm("nonexistent")).toBeNull();
+  });
+
+  it("persists actual execution provenance in the confirmed audit entry", async () => {
+    // Given: a confirmed 0x operation whose execution used LI.FI fallback
+    const { appendAuditLog: appendAuditLogMock } = await import("../../src/wallet/audit.js");
+    const mocked = vi.mocked(appendAuditLogMock);
+    mocked.mockClear();
+    const { id } = queue.enqueue("zeroex_swap", "0x swap", {}, noopExecutor);
+
+    // When: confirmation completes with the executor's actual metadata
+    queue.complete(id as string, {
+      adapterSource: "lifi",
+      fallbackReason: "no-route",
+      provider: "lifi",
+    });
+
+    // Then: history storage receives the actual provider rather than the queued tool source
+    expect(mocked).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CONFIRMED",
+        metadata: {
+          adapterSource: "lifi",
+          fallbackReason: "no-route",
+          provider: "lifi",
+        },
+      })
+    );
+  });
+
+  it("quarantines a durably claimed operation after restart instead of replaying it", async () => {
+    // Given: a financial operation whose execution claim reached disk before submission
+    const { appendAuditLog: appendAuditLogMock } = await import("../../src/wallet/audit.js");
+    const mocked = vi.mocked(appendAuditLogMock);
+    mocked.mockClear();
+    registerExecutor("claimed-swap", noopExecutor);
+    const { id } = queue.enqueue(
+      "claimed-swap",
+      "Claimed swap",
+      { amount: "1" },
+      noopExecutor,
+      undefined,
+      "financial"
+    );
+
+    // When: execution is claimed and a new process restores the queue
+    const claim = await queue.claimForExecution(id as string);
+    const persisted = JSON.parse(
+      await readFile(join(tempHome, ".web3agent", "pending-ops.json"), "utf-8")
+    ) as Array<{ executionState?: string }>;
+    const restoredQueue = new ConfirmationQueueManager(true);
+    const restored = await restoredQueue.loadQueue();
+
+    // Then: the claim is durable and cannot become a second executable operation
+    expect(claim?.operation.id).toBe(id);
+    expect(persisted).toEqual([expect.objectContaining({ executionState: "claimed" })]);
+    expect(restored).toBe(0);
+    expect(restoredQueue.confirm(id as string)).toBeNull();
+    expect(mocked).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "EXECUTION_UNCERTAIN", operationId: id })
+    );
+    await restoredQueue.flushPendingPersists();
   });
 
   it("deny returns false for unknown ID", () => {

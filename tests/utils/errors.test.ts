@@ -43,6 +43,24 @@ describe("formatToolError", () => {
     });
   });
 
+  it("Given bigint details, when formatting an error, then it serializes them as decimal strings", () => {
+    const result = formatToolError("READ_ERROR", "fixture failure", { blockNumber: 16437583n });
+
+    expect(result.structuredContent).toEqual({
+      ok: false,
+      error: {
+        code: "READ_ERROR",
+        message: "fixture failure",
+        details: { blockNumber: "16437583" },
+      },
+    });
+    expect(JSON.parse((result.content[0] as { text: string }).text)).toEqual({
+      error: "READ_ERROR",
+      message: "fixture failure",
+      details: { blockNumber: "16437583" },
+    });
+  });
+
   it("sets details to undefined when omitted", () => {
     const result = formatToolError("ERR", "msg");
     const parsed = JSON.parse((result.content[0] as { text: string }).text);
@@ -97,6 +115,13 @@ describe("formatToolResponse", () => {
     const result = formatToolResponse(data);
     const parsed = JSON.parse((result.content[0] as { text: string }).text);
     expect(parsed).toEqual([1, 2, 3]);
+  });
+
+  it("Given bigint data, when formatting a response, then it preserves a JSON-safe structured payload", () => {
+    const result = formatToolResponse({ amount: 77n });
+
+    expect(result.structuredContent).toEqual({ ok: true, data: { amount: "77" } });
+    expect(JSON.parse((result.content[0] as { text: string }).text)).toEqual({ amount: "77" });
   });
 });
 
