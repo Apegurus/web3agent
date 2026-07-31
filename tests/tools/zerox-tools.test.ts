@@ -262,6 +262,23 @@ describe("Robinhood native 0x tools", () => {
     });
   });
 
+  it("Given a broadcast approval whose receipt is unavailable When execution returns Then it preserves the approval hash", async () => {
+    await zeroExSwap(params);
+    mocks.waitForTransactionReceipt.mockRejectedValueOnce(new Error("receipt unavailable"));
+
+    const result = await executeZeroExSwapNow(getQueuedParams());
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: expect.objectContaining({
+        stage: "approval",
+        status: "submitted",
+        txHash: "0xapprove",
+      }),
+    });
+    expect(mocks.sendTransaction).toHaveBeenCalledOnce();
+  });
+
   it("rejects a tampered confirmed sell amount before any wallet call", async () => {
     // Given: an attacker-controlled payload whose sell amount no longer matches the confirmed intent
     const result = await executeZeroExSwapNow({

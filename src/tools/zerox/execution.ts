@@ -54,9 +54,25 @@ export async function executeConfirmedZeroExSwap(params: Record<string, unknown>
         ],
       }),
     });
-    const approvalReceipt = await createPublicClientForRuntimeChain(
-      ROBINHOOD_CHAIN_ID
-    ).waitForTransactionReceipt({ hash: approvalHash });
+    const approvalReceipt = await createPublicClientForRuntimeChain(ROBINHOOD_CHAIN_ID)
+      .waitForTransactionReceipt({ hash: approvalHash })
+      .then(
+        (receipt) => receipt,
+        () => undefined
+      );
+    if (!approvalReceipt) {
+      return formatToolResponse({
+        status: "submitted",
+        stage: "approval",
+        message: "Confirmed 0x approval transaction submitted; receipt status is uncertain",
+        txHash: approvalHash,
+        provider: "0x",
+        chainId: ROBINHOOD_CHAIN_ID,
+        adapterSource: execution.adapterSource,
+        capabilityDecisionId: execution.capabilityDecisionId,
+        capabilityReason: execution.capabilityReason,
+      });
+    }
     if (approvalReceipt.status !== "success") {
       throw new Web3AgentError({
         code: "ZEROEX_APPROVAL_FAILED",
