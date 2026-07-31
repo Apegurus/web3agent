@@ -58,6 +58,7 @@ export async function prepareOperation(
         ? prepareLifiSameChainSwapOperation(input)
         : prepareBridgeOperation(input);
     case "zeroex":
+      await initializeRuntime();
       return prepareZeroExSwapOperation(input);
     case "goat": {
       const { prepareOrResumeGoatOperation } = await import("../operations/goat.js");
@@ -127,6 +128,7 @@ export async function resumeOperation(
   }
 
   if (resumeState.integration === "zeroex" && resumeState.kind === "swap") {
+    await initializeRuntime();
     return resumeZeroExSwapOperation(resumeState, actionResults);
   }
 
