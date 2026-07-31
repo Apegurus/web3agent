@@ -86,6 +86,9 @@ export const goatResumeStateStateSchema = resumeStateBaseSchema
   });
 
 export const lifiBridgeResumeStateStateSchema = resumeStateBaseSchema.extend({
+  operation: lifiPrepareBridgeIntentSchema
+    .optional()
+    .describe("Original LI.FI bridge input used to rebuild every executable action"),
   stages: z.array(z.array(preparedActionSchema)).describe("Ordered stages of wallet actions"),
   finalAction: preparedTransactionActionSchema.describe("Final bridge transaction action"),
   finalization: lifiBridgeFinalizationSchema
@@ -100,7 +103,7 @@ export const lifiSameChainSwapResumeStateStateSchema = lifiBridgeResumeStateStat
       integration: z.literal("lifi").describe("LI.FI integration discriminator"),
       kind: z.literal("swap").describe("Same-chain swap operation discriminator"),
     })
-    .describe("Canonical LI.FI same-chain input used to rebuild each resume plan"),
+    .describe("Original LI.FI same-chain input bound to the persisted prepared plan"),
 });
 
 export const zeroExSwapResumeStateStateSchema = resumeStateBaseSchema.extend({

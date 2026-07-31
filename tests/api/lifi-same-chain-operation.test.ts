@@ -27,12 +27,12 @@ vi.mock("viem", async (importOriginal) => {
 });
 
 vi.mock("@lifi/sdk", () => ({
-  EVM: (...args: unknown[]) => lifiMocks.EVM(...args),
-  convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
-  createConfig: (...args: unknown[]) => lifiMocks.createConfig(...args),
-  getChains: (...args: unknown[]) => lifiMocks.getChains(...args),
-  getQuote: (...args: unknown[]) => lifiMocks.getQuote(...args),
-  setAllowance: (...args: unknown[]) => lifiMocks.setAllowance(...args),
+  EVM: lifiMocks.EVM,
+  convertQuoteToRoute: lifiMocks.convertQuoteToRoute,
+  createConfig: lifiMocks.createConfig,
+  getChains: lifiMocks.getChains,
+  getQuote: lifiMocks.getQuote,
+  setAllowance: lifiMocks.setAllowance,
 }));
 
 const account = "0x1234567890123456789012345678901234567890";
@@ -79,6 +79,7 @@ describe("LI.FI prepared same-chain swaps", () => {
     viemMocks.recoverTypedDataAddress.mockResolvedValue(account);
     viemMocks.createPublicClient.mockReturnValue({
       getTransaction: vi.fn().mockResolvedValue({
+        from: account,
         input: "0x095ea7b3",
         to: fromToken,
         value: 0n,
@@ -125,6 +126,12 @@ describe("LI.FI prepared same-chain swaps", () => {
     });
 
     viemMocks.createPublicClient.mockReturnValue({
+      getTransaction: vi.fn().mockResolvedValue({
+        from: account,
+        input: "0x095ea7b3",
+        to: fromToken,
+        value: 0n,
+      }),
       getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: null }),
       readContract: vi.fn().mockResolvedValue(maxUint256),
     });
@@ -145,6 +152,29 @@ describe("LI.FI prepared same-chain swaps", () => {
     });
     if (afterApproval.completed) return;
 
+    const postApprovalState = afterApproval.operation.resumeState.state as {
+      finalAction: { tx: Record<string, unknown> };
+    };
+    await expect(
+      resumeOperation({
+        actionResults: {
+          "bridge:permit2:0": { signature: `0x${"11".repeat(65)}`, type: "signature" },
+        },
+        resumeState: {
+          ...afterApproval.operation.resumeState,
+          state: {
+            ...afterApproval.operation.resumeState.state,
+            finalAction: {
+              ...postApprovalState.finalAction,
+              tx: { ...postApprovalState.finalAction.tx, value: "100" },
+            },
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_PARAMS",
+      message: "LI.FI Permit2 transaction facts do not match the canonical replanned action",
+    });
     const afterPermit = await resumeOperation({
       actionResults: {
         "bridge:permit2:0": { signature: `0x${"11".repeat(65)}`, type: "signature" },
@@ -158,7 +188,7 @@ describe("LI.FI prepared same-chain swaps", () => {
         actions: [
           {
             id: "bridge:execute:0",
-            tx: { chainId: 4663, to: permit2Proxy },
+            tx: { chainId: 4663, to: permit2Proxy, value: "0" },
             type: "transaction",
           },
         ],
@@ -174,16 +204,20 @@ describe("LI.FI prepared same-chain swaps", () => {
     expect(JSON.stringify(afterPermit.operation.resumeState.state)).not.toContain("11".repeat(65));
     viemMocks.createClient.mockReturnValue({
       extend: vi.fn().mockReturnValue({
-        readContract: vi.fn().mockResolvedValueOnce(9n).mockResolvedValue(10n),
+        readContract: vi.fn().mockResolvedValue(10n),
       }),
     });
     viemMocks.createPublicClient.mockReturnValue({
       getTransaction: vi.fn().mockResolvedValue({
+        from: account,
         input: finalAction.tx.data,
         to: permit2Proxy,
         value: 0n,
       }),
-      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: permit2Proxy }),
+      getTransactionReceipt: vi
+        .fn()
+        .mockResolvedValueOnce({ status: "success", to: null })
+        .mockResolvedValue({ status: "success", to: permit2Proxy }),
       readContract: vi.fn().mockResolvedValue(maxUint256),
     });
 
@@ -199,6 +233,69 @@ describe("LI.FI prepared same-chain swaps", () => {
       integration: "lifi",
       kind: "swap",
       result: { status: "completed", txHash: "0xbbb" },
+    });
+    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(5);
+  });
+
+  it("Given a caller-tampered same-chain resume action, when resuming, then it rebuilds the canonical LI.FI transaction before surfacing it", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: null }),
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+    });
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromAmount: "1000",
+        fromChainId: 4663,
+        fromToken: { address: fromToken, symbol: "USDG" },
+        toChainId: 4663,
+        toToken: { address: toToken, symbol: "WETH" },
+      },
+      estimate: {
+        approvalAddress: diamond,
+        skipPermit: true,
+        toAmount: "999",
+        toAmountMin: "990",
+      },
+      transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
+    });
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account,
+      fromAmount: "1000",
+      fromChainId: 4663,
+      fromToken,
+      integration: "lifi",
+      kind: "swap",
+      toChainId: 4663,
+      toToken,
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared operation");
+    const tamperedResumeState = {
+      ...prepared.resumeState,
+      state: {
+        ...prepared.resumeState.state,
+        finalAction: {
+          id: "bridge:execute:0",
+          label: "Execute attacker transaction",
+          tx: {
+            chainId: 4663,
+            data: "0xdeadbeef",
+            from: account,
+            to: "0x9999999999999999999999999999999999999999",
+            value: "0",
+          },
+          type: "transaction",
+        },
+        finalization: { kind: "none" },
+        stages: [],
+      },
+    };
+
+    const result = await resumeOperation({ actionResults: {}, resumeState: tamperedResumeState });
+
+    expect(result).toMatchObject({
+      completed: false,
+      operation: { actions: [{ tx: { data: "0xabcdef", to: diamond } }] },
     });
   });
 });

@@ -39,13 +39,17 @@ export async function resumeLifiSameChainSwapOperation(
   actionResults: Record<string, OperationActionResult>
 ): Promise<ResumeOperationCompletedResult | { completed: false; operation: PreparedOperation }> {
   const swapState = parseInput(lifiSameChainSwapResumeStateStateSchema, resumeState.state);
-  const canonical = await prepareLifiSameChainSwapOperation(swapState.operation);
-  const canonicalState = parseInput(
-    lifiSameChainSwapResumeStateStateSchema,
-    canonical.resumeState.state
-  );
   const result = await resumeLifiBridgeOperation(
-    { ...canonical.resumeState, kind: "bridge", state: canonicalState },
+    {
+      ...resumeState,
+      kind: "bridge",
+      state: {
+        ...swapState,
+        chainId: 4663,
+        meta: swapState.meta,
+        operation: swapState.operation,
+      },
+    },
     actionResults
   );
   if (result.completed) {
@@ -59,7 +63,7 @@ export async function resumeLifiSameChainSwapOperation(
       },
     };
   }
-  const meta = canonicalState.meta ?? { provider: "lifi", chainId: 4663 };
+  const meta = swapState.meta ?? { provider: "lifi", chainId: 4663 };
   return {
     completed: false,
     operation: {
@@ -69,7 +73,12 @@ export async function resumeLifiSameChainSwapOperation(
       resumeState: {
         ...result.operation.resumeState,
         kind: "swap",
-        state: { ...result.operation.resumeState.state, chainId: 4663, meta },
+        state: {
+          ...result.operation.resumeState.state,
+          chainId: 4663,
+          meta,
+          operation: swapState.operation,
+        },
       },
       meta,
     },
