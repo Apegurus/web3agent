@@ -29,20 +29,21 @@ async function observeCurrencyDelta(
   if (currency.kind === "native") {
     return { reason: "native balance deltas include gas paid", status: "unavailable" };
   }
+  const balanceOwner = plan.operation.kind === "collect" ? plan.operation.recipient : plan.account;
   try {
     const client = getPublicClientCached(plan.operation.chainId);
     const [before, after] = await Promise.all([
       client.readContract({
         abi: ERC20_BALANCE_ABI,
         address: currency.address,
-        args: [plan.account],
+        args: [balanceOwner],
         blockNumber: BigInt(plan.sourceBlock.blockNumber),
         functionName: "balanceOf",
       }),
       client.readContract({
         abi: ERC20_BALANCE_ABI,
         address: currency.address,
-        args: [plan.account],
+        args: [balanceOwner],
         blockNumber: BigInt(receiptBlockNumber),
         functionName: "balanceOf",
       }),
