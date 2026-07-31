@@ -152,6 +152,26 @@ describe("Uniswap v4 viem read client", () => {
     });
   });
 
+  it("Given an injected transport, when reading global position approval, then it stays pinned to that transport and block", async () => {
+    const fixture = createClientFixtureTransport();
+    const client = createUniswapV4ReadClient({ chainId: CHAIN_ID, client: fixture.transport });
+
+    const approval = await client.readPositionManagerApprovalForAll({
+      blockNumber: BLOCK_NUMBER,
+      operator: SPENDER,
+      owner: OWNER,
+    });
+
+    expect(approval).toEqual({ approved: true, blockNumber: BLOCK_NUMBER });
+    expect(fixture.requests).toContainEqual(
+      expect.objectContaining({
+        args: [OWNER, SPENDER],
+        blockNumber: BLOCK_NUMBER,
+        functionName: "isApprovedForAll",
+      })
+    );
+  });
+
   it("fails closed for an unavailable deployment or a chain-mismatched RPC", async () => {
     // Given: unsupported deployment input and a Robinhood deployment served by another chain.
     const missingDeployment = () => createUniswapV4ReadClient({ chainId: 1 });

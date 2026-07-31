@@ -10,6 +10,7 @@ import {
 import {
   requireAddress,
   requireBigint,
+  requireBoolean,
   requireNumber,
   requireString,
   requireTuple,
@@ -29,6 +30,7 @@ type Readers = Pick<
   UniswapV4ReadClient,
   | "readPermit2Allowance"
   | "readPoolManagerProtocolFeeController"
+  | "readPositionManagerApprovalForAll"
   | "readPositionManagerPosition"
   | "readPositionManagerNonce"
   | "readStateViewPool"
@@ -132,6 +134,24 @@ export function createUniswapV4Readers(input: {
       ),
     };
   };
+  const readPositionManagerApprovalForAll = async (request: {
+    readonly blockNumber?: bigint;
+    readonly operator: Address;
+    readonly owner: Address;
+  }) => {
+    const blockNumber = await input.executor.resolveBlock(request.blockNumber);
+    const call: UniswapV4ReadCall = {
+      abi: UNISWAP_V4_POSITION_MANAGER_ABI,
+      address: input.deployment.positionManager,
+      args: [request.owner, request.operator],
+      contract: "PositionManager",
+      functionName: "isApprovedForAll",
+    };
+    return {
+      approved: requireBoolean(await input.executor.read(call, blockNumber), call),
+      blockNumber,
+    };
+  };
   const readPositionManagerNonce = async (request: {
     readonly blockNumber?: bigint;
     readonly tokenId: bigint;
@@ -222,6 +242,7 @@ export function createUniswapV4Readers(input: {
   return {
     readPermit2Allowance,
     readPoolManagerProtocolFeeController,
+    readPositionManagerApprovalForAll,
     readPositionManagerPosition,
     readPositionManagerNonce,
     ...stateViewReaders,

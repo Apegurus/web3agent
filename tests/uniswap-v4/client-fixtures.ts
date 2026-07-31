@@ -40,6 +40,8 @@ function responseFor(functionName: string, options: FixtureOptions): unknown {
       return OWNER;
     case "getApproved":
       return OPERATOR;
+    case "isApprovedForAll":
+      return true;
     case "getPositionLiquidity":
       return 77n;
     case "getPoolAndPositionInfo":

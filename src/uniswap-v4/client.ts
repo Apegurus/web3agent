@@ -92,6 +92,11 @@ export type UniswapV4ReadClient = {
   readonly readPoolManagerProtocolFeeController: (
     request?: BlockRequest
   ) => Promise<{ readonly blockNumber: bigint; readonly protocolFeeController: Address }>;
+  readonly readPositionManagerApprovalForAll: (request: {
+    readonly blockNumber?: bigint;
+    readonly operator: Address;
+    readonly owner: Address;
+  }) => Promise<{ readonly approved: boolean; readonly blockNumber: bigint }>;
   readonly readPositionManagerPosition: (request: {
     readonly blockNumber?: bigint;
     readonly tokenId: bigint;

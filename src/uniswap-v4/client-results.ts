@@ -62,6 +62,17 @@ export function requireString(value: unknown, call: UniswapV4ReadCall): string {
   return value;
 }
 
+export function requireBoolean(value: unknown, call: UniswapV4ReadCall): boolean {
+  if (typeof value !== "boolean") {
+    throw new Web3AgentError({
+      code: "UNISWAP_V4_READ_INVALID_RESULT",
+      details: call,
+      message: `${call.functionName} returned a non-boolean result`,
+    });
+  }
+  return value;
+}
+
 export function requireAddress(value: unknown, call: UniswapV4ReadCall): Address {
   const address = requireString(value, call);
   if (!isAddress(address)) {
