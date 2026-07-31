@@ -13,6 +13,7 @@ const ROBINHOOD_DEPLOYMENT = {
   stateView: "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b",
 };
 const MODES = new Set(["--read", "--prepare", "--simulate", "--execute"]);
+const SUPPORTED_FLAGS = new Set([...MODES, "--help"]);
 
 export async function runUniswapV4Example({
   args = process.argv.slice(2),
@@ -20,9 +21,16 @@ export async function runUniswapV4Example({
   env = process.env,
   write = () => undefined,
 } = {}) {
-  const unknownArgs = args.filter((arg) => !MODES.has(arg));
+  const unknownArgs = args.filter((arg) => !SUPPORTED_FLAGS.has(arg));
   const selectedModes = args.filter((arg) => MODES.has(arg));
   if (unknownArgs.length > 0) throw new Error(`Unsupported flag(s): ${unknownArgs.join(", ")}`);
+  if (args.includes("--help")) {
+    write({
+      modes: [...MODES],
+      usage: "node examples/uniswap-v4.mjs [--read|--prepare|--simulate|--execute]",
+    });
+    return;
+  }
   if (selectedModes.length > 1) {
     throw new Error("Select at most one of --read, --prepare, --simulate, or --execute");
   }
@@ -73,7 +81,19 @@ export async function runUniswapV4Example({
 
   requireEnv(env, "WEB3AGENT_EXAMPLE_ACCOUNT");
   requireSourceBlock(sourceBlock);
-  const liveOperation = collectFixture({ account, chainId, sourceBlock });
+  const liveOperation = collectFixture({
+    account,
+    chainId,
+    sourceBlock,
+    currency1Address: requireEnv(env, "WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS"),
+    currency1Decimals: envInt(env, "WEB3AGENT_EXAMPLE_CURRENCY1_DECIMALS", 18),
+    currency1Name: env.WEB3AGENT_EXAMPLE_CURRENCY1_NAME ?? "Pool token",
+    currency1Symbol: env.WEB3AGENT_EXAMPLE_CURRENCY1_SYMBOL ?? "TOKEN",
+    fee: envInt(env, "WEB3AGENT_EXAMPLE_POOL_FEE", 500),
+    hooks: env.WEB3AGENT_EXAMPLE_POOL_HOOKS ?? "0x0000000000000000000000000000000000000000",
+    tickSpacing: envInt(env, "WEB3AGENT_EXAMPLE_TICK_SPACING", 60),
+    tokenId: requireEnv(env, "WEB3AGENT_EXAMPLE_TOKEN_ID"),
+  });
   const operations = await (dependencies.loadOperations ?? loadOperations)();
 
   if (mode === "prepare") {
@@ -149,7 +169,19 @@ function requireSourceBlock(sourceBlock) {
   }
 }
 
-function collectFixture({ account, chainId, sourceBlock }) {
+function collectFixture({
+  account,
+  chainId,
+  sourceBlock,
+  currency1Address = "0x2222222222222222222222222222222222222222",
+  currency1Decimals = 18,
+  currency1Name = "Replace with a real token before live modes",
+  currency1Symbol = "FIXTURE",
+  fee = 500,
+  hooks = "0x0000000000000000000000000000000000000000",
+  tickSpacing = 60,
+  tokenId = "1",
+}) {
   return {
     account,
     chainId,
@@ -160,16 +192,16 @@ function collectFixture({ account, chainId, sourceBlock }) {
     poolKey: {
       currency0: { chainId, decimals: 18, kind: "native", name: "Ether", symbol: "ETH" },
       currency1: {
-        address: "0x2222222222222222222222222222222222222222",
+        address: currency1Address,
         chainId,
-        decimals: 18,
+        decimals: currency1Decimals,
         kind: "erc20",
-        name: "Replace with a real token before live modes",
-        symbol: "FIXTURE",
+        name: currency1Name,
+        symbol: currency1Symbol,
       },
-      fee: 500,
-      hooks: "0x0000000000000000000000000000000000000000",
-      tickSpacing: 60,
+      fee,
+      hooks,
+      tickSpacing,
     },
     recipient: account,
     slippageBps: 0,
@@ -178,7 +210,7 @@ function collectFixture({ account, chainId, sourceBlock }) {
       blockNumber: "1",
       chainId,
     },
-    tokenId: "1",
+    tokenId,
   };
 }
 

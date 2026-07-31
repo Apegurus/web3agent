@@ -3,6 +3,25 @@ import { describe, expect, it, vi } from "vitest";
 const POOL_MANAGER_CODE_HASH = "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626";
 
 describe("Uniswap v4 example read mode", () => {
+  it("Given the example CLI, when --help runs, then it describes every safe mode without loading runtime operations", async () => {
+    const { runUniswapV4Example } = await import("../../examples/uniswap-v4.mjs");
+    const loadOperations = vi.fn();
+    const write = vi.fn();
+
+    await runUniswapV4Example({
+      args: ["--help"],
+      dependencies: { loadOperations },
+      env: {},
+      write,
+    });
+
+    expect(loadOperations).not.toHaveBeenCalled();
+    expect(write).toHaveBeenCalledWith({
+      modes: ["--read", "--prepare", "--simulate", "--execute"],
+      usage: "node examples/uniswap-v4.mjs [--read|--prepare|--simulate|--execute]",
+    });
+  });
+
   it("Given a deterministic Robinhood RPC read, when --read runs, then it never touches runtime, wallet, or confirmation state", async () => {
     const { runUniswapV4Example } = await import("../../examples/uniswap-v4.mjs");
     const getChainId = vi.fn().mockResolvedValue(4663);
@@ -43,5 +62,23 @@ describe("Uniswap v4 example read mode", () => {
         poolManagerCodeHash: POOL_MANAGER_CODE_HASH,
       })
     );
+  });
+
+  it("Given live preparation without a real pool token, when --prepare runs, then it fails before loading runtime operations", async () => {
+    const { runUniswapV4Example } = await import("../../examples/uniswap-v4.mjs");
+    const loadOperations = vi.fn();
+
+    await expect(
+      runUniswapV4Example({
+        args: ["--prepare"],
+        dependencies: { loadOperations },
+        env: {
+          WEB3AGENT_EXAMPLE_ACCOUNT: "0x1111111111111111111111111111111111111111",
+          WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH: `0x${"aa".repeat(32)}`,
+          WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER: "1",
+        },
+      })
+    ).rejects.toThrow("WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS");
+    expect(loadOperations).not.toHaveBeenCalled();
   });
 });
