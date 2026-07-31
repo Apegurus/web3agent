@@ -1,3 +1,4 @@
+import { keccak256 } from "viem";
 import { Web3AgentError } from "../errors.js";
 import { lifiBridgeResumeStateStateSchema } from "../schemas.js";
 import type {
@@ -29,13 +30,41 @@ export async function resumeLifiBridgeOperation(
       message: "Legacy LI.FI resume state cannot be authenticated; prepare the bridge again",
     });
   }
+  const persistedFinalization =
+    (persistedState.finalization as LifiBridgeFinalization | undefined) ??
+    ({ kind: "none" } satisfies LifiBridgeFinalization);
+  assertPersistedFinalizationBound(persistedState, persistedFinalization);
+  const persistedFinalResult = actionResults[persistedState.finalAction.id];
+  if (persistedFinalResult?.type === "transaction") {
+    const finalTransaction =
+      persistedFinalization.kind === "permit2"
+        ? await assertConfirmedLifiPermit2Transaction(
+            actionResults,
+            persistedState.finalAction,
+            persistedFinalization
+          )
+        : await assertConfirmedTransactionResult(actionResults, persistedState.finalAction);
+    if (!finalTransaction) {
+      throw new Web3AgentError({
+        code: "INVALID_PARAMS",
+        message: "LI.FI final transaction result is missing",
+      });
+    }
+    return {
+      completed: true,
+      integration: "lifi",
+      kind: "bridge",
+      result: {
+        status: "completed",
+        message: "Bridge steps executed externally",
+        txHash: finalTransaction.txHash,
+      },
+    };
+  }
   const canonicalState = parseInput(
     lifiBridgeResumeStateStateSchema,
     (await prepareBridgeOperation(persistedState.operation)).resumeState.state
   );
-  const persistedFinalization =
-    (persistedState.finalization as LifiBridgeFinalization | undefined) ??
-    ({ kind: "none" } satisfies LifiBridgeFinalization);
   const canonicalFinalization =
     (canonicalState.finalization as LifiBridgeFinalization | undefined) ??
     ({ kind: "none" } satisfies LifiBridgeFinalization);
@@ -113,6 +142,42 @@ export async function resumeLifiBridgeOperation(
       txHash: finalTransaction.txHash,
     },
   };
+}
+
+function assertPersistedFinalizationBound(
+  state: ReturnType<typeof lifiBridgeResumeStateStateSchema.parse>,
+  finalization: LifiBridgeFinalization
+): void {
+  if (finalization.kind === "none") return;
+  const operation = state.operation;
+  const data = state.finalAction.tx.data;
+  const signatureStageExists = state.stages.some((stage) =>
+    stage.some((action) => action.id === finalization.signatureActionId)
+  );
+  if (
+    !operation ||
+    operation.account.toLowerCase() !== finalization.account.toLowerCase() ||
+    operation.fromToken.toLowerCase() !== finalization.tokenAddress.toLowerCase() ||
+    operation.fromAmount !== finalization.amount ||
+    !signatureStageExists
+  ) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "LI.FI Permit2 finalization does not match canonical replanning",
+    });
+  }
+  if (state.finalAction.tx.to.toLowerCase() !== finalization.diamondAddress.toLowerCase()) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "resumeState.state.finalAction.tx.to does not match the signed Permit2 witness",
+    });
+  }
+  if (!data || keccak256(data) !== finalization.diamondCalldataHash) {
+    throw new Web3AgentError({
+      code: "INVALID_PARAMS",
+      message: "resumeState.state.finalAction.tx.data does not match the signed Permit2 witness",
+    });
+  }
 }
 
 function withoutSignatures(

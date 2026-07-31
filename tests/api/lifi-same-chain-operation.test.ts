@@ -234,7 +234,7 @@ describe("LI.FI prepared same-chain swaps", () => {
       kind: "swap",
       result: { status: "completed", txHash: "0xbbb" },
     });
-    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(5);
+    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(4);
   });
 
   it("Given a caller-tampered same-chain resume action, when resuming, then it rebuilds the canonical LI.FI transaction before surfacing it", async () => {
@@ -297,5 +297,52 @@ describe("LI.FI prepared same-chain swaps", () => {
       completed: false,
       operation: { actions: [{ tx: { data: "0xabcdef", to: diamond } }] },
     });
+  });
+
+  it("Given a presented direct LI.FI transaction and provider outage When it confirms Then resume uses persisted transaction facts", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      getTransaction: vi.fn().mockResolvedValue({
+        from: account,
+        input: "0xabcdef",
+        to: diamond,
+        value: 0n,
+      }),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: diamond }),
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+    });
+    lifiMocks.getQuote.mockResolvedValueOnce({
+      action: {
+        fromAmount: "1000",
+        fromChainId: 4663,
+        fromToken: { address: fromToken, symbol: "USDG" },
+        toChainId: 4663,
+        toToken: { address: toToken, symbol: "WETH" },
+      },
+      estimate: { approvalAddress: diamond, skipPermit: true, toAmount: "999", toAmountMin: "990" },
+      transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
+    });
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account,
+      fromAmount: "1000",
+      fromChainId: 4663,
+      fromToken,
+      integration: "lifi",
+      kind: "swap",
+      toChainId: 4663,
+      toToken,
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared LI.FI operation");
+    lifiMocks.getQuote.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const completed = await resumeOperation({
+      actionResults: {
+        "bridge:execute:0": { status: "confirmed", txHash: "0xbbb", type: "transaction" },
+      },
+      resumeState: prepared.resumeState,
+    });
+
+    expect(completed).toMatchObject({ completed: true, result: { txHash: "0xbbb" } });
+    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(1);
   });
 });
