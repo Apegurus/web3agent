@@ -168,6 +168,16 @@ export const UNISWAP_V4_POSITION_MANAGER_ABI = [
     type: "function",
   },
   {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "operator", type: "address" },
+    ],
+    name: "isApprovedForAll",
+    outputs: [{ name: "approved", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [{ name: "tokenId", type: "uint256" }],
     name: "getPositionLiquidity",
     outputs: [{ name: "liquidity", type: "uint128" }],

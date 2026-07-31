@@ -146,6 +146,7 @@ export type UniswapV4NftPermitSignatureAction = {
 export type UniswapV4RemovePlanInput = {
   readonly account: Address;
   readonly deployment: UniswapV4Deployment;
+  readonly operatorApprovedForAll?: boolean;
   readonly nftPermit?: UniswapV4NftPermit;
   readonly nftPermitWillBeAppended?: boolean;
   readonly nftPermitNonce?: bigint;

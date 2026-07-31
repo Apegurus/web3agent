@@ -68,6 +68,23 @@ describe("Uniswap v4 remove planner guards", () => {
       })
     ).not.toThrow();
   });
+
+  it("Given a globally approved operator When planning a removal Then no NFT permit is required", async () => {
+    const reader = createFixtureReader();
+    const pool = await reader.readPoolSnapshot({ poolKey, sourceBlock });
+    const position = await reader.readPositionSnapshot({ poolKey, sourceBlock, tokenId: "42" });
+
+    expect(() =>
+      planUniswapV4Remove({
+        account: ACCOUNT,
+        deployment,
+        operatorApprovedForAll: true,
+        operation: burn(ACCOUNT),
+        pool,
+        position,
+      })
+    ).not.toThrow();
+  });
 });
 
 function burn(

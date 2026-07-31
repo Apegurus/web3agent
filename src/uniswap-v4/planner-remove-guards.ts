@@ -124,7 +124,11 @@ function assertAuthorization(
   if (input.nftPermit !== undefined) {
     assertNftPermit(input, input.nftPermit, tokenId, now);
   }
-  if (owner.toLowerCase() === account || operator.toLowerCase() === account) {
+  if (
+    owner.toLowerCase() === account ||
+    operator.toLowerCase() === account ||
+    input.operatorApprovedForAll === true
+  ) {
     return;
   }
   if (input.nftPermitWillBeAppended === true) {

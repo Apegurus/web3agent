@@ -4,6 +4,7 @@ import { Web3AgentError } from "../../api/errors.js";
 import { uniswapV4DeploymentSchema } from "../../api/schemas/uniswap-v4/primitives.js";
 import type { UniswapV4LifecycleOperation } from "../../api/types.js";
 import { ERC20_BALANCE_ABI, getPublicClientCached } from "../../evm/services.js";
+import { UNISWAP_V4_POSITION_MANAGER_ABI } from "../../uniswap-v4/abis.js";
 import { createUniswapV4ReadClient } from "../../uniswap-v4/client.js";
 import { ROBINHOOD_UNISWAP_V4_PROVENANCE } from "../../uniswap-v4/deployment-provenance.js";
 import { getUniswapV4Deployment } from "../../uniswap-v4/deployments.js";
@@ -145,9 +146,17 @@ async function prepareRemovePlan(input: {
     sourceBlock: input.operation.sourceBlock,
     tokenId: input.operation.tokenId,
   });
+  const operatorApprovedForAll = await getPublicClientCached(input.operation.chainId).readContract({
+    abi: UNISWAP_V4_POSITION_MANAGER_ABI,
+    address: input.deployment.positionManager,
+    args: [position.owner, input.account],
+    blockNumber: BigInt(input.operation.sourceBlock.blockNumber),
+    functionName: "isApprovedForAll",
+  });
   const needsNftPermit =
     position.owner.toLowerCase() !== input.account.toLowerCase() &&
-    position.operator.toLowerCase() !== input.account.toLowerCase();
+    position.operator.toLowerCase() !== input.account.toLowerCase() &&
+    !operatorApprovedForAll;
   if (needsNftPermit && !input.allowOwnerPermit) {
     throw new Web3AgentError({
       code: "UNISWAP_V4_POSITION_UNAUTHORIZED",
@@ -157,6 +166,7 @@ async function prepareRemovePlan(input: {
   const plan = planUniswapV4Remove({
     account: input.account,
     deployment: input.deployment,
+    operatorApprovedForAll,
     ...(needsNftPermit ? { nftPermitWillBeAppended: true } : {}),
     operation: input.operation,
     pool: input.pool,
