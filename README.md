@@ -203,8 +203,8 @@ WEB3AGENT_EXAMPLE_ACCOUNT=0x... node examples/bridge.mjs --prepare
 # Uniswap v4 is fixture-only unless a mode is explicitly selected
 node examples/uniswap-v4.mjs
 node examples/uniswap-v4.mjs --read
-WEB3AGENT_EXAMPLE_ACCOUNT=0x... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH=0x... node examples/uniswap-v4.mjs --prepare
-WEB3AGENT_EXAMPLE_ACCOUNT=0x... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH=0x... node examples/uniswap-v4.mjs --simulate
+WEB3AGENT_EXAMPLE_ACCOUNT=0x... WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS=0x... WEB3AGENT_EXAMPLE_TOKEN_ID=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH=0x... node examples/uniswap-v4.mjs --prepare
+WEB3AGENT_EXAMPLE_ACCOUNT=0x... WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS=0x... WEB3AGENT_EXAMPLE_TOKEN_ID=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH=0x... node examples/uniswap-v4.mjs --simulate
 ```
 
 The examples default to small USDC-denominated flows and only prepare wallet actions when you pass `--prepare`.
@@ -213,7 +213,7 @@ The examples default to small USDC-denominated flows and only prepare wallet act
 
 Uniswap v4 position support is a staged, browser-wallet-safe flow. It provides verified deployment, pool, position, and bounded-event reads; deterministic position calculations; lifecycle preparation (`mint`, `increase`, `decrease`, `collect`, and `burn`); and preflight simulation. It does **not** run a portfolio strategy, calculate tax/accounting, select a rebalance policy, or make an execution decision for you.
 
-Use `examples/uniswap-v4.mjs` to preview the exact inputs before connecting any service. `--read` is a wallet-free Robinhood public-client bytecode verification; set `WEB3AGENT_EXAMPLE_RPC_URL` only to override viem's official Robinhood RPC. `--prepare` and `--simulate` are runtime-backed modes that require an account, a real canonical pool, and a pinned source block. `--execute` is intentionally refused unless `WEB3AGENT_EXAMPLE_EXECUTE=1`, `WEB3AGENT_EXAMPLE_ACCOUNT`, and `WEB3AGENT_EXAMPLE_CONFIRMATION_ID` are all present. The example never submits a transaction: execution remains an application/MCP confirmation-queue responsibility.
+Use `examples/uniswap-v4.mjs` to preview the exact inputs before connecting any service. `--read` is a wallet-free Robinhood public-client bytecode verification; set `WEB3AGENT_EXAMPLE_RPC_URL` only to override viem's official Robinhood RPC. `--prepare` and `--simulate` are runtime-backed modes that require an account, `WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS`, `WEB3AGENT_EXAMPLE_TOKEN_ID`, a real canonical pool, and a pinned source block. Set the normal runtime `RPC_URL` for those modes; optional pool overrides include `WEB3AGENT_EXAMPLE_POOL_FEE`, `WEB3AGENT_EXAMPLE_TICK_SPACING`, and `WEB3AGENT_EXAMPLE_POOL_HOOKS`. `--execute` is intentionally refused unless `WEB3AGENT_EXAMPLE_EXECUTE=1`, `WEB3AGENT_EXAMPLE_ACCOUNT`, and `WEB3AGENT_EXAMPLE_CONFIRMATION_ID` are all present. The example never submits a transaction: execution remains an application/MCP confirmation-queue responsibility.
 
 For the complete API, deployed-contract provenance, event cursor rules, and simulation caveats, see [docs/architecture/uniswap-v4.md](docs/architecture/uniswap-v4.md). For browser wallet action/resume semantics, see [docs/architecture/browser-wallet-operations.md](docs/architecture/browser-wallet-operations.md).
 
