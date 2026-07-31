@@ -88,6 +88,16 @@ export function assertRemovePlanInput(input: UniswapV4RemovePlanInput): UniswapV
       "Decrease and burn require non-zero position liquidity"
     );
   }
+  if (operation.kind !== "collect") {
+    const expectedLiquidity =
+      (BigInt(position.liquidity) * BigInt(operation.liquidityBps)) / 10_000n;
+    if (BigInt(operation.liquidity) !== expectedLiquidity) {
+      throw plannerError(
+        "UNISWAP_V4_REMOVE_LIQUIDITY_MISMATCH",
+        "Removal liquidity must equal the pinned position liquidity multiplied by liquidityBps"
+      );
+    }
+  }
   assertAuthorization(input, position.owner, position.operator, BigInt(operation.tokenId), now);
   return operation;
 }

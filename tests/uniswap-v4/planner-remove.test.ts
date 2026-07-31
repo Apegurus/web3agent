@@ -101,6 +101,23 @@ describe("Uniswap v4 remove planner", () => {
     });
   });
 
+  it("Given removal liquidity inconsistent with its percentage, when planning, then rejects the ambiguous request", async () => {
+    const { pool, position } = await fixture();
+
+    expect(() =>
+      planUniswapV4Remove({
+        account: OWNER,
+        deployment,
+        operation: {
+          ...removal({ kind: "decrease", liquidityBps: 2500, recipient: OWNER }),
+          liquidity: "77",
+        },
+        pool,
+        position,
+      })
+    ).toThrow("liquidity must equal");
+  });
+
   it("Given an owner full exit, when burning, then emits official burn calldata and reports the NFT as removed", async () => {
     const { pool, position } = await fixture();
 
@@ -155,7 +172,7 @@ function removal(input: {
       deadline: "2000000000",
       hookData: "0x1234",
       kind: "decrease",
-      liquidity: "77",
+      liquidity: ((77n * BigInt(input.liquidityBps)) / 10_000n).toString(),
       liquidityBps: input.liquidityBps,
       poolKey,
       recipient: input.recipient,
@@ -172,7 +189,7 @@ function removal(input: {
     deadline: "2000000000",
     hookData: "0x1234",
     kind: "burn",
-    liquidity: "77",
+    liquidity: ((77n * BigInt(input.liquidityBps)) / 10_000n).toString(),
     liquidityBps: input.liquidityBps,
     poolKey,
     recipient: input.recipient,

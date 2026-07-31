@@ -124,7 +124,7 @@ function decrease(
     deadline: "2000000000",
     hookData: HOOK_DATA,
     kind: "decrease",
-    liquidity: "77",
+    liquidity: ((77n * BigInt(liquidityBps)) / 10_000n).toString(),
     liquidityBps,
     poolKey,
     recipient: account,
