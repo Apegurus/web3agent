@@ -6,7 +6,7 @@ import { basename, join, resolve } from "node:path";
 
 import { runConsumerFixture } from "./fixture-consumer.mjs";
 import { writeFixturePreload } from "./fixture-stubs.mjs";
-import { V4_TOOLS, V4_WRITE_TOOLS } from "./fixture-tools.mjs";
+import { V4_WRITE_TOOLS } from "./fixture-tools.mjs";
 
 export { V4_TOOLS } from "./fixture-tools.mjs";
 
@@ -126,9 +126,10 @@ export function runPackedFixture({ fixture: requestedFixture, root }) {
     const report = {
       cliTools: observed.cliCalls.map((call) => call.tool),
       fixtureHashes: {
-        calculation: hash(resultFor(observed, "uniswap_v4_calculate_position")),
+        calculation: hash(resultFor(observed, "uniswap_v4_calculate")),
         pool: hash(resultFor(observed, "uniswap_v4_get_pool")),
         position: hash(resultFor(observed, "uniswap_v4_get_position")),
+        positionCalculation: hash(resultFor(observed, "uniswap_v4_calculate_position")),
         quote: hash(observed.sdk.swaps.zeroEx),
       },
       fixturePath: fixturePath.replace(`${root}/`, ""),

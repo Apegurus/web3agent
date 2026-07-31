@@ -11,6 +11,7 @@ const SDK_CALLS = [
   "getUniswapV4Pool",
   "getUniswapV4Position",
   "calculateUniswapV4Position",
+  "calculateUniswapV4",
   "simulateTransaction",
   "prepareOperation:mint",
   "prepareOperation:burn",
@@ -112,7 +113,8 @@ reads = {
   deployment: await sdk.getUniswapV4Deployment({ chainId: fixture.chainId }),
   pool: await sdk.getUniswapV4Pool({ poolKey: fixture.pool.poolKey, sourceBlock: fixture.sourceBlock }),
   position: await sdk.getUniswapV4Position({ expectedOwner: account, poolKey: fixture.pool.poolKey, sourceBlock: fixture.sourceBlock, tokenId: fixture.position.tokenId }),
-  calculation: await sdk.calculateUniswapV4Position({ pool: fixture.normalized.pool, position: fixture.normalized.position }),
+  positionCalculation: await sdk.calculateUniswapV4Position({ pool: fixture.normalized.pool, position: fixture.normalized.position }),
+  calculation: await sdk.calculateUniswapV4({ kind: "feeEstimate", position: fixture.normalized.position }),
 };
 } catch (error) {
   process.stderr.write(JSON.stringify(error, (_, value) => typeof value === "bigint" ? value.toString() : value));
@@ -176,7 +178,7 @@ export function runConsumerFixture({ consumer, counterPath, fixturePath, preload
     throw new Error(`Tool discovery failed:\n${list.stderr}`);
   const names = catalog.data.tools
     .map((tool) => tool.name)
-    .filter((name) => V4_TOOLS.includes(name));
+    .filter((name) => name.startsWith("uniswap_v4_"));
   if (JSON.stringify(names) !== JSON.stringify(V4_TOOLS))
     throw new Error("Packed CLI tool catalog drift");
   const operations = operationInputs(fixture);
@@ -184,6 +186,10 @@ export function runConsumerFixture({ consumer, counterPath, fixturePath, preload
     uniswap_v4_burn_position: operations.burn,
     uniswap_v4_calculate_position: {
       pool: fixture.normalized.pool,
+      position: fixture.normalized.position,
+    },
+    uniswap_v4_calculate: {
+      kind: "feeEstimate",
       position: fixture.normalized.position,
     },
     uniswap_v4_collect_fees: operations.collect,
