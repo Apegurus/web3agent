@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as publicSchemas from "../../src/api/schemas/uniswap-v4.js";
+import { operation } from "./uniswap-v4-lifecycle-fixtures.js";
 
 const runtimeMocks = vi.hoisted(() => ({
   invokeTool: vi.fn(),
@@ -27,6 +28,58 @@ describe("Uniswap v4 root SDK", () => {
     expect(typeof root.calculateUniswapV4Position).toBe("function");
     expect(typeof root.calculateUniswapV4).toBe("function");
     expect(typeof root.simulateUniswapV4Operation).toBe("function");
+    expect(typeof root.mintUniswapV4Position).toBe("function");
+    expect(typeof root.increaseUniswapV4Liquidity).toBe("function");
+    expect(typeof root.decreaseUniswapV4Liquidity).toBe("function");
+    expect(typeof root.collectUniswapV4Fees).toBe("function");
+    expect(typeof root.burnUniswapV4Position).toBe("function");
+  });
+
+  it("Given every server-wallet lifecycle operation, when called through the SDK, then it invokes the matching confirmation-gated MCP tool", async () => {
+    runtimeMocks.invokeTool.mockResolvedValue({
+      content: [],
+      isError: false,
+      structuredContent: {
+        data: { id: "confirmation-1", status: "pending_confirmation", summary: "Confirm write" },
+        ok: true,
+      },
+    });
+    const root = await import("../../src/index.js");
+    const mint = root.uniswapV4MintPositionSchema.parse(operation("mint"));
+    await expect(root.mintUniswapV4Position(mint)).resolves.toMatchObject({
+      status: "pending_confirmation",
+    });
+    expect(runtimeMocks.invokeTool).toHaveBeenLastCalledWith("uniswap_v4_mint_position", mint);
+
+    const increase = root.uniswapV4IncreaseLiquiditySchema.parse(operation("increase"));
+    await expect(root.increaseUniswapV4Liquidity(increase)).resolves.toMatchObject({
+      status: "pending_confirmation",
+    });
+    expect(runtimeMocks.invokeTool).toHaveBeenLastCalledWith(
+      "uniswap_v4_increase_liquidity",
+      increase
+    );
+
+    const decrease = root.uniswapV4DecreaseLiquiditySchema.parse(operation("decrease"));
+    await expect(root.decreaseUniswapV4Liquidity(decrease)).resolves.toMatchObject({
+      status: "pending_confirmation",
+    });
+    expect(runtimeMocks.invokeTool).toHaveBeenLastCalledWith(
+      "uniswap_v4_decrease_liquidity",
+      decrease
+    );
+
+    const collect = root.uniswapV4CollectFeesSchema.parse(operation("collect"));
+    await expect(root.collectUniswapV4Fees(collect)).resolves.toMatchObject({
+      status: "pending_confirmation",
+    });
+    expect(runtimeMocks.invokeTool).toHaveBeenLastCalledWith("uniswap_v4_collect_fees", collect);
+
+    const burn = root.uniswapV4BurnPositionSchema.parse(operation("burn"));
+    await expect(root.burnUniswapV4Position(burn)).resolves.toMatchObject({
+      status: "pending_confirmation",
+    });
+    expect(runtimeMocks.invokeTool).toHaveBeenLastCalledWith("uniswap_v4_burn_position", burn);
   });
 
   it("Given the public Uniswap v4 schema barrel, when imported from the root API, then every public schema remains available", async () => {

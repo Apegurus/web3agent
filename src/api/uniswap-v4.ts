@@ -1,4 +1,11 @@
 import {
+  uniswapV4BurnPositionSchema,
+  uniswapV4CollectFeesSchema,
+  uniswapV4DecreaseLiquiditySchema,
+  uniswapV4IncreaseLiquiditySchema,
+  uniswapV4MintPositionSchema,
+} from "../tools/uniswap-v4/write-schemas.js";
+import {
   uniswapV4CalculatePositionSchema,
   uniswapV4CalculationInputSchema,
   uniswapV4EventQuerySchema,
@@ -10,22 +17,29 @@ import {
 import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
   RuntimeBoundOptions,
+  UniswapV4BurnOperation,
   UniswapV4CalculatePositionInput,
   UniswapV4Calculation,
   UniswapV4CalculationInput,
   UniswapV4CalculationResult,
+  UniswapV4CollectOperation,
+  UniswapV4DecreaseOperation,
   UniswapV4Deployment,
   UniswapV4EventPage,
   UniswapV4EventQuery,
   UniswapV4GetDeploymentInput,
   UniswapV4GetPoolInput,
   UniswapV4GetPositionInput,
+  UniswapV4IncreaseOperation,
+  UniswapV4MintOperation,
   UniswapV4PoolState,
   UniswapV4PositionState,
   UniswapV4SimulationInput,
   UniswapV4SimulationResult,
+  WriteOperationResult,
 } from "./types.js";
 import { parseInput } from "./validation.js";
+import { normalizeWriteResult } from "./write-results.js";
 
 export async function getUniswapV4Deployment(
   params: UniswapV4GetDeploymentInput,
@@ -88,4 +102,59 @@ export async function simulateUniswapV4Operation(
   const input = parseInput(uniswapV4SimulationInputSchema, params);
   const runtime = await getRuntime(options);
   return invokeAndRequireData(runtime, "uniswap_v4_simulate_operation", input);
+}
+
+export async function mintUniswapV4Position(
+  params: UniswapV4MintOperation,
+  options?: RuntimeBoundOptions
+): Promise<WriteOperationResult> {
+  const input = parseInput(uniswapV4MintPositionSchema, params);
+  const runtime = await getRuntime(options);
+  return normalizeWriteResult(
+    await invokeAndRequireData(runtime, "uniswap_v4_mint_position", input)
+  );
+}
+
+export async function increaseUniswapV4Liquidity(
+  params: UniswapV4IncreaseOperation,
+  options?: RuntimeBoundOptions
+): Promise<WriteOperationResult> {
+  const input = parseInput(uniswapV4IncreaseLiquiditySchema, params);
+  const runtime = await getRuntime(options);
+  return normalizeWriteResult(
+    await invokeAndRequireData(runtime, "uniswap_v4_increase_liquidity", input)
+  );
+}
+
+export async function decreaseUniswapV4Liquidity(
+  params: UniswapV4DecreaseOperation,
+  options?: RuntimeBoundOptions
+): Promise<WriteOperationResult> {
+  const input = parseInput(uniswapV4DecreaseLiquiditySchema, params);
+  const runtime = await getRuntime(options);
+  return normalizeWriteResult(
+    await invokeAndRequireData(runtime, "uniswap_v4_decrease_liquidity", input)
+  );
+}
+
+export async function collectUniswapV4Fees(
+  params: UniswapV4CollectOperation,
+  options?: RuntimeBoundOptions
+): Promise<WriteOperationResult> {
+  const input = parseInput(uniswapV4CollectFeesSchema, params);
+  const runtime = await getRuntime(options);
+  return normalizeWriteResult(
+    await invokeAndRequireData(runtime, "uniswap_v4_collect_fees", input)
+  );
+}
+
+export async function burnUniswapV4Position(
+  params: UniswapV4BurnOperation,
+  options?: RuntimeBoundOptions
+): Promise<WriteOperationResult> {
+  const input = parseInput(uniswapV4BurnPositionSchema, params);
+  const runtime = await getRuntime(options);
+  return normalizeWriteResult(
+    await invokeAndRequireData(runtime, "uniswap_v4_burn_position", input)
+  );
 }

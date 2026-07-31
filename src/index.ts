@@ -117,12 +117,17 @@ export { x402CheckRequirements, x402Fetch } from "./api/x402.js";
 export { policyGet } from "./api/policy.js";
 export { deleteWallet, getWalletInfo } from "./api/wallet.js";
 export {
+  burnUniswapV4Position,
   calculateUniswapV4,
   calculateUniswapV4Position,
+  collectUniswapV4Fees,
+  decreaseUniswapV4Liquidity,
   getUniswapV4Deployment,
   getUniswapV4Events,
   getUniswapV4Pool,
   getUniswapV4Position,
+  increaseUniswapV4Liquidity,
+  mintUniswapV4Position,
   simulateUniswapV4Operation,
 } from "./api/uniswap-v4.js";
 export type { WalletBackendInfo } from "./wallet/backend.js";
@@ -576,6 +581,13 @@ export {
   lifiPrepareBridgeIntentSchema,
 } from "./tools/lifi/schemas.js";
 export { zeroExSwapSchema } from "./tools/zerox/schemas.js";
+export {
+  uniswapV4BurnPositionSchema,
+  uniswapV4CollectFeesSchema,
+  uniswapV4DecreaseLiquiditySchema,
+  uniswapV4IncreaseLiquiditySchema,
+  uniswapV4MintPositionSchema,
+} from "./tools/uniswap-v4/write-schemas.js";
 export {
   operationResumeStateSchema,
   prepareOperationSchema,
