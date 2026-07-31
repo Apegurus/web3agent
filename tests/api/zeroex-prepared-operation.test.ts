@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const viemMocks = vi.hoisted(() => ({ createPublicClient: vi.fn() }));
-const zeroExMocks = vi.hoisted(() => ({ getZeroExQuote: vi.fn() }));
+const zeroExMocks = vi.hoisted(() => ({
+  classifyZeroExError: vi.fn(() => ({ fallbackAllowed: false, kind: "unknown" })),
+  getZeroExQuote: vi.fn(),
+}));
 
 vi.mock("viem", async (importOriginal) => {
   const actual = await importOriginal<typeof import("viem")>();
@@ -12,6 +15,7 @@ vi.mock("viem", async (importOriginal) => {
 });
 
 vi.mock("../../src/zerox/client.js", () => ({
+  classifyZeroExError: (...args: unknown[]) => zeroExMocks.classifyZeroExError(...args),
   getZeroExQuote: (...args: unknown[]) => zeroExMocks.getZeroExQuote(...args),
 }));
 
@@ -159,5 +163,44 @@ describe("0x prepared swaps", () => {
 
     // Then: the live transaction payload, not caller-provided facts, gates progress
     await expect(result).rejects.toMatchObject({ code: "INVALID_PARAMS" });
+  });
+
+  it("Given a presented final swap and an unavailable quote provider When the transaction is confirmed Then resume completes from persisted facts", async () => {
+    zeroExMocks.getZeroExQuote.mockResolvedValueOnce({
+      adapterSource: "native",
+      buyAmount: "999",
+      capabilityDecisionId: "zeroex-goat-v2-admission-v1",
+      capabilityReason: "goat-chain-4663-unavailable",
+      chainId: 4663,
+      provider: "0x",
+      sellAmount: "1000",
+      transaction: { data: "0xabcdef", to: swapTarget, value: "0" },
+    });
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account,
+      chainId: 4663,
+      fromAmount: "1000",
+      fromToken,
+      integration: "zeroex",
+      kind: "swap",
+      toToken,
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared 0x operation");
+    zeroExMocks.getZeroExQuote.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const completed = await resumeOperation({
+      actionResults: {
+        "zeroex:swap:0": { status: "confirmed", txHash: "0xbbb", type: "transaction" },
+      },
+      resumeState: prepared.resumeState,
+    });
+
+    expect(completed).toMatchObject({
+      completed: true,
+      integration: "zeroex",
+      result: { status: "completed", txHash: "0xbbb" },
+    });
+    expect(zeroExMocks.getZeroExQuote).toHaveBeenCalledTimes(1);
   });
 });

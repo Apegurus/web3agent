@@ -18,6 +18,7 @@ import {
   assertConfirmedTransactionResult,
   buildPreparedOperation,
   getPendingPreparedActions,
+  mergeActionResults,
   toPendingOperation,
 } from "./shared.js";
 
@@ -128,6 +129,7 @@ export async function prepareZeroExSwapOperation(
       operation: input,
       approvalActions,
       finalAction,
+      presentedStage: approvalActions.length > 0 ? "approval" : "final",
       summary: "Prepare 0x swap on Robinhood chain 4663",
     },
     meta
@@ -139,42 +141,85 @@ export async function resumeZeroExSwapOperation(
   actionResults: Record<string, OperationActionResult>
 ): Promise<ResumeOperationCompletedResult | { completed: false; operation: PreparedOperation }> {
   const state = parseInput(zeroExSwapResumeStateStateSchema, resumeState.state);
-  const canonical = await prepareZeroExSwapOperation(state.operation);
-  if (canonical.integration !== "zeroex") {
-    throw new Web3AgentError({
-      code: "INVALID_PARAMS",
-      message: "0x resume state can no longer rebuild an executable 0x route",
-    });
-  }
-  const canonicalState = parseInput(zeroExSwapResumeStateStateSchema, canonical.resumeState.state);
+  const mergedResults = mergeActionResults(state, actionResults);
 
-  const pendingApprovals = await getPendingPreparedActions(
-    canonicalState.approvalActions,
-    actionResults
-  );
-  if (pendingApprovals.length > 0) {
+  if (state.presentedStage === "approval") {
+    const pendingApprovals = await getPendingPreparedActions(state.approvalActions, mergedResults);
+    if (pendingApprovals.length > 0) {
+      return {
+        completed: false,
+        operation: toPendingOperation(
+          resumeState,
+          pendingApprovals,
+          "Resume 0x swap approval",
+          mergedResults
+        ),
+      };
+    }
+    const canonical = await prepareZeroExSwapOperation(state.operation);
+    if (canonical.integration !== "zeroex") {
+      throw new Web3AgentError({
+        code: "INVALID_PARAMS",
+        message: "0x resume state can no longer rebuild an executable 0x route",
+      });
+    }
+    const canonicalState = parseInput(
+      zeroExSwapResumeStateStateSchema,
+      canonical.resumeState.state
+    );
+    await getPendingPreparedActions(canonicalState.approvalActions, mergedResults);
+    const finalResumeState: OperationResumeState = {
+      ...canonical.resumeState,
+      state: {
+        ...canonicalState,
+        actionResults: mergedResults,
+        presentedStage: "final",
+      },
+    };
     return {
       completed: false,
       operation: toPendingOperation(
-        canonical.resumeState,
-        pendingApprovals,
-        "Resume 0x swap approval",
-        actionResults
+        finalResumeState,
+        [canonicalState.finalAction],
+        "Resume 0x swap",
+        mergedResults
       ),
     };
   }
-  const finalTransaction = await assertConfirmedTransactionResult(
-    actionResults,
-    canonicalState.finalAction
-  );
+  if (mergedResults[state.finalAction.id] === undefined) {
+    const canonical = await prepareZeroExSwapOperation(state.operation);
+    if (canonical.integration !== "zeroex") {
+      throw new Web3AgentError({
+        code: "INVALID_PARAMS",
+        message: "0x resume state can no longer rebuild an executable 0x route",
+      });
+    }
+    const canonicalState = parseInput(
+      zeroExSwapResumeStateStateSchema,
+      canonical.resumeState.state
+    );
+    return {
+      completed: false,
+      operation: toPendingOperation(
+        {
+          ...canonical.resumeState,
+          state: { ...canonicalState, presentedStage: "final" },
+        },
+        [canonicalState.finalAction],
+        "Resume 0x swap",
+        mergedResults
+      ),
+    };
+  }
+  const finalTransaction = await assertConfirmedTransactionResult(mergedResults, state.finalAction);
   if (!finalTransaction) {
     return {
       completed: false,
       operation: toPendingOperation(
-        canonical.resumeState,
-        [canonicalState.finalAction],
+        resumeState,
+        [state.finalAction],
         "Resume 0x swap",
-        actionResults
+        mergedResults
       ),
     };
   }

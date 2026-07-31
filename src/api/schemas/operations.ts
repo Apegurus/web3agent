@@ -107,6 +107,9 @@ export const lifiSameChainSwapResumeStateStateSchema = lifiBridgeResumeStateStat
 });
 
 export const zeroExSwapResumeStateStateSchema = resumeStateBaseSchema.extend({
+  presentedStage: z
+    .enum(["approval", "final"])
+    .describe("Stage whose exact actions were presented to the wallet"),
   operation: zeroExSwapSchema
     .extend({
       chainId: z.literal(4663).describe("Robinhood chain ID for the 0x operation"),
