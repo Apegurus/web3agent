@@ -44,6 +44,26 @@ The protocol-specific helpers remain available:
 
 They are now thin wrappers over the generic prepared-operation engine.
 
+## Resume-State Integrity and Upgrades
+
+Orbs swaps/orders, LI.FI bridge/same-chain operations, and 0x swaps authenticate their immutable resume envelope,
+including its integration and kind, before returning another wallet action. Configure
+`WEB3AGENT_RESUME_STATE_SECRETS` as a comma-separated key ring whose entries are each at least 32
+characters. The first entry signs new states and later entries verify states created before rotation.
+Every replica or ephemeral runtime that can prepare or resume the same operation must use the same
+ring.
+
+On macOS and Linux, when that variable is unset, a host-local 32-byte key is created at
+`~/.web3agent/resume-state.key` with owner-only permissions. That fallback survives restarts on one
+durable host, but it is not portable across containers, replicas, or replaced home directories.
+Windows cannot enforce the required POSIX ownership and permission checks, so it fails closed unless
+`WEB3AGENT_RESUME_STATE_SECRETS` is configured explicitly.
+
+Resume states emitted before integrity tags were introduced cannot resume through the hardened
+Orbs, LI.FI, or 0x paths. After upgrading, prepare those in-flight operations again rather than
+copying an unsigned state forward. GOAT and Uniswap v4 retain their existing canonical replay and
+receipt-verification boundaries; they do not use this HMAC envelope.
+
 ## MCP Surface
 
 The generic MCP tools are:
@@ -121,7 +141,8 @@ authenticated state token outside this protocol.
   - `BROWSER_WALLET_E2E_TO_TOKEN`
   - `BROWSER_WALLET_E2E_IN_AMOUNT`
   - `BROWSER_WALLET_E2E_SIGNATURE`
-- Runtime wallet persistence, confirmation queues, and CLI startup behavior are unchanged
+- Runtime wallet persistence and CLI startup behavior are unchanged; Orbs/LI.FI/0x resume authentication
+  adds the key-management behavior described above
 
 ### Uniswap v4 lifecycle prerequisites and scope
 

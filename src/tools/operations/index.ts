@@ -22,7 +22,7 @@ export function getOperationToolDefinitions(): ToolDefinition[] {
       name: "operation_prepare",
       category: "operation",
       description:
-        "Prepare an external-wallet operation for Orbs, LI.FI, or GOAT. Returns the next actions plus opaque resume state.",
+        "Prepare an external-wallet operation for Orbs, LI.FI, GOAT, 0x, or Uniswap v4. Returns the next actions plus opaque resume state.",
       inputSchema: zodToJsonSchema(prepareOperationSchema) as Record<string, unknown>,
       handler: operationPrepareTool,
       annotations: { readOnlyHint: true, openWorldHint: true },
