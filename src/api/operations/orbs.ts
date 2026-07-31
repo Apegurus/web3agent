@@ -196,7 +196,11 @@ export async function prepareSwapOperation(
       fromAmount: input.fromAmount,
       account: input.account,
     });
-    const approvalActions = createPreparedApprovalActions(chainId, requiredApprovals);
+    const approvalActions = createPreparedApprovalActions(
+      chainId,
+      assertAddress(input.account, "account"),
+      requiredApprovals
+    );
     const signAction = createTypedDataAction(chainId, "Sign swap intent", eip712);
     const intent: SwapIntent = {
       eip712,
@@ -320,7 +324,11 @@ export async function prepareOrderOperation(
       exactApproval: input.exactApproval,
     });
 
-    const approvalActions = createPreparedApprovalActions(chainId, requiredApprovals);
+    const approvalActions = createPreparedApprovalActions(
+      chainId,
+      assertAddress(input.account, "account"),
+      requiredApprovals
+    );
     const signAction = createTypedDataAction(chainId, "Sign Spot order", eip712);
 
     const intent = {

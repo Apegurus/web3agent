@@ -24,6 +24,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function providerForOperation(operationType: string): SwapProvider | undefined {
   if (operationType === "zeroex_swap" || operationType === "0x_swap") return "0x";
+  if (operationType === "zeroex_lifi_fallback") return "lifi";
   if (operationType === "orbs_swap") return "orbs";
   if (operationType === "lifi_execute_bridge") return "lifi";
   return undefined;
