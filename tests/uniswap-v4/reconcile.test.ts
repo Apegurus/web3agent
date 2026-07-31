@@ -118,9 +118,10 @@ describe("Uniswap v4 stage simulation", () => {
 });
 
 describe("Uniswap v4 receipt lifecycle decoding", () => {
-  it("Given a PositionManager receipt with a pool-scoped modification and NFT mint, when decoded, then retains both lifecycle facts without inventing a PoolId for Transfer", () => {
+  it("Given canonical PoolManager liquidity and PositionManager mint logs, when decoded, then retains both lifecycle facts without inventing a PoolId for Transfer", () => {
     const poolId = `0x${"bb".repeat(32)}` as const;
     const positionManager = "0x3333333333333333333333333333333333333333" as const;
+    const poolManager = "0x4444444444444444444444444444444444444444" as const;
     const account = "0x1111111111111111111111111111111111111111" as const;
     const zero = "0x0000000000000000000000000000000000000000" as const;
     const tokenIdTopic = `0x${"01".padStart(64, "0")}` as const;
@@ -128,7 +129,7 @@ describe("Uniswap v4 receipt lifecycle decoding", () => {
     const poolIdTopic = poolId;
     const transferTopic = keccak256(toBytes("Transfer(address,address,uint256)"));
     const modifyTopic = keccak256(
-      toBytes("ModifyPosition(bytes32,address,int24,int24,int256,bytes32)")
+      toBytes("ModifyLiquidity(bytes32,address,int24,int24,int256,bytes32)")
     );
     const modifyData = encodeAbiParameters(
       [
@@ -141,10 +142,10 @@ describe("Uniswap v4 receipt lifecycle decoding", () => {
     );
 
     const events = decodeUniswapV4ReceiptEvents({
-      deployment: { poolManager: "0x4444444444444444444444444444444444444444", positionManager },
+      deployment: { poolManager, positionManager },
       logs: [
         {
-          address: positionManager,
+          address: poolManager,
           blockNumber: 2n,
           data: modifyData,
           logIndex: 0,
@@ -172,7 +173,7 @@ describe("Uniswap v4 receipt lifecycle decoding", () => {
     });
 
     expect(events).toEqual([
-      expect.objectContaining({ kind: "positionModify", liquidityDelta: "10" }),
+      expect.objectContaining({ kind: "modifyLiquidity", liquidityDelta: "10" }),
       expect.objectContaining({
         action: "mint",
         kind: "positionLifecycle",

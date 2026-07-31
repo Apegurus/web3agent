@@ -63,7 +63,7 @@ import { uniswapV4PersistedWritePlanSchema } from "../../src/tools/uniswap-v4/wr
 import { getPoolIdentity } from "../../src/uniswap-v4/sdk-adapter-api.js";
 import {
   EVENT_FIXTURE_ZERO_ADDRESS,
-  createModifyPositionEvent,
+  createModifyLiquidityEvent,
   createTransferEvent,
 } from "./event-fixtures.js";
 import {
@@ -115,7 +115,7 @@ function canonicalReceipt(
     logs:
       status === "success"
         ? [
-            createModifyPositionEvent({
+            createModifyLiquidityEvent({
               blockNumber: BLOCK_NUMBER,
               deployment,
               logIndex: 0,
@@ -215,7 +215,7 @@ describe("Uniswap v4 direct/prepared completion parity", () => {
         token1Delta: { status: "available", value: "0" },
       },
       decodedEvents: [
-        { kind: "positionModify", liquidityDelta: "4" },
+        { kind: "modifyLiquidity", liquidityDelta: "4" },
         { action: "mint", kind: "positionLifecycle", tokenId: "1" },
       ],
       matchesExpected: {

@@ -59,10 +59,10 @@ export function decodeConfirmedUniswapV4Events(
 export function observedUniswapV4LiquidityDelta(
   events: readonly UniswapV4Event[]
 ): UniswapV4ObservedDelta {
-  const deltas = events.filter((event) => event.kind === "positionModify");
+  const deltas = events.filter((event) => event.kind === "modifyLiquidity");
   if (deltas.length === 0) {
     return {
-      reason: "receipt did not emit a matching PositionManager ModifyPosition event",
+      reason: "receipt did not emit a matching PoolManager ModifyLiquidity event",
       status: "unavailable",
     };
   }

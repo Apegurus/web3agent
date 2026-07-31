@@ -54,7 +54,7 @@ describe("reconcileUniswapV4ConfirmedReceipt", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     boundaries.decode.mockReturnValue([
-      { kind: "positionModify", liquidityDelta: "1" },
+      { kind: "modifyLiquidity", liquidityDelta: "1" },
       { action: "mint", kind: "positionLifecycle", tokenId: "1" },
     ]);
     boundaries.balances.mockResolvedValue(availableBalances());
