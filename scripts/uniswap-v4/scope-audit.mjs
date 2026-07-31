@@ -7,16 +7,24 @@ import { createLogRequestScopeResolver } from "./log-request-bounds.mjs";
 
 const ALLOWED_PATHS = [
   /^(?:README|WEB3_CONTEXT|package|pnpm-lock|tsup\.config)\.(?:md|json|yaml|ts)$/,
+  /^vitest\.config\.ts$/,
+  /^server\.json$/,
+  /^smithery\.yaml$/,
   /^docs\/architecture\/(?:browser-wallet-operations|uniswap-v4)\.md$/,
   /^examples\/uniswap-v4\.mjs$/,
+  /^examples\/agent-playground\/\.env\.example$/,
+  /^mcpb\/(?:README\.md|manifest\.json)$/,
   /^scripts\/uniswap-v4\/.+\.mjs$/,
   /^scripts\/(?:verify-uniswap-v4-evidence|qa-uniswap-v4)\.mjs$/,
-  /^src\/(?:api|chains|operations|runtime|tokens|tools|uniswap-v4|zerox)\//,
-  /^src\/utils\/errors\.ts$/,
-  /^src\/(?:index|lifi\/route-execution)\.ts$/,
-  /^src\/wallet\/(?:audit|confirmation|execution-metadata)\.ts$/,
-  /^tests\/(?:api|chains|examples|operations|orbs|tools|uniswap-v4|wallet|zerox)\//,
-  /^tests\/utils\/errors\.test\.ts$/,
+  /^src\/(?:api|chains|config|operations|runtime|tokens|tools|types|uniswap-v4|zerox)\//,
+  /^src\/utils\/(?:canonical-json|errors)\.ts$/,
+  /^src\/(?:index|lifi\/(?:config|route-execution))\.ts$/,
+  /^src\/wallet\/(?:audit|confirmation|confirmation-persistence|confirmation-restore|execution-metadata)\.ts$/,
+  /^tests\/(?:api|chains|config|examples|operations|orbs|tools|uniswap-v4|wallet|zerox)\//,
+  /^tests\/scripts\/verify-uniswap-v4-evidence\.test\.ts$/,
+  /^tests\/global-setup\.ts$/,
+  /^tests\/(?:e2e\/(?:cli-parity|create-web3agent-bin-symlink|host-matrix|packaging)|lifi\/(?:config|route-execution)|utils\/(?:canonical-json|errors))\.test\.ts$/,
+  /^templates\/create\/(?:mastra|mcp-host|vercel-ai-sdk)\/\.env\.example$/,
   /^\.omo\/evidence\/robinhood-uniswap-v4\/implementation\/(?:task-20|f[1-4])-.*\.(?:txt|json|md)$/,
   /^task-(?:16|17|18|19)-adversarial-verify\.txt$/,
 ];
@@ -24,6 +32,15 @@ const FORBIDDEN_DEPENDENCIES = [
   "@uniswap/universal-router-sdk",
   "@uniswap/universal-router",
   "ethers",
+];
+const SCOPE_VIOLATION_KEYS = [
+  "forbiddenDependencies",
+  "forbiddenFeatures",
+  "missingScopeEvidence",
+  "publicExportRemovals",
+  "unboundedLogQueries",
+  "unexpectedChangedPaths",
+  "walletBackendChanges",
 ];
 function parseImports(path, source) {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
@@ -95,6 +112,7 @@ export function inspectScope({
     ...imports,
   ];
   return {
+    changedPaths,
     forbiddenDependencies: dependencies.filter((value) => FORBIDDEN_DEPENDENCIES.includes(value)),
     forbiddenFeatures: parsed.flatMap((item) =>
       item.features.map((feature) => `${item.path}:${feature}`)
@@ -123,6 +141,10 @@ function indexSource(cwd, path) {
   return execFileSync("git", ["show", `:${path}`], { cwd, encoding: "utf8" });
 }
 
+function revisionSource(cwd, revision, path) {
+  return execFileSync("git", ["show", `${revision}:${path}`], { cwd, encoding: "utf8" });
+}
+
 function readIndexSource(cwd, path) {
   try {
     return indexSource(cwd, path);
@@ -132,23 +154,44 @@ function readIndexSource(cwd, path) {
 }
 
 export function inspectGitScope({ base, cwd, head }) {
-  const committed = command(cwd, ["diff", "--name-only", `${base}...${head}`]);
-  const staged = command(cwd, ["diff", "--cached", "--name-only"]);
-  const modified = command(cwd, ["diff", "--name-only"]);
-  const untracked = command(cwd, ["ls-files", "--others", "--exclude-standard"]);
+  if (base.startsWith("-") || head.startsWith("-"))
+    throw new Error("Git refs cannot start with '-'");
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+  const targetBase = execFileSync("git", ["rev-parse", base], { cwd, encoding: "utf8" }).trim();
+  const targetHead = execFileSync("git", ["rev-parse", head], { cwd, encoding: "utf8" }).trim();
+  const includeWorkspace = currentHead === targetHead;
+  const committed = command(cwd, ["diff", "--name-only", `${base}...${head}`, "--"]);
+  const staged = includeWorkspace ? command(cwd, ["diff", "--cached", "--name-only"]) : [];
+  const modified = includeWorkspace ? command(cwd, ["diff", "--name-only"]) : [];
+  const untracked = includeWorkspace
+    ? command(cwd, ["ls-files", "--others", "--exclude-standard"])
+    : [];
   const changedPaths = [...new Set([...committed, ...staged, ...modified, ...untracked])]
     .filter((path) => !path.startsWith(".omo/"))
     .sort();
   const currentFiles = changedPaths
-    .filter((path) => /\.(?:[cm]?ts|mjs|js)$/.test(path) && existsSync(resolve(cwd, path)))
-    .map((path) => ({ path, source: readFileSync(resolve(cwd, path), "utf8") }));
+    .filter((path) => /\.(?:[cm]?ts|mjs|js)$/.test(path))
+    .flatMap((path) => {
+      if (includeWorkspace && existsSync(resolve(cwd, path))) {
+        return [{ path, source: readFileSync(resolve(cwd, path), "utf8") }];
+      }
+      try {
+        return [{ path, source: revisionSource(cwd, head, path) }];
+      } catch {
+        return [];
+      }
+    });
   const stagedFiles = staged
     .filter((path) => /\.(?:[cm]?ts|mjs|js)$/.test(path))
     .flatMap((path) => {
       const source = readIndexSource(cwd, path);
       return source === undefined ? [] : [{ path, source }];
     });
-  const workspacePackage = JSON.parse(readFileSync(resolve(cwd, "package.json"), "utf8"));
+  const workspacePackage = JSON.parse(
+    includeWorkspace
+      ? readFileSync(resolve(cwd, "package.json"), "utf8")
+      : revisionSource(cwd, head, "package.json")
+  );
   const stagedPackage = staged.includes("package.json")
     ? readIndexSource(cwd, "package.json")
     : undefined;
@@ -160,7 +203,9 @@ export function inspectGitScope({ base, cwd, head }) {
     cwd,
     encoding: "utf8",
   });
-  const headIndex = readFileSync(resolve(cwd, "src/index.ts"), "utf8");
+  const headIndex = includeWorkspace
+    ? readFileSync(resolve(cwd, "src/index.ts"), "utf8")
+    : revisionSource(cwd, head, "src/index.ts");
   const stagedIndex = staged.includes("src/index.ts")
     ? readIndexSource(cwd, "src/index.ts")
     : undefined;
@@ -171,27 +216,37 @@ export function inspectGitScope({ base, cwd, head }) {
   ].filter((file) =>
     existsSync(resolve(cwd, ".omo/evidence/robinhood-uniswap-v4/implementation", file))
   );
-  return inspectScope({
-    baseExports: exportedNames(baseIndex),
-    changedPaths,
-    files: [...currentFiles, ...stagedFiles],
-    headExports: exportedNames(headIndex),
-    headExportSnapshots: [
-      exportedNames(headIndex),
-      ...(stagedIndex === undefined ? [] : [exportedNames(stagedIndex)]),
-    ],
-    packageMetadata,
-    requiredScopeEvidence: [
-      "task-20-quality-gates.txt",
-      "task-20-packed-consumer.txt",
-      "task-20-package-contents.txt",
-    ],
-    scopeEvidencePaths,
+  return {
+    base: targetBase,
+    head: targetHead,
+    ...inspectScope({
+      baseExports: exportedNames(baseIndex),
+      changedPaths,
+      files: [...currentFiles, ...stagedFiles],
+      headExports: exportedNames(headIndex),
+      headExportSnapshots: [
+        exportedNames(headIndex),
+        ...(stagedIndex === undefined ? [] : [exportedNames(stagedIndex)]),
+      ],
+      packageMetadata,
+      requiredScopeEvidence: [
+        "task-20-quality-gates.txt",
+        "task-20-packed-consumer.txt",
+        "task-20-package-contents.txt",
+      ],
+      scopeEvidencePaths,
+    }),
+  };
+}
+
+export function scopeGuardViolations(report) {
+  return SCOPE_VIOLATION_KEYS.flatMap((key) => {
+    const values = report[key] ?? [];
+    return values.length === 0 ? [] : [`${key}: ${JSON.stringify(values)}`];
   });
 }
 
 export function requirePassingScope(report) {
-  const failures = Object.entries(report).filter(([, values]) => values.length > 0);
-  if (failures.length > 0)
-    throw new Error(`Scope validation failed: ${JSON.stringify(Object.fromEntries(failures))}`);
+  const failures = scopeGuardViolations(report);
+  if (failures.length > 0) throw new Error(`Scope validation failed: ${failures.join(", ")}`);
 }

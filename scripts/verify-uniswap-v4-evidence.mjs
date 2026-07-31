@@ -1,15 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { parseEvidenceCliArgs } from "./uniswap-v4/evidence-cli-args.mjs";
 import { inspectEvidence, requirePassingEvidence } from "./uniswap-v4/evidence-core.mjs";
 import { runScopeAstSelfTest } from "./uniswap-v4/scope-audit-self-test.mjs";
-import { inspectGitScope, inspectScope, requirePassingScope } from "./uniswap-v4/scope-audit.mjs";
-
-function option(name, fallback) {
-  const index = process.argv.indexOf(name);
-  return index === -1 ? fallback : (process.argv[index + 1] ?? fallback);
-}
+import {
+  inspectGitScope,
+  inspectScope,
+  requirePassingScope,
+  scopeGuardViolations,
+} from "./uniswap-v4/scope-audit.mjs";
 
 function writeReport(path, report) {
   const payload = `${JSON.stringify(report, null, 2)}\n`;
@@ -203,25 +204,40 @@ function runScopeSelfTest() {
   process.stdout.write(`${JSON.stringify({ ok: true, selfTest: "git-scope-layers" })}\n`);
 }
 
-if (process.argv.includes("--self-test-scope")) {
+const defaultEvidencePath = ".omo/evidence/robinhood-uniswap-v4/implementation";
+const defaultPlanPath = ".omo/plans/robinhood-uniswap-v4.md";
+const options = parseEvidenceCliArgs(process.argv.slice(2));
+if (options.selfTestScope) {
   runScopeSelfTest();
-} else if (process.argv.includes("--self-test")) {
+} else if (options.selfTest) {
   runSelfTest();
 } else {
-  const mode = option("--mode", "evidence");
+  const planPath = options.plan ?? defaultPlanPath;
+  const evidencePath = options.evidence ?? defaultEvidencePath;
+  if (options.mode !== "scope" && !existsSync(resolve(planPath))) {
+    throw new Error(`Evidence audit plan is missing: ${resolve(planPath)}`);
+  }
+  if (options.mode !== "scope" && !existsSync(resolve(evidencePath))) {
+    throw new Error(`Evidence audit directory is missing: ${resolve(evidencePath)}`);
+  }
+  const scopeReport = inspectGitScope({
+    base: options.base ?? "122f159904d46747abbedd5c0aada4171c6e9c15",
+    cwd: process.cwd(),
+    head: options.head ?? "HEAD",
+  });
   const report =
-    mode === "scope"
-      ? inspectGitScope({
-          base: option("--base", "122f159904d46747abbedd5c0aada4171c6e9c15"),
-          cwd: process.cwd(),
-          head: option("--head", "HEAD"),
-        })
+    options.mode === "scope"
+      ? scopeReport
       : inspectEvidence({
-          evidencePath: option("--evidence", ".omo/evidence/robinhood-uniswap-v4/implementation"),
-          phase: option("--phase", "current"),
-          planPath: option("--plan", ".omo/plans/robinhood-uniswap-v4.md"),
+          base: scopeReport.base,
+          changedPaths: scopeReport.changedPaths,
+          evidencePath,
+          head: scopeReport.head,
+          phase: options.phase,
+          planPath,
+          scopeGuardViolations: scopeGuardViolations(scopeReport),
         });
-  if (mode === "scope") requirePassingScope(report);
+  if (options.mode === "scope") requirePassingScope(report);
   else requirePassingEvidence(report);
-  writeReport(option("--json", ""), report);
+  writeReport(options.json ?? "", report);
 }

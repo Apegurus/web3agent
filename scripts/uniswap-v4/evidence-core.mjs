@@ -61,7 +61,15 @@ function inspectTaskEvidence(files, task) {
   };
 }
 
-export function inspectEvidence({ planPath, evidencePath, phase = "current" }) {
+export function inspectEvidence({
+  base,
+  changedPaths = [],
+  evidencePath,
+  head,
+  phase = "current",
+  planPath,
+  scopeGuardViolations = [],
+}) {
   const plan = readFileSync(planPath, "utf8");
   const files = listFiles(evidencePath);
   const planMtime = statSync(planPath).mtimeMs;
@@ -97,11 +105,15 @@ export function inspectEvidence({ planPath, evidencePath, phase = "current" }) {
       : [];
 
   return {
+    base,
+    changedPaths,
     failedCommands,
     finalVerifiers: finalVerifiers.length,
+    head,
     implementationTasks: requiredTasks.length,
     missingEvidence: [...missingEvidence, ...missingFinalEvidence],
-    scopeGuardViolations: [],
+    phase,
+    scopeGuardViolations,
     staleEvidence,
     taskEvidence,
     unmetAcceptance: taskEvidence
@@ -115,6 +127,7 @@ export function requirePassingEvidence(report) {
     ...report.missingEvidence,
     ...report.staleEvidence,
     ...report.failedCommands,
+    ...report.scopeGuardViolations,
     ...report.unmetAcceptance,
   ];
   if (failures.length > 0) throw new Error(`Evidence validation failed: ${failures.join(", ")}`);
