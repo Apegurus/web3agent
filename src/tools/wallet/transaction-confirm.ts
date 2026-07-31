@@ -118,6 +118,22 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       );
     }
 
+    const executionWalletState = getWalletState();
+    if (
+      pendingOperation.walletAddress &&
+      (!executionWalletState.address ||
+        pendingOperation.walletAddress.toLowerCase() !== executionWalletState.address.toLowerCase())
+    ) {
+      confirmationQueue.releaseExecuting(id);
+      confirmedId = undefined;
+      if (reservationId !== null) releaseReservation(reservationId);
+      reservationId = null;
+      return formatToolError(
+        "WALLET_MISMATCH",
+        `Operation ${id} was queued for wallet ${pendingOperation.walletAddress} but active wallet is ${executionWalletState.address ?? "unavailable"}. Deny this operation and re-submit.`
+      );
+    }
+
     const execResult = await result.operation.executor(opParams);
     if (execResult.isError) {
       confirmationQueue.fail(id);

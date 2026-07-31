@@ -887,6 +887,38 @@ describe("wallet tool handlers", () => {
     expect(confirmationQueueMock.complete).toHaveBeenCalledWith("wallet-mismatch-op");
   });
 
+  it("transactionConfirm revalidates the queued wallet immediately before executor invocation", async () => {
+    const queuedAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const switchedAddress = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const executor = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: '{"done":true}' }],
+    });
+    persistenceMocks.getWalletState
+      .mockReturnValueOnce({ mode: "private-key", chainId: 8453, address: queuedAddress })
+      .mockReturnValueOnce({ mode: "private-key", chainId: 8453, address: switchedAddress });
+    mockPendingOperation({
+      id: "wallet-switch-op",
+      type: "lifi_execute_bridge",
+      description: "Execute LI.FI bridge",
+      params: { chainId: 8453 },
+      executor,
+      createdAt: new Date(),
+      ttlMs: 60_000,
+      riskLevel: "destructive",
+      walletAddress: queuedAddress,
+    });
+
+    const { transactionConfirm } = await import("../../src/tools/wallet/index.js");
+    const result = await transactionConfirm({ id: "wallet-switch-op" });
+
+    const payload = JSON.parse((result.content[0] as { text: string }).text);
+    expect(payload.error).toBe("WALLET_MISMATCH");
+    expect(executor).not.toHaveBeenCalled();
+    expect(confirmationQueueMock.releaseExecuting).toHaveBeenCalledWith("wallet-switch-op");
+    expect(confirmationQueueMock.fail).not.toHaveBeenCalled();
+  });
+
   it("transactionConfirm fails queued operation when executor throws", async () => {
     mockPendingOperation({
       id: "throwing-op",
@@ -994,7 +1026,9 @@ describe("wallet tool handlers", () => {
 
     expect(result.isError).toBe(false);
     expect(ccxtExecutor).toHaveBeenCalledTimes(1);
-    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("ccxt-read-only-op");
+    expect(confirmationQueueMock.complete).toHaveBeenCalledWith("ccxt-read-only-op", {
+      status: "ok",
+    });
   });
 
   it("transactionConfirm still rejects wallet-backed ops when wallet is read-only", async () => {

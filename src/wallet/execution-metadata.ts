@@ -7,6 +7,9 @@ const provenanceKeys = [
   "capabilityDecisionId",
   "capabilityReason",
   "fallbackReason",
+  "stage",
+  "status",
+  "txHash",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
