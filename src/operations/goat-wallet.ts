@@ -18,6 +18,7 @@ import type {
 } from "../api/types.js";
 import { lookupTokenByAddress } from "../tokens/registry.js";
 import { createPublicClientForRuntimeChain, getChainForRuntime } from "./chain-access.js";
+import { type EVMTypedData, normalizeTypedDataTypes } from "./goat-wallet-typed-data.js";
 import { assertAddress, assertHex } from "./validation.js";
 
 interface EVMTransaction {
@@ -40,51 +41,7 @@ interface EVMReadResult {
   value: unknown;
 }
 
-interface EVMTypedData {
-  domain: Record<string, unknown>;
-  types: Record<string, unknown>;
-  primaryType: string;
-  message: Record<string, unknown>;
-}
-
 const erc20BalanceAbi = parseAbi(["function balanceOf(address account) view returns (uint256)"]);
-
-function normalizeTypedDataTypes(
-  types: Record<string, unknown>
-): PreparedSignTypedDataAction["eip712"]["types"] {
-  const normalized: PreparedSignTypedDataAction["eip712"]["types"] = {};
-
-  for (const [typeName, entries] of Object.entries(types)) {
-    if (!Array.isArray(entries)) {
-      throw new Web3AgentError({
-        code: "GOAT_TOOL_ERROR",
-        message: `Typed data type ${typeName} must be an array`,
-      });
-    }
-
-    normalized[typeName] = entries.map((entry, index) => {
-      if (!entry || typeof entry !== "object") {
-        throw new Web3AgentError({
-          code: "GOAT_TOOL_ERROR",
-          message: `Typed data entry ${typeName}[${index}] must be an object`,
-        });
-      }
-
-      const name = (entry as { name?: unknown }).name;
-      const type = (entry as { type?: unknown }).type;
-      if (typeof name !== "string" || typeof type !== "string") {
-        throw new Web3AgentError({
-          code: "GOAT_TOOL_ERROR",
-          message: `Typed data entry ${typeName}[${index}] must include string name/type`,
-        });
-      }
-
-      return { name, type };
-    });
-  }
-
-  return normalized;
-}
 
 export class OperationPauseError extends Error {
   constructor(readonly action: PreparedAction) {
