@@ -241,10 +241,25 @@ describe("Robinhood native 0x tools", () => {
         value: 0n,
       })
     );
-    expect(mocks.waitForTransactionReceipt).toHaveBeenCalledWith({ hash: "0xapprove" });
+    expect(mocks.waitForTransactionReceipt).toHaveBeenNthCalledWith(1, { hash: "0xapprove" });
+    expect(mocks.waitForTransactionReceipt).toHaveBeenNthCalledWith(2, { hash: "0xswap" });
     expect(mocks.sendTransaction.mock.invocationCallOrder[1]).toBeGreaterThan(
       mocks.waitForTransactionReceipt.mock.invocationCallOrder[0] ?? 0
     );
+  });
+
+  it("Given a broadcast swap whose receipt is unavailable When execution returns Then it preserves submitted status", async () => {
+    await zeroExSwap(params);
+    mocks.waitForTransactionReceipt
+      .mockResolvedValueOnce({ status: "success" })
+      .mockRejectedValueOnce(new Error("receipt unavailable"));
+
+    const result = await executeZeroExSwapNow(getQueuedParams());
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: expect.objectContaining({ status: "submitted", txHash: "0xswap" }),
+    });
   });
 
   it("rejects a tampered confirmed sell amount before any wallet call", async () => {

@@ -71,6 +71,30 @@ export async function executeConfirmedZeroExSwap(params: Record<string, unknown>
     data: execution.transaction.data,
     value: BigInt(execution.transaction.value),
   });
+  let swapReceipt: Awaited<
+    ReturnType<ReturnType<typeof createPublicClientForRuntimeChain>["waitForTransactionReceipt"]>
+  >;
+  try {
+    swapReceipt = await createPublicClientForRuntimeChain(
+      ROBINHOOD_CHAIN_ID
+    ).waitForTransactionReceipt({ hash: txHash });
+  } catch (error: unknown) {
+    return formatToolResponse({
+      status: "submitted",
+      txHash,
+      provider: "0x",
+      chainId: ROBINHOOD_CHAIN_ID,
+      adapterSource: execution.adapterSource,
+      capabilityDecisionId: execution.capabilityDecisionId,
+      capabilityReason: execution.capabilityReason,
+    });
+  }
+  if (swapReceipt.status !== "success") {
+    throw new Web3AgentError({
+      code: "ZEROEX_SWAP_FAILED",
+      message: "Confirmed 0x swap transaction failed",
+    });
+  }
   return formatToolResponse({
     status: "completed",
     txHash,
