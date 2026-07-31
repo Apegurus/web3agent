@@ -47,7 +47,7 @@ export function assertUniswapV4WriteTargets(
         break;
       case "poolInitialization":
         if (
-          action.to.toLowerCase() !== deployment.poolManager.toLowerCase() ||
+          action.to.toLowerCase() !== deployment.positionManager.toLowerCase() ||
           plan.operation.kind !== "mint" ||
           !plan.operation.createPool
         ) {
@@ -78,7 +78,7 @@ export function assertUniswapV4WriteTargets(
     !plan.actions.some((action) => action.kind === "poolInitialization")
   ) {
     throw invalidStageOrder(
-      "Pool-creating mint plans must include a PoolManager initialization stage"
+      "Pool-creating mint plans must include a PositionManager initialization stage"
     );
   }
 }

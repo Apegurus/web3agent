@@ -130,10 +130,10 @@ export function permit2Action(
     return undefined;
   }
   const nonce = allowances[0]?.permit2.nonce;
-  if (nonce === undefined || allowances.some((allowance) => allowance.permit2.nonce !== nonce)) {
+  if (nonce === undefined) {
     throw new Web3AgentError({
-      code: "UNISWAP_V4_PERMIT2_NONCE_MISMATCH",
-      message: "All Permit2 batch details must have the same pinned nonce",
+      code: "UNISWAP_V4_PERMIT2_ALLOWANCE_MISSING",
+      message: "Permit2 allowance state is required for every batch token",
     });
   }
   const batch = buildPermit2Batch({
@@ -159,7 +159,11 @@ export function permit2Action(
     },
     kind: "permit2Signature",
     message: {
-      details: details.map((detail) => ({ ...detail, token: getAddress(detail.token) })),
+      details: details.map((detail) => ({
+        ...detail,
+        nonce: allowanceFor(input, detail.token).permit2.nonce,
+        token: getAddress(detail.token),
+      })),
       sigDeadline: batch.sigDeadline,
       spender: getAddress(input.deployment.positionManager),
     },

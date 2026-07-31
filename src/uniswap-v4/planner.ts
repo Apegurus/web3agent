@@ -60,7 +60,7 @@ export function planUniswapV4Add(input: UniswapV4AddPlanInput): UniswapV4AddPlan
     actions.push({
       data: toHex(transaction.calldata),
       kind: "poolInitialization",
-      to: canonicalInput.deployment.poolManager,
+      to: canonicalInput.deployment.positionManager,
       value: transaction.value,
     });
   }

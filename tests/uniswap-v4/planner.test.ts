@@ -49,7 +49,7 @@ describe("Uniswap v4 add planner", () => {
         },
         {
           erc20Amount: 0n,
-          permit2: { amount: 0n, expiration: 0n, nonce: 7n },
+          permit2: { amount: 0n, expiration: 0n, nonce: 8n },
           sourceBlock,
           token: TOKEN_TWO,
         },
@@ -82,6 +82,15 @@ describe("Uniswap v4 add planner", () => {
       "positionManager",
     ]);
     expect(plan.actions[3]).toMatchObject({ kind: "positionManager", value: 0n });
+    expect(plan.actions[2]).toMatchObject({
+      kind: "permit2Signature",
+      message: {
+        details: expect.arrayContaining([
+          expect.objectContaining({ nonce: 7n, token: TOKEN }),
+          expect.objectContaining({ nonce: 8n, token: TOKEN_TWO }),
+        ]),
+      },
+    });
   });
 
   it("Given an ERC-20/ERC-20 increase with sufficient pinned approvals, when planning, then emits only exact Permit2 and PositionManager prerequisites", async () => {
@@ -223,7 +232,7 @@ describe("Uniswap v4 add planner", () => {
     ]);
     expect(plan.actions[0]).toMatchObject({
       kind: "poolInitialization",
-      to: deployment.poolManager,
+      to: deployment.positionManager,
     });
   });
 });
