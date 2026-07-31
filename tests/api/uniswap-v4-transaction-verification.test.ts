@@ -31,10 +31,11 @@ describe("Uniswap v4 confirmed transaction verification", () => {
     const action: PreparedTransactionAction = {
       id: "dynamic-submit",
       label: "Submit signed permit",
-      tx: { chainId: 4663, to: POSITION_MANAGER, value: "0" },
+      tx: { chainId: 4663, from: ACCOUNT, to: POSITION_MANAGER, value: "0" },
       type: "transaction",
     };
     client.getTransaction.mockResolvedValue({
+      from: ACCOUNT,
       input: "0xdeadbeef",
       to: POSITION_MANAGER,
       value: 0n,
@@ -43,6 +44,25 @@ describe("Uniswap v4 confirmed transaction verification", () => {
     await expect(
       getConfirmedReceipt(action, { status: "confirmed", txHash: TX_HASH, type: "transaction" })
     ).resolves.toMatchObject({ status: "success" });
+  });
+
+  it("Given a confirmed hash submitted by another account When checking its receipt Then generic verification rejects the sender mismatch", async () => {
+    const action: PreparedTransactionAction = {
+      id: "sender-bound",
+      label: "Submit sender-bound transaction",
+      tx: { chainId: 4663, from: ACCOUNT, to: POSITION_MANAGER, value: "0" },
+      type: "transaction",
+    };
+    client.getTransaction.mockResolvedValue({
+      from: "0x9999999999999999999999999999999999999999",
+      input: "0x",
+      to: POSITION_MANAGER,
+      value: 0n,
+    });
+
+    await expect(
+      getConfirmedReceipt(action, { status: "confirmed", txHash: TX_HASH, type: "transaction" })
+    ).rejects.toThrow("prepared sender");
   });
 
   it("Given a canonical PositionManager action When confirming real calldata Then the verifier accepts its sender, target, value, and input", async () => {

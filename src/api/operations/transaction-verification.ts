@@ -34,9 +34,11 @@ export async function getConfirmedReceipt(
     }
 
     const transaction = await publicClient.getTransaction({ hash: result.txHash as Hex });
+    const expectedFrom = action.tx.from?.toLowerCase();
     const expectedData = action.tx.data?.toLowerCase();
     const expectedValue = BigInt(action.tx.value ?? "0");
     if (
+      (expectedFrom !== undefined && transaction.from.toLowerCase() !== expectedFrom) ||
       !transaction.to ||
       transaction.to.toLowerCase() !== action.tx.to.toLowerCase() ||
       (expectedData !== undefined && transaction.input.toLowerCase() !== expectedData) ||
@@ -44,7 +46,7 @@ export async function getConfirmedReceipt(
     ) {
       throw new Web3AgentError({
         code: "INVALID_PARAMS",
-        message: `Action result ${action.id} transaction does not match the prepared target, calldata, or value`,
+        message: `Action result ${action.id} transaction does not match the prepared sender, target, calldata, or value`,
       });
     }
 

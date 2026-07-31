@@ -84,7 +84,13 @@ export async function verifyTransaction(
 
 function expectedAction(plan: UniswapV4PersistedWritePlan, id: string): PreparedTransactionAction {
   if (id.endsWith(":submit"))
-    return transactionAction(id, plan.operation.chainId, plan.deployment.permit2, "0");
+    return transactionAction(
+      id,
+      plan.operation.chainId,
+      plan.account,
+      plan.deployment.permit2,
+      "0"
+    );
   const nft = plan.actions.find(
     (action) => action.kind === "nftPermitSignature" && action.finalActionId === id
   );
@@ -92,18 +98,27 @@ function expectedAction(plan: UniswapV4PersistedWritePlan, id: string): Prepared
     return transactionAction(
       id,
       plan.operation.chainId,
+      plan.account,
       nft.unsignedFinal.to,
       nft.unsignedFinal.value
     );
   const action = plan.actions.find((_, index) => actionId(plan, index) === id);
   if (!action || action.kind === "permit2Signature" || action.kind === "nftPermitSignature")
     throw invalid("Uniswap v4 transaction action is unavailable");
-  return transactionAction(id, plan.operation.chainId, action.to, action.value, action.data);
+  return transactionAction(
+    id,
+    plan.operation.chainId,
+    plan.account,
+    action.to,
+    action.value,
+    action.data
+  );
 }
 
 function transactionAction(
   id: string,
   chainId: number,
+  from: `0x${string}`,
   to: `0x${string}`,
   value: string,
   data?: `0x${string}`
@@ -111,7 +126,7 @@ function transactionAction(
   return {
     id,
     label: "Verify Uniswap v4 transaction",
-    tx: { chainId, to, value, ...(data === undefined ? {} : { data }) },
+    tx: { chainId, from, to, value, ...(data === undefined ? {} : { data }) },
     type: "transaction",
   };
 }
