@@ -29,18 +29,18 @@ vi.mock("@lifi/sdk", () => ({
     action: {
       fromChainId: 1,
       toChainId: 8453,
-      fromToken: { symbol: "ETH" },
-      toToken: { symbol: "ETH" },
-      fromAmount: "1e18",
+      fromToken: { address: "0x0000000000000000000000000000000000000000", symbol: "ETH" },
+      toToken: { address: "0x0000000000000000000000000000000000000000", symbol: "ETH" },
+      fromAmount: "1000000000000000000",
     },
     estimate: {
       tool: "connext",
-      fromAmount: "1e18",
+      fromAmount: "1000000000000000000",
       fromAmountUSD: "3000",
-      toAmount: "1e18",
+      toAmount: "1000000000000000000",
       toAmountUSD: "2990",
-      toAmountMin: "0.99e18",
-      approvalAddress: "0x0",
+      toAmountMin: "990000000000000000",
+      approvalAddress: "0x2222222222222222222222222222222222222222",
       executionDuration: 300,
       gasCosts: [
         {
@@ -55,6 +55,12 @@ vi.mock("@lifi/sdk", () => ({
       ],
     },
     includedSteps: [],
+    transactionRequest: {
+      chainId: 1,
+      data: "0xabcdef",
+      to: "0x2222222222222222222222222222222222222222",
+      value: "1000000000000000000",
+    },
   }),
   executeRoute: vi.fn().mockResolvedValue(undefined),
 }));
@@ -65,7 +71,23 @@ vi.mock("../../src/wallet/persistence.js", () => ({
     address: "0x1234567890123456789012345678901234567890",
     chainId: 1,
   }),
-  getActiveAccount: vi.fn().mockReturnValue({}),
+  getActiveAccount: vi.fn().mockReturnValue({
+    address: "0x1234567890123456789012345678901234567890",
+  }),
+}));
+
+vi.mock("../../src/config/wallet-factory.js", () => ({
+  createWalletClientForChain: vi.fn().mockReturnValue({
+    sendTransaction: vi
+      .fn()
+      .mockResolvedValue("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+  }),
+}));
+
+vi.mock("../../src/operations/chain-access.js", () => ({
+  createPublicClientForRuntimeChain: vi.fn().mockReturnValue({
+    waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
+  }),
 }));
 
 vi.mock("../../src/wallet/confirmation.js", async (importOriginal) => {
@@ -218,6 +240,9 @@ describe("cli parity flow", () => {
     if (!runtimeQueued.ok) {
       throw new Error("Expected queued runtime bridge invocation to succeed");
     }
+    if (!isQueuedResult(runtimeQueued.data)) {
+      throw new Error("Expected queued runtime bridge data");
+    }
 
     const cliQueued = await invokeCliTool("lifi_execute_bridge", bridgeInput());
     const cliConfirmed = await invokeCliTool("transaction_confirm", { id: cliQueued.data.id });
@@ -227,3 +252,13 @@ describe("cli parity flow", () => {
     expect(cliConfirmed.data).toEqual(runtimeConfirmed);
   });
 });
+
+function isQueuedResult(value: unknown): value is { readonly id: string; readonly status: string } {
+  if (!value || typeof value !== "object") return false;
+  return (
+    "id" in value &&
+    typeof value.id === "string" &&
+    "status" in value &&
+    typeof value.status === "string"
+  );
+}
