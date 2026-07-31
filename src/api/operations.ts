@@ -66,6 +66,7 @@ export async function prepareOperation(
       });
     }
     case "uniswap-v4":
+      await initializeRuntime();
       return prepareUniswapV4Operation(uniswapV4LifecycleOperationSchema.parse(input));
     default:
       throw new Web3AgentError({
@@ -130,6 +131,7 @@ export async function resumeOperation(
   }
 
   if (resumeState.integration === "uniswap-v4") {
+    await initializeRuntime();
     return resumeUniswapV4Operation(resumeState, actionResults);
   }
 
@@ -149,4 +151,9 @@ export async function submitSignedSwap(
   params: SubmitSignedSwapInput
 ): Promise<SwapSubmissionResult> {
   return submitSignedSwapDirect(params);
+}
+
+async function initializeRuntime(): Promise<void> {
+  const { getRuntime } = await import("./shared.js");
+  await getRuntime();
 }

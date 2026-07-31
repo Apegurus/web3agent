@@ -12,10 +12,14 @@ import {
 
 const mocks = vi.hoisted(() => ({
   assertPostTransactionState: vi.fn(),
+  getRuntime: vi.fn(),
   prepareExternalPlan: vi.fn(),
   verifyTransaction: vi.fn(),
   acceptSignature: vi.fn(),
   reconcileConfirmedReceipt: vi.fn(),
+}));
+vi.mock("../../src/api/shared.js", () => ({
+  getRuntime: (...args: unknown[]) => mocks.getRuntime(...args),
 }));
 vi.mock("../../src/tools/uniswap-v4/write-planner.js", () => ({
   prepareExternalUniswapV4WritePlan: (...args: unknown[]) => mocks.prepareExternalPlan(...args),
@@ -48,6 +52,7 @@ vi.mock("../../src/operations/chain-access.js", () => ({
     getTransactionReceipt: () => Promise.resolve({}),
   }),
 }));
+import { prepareOperation } from "../../src/api/operations.js";
 import {
   prepareUniswapV4Operation,
   resumeUniswapV4Operation,
@@ -61,6 +66,7 @@ function requirePending(result: Awaited<ReturnType<typeof resumeUniswapV4Operati
 describe("Uniswap v4 walletless lifecycle happy flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getRuntime.mockResolvedValue({});
     mocks.prepareExternalPlan.mockImplementation(async (input: { readonly kind: LifecycleKind }) =>
       plan(input.kind, input.kind === "burn")
     );
@@ -71,6 +77,14 @@ describe("Uniswap v4 walletless lifecycle happy flows", () => {
         position: { status: "available" },
       },
     });
+  });
+  it("Given an uninitialized SDK process When preparing a lifecycle Then initializes the managed runtime before planning", async () => {
+    await prepareOperation({ integration: "uniswap-v4", ...operation("collect") });
+
+    expect(mocks.getRuntime).toHaveBeenCalledTimes(1);
+    expect(mocks.getRuntime.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.prepareExternalPlan.mock.invocationCallOrder[0] ?? 0
+    );
   });
   it.each([
     ["mint", false, "transaction"],
