@@ -1,8 +1,8 @@
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
-import { ensureBuild } from "../global-setup.js";
+import { describe, expect, it } from "vitest";
+import { withBuiltArtifacts } from "../global-setup.js";
 import { withPackLock } from "./pack-mutex.js";
 
 const ROOT = process.cwd();
@@ -14,19 +14,19 @@ const EXAMPLE_ROOT_API = join(ROOT, "examples/root-api-smoke.mjs");
 const EXAMPLE_RUNTIME = join(ROOT, "examples/runtime-smoke.mjs");
 
 describe("packaging tests", () => {
-  beforeAll(() => ensureBuild(), 120_000);
+  it("dist/cli.js exists and has shebang", () =>
+    withBuiltArtifacts(() => {
+      expect(existsSync(DIST_CLI)).toBe(true);
+      const content = readFileSync(DIST_CLI, "utf-8");
+      expect(content.startsWith("#!/usr/bin/env node")).toBe(true);
+    }));
 
-  it("dist/cli.js exists and has shebang", () => {
-    expect(existsSync(DIST_CLI)).toBe(true);
-    const content = readFileSync(DIST_CLI, "utf-8");
-    expect(content.startsWith("#!/usr/bin/env node")).toBe(true);
-  });
-
-  it("library and subpath builds exist", () => {
-    expect(existsSync(DIST_INDEX)).toBe(true);
-    expect(existsSync(DIST_RUNTIME)).toBe(true);
-    expect(existsSync(DIST_MCP)).toBe(true);
-  });
+  it("library and subpath builds exist", () =>
+    withBuiltArtifacts(() => {
+      expect(existsSync(DIST_INDEX)).toBe(true);
+      expect(existsSync(DIST_RUNTIME)).toBe(true);
+      expect(existsSync(DIST_MCP)).toBe(true);
+    }));
 
   it("WEB3_CONTEXT.md exists at package root", () => {
     const path = join(ROOT, "WEB3_CONTEXT.md");
@@ -43,66 +43,71 @@ describe("packaging tests", () => {
     expect(existsSync(EXAMPLE_RUNTIME)).toBe(true);
   });
 
-  it("--help exits 0 and outputs to stderr", () => {
-    const result = execSync(`node ${DIST_CLI} --help 2>&1`, {
-      encoding: "utf-8",
-    });
-    expect(result).toContain("web3agent");
-    expect(result).toContain("Usage:");
-  });
+  it("--help exits 0 and outputs to stderr", () =>
+    withBuiltArtifacts(() => {
+      const result = execSync(`node ${DIST_CLI} --help 2>&1`, {
+        encoding: "utf-8",
+      });
+      expect(result).toContain("web3agent");
+      expect(result).toContain("Usage:");
+    }));
 
-  it("--version exits 0 and prints version to stderr", () => {
-    const result = execSync(`node ${DIST_CLI} --version 2>&1`, {
-      encoding: "utf-8",
-    });
-    expect(result.trim()).toMatch(/^web3agent \d+\.\d+\.\d+/);
-  });
+  it("--version exits 0 and prints version to stderr", () =>
+    withBuiltArtifacts(() => {
+      const result = execSync(`node ${DIST_CLI} --version 2>&1`, {
+        encoding: "utf-8",
+      });
+      expect(result.trim()).toMatch(/^web3agent \d+\.\d+\.\d+/);
+    }));
 
-  it("public package exports are importable", () => {
-    const result = execSync(
-      `node --input-type=module -e "import { getSwapQuote, parseEnv, setConfig, pollSwapStatus } from './dist/index.js'; import { createRuntime, shutdownDefaultRuntime } from './dist/runtime/index.js'; import { startServer } from './dist/mcp/index.js'; console.log(typeof getSwapQuote, typeof parseEnv, typeof setConfig, typeof pollSwapStatus, typeof createRuntime, typeof shutdownDefaultRuntime, typeof startServer)"`,
-      {
+  it("public package exports are importable", () =>
+    withBuiltArtifacts(() => {
+      const result = execSync(
+        `node --input-type=module -e "import { getSwapQuote, parseEnv, setConfig, pollSwapStatus } from './dist/index.js'; import { createRuntime, shutdownDefaultRuntime } from './dist/runtime/index.js'; import { startServer } from './dist/mcp/index.js'; console.log(typeof getSwapQuote, typeof parseEnv, typeof setConfig, typeof pollSwapStatus, typeof createRuntime, typeof shutdownDefaultRuntime, typeof startServer)"`,
+        {
+          encoding: "utf-8",
+          cwd: ROOT,
+        }
+      );
+
+      expect(result.trim()).toBe("function function function function function function function");
+    }));
+
+  it("root API smoke example runs against the built package", () =>
+    withBuiltArtifacts(() => {
+      const result = execSync(`node ${EXAMPLE_ROOT_API}`, {
         encoding: "utf-8",
         cwd: ROOT,
-      }
-    );
+      });
 
-    expect(result.trim()).toBe("function function function function function function function");
-  });
+      const payload = JSON.parse(result) as {
+        supported: boolean;
+        tokenCount: number;
+        sampleToken: { symbol: string } | null;
+      };
 
-  it("root API smoke example runs against the built package", () => {
-    const result = execSync(`node ${EXAMPLE_ROOT_API}`, {
-      encoding: "utf-8",
-      cwd: ROOT,
-    });
+      expect(payload.supported).toBe(true);
+      expect(payload.tokenCount).toBeGreaterThan(0);
+      expect(payload.sampleToken?.symbol).toBe("USDC");
+    }));
 
-    const payload = JSON.parse(result) as {
-      supported: boolean;
-      tokenCount: number;
-      sampleToken: { symbol: string } | null;
-    };
+  it("runtime smoke example supports the safe imports-only mode", () =>
+    withBuiltArtifacts(() => {
+      const result = execSync(`node ${EXAMPLE_RUNTIME}`, {
+        encoding: "utf-8",
+        cwd: ROOT,
+      });
 
-    expect(payload.supported).toBe(true);
-    expect(payload.tokenCount).toBeGreaterThan(0);
-    expect(payload.sampleToken?.symbol).toBe("USDC");
-  });
+      const payload = JSON.parse(result) as {
+        createRuntime: string;
+        mode: string;
+        hint: string;
+      };
 
-  it("runtime smoke example supports the safe imports-only mode", () => {
-    const result = execSync(`node ${EXAMPLE_RUNTIME}`, {
-      encoding: "utf-8",
-      cwd: ROOT,
-    });
-
-    const payload = JSON.parse(result) as {
-      createRuntime: string;
-      mode: string;
-      hint: string;
-    };
-
-    expect(payload.createRuntime).toBe("function");
-    expect(payload.mode).toBe("imports-only");
-    expect(payload.hint).toContain("--run");
-  });
+      expect(payload.createRuntime).toBe("function");
+      expect(payload.mode).toBe("imports-only");
+      expect(payload.hint).toContain("--run");
+    }));
 
   it("pnpm pack --json includes required files", () => {
     const output = withPackLock(() =>

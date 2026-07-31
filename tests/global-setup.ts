@@ -32,14 +32,23 @@ function buildOutputsExist(): boolean {
 // Two parallel callers — even one build + one pack — race on that directory
 // and produce ENOENT. The pack-mutex serializes both operations on the same
 // lock since they share the dist/ contention domain.
+function ensureBuildLocked(): void {
+  const stampPath = join(getPackWorkDir(), `build-${buildStateKey()}.stamp`);
+  if (existsSync(stampPath) && buildOutputsExist()) return;
+  execSync("pnpm build", {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  writeFileSync(stampPath, `${new Date().toISOString()}\n`, "utf-8");
+}
+
 export function ensureBuild(): void {
-  withPackLock(() => {
-    const stampPath = join(getPackWorkDir(), `build-${buildStateKey()}.stamp`);
-    if (existsSync(stampPath) && buildOutputsExist()) return;
-    execSync("pnpm build", {
-      cwd: ROOT,
-      stdio: "inherit",
-    });
-    writeFileSync(stampPath, `${new Date().toISOString()}\n`, "utf-8");
+  withPackLock(ensureBuildLocked);
+}
+
+export function withBuiltArtifacts<T>(fn: () => T): T {
+  return withPackLock(() => {
+    ensureBuildLocked();
+    return fn();
   });
 }
