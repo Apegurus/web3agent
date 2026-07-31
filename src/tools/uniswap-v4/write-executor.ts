@@ -49,11 +49,22 @@ export async function executeUniswapV4WritePlan(
       status: "completed",
     });
   } catch (error: unknown) {
-    if (error instanceof StageExecutionError)
+    if (error instanceof StageExecutionError) {
+      const latestReceipt = error.receipts.at(-1);
+      if (latestReceipt?.status === "submitted")
+        return formatToolResponse({
+          expectedDeltas: parsed.data.expectedDeltas,
+          operation: parsed.data.operation.kind,
+          receipts: error.receipts,
+          stage: error.stage,
+          status: "submitted",
+          txHash: latestReceipt.txHash,
+        });
       return formatToolError("UNISWAP_V4_EXECUTION_FAILED", error.message, {
         receipts: error.receipts,
         stage: error.stage,
       });
+    }
     if (error instanceof Web3AgentError)
       return formatToolError(error.code, error.message, error.details);
     return formatToolError("UNISWAP_V4_EXECUTION_FAILED", "Uniswap v4 write execution failed", {

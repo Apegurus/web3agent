@@ -50,6 +50,7 @@ vi.mock("../../src/uniswap-v4/reconcile-confirmed.js", () => ({
 
 import { getUniswapV4ToolDefinitions } from "../../src/tools/uniswap-v4/index.js";
 import { executeUniswapV4WritePlan } from "../../src/tools/uniswap-v4/write-executor.js";
+import { transactionConfirm } from "../../src/tools/wallet/transaction-confirm.js";
 import { getUniswapV4Deployment } from "../../src/uniswap-v4/deployments.js";
 import { executeWrite } from "../../src/utils/write.js";
 import { appendAuditLog } from "../../src/wallet/audit.js";
@@ -164,6 +165,55 @@ describe("Uniswap v4 write security boundaries", () => {
       error: "UNISWAP_V4_EXECUTION_FAILED",
     });
     expect(wallet.sendTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("Given receipt polling fails after approval submission, when executing a confirmed mint plan, then preserves the uncertain transaction hash", async () => {
+    const txHash = `0x${"01".repeat(32)}`;
+    wallet.sendTransaction.mockResolvedValueOnce(txHash);
+    wallet.waitForTransactionReceipt.mockRejectedValueOnce(new Error("rpc timeout"));
+
+    const result = await executeUniswapV4WritePlan(createWriteSecurityPlan("mint", true));
+
+    expect(result.isError).toBe(false);
+    expect(json(result)).toMatchObject({
+      receipts: [{ stage: "erc20Approval", status: "submitted", txHash }],
+      stage: "erc20Approval",
+      status: "submitted",
+      txHash,
+    });
+    expect(wallet.sendTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("Given a queued write was submitted before receipt polling failed, when confirming, then it records a durable submitted result instead of execution failure", async () => {
+    const txHash = `0x${"01".repeat(32)}`;
+    wallet.sendTransaction.mockResolvedValueOnce(txHash);
+    wallet.waitForTransactionReceipt.mockRejectedValueOnce(new Error("rpc timeout"));
+    const queued = await executeWrite({
+      description: "Mint Uniswap v4 position",
+      executor: executeUniswapV4WritePlan,
+      params: createWriteSecurityPlan("mint", true),
+      riskLevel: "safe",
+      toolName: "uniswap_v4_mint_position",
+    });
+    const id = json(queued).id;
+    if (typeof id !== "string") throw new Error("Expected confirmation ID");
+
+    const result = await transactionConfirm({ id });
+
+    expect(result.isError).toBe(false);
+    expect(json(result)).toMatchObject({
+      receipts: [{ stage: "erc20Approval", status: "submitted", txHash }],
+      stage: "erc20Approval",
+      status: "submitted",
+      txHash,
+    });
+    expect(confirmationQueue.list()).toHaveLength(0);
+    expect(appendAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CONFIRMED",
+        metadata: expect.objectContaining({ status: "submitted", txHash }),
+      })
+    );
   });
 
   it("Given malformed tool input, when a write handler is invoked, then validation rejects it before it can queue or call a wallet", async () => {

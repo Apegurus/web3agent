@@ -56,7 +56,7 @@ export type ExecutionStage =
   | "positionManager";
 export type StageReceipt = {
   readonly stage: ExecutionStage;
-  readonly status: "reverted" | "success";
+  readonly status: "reverted" | "submitted" | "success";
   readonly txHash: string;
 };
 
@@ -165,7 +165,18 @@ async function submitTransaction(
     }),
     "Uniswap v4 transaction hash"
   );
-  const receipt = await context.publicClient.waitForTransactionReceipt({ hash: txHash });
+  let receipt: Awaited<ReturnType<typeof context.publicClient.waitForTransactionReceipt>>;
+  try {
+    receipt = await context.publicClient.waitForTransactionReceipt({ hash: txHash });
+  } catch (error: unknown) {
+    receipts.push({ stage, status: "submitted", txHash: String(txHash) });
+    const reason = error instanceof Error ? `: ${error.message}` : "";
+    throw new StageExecutionError(
+      stage,
+      receipts,
+      `Uniswap v4 ${stage} transaction was submitted but receipt polling failed${reason}`
+    );
+  }
   const status = receipt.status === "success" ? "success" : "reverted";
   receipts.push({ stage, status, txHash: String(txHash) });
   if (status !== "success")
