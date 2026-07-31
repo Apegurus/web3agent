@@ -1,5 +1,6 @@
 import { maxUint256 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { preparedTransactionRequestSchema } from "../../src/api/schemas/common.js";
 import { setupDefaultOperationMocks } from "../helpers/operation-mocks.js";
 
 const viemMocks = vi.hoisted(() => ({
@@ -51,7 +52,7 @@ vi.mock("@lifi/sdk", () => ({
   convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
   setAllowance: (...args: unknown[]) => lifiMocks.setAllowance(...args),
   createConfig: (...args: unknown[]) => lifiMocks.createConfig(...args),
-  EVM: (...args: unknown[]) => lifiMocks.EVM(...args),
+  EVM: (provider: unknown) => lifiMocks.EVM(provider),
 }));
 
 vi.mock("../../src/operations/goat.js", () => ({
@@ -87,6 +88,17 @@ describe("generic prepared operations API", () => {
 
     const { clearLifiChainsCache } = await import("../../src/api/operations.js");
     clearLifiChainsCache();
+  });
+
+  it("Given a version 1 prepared transaction created before sender binding, when parsing it, then it remains resumable", () => {
+    const result = preparedTransactionRequestSchema.safeParse({
+      chainId: 8453,
+      data: "0xdeadbeef",
+      to: "0x1111111111111111111111111111111111111111",
+      value: "0",
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("prepareOperation builds an Orbs swap operation with approval actions", async () => {
@@ -442,6 +454,138 @@ describe("generic prepared operations API", () => {
     expect(lifiMocks.createConfig).toHaveBeenCalledTimes(1);
   });
 
+  it("Given a caller-tampered bridge resume action When resuming Then rebuilds the canonical LI.FI transaction", async () => {
+    const nativeToken = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const canonicalTarget = "0x6666666666666666666666666666666666666666";
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromAmount: "1000",
+        fromChainId: 1,
+        fromToken: { address: nativeToken, symbol: "ETH" },
+        toChainId: 8453,
+        toToken: { address: "0x4444444444444444444444444444444444444444", symbol: "USDC" },
+      },
+      estimate: { toAmount: "999", toAmountMin: "990" },
+      transactionRequest: {
+        chainId: 1,
+        data: "0xabcdef",
+        to: canonicalTarget,
+        value: "1000",
+      },
+    });
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account: "0x1234567890123456789012345678901234567890",
+      fromAmount: "1000",
+      fromChainId: 1,
+      fromToken: nativeToken,
+      integration: "lifi",
+      kind: "bridge",
+      toChainId: 8453,
+      toToken: "0x4444444444444444444444444444444444444444",
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared bridge operation");
+
+    const result = await resumeOperation({
+      actionResults: {},
+      resumeState: {
+        ...prepared.resumeState,
+        state: {
+          ...prepared.resumeState.state,
+          finalAction: {
+            id: "bridge:execute:0",
+            label: "Execute attacker transaction",
+            tx: {
+              chainId: 1,
+              data: "0xdeadbeef",
+              from: "0x1234567890123456789012345678901234567890",
+              to: "0x9999999999999999999999999999999999999999",
+              value: "1000",
+            },
+            type: "transaction",
+          },
+          stages: [],
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      completed: false,
+      operation: {
+        actions: [{ tx: { data: "0xabcdef", to: canonicalTarget, value: "1000" } }],
+      },
+    });
+    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(2);
+  });
+
+  it("Given a canonical bridge without Permit2 When resume state injects Permit2 completion Then rejects the forged finalization", async () => {
+    const account = "0x1234567890123456789012345678901234567890";
+    const nativeToken = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromAmount: "1000",
+        fromChainId: 1,
+        fromToken: { address: nativeToken, symbol: "ETH" },
+        toChainId: 8453,
+        toToken: { address: "0x4444444444444444444444444444444444444444", symbol: "USDC" },
+      },
+      estimate: { toAmount: "999", toAmountMin: "990" },
+      transactionRequest: {
+        chainId: 1,
+        data: "0xabcdef",
+        to: "0x6666666666666666666666666666666666666666",
+        value: "1000",
+      },
+    });
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account,
+      fromAmount: "1000",
+      fromChainId: 1,
+      fromToken: nativeToken,
+      integration: "lifi",
+      kind: "bridge",
+      toChainId: 8453,
+      toToken: "0x4444444444444444444444444444444444444444",
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared bridge operation");
+
+    await expect(
+      resumeOperation({
+        actionResults: {
+          "bridge:execute:0": {
+            status: "confirmed",
+            txHash: `0x${"bb".repeat(32)}`,
+            type: "transaction",
+          },
+        },
+        resumeState: {
+          ...prepared.resumeState,
+          state: {
+            ...prepared.resumeState.state,
+            finalization: {
+              account: "0x9999999999999999999999999999999999999999",
+              amount: "1000",
+              deadline: "4102444800",
+              diamondAddress: "0x6666666666666666666666666666666666666666",
+              diamondCalldataHash: `0x${"aa".repeat(32)}`,
+              kind: "permit2",
+              nonce: "1",
+              permit2: "0x8888888888888888888888888888888888888888",
+              permit2Proxy: "0x7777777777777777777777777777777777777777",
+              signatureActionId: "bridge:permit2:0",
+              tokenAddress: nativeToken,
+              witness: true,
+            },
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_PARAMS",
+      message: "LI.FI Permit2 finalization does not match canonical replanning",
+    });
+  });
+
   it("prepareOperation falls back to approval transactions for unsafe LI.FI permits", async () => {
     lifiMocks.getQuote.mockResolvedValue({
       action: {
@@ -753,6 +897,32 @@ describe("generic prepared operations API", () => {
       name: "Web3AgentError",
       code: "INVALID_PARAMS",
       message: "resumeState.state.finalAction.tx.data does not match the signed Permit2 witness",
+    });
+
+    await expect(
+      resumeOperation({
+        resumeState: {
+          ...prepared.resumeState,
+          state: {
+            ...prepared.resumeState.state,
+            finalization: {
+              ...(prepared.resumeState.state as { finalization: Record<string, unknown> })
+                .finalization,
+              account: "0x9999999999999999999999999999999999999999",
+            },
+          },
+        },
+        actionResults: {
+          "bridge:permit2:0": {
+            type: "signature",
+            signature: `0x${"11".repeat(65)}`,
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      name: "Web3AgentError",
+      code: "INVALID_PARAMS",
+      message: "LI.FI Permit2 finalization does not match canonical replanning",
     });
   });
 

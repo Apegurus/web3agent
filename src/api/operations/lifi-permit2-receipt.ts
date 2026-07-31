@@ -49,10 +49,13 @@ export async function assertConfirmedLifiPermit2Transaction(
     });
   }
   const [diamondCalldata, owner, permitted, signature] = decoded.args;
+  const canonicalAccount = finalAction.tx.from;
   if (
+    !canonicalAccount ||
     !finalAction.tx.data ||
     diamondCalldata !== finalAction.tx.data ||
     keccak256(diamondCalldata) !== finalization.diamondCalldataHash ||
+    finalization.account.toLowerCase() !== canonicalAccount.toLowerCase() ||
     owner.toLowerCase() !== finalization.account.toLowerCase() ||
     permitted[0][0].toLowerCase() !== finalization.tokenAddress.toLowerCase() ||
     permitted[0][1] !== parseBigIntString(finalization.amount, "finalization.amount") ||
