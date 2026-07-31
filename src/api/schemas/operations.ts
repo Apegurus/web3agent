@@ -41,6 +41,10 @@ const lifiBridgeFinalizationSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const orbsSwapResumeStateStateSchema = resumeStateBaseSchema.extend({
+  integrity: z
+    .string()
+    .regex(/^v1\.[0-9a-f]{16}\.[0-9a-f]{64}$/)
+    .describe("Versioned integrity tag for immutable Orbs swap plan and dispatch fields"),
   chainId: integerChainIdSchema.describe("Chain ID for the swap"),
   quote: z.record(z.unknown()).describe("Orbs Liquidity Hub quote object"),
   approvalActions: z
@@ -50,6 +54,10 @@ export const orbsSwapResumeStateStateSchema = resumeStateBaseSchema.extend({
 });
 
 export const orbsSpotOrderResumeStateStateSchema = resumeStateBaseSchema.extend({
+  integrity: z
+    .string()
+    .regex(/^v1\.[0-9a-f]{16}\.[0-9a-f]{64}$/)
+    .describe("Versioned integrity tag for immutable Orbs order plan and dispatch fields"),
   order: z.record(z.unknown()).describe("Spot order typed data object"),
   submitUrl: z.string().describe("API URL for submitting the signed order"),
   approvalActions: z
@@ -86,6 +94,10 @@ export const goatResumeStateStateSchema = resumeStateBaseSchema
   });
 
 export const lifiBridgeResumeStateStateSchema = resumeStateBaseSchema.extend({
+  integrity: z
+    .string()
+    .regex(/^v1\.[0-9a-f]{16}\.[0-9a-f]{64}$/)
+    .describe("Versioned integrity tag for immutable LI.FI plan and dispatch fields"),
   operation: lifiPrepareBridgeIntentSchema
     .optional()
     .describe("Original LI.FI bridge input used to rebuild every executable action"),
@@ -107,6 +119,10 @@ export const lifiSameChainSwapResumeStateStateSchema = lifiBridgeResumeStateStat
 });
 
 export const zeroExSwapResumeStateStateSchema = resumeStateBaseSchema.extend({
+  integrity: z
+    .string()
+    .regex(/^v1\.[0-9a-f]{16}\.[0-9a-f]{64}$/)
+    .describe("Versioned integrity tag for immutable 0x plan and dispatch fields"),
   presentedStage: z
     .enum(["approval", "final"])
     .describe("Stage whose exact actions were presented to the wallet"),
