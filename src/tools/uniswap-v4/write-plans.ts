@@ -11,6 +11,7 @@ import type {
   UniswapV4PositionManagerAction,
   UniswapV4RemovePlan,
 } from "../../uniswap-v4/planner-types.js";
+import { canonicalJson } from "../../utils/canonical-json.js";
 import { uniswapV4PersistedWritePlanSchema } from "./write-schemas.js";
 import type { UniswapV4PersistedWritePlan } from "./write-schemas.js";
 
@@ -138,28 +139,4 @@ function serializeAction(action: PlannerAction) {
 
 function hashCanonical(value: unknown): Hex {
   return `0x${createHash("sha256").update(canonicalJson(value)).digest("hex")}`;
-}
-
-function canonicalJson(value: unknown): string {
-  if (value === null) return "null";
-  switch (typeof value) {
-    case "boolean":
-      return value ? "true" : "false";
-    case "number":
-      if (!Number.isFinite(value))
-        throw new Error("Canonical plans cannot contain non-finite numbers");
-      return JSON.stringify(value);
-    case "string":
-      return JSON.stringify(value);
-    case "bigint":
-      return JSON.stringify(value.toString());
-    case "object":
-      if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-      return `{${Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
-        .join(",")}}`;
-    default:
-      throw new Error("Canonical plans cannot contain undefined, functions, or symbols");
-  }
 }

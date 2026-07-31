@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Web3AgentError } from "../../api/errors.js";
 import { addressSchema, hexSchema } from "../../api/schemas/common.js";
 import type { LifiRoute } from "../../lifi/route-execution.js";
+import { canonicalJson } from "../../utils/canonical-json.js";
 import { zeroExSwapSchema } from "./schemas.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -49,25 +50,16 @@ function isLifiRoute(value: unknown): value is LifiRoute {
   });
 }
 
-function canonicalJson(value: unknown): string {
-  if (value === null) return "null";
-  if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
-  if (typeof value === "number" && Number.isFinite(value)) return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (isRecord(value)) {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
-      .join(",")}}`;
-  }
-  throw new Web3AgentError({
-    code: "ZEROEX_LIFI_ROUTE_NOT_SERIALIZABLE",
-    message: "LI.FI route contains a non-serializable value",
-  });
-}
-
 export function getLifiRouteIntegrityHash(route: LifiRoute): string {
-  return keccak256(toHex(canonicalJson(route)));
+  try {
+    return keccak256(toHex(canonicalJson(route)));
+  } catch (error: unknown) {
+    throw Web3AgentError.fromUnknown(
+      "ZEROEX_LIFI_ROUTE_NOT_SERIALIZABLE",
+      error,
+      "LI.FI route contains a non-serializable value"
+    );
+  }
 }
 
 export const zeroExLifiFallbackSchema = zeroExSwapSchema
