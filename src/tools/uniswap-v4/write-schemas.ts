@@ -41,10 +41,10 @@ const transactionActionSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
-      data: hexSchema.describe("Exact PoolManager initialization calldata"),
+      data: hexSchema.describe("Exact PositionManager pool initialization calldata"),
       dataHash: uniswapV4PoolIdSchema.describe("Keccak-256 hash of initialization calldata"),
       kind: z.literal("poolInitialization").describe("Pool initialization stage discriminator"),
-      to: addressSchema.describe("Canonical PoolManager target"),
+      to: addressSchema.describe("Canonical PositionManager target"),
       value: decimalSchema.describe("Native value for the initialization transaction"),
     })
     .strict(),

@@ -50,6 +50,8 @@ vi.mock("../../src/uniswap-v4/reconcile-confirmed.js", () => ({
 
 import { getUniswapV4ToolDefinitions } from "../../src/tools/uniswap-v4/index.js";
 import { executeUniswapV4WritePlan } from "../../src/tools/uniswap-v4/write-executor.js";
+import { assertUniswapV4WriteTargets } from "../../src/tools/uniswap-v4/write-plan-integrity.js";
+import { uniswapV4PersistedWritePlanSchema } from "../../src/tools/uniswap-v4/write-schemas.js";
 import { transactionConfirm } from "../../src/tools/wallet/transaction-confirm.js";
 import { getUniswapV4Deployment } from "../../src/uniswap-v4/deployments.js";
 import { executeWrite } from "../../src/utils/write.js";
@@ -148,6 +150,32 @@ describe("Uniswap v4 write security boundaries", () => {
     expect(result.isError).toBe(false);
     expect(json(result).status).toBe("completed");
     expect(wallet.sendTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("Given a pool-creating mint plan, when validating targets, then only PositionManager initialization is accepted", () => {
+    const base = createWriteSecurityPlan("mint");
+    const finalAction = base.actions.at(-1);
+    if (finalAction?.kind !== "positionManager") {
+      throw new Error("Expected PositionManager final action");
+    }
+    const canonical = uniswapV4PersistedWritePlanSchema.parse({
+      ...base,
+      actions: [{ ...finalAction, kind: "poolInitialization" }, finalAction],
+      operation: {
+        ...base.operation,
+        createPool: true,
+        initializeSqrtPriceX96: "79228162514264337593543950336",
+      },
+    });
+
+    expect(() => assertUniswapV4WriteTargets(canonical, canonical.deployment)).not.toThrow();
+    const poolManagerTarget = uniswapV4PersistedWritePlanSchema.parse({
+      ...canonical,
+      actions: [{ ...canonical.actions[0], to: canonical.deployment.poolManager }, finalAction],
+    });
+    expect(() =>
+      assertUniswapV4WriteTargets(poolManagerTarget, poolManagerTarget.deployment)
+    ).toThrowError(expect.objectContaining({ code: "UNISWAP_V4_PLAN_TARGET_INVALID" }));
   });
 
   it("Given an approval revert, when executing a confirmed mint plan, then reports the failed stage and omits the final call", async () => {
