@@ -12,7 +12,8 @@ startCommand:
         ZEROX_API_KEY: config.zeroxApiKey,
         COINGECKO_API_KEY: config.coingeckoApiKey,
         CCXT_CONFIG_PATH: config.ccxtConfigPath,
-        OWS_PASSPHRASE: config.owsPassphrase
+        OWS_PASSPHRASE: config.owsPassphrase,
+        WEB3AGENT_RESUME_STATE_SECRETS: config.resumeStateSecrets
       })) {
         if (typeof value === "string" && value.length > 0) env[key] = value;
       }
@@ -49,6 +50,9 @@ startCommand:
       owsPassphrase:
         type: string
         description: Optional Open Wallet Standard vault passphrase for persisted local wallets.
+      resumeStateSecrets:
+        type: string
+        description: Optional comma-separated random 32+ character secrets shared by every replica for Orbs, LI.FI, and 0x resume-state authentication and rotation. Required on Windows for prepared operations.
     required: []
   exampleConfig:
     chainId: 8453

@@ -4,7 +4,7 @@
   "name": "web3agent",
   "display_name": "Web3Agent",
   "version": "0.6.2",
-  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, market data, wallets, and confirmation-gated writes.",
+  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, Orbs orders, market data, wallets, and confirmation-gated writes.",
   "long_description": "Web3Agent gives local AI agents a single MCP surface for EVM execution and DeFi workflows: token resolution, balances, swaps, bridges, Orbs orders, market data, research, wallet lifecycle, and confirmation-gated writes. It is self-custodial by default and keeps wallet secrets out of agent-visible MCP flows unless explicitly enabled.",
   "author": {
     "name": "Apeguru",
@@ -24,7 +24,8 @@
         "ZEROX_API_KEY": "${user_config.zerox_api_key}",
         "COINGECKO_API_KEY": "${user_config.coingecko_api_key}",
         "CCXT_CONFIG_PATH": "${user_config.ccxt_config_path}",
-        "OWS_PASSPHRASE": "${user_config.ows_passphrase}"
+        "OWS_PASSPHRASE": "${user_config.ows_passphrase}",
+        "WEB3AGENT_RESUME_STATE_SECRETS": "${user_config.resume_state_secrets}"
       }
     }
   },
@@ -74,6 +75,13 @@
       "type": "string",
       "title": "OWS passphrase",
       "description": "Optional Open Wallet Standard vault passphrase for persisted local wallets.",
+      "sensitive": true,
+      "required": false
+    },
+    "resume_state_secrets": {
+      "type": "string",
+      "title": "Resume-state secret ring",
+      "description": "Optional comma-separated random secrets of at least 32 characters shared by every replica for Orbs, LI.FI, and 0x resume-state authentication and rotation. Required on Windows for prepared operations.",
       "sensitive": true,
       "required": false
     }

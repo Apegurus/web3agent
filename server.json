@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Apegurus/web3agent",
   "title": "web3agent",
-  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, market data, wallets, and gated writes.",
+  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, Orbs orders, market data, wallets, and gated writes.",
   "websiteUrl": "https://web3agent.fi",
   "repository": {
     "url": "https://github.com/Apegurus/web3agent",
@@ -80,6 +80,13 @@
         {
           "name": "OWS_PASSPHRASE",
           "description": "Optional Open Wallet Standard vault passphrase for persisted local wallets.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WEB3AGENT_RESUME_STATE_SECRETS",
+          "description": "Optional comma-separated random secrets of at least 32 characters shared by every replica for Orbs, LI.FI, and 0x resume-state authentication and rotation. Required on Windows for prepared operations.",
           "format": "string",
           "isRequired": false,
           "isSecret": true
