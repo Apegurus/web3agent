@@ -167,7 +167,7 @@
     "mcpb:check": "pnpm run mcpb:validate && pnpm run mcpb:pack && npx --yes @anthropic-ai/mcpb info dist/web3agent.mcpb",
     "typecheck": "pnpm run build:package && pnpm run typecheck:package && pnpm --filter create-web3agent typecheck",
     "typecheck:package": "tsc --noEmit",
-    "qa:uniswap-v4:evidence": "node scripts/verify-uniswap-v4-evidence.mjs",
+    "qa:uniswap-v4:evidence": "node scripts/verify-uniswap-v4-evidence.mjs --self-test",
     "qa:uniswap-v4:fixture": "node scripts/qa-uniswap-v4.mjs",
     "pack:check": "node -e \"const { execFileSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join } = require('node:path'); const dir = mkdtempSync(join(tmpdir(), 'web3agent-pack-')); try { execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', dir], { stdio: 'inherit' }); } finally { rmSync(dir, { recursive: true, force: true }); }\""
   },
