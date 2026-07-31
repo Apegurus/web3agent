@@ -24,6 +24,7 @@ import {
   getLifiBridgePreparationContext,
   toBridgeStepLabel,
 } from "./lifi-quote.js";
+import { authenticatePreparedOperation } from "./resume-state-integrity.js";
 import { buildPreparedOperation } from "./shared.js";
 
 export async function prepareCompatibilityBridgeIntent(
@@ -144,20 +145,22 @@ export async function prepareBridgeOperation(
     const actions = [...stages.flat(), finalAction];
     const intent = createBridgeIntentPayload(input, quote, steps, actions);
 
-    return buildPreparedOperation(
-      "lifi",
-      "bridge",
-      summary,
-      stages[0] ?? [finalAction],
-      {
+    return authenticatePreparedOperation(
+      buildPreparedOperation(
+        "lifi",
+        "bridge",
         summary,
-        intent,
-        operation: input,
-        stages,
-        finalAction,
-        finalization,
-      },
-      { intent }
+        stages[0] ?? [finalAction],
+        {
+          summary,
+          intent,
+          operation: input,
+          stages,
+          finalAction,
+          finalization,
+        },
+        { intent }
+      )
     );
   } catch (error: unknown) {
     throw Web3AgentError.fromUnknown("BRIDGE_INTENT_ERROR", error);

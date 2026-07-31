@@ -13,6 +13,7 @@ import { prepareBridgeOperation } from "./lifi-bridge-prepare.js";
 import type { LifiBridgeFinalization } from "./lifi-facts.js";
 import { assertConfirmedLifiPermit2Transaction } from "./lifi-permit2-receipt.js";
 import { rewriteFinalBridgeAction } from "./lifi-permit2.js";
+import { assertResumeStateIntegrity, authenticateResumeState } from "./resume-state-integrity.js";
 import {
   assertConfirmedTransactionResult,
   getPendingPreparedActions,
@@ -23,6 +24,7 @@ export async function resumeLifiBridgeOperation(
   resumeState: OperationResumeState,
   actionResults: Record<string, OperationActionResult>
 ): Promise<ResumeOperationCompletedResult | { completed: false; operation: PreparedOperation }> {
+  assertResumeStateIntegrity(resumeState);
   const persistedState = parseInput(lifiBridgeResumeStateStateSchema, resumeState.state);
   if (!persistedState.operation) {
     throw new Web3AgentError({
@@ -86,10 +88,7 @@ export async function resumeLifiBridgeOperation(
   const finalization =
     (bridgeState.finalization as LifiBridgeFinalization | undefined) ??
     ({ kind: "none" } satisfies LifiBridgeFinalization);
-  const canonicalResumeState: OperationResumeState = {
-    ...resumeState,
-    state: bridgeState,
-  };
+  const canonicalResumeState = authenticateResumeState({ ...resumeState, state: bridgeState });
 
   const finalResult = actionResults[bridgeState.finalAction.id];
   for (const stage of bridgeState.stages) {

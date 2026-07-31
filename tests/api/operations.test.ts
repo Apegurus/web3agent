@@ -62,6 +62,7 @@ vi.mock("../../src/operations/goat.js", () => ({
 
 describe("generic prepared operations API", () => {
   beforeEach(async () => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     viemMocks.recoverTypedDataAddress.mockResolvedValue(
       "0x1234567890123456789012345678901234567890"
@@ -130,7 +131,7 @@ describe("generic prepared operations API", () => {
       },
     });
 
-    const { prepareOperation } = await import("../../src/api/operations.js");
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
     const result = await prepareOperation({
       integration: "orbs",
       kind: "swap",
@@ -146,7 +147,34 @@ describe("generic prepared operations API", () => {
 
     expect(result.actions.map((action) => action.type)).toEqual(["transaction", "transaction"]);
     expect(result.resumeState.integration).toBe("orbs");
+    expect(result.resumeState.state.integrity).toEqual(expect.any(String));
     expect(result.meta?.intent).toBeDefined();
+
+    await expect(
+      resumeOperation({
+        actionResults: {},
+        resumeState: {
+          ...result.resumeState,
+          state: {
+            ...result.resumeState.state,
+            approvalActions: [
+              {
+                id: "transaction:0",
+                label: "Transfer funds to attacker",
+                tx: {
+                  chainId: 8453,
+                  data: "0xdeadbeef",
+                  from: "0x1234567890123456789012345678901234567890",
+                  to: "0x9999999999999999999999999999999999999999",
+                  value: "1000000000000000000",
+                },
+                type: "transaction",
+              },
+            ],
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "INVALID_PARAMS" });
   });
 
   it("resumeOperation submits a signed swap after prerequisites are satisfied", async () => {
@@ -157,8 +185,11 @@ describe("generic prepared operations API", () => {
     });
 
     const { resumeOperation } = await import("../../src/api/operations.js");
+    const { authenticateResumeState } = await import(
+      "../../src/api/operations/resume-state-integrity.js"
+    );
     const result = await resumeOperation({
-      resumeState: {
+      resumeState: authenticateResumeState({
         version: 1,
         integration: "orbs",
         kind: "swap",
@@ -187,7 +218,7 @@ describe("generic prepared operations API", () => {
             },
           },
         },
-      },
+      }),
       actionResults: {
         "sign-typed-data:0": {
           type: "signature",
@@ -351,10 +382,13 @@ describe("generic prepared operations API", () => {
 
   it("resumeOperation rejects malformed Orbs swap chainId values", async () => {
     const { resumeOperation } = await import("../../src/api/operations.js");
+    const { authenticateResumeState } = await import(
+      "../../src/api/operations/resume-state-integrity.js"
+    );
 
     await expect(
       resumeOperation({
-        resumeState: {
+        resumeState: authenticateResumeState({
           version: 1,
           integration: "orbs",
           kind: "swap",
@@ -383,7 +417,7 @@ describe("generic prepared operations API", () => {
               },
             },
           },
-        },
+        }),
         actionResults: {
           "sign-typed-data:0": {
             type: "signature",
@@ -395,6 +429,21 @@ describe("generic prepared operations API", () => {
       name: "Web3AgentError",
       code: "INVALID_PARAMS",
       message: "resumeState.state.chainId must be an integer",
+    });
+  });
+
+  it("Given an unsigned forged Orbs order, when resuming, then it rejects before returning wallet actions", async () => {
+    const { resumeOperation } = await import("../../src/api/operations.js");
+
+    await expect(
+      resumeOperation({
+        actionResults: {},
+        resumeState: { integration: "orbs", kind: "order", state: {}, version: 1 },
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_PARAMS",
+      message:
+        "Prepared operation predates authenticated resume states; prepare the operation again",
     });
   });
 
@@ -454,7 +503,7 @@ describe("generic prepared operations API", () => {
     expect(lifiMocks.createConfig).toHaveBeenCalledTimes(1);
   });
 
-  it("Given a caller-tampered bridge resume action When resuming Then rebuilds the canonical LI.FI transaction", async () => {
+  it("Given a caller-tampered bridge resume action When resuming Then rejects it before LI.FI replanning", async () => {
     const nativeToken = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
     const canonicalTarget = "0x6666666666666666666666666666666666666666";
     lifiMocks.getQuote.mockResolvedValue({
@@ -486,36 +535,34 @@ describe("generic prepared operations API", () => {
     });
     if ("completed" in prepared) throw new Error("Expected a prepared bridge operation");
 
-    const result = await resumeOperation({
-      actionResults: {},
-      resumeState: {
-        ...prepared.resumeState,
-        state: {
-          ...prepared.resumeState.state,
-          finalAction: {
-            id: "bridge:execute:0",
-            label: "Execute attacker transaction",
-            tx: {
-              chainId: 1,
-              data: "0xdeadbeef",
-              from: "0x1234567890123456789012345678901234567890",
-              to: "0x9999999999999999999999999999999999999999",
-              value: "1000",
+    await expect(
+      resumeOperation({
+        actionResults: {},
+        resumeState: {
+          ...prepared.resumeState,
+          state: {
+            ...prepared.resumeState.state,
+            finalAction: {
+              id: "bridge:execute:0",
+              label: "Execute attacker transaction",
+              tx: {
+                chainId: 1,
+                data: "0xdeadbeef",
+                from: "0x1234567890123456789012345678901234567890",
+                to: "0x9999999999999999999999999999999999999999",
+                value: "1000",
+              },
+              type: "transaction",
             },
-            type: "transaction",
+            stages: [],
           },
-          stages: [],
         },
-      },
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_PARAMS",
+      message: "Prepared operation resume state failed integrity verification",
     });
-
-    expect(result).toMatchObject({
-      completed: false,
-      operation: {
-        actions: [{ tx: { data: "0xabcdef", to: canonicalTarget, value: "1000" } }],
-      },
-    });
-    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(2);
+    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(1);
   });
 
   it("Given a canonical bridge without Permit2 When resume state injects Permit2 completion Then rejects the forged finalization", async () => {
@@ -582,7 +629,7 @@ describe("generic prepared operations API", () => {
       })
     ).rejects.toMatchObject({
       code: "INVALID_PARAMS",
-      message: "LI.FI Permit2 finalization does not match canonical replanning",
+      message: "Prepared operation resume state failed integrity verification",
     });
   });
 
@@ -896,7 +943,7 @@ describe("generic prepared operations API", () => {
     ).rejects.toMatchObject({
       name: "Web3AgentError",
       code: "INVALID_PARAMS",
-      message: "resumeState.state.finalAction.tx.data does not match the signed Permit2 witness",
+      message: "Prepared operation resume state failed integrity verification",
     });
 
     await expect(
@@ -922,11 +969,13 @@ describe("generic prepared operations API", () => {
     ).rejects.toMatchObject({
       name: "Web3AgentError",
       code: "INVALID_PARAMS",
-      message: "LI.FI Permit2 finalization does not match canonical replanning",
+      message: "Prepared operation resume state failed integrity verification",
     });
   });
 
   it("resumeOperation rejects expired LI.FI Permit2 resumptions", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-31T17:00:00Z"));
     viemMocks.createPublicClient.mockReturnValue({
       readContract: vi.fn().mockResolvedValue(maxUint256),
       getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
@@ -981,19 +1030,11 @@ describe("generic prepared operations API", () => {
     expect("completed" in prepared).toBe(false);
     if ("completed" in prepared) return;
 
+    vi.advanceTimersByTime(31 * 60 * 1000);
+
     await expect(
       resumeOperation({
-        resumeState: {
-          ...prepared.resumeState,
-          state: {
-            ...prepared.resumeState.state,
-            finalization: {
-              ...(prepared.resumeState.state as { finalization: Record<string, unknown> })
-                .finalization,
-              deadline: "1",
-            },
-          },
-        },
+        resumeState: prepared.resumeState,
         actionResults: {
           "bridge:permit2:0": {
             type: "signature",
