@@ -120,7 +120,7 @@ For Uniswap v4, simulation is a prerequisite for a lifecycle execution flow: tre
 ### Utilities
 
 - `server_status` — wallet mode, active chain, confirmation setting, backend health
-- `list_supported_chains` — all 17 supported chains with IDs and names
+- `list_supported_chains` — all 18 supported chains with IDs and names
 
 ### Agentic Economy — x402 Payments (prefix: `x402_`)
 
@@ -199,6 +199,7 @@ Supported chains:
 | Gnosis | 100 |
 | Sepolia | 11155111 |
 | Base Sepolia | 84532 |
+| Robinhood | 4663 |
 
 ## Confirmation Queue
 
@@ -218,6 +219,7 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `OWS_PASSPHRASE`                        | —                              | Strongly recommended for persisted server-side wallets. Enables the OWS encrypted wallet vault on macOS/Linux when configured and OWS is available; OWS requires at least 12 characters and 16+ mixed characters are recommended. Configure it in each app/service/process that runs web3agent. |
 | `OWS_FORCE_LEGACY`                      | —                              | Set `1` to force legacy filesystem-protected wallet storage instead of OWS                                                                                                                  |
 | `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS` | —                              | Set `1` to allow MCP wallet tools to accept/return private keys or mnemonics visible to the agent                                                                                           |
+| `WEB3AGENT_RESUME_STATE_SECRETS`        | generated key (macOS/Linux)    | Comma-separated secrets of at least 32 characters for Orbs/LI.FI/0x resume-state authentication. The first signs new states; the rest verify states created before rotation. Set the same ring on every replica. On macOS/Linux, an unset value generates a host-local `0600` key at `~/.web3agent/resume-state.key`; Windows requires this variable explicitly. |
 | `BLOCKSCOUT_MCP_URL`                    | https://mcp.blockscout.com/mcp | Blockscout MCP endpoint                                                                                                                                                                     |
 | `ETHERSCAN_API_KEY`                     | —                              | Etherscan API key                                                                                                                                                                           |
 | `LIFI_API_KEY`                          | —                              | LI.Fi API key                                                                                                                                                                               |

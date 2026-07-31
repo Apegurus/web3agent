@@ -16,7 +16,8 @@ The generated bundle is written to `dist/web3agent.mcpb`.
 
 The manifest keeps all configuration optional or defaulted so users can install
 and inspect read-only tools before adding API keys, exchange configuration, or an
-OWS passphrase.
+OWS passphrase. Prepared Orbs, LI.FI, and 0x operations on Windows require a
+`WEB3AGENT_RESUME_STATE_SECRETS` ring configured through the bundle settings.
 
 ## Publish to Smithery
 
