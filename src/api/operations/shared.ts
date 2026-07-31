@@ -19,6 +19,7 @@ export { getConfirmedReceipt } from "./transaction-verification.js";
 
 export function createPreparedApprovalActions(
   chainId: number,
+  account: `0x${string}`,
   approvals: ApprovalStep[]
 ): PreparedTransactionAction[] {
   return approvals.map((step, index) => ({
@@ -26,6 +27,7 @@ export function createPreparedApprovalActions(
     type: "transaction",
     label: step.label,
     tx: {
+      from: account,
       to: step.tx.to,
       chainId,
       ...(step.tx.data ? { data: step.tx.data } : {}),

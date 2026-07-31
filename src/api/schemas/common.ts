@@ -32,6 +32,11 @@ export const typedDataPayloadSchema = z.object({
 });
 
 export const preparedTransactionRequestSchema = z.object({
+  from: addressSchema
+    .optional()
+    .describe(
+      "Account authorized to submit newly prepared transactions; omitted by legacy v1 state"
+    ),
   to: addressSchema.describe("Target contract address"),
   chainId: z.number().int().describe("Chain ID"),
   data: hexSchema.optional().describe("Transaction calldata"),

@@ -207,6 +207,7 @@ export class PreparedActionGoatWallet {
         ? `Execute ${transaction.functionName}`
         : `Execute transaction to ${to}`,
       tx: {
+        from: this.getAddress(),
         to,
         chainId: this.options.chainId,
         data,

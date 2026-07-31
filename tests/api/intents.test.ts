@@ -235,6 +235,7 @@ describe("browser wallet intent APIs", () => {
         tx: {
           to: "0x3333333333333333333333333333333333333333",
           data: "0x095ea7b3",
+          from: "0x1234567890123456789012345678901234567890",
           value: "0",
           chainId: 1,
         },
@@ -245,6 +246,7 @@ describe("browser wallet intent APIs", () => {
         tx: {
           to: "0x2222222222222222222222222222222222222222",
           data: "0xbbbb",
+          from: "0x1234567890123456789012345678901234567890",
           value: "0",
           gasLimit: "250000",
           chainId: 1,
@@ -319,6 +321,7 @@ describe("browser wallet intent APIs", () => {
         tx: {
           to: "0x2222222222222222222222222222222222222222",
           data: "0xbbbb",
+          from: "0x1234567890123456789012345678901234567890",
           value: "0",
           chainId: 1,
         },
@@ -377,6 +380,7 @@ describe("browser wallet intent APIs", () => {
         tx: {
           to: "0x2222222222222222222222222222222222222222",
           data: "0xbbbb",
+          from: "0x1234567890123456789012345678901234567890",
           value: "1000000000000000000",
           chainId: 1,
         },
