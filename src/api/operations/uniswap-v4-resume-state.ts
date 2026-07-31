@@ -125,6 +125,7 @@ export function nextAction(
         id,
         "Report confirmed Permit2 authorization submission",
         plan.operation.chainId,
+        plan.account,
         { dataHash: "0x", to: plan.deployment.permit2, value: "0" }
       );
     }
@@ -133,6 +134,7 @@ export function nextAction(
         id,
         "Report confirmed permit-authorized PositionManager lifecycle",
         plan.operation.chainId,
+        plan.account,
         facts(action.unsignedFinal)
       );
     }
@@ -151,6 +153,7 @@ function plannedAction(
         id,
         "Approve token for Permit2",
         plan.operation.chainId,
+        plan.account,
         facts(action)
       );
     case "poolInitialization":
@@ -158,6 +161,7 @@ function plannedAction(
         id,
         "Initialize Uniswap v4 pool",
         plan.operation.chainId,
+        plan.account,
         facts(action)
       );
     case "positionManager":
@@ -165,6 +169,7 @@ function plannedAction(
         id,
         "Execute Uniswap v4 PositionManager lifecycle",
         plan.operation.chainId,
+        plan.account,
         facts(action)
       );
     case "permit2Signature":
@@ -190,6 +195,7 @@ export function transactionAction(
   id: string,
   label: string,
   chainId: number,
+  from: Address,
   action: {
     readonly dataHash: Hex;
     readonly to: Address;
@@ -203,6 +209,7 @@ export function transactionAction(
     tx: {
       chainId,
       ...(action.data ? { data: action.data } : {}),
+      from,
       to: action.to,
       value: action.value,
     },

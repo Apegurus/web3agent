@@ -6,7 +6,7 @@ import { getZeroExQuote } from "../../src/zerox/client.js";
 import {
   createEventTransport,
   createInitializeEvent,
-  createModifyPositionEvent,
+  createModifyLiquidityEvent,
 } from "./event-fixtures.js";
 import {
   createRobinhoodV4FixtureTransport,
@@ -62,7 +62,7 @@ describe("Robinhood Uniswap v4 pinned integration fixture", () => {
         logIndex: 0,
         poolId: robinhoodV4Fixture.pool.poolId,
       }),
-      createModifyPositionEvent({
+      createModifyLiquidityEvent({
         blockNumber: BigInt(robinhoodV4Fixture.sourceBlock.blockNumber),
         deployment: robinhoodV4Fixture.eventDeployment,
         logIndex: 1,
