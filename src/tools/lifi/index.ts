@@ -5,6 +5,7 @@ import { prepareBridgeIntent } from "../../api/intents.js";
 import { emptyInputSchema } from "../../api/schemas/common.js";
 import { ensureLifiInitialized } from "../../lifi/config.js";
 import { executeLifiRoute } from "../../lifi/route-execution.js";
+import { assertAddress } from "../../operations/validation.js";
 import type { ToolDefinition } from "../../tools/register.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
@@ -78,6 +79,13 @@ async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallT
   const v = validateInput(lifiGetQuoteSchema, params);
   if (!v.success) return v.error;
   const { fromChainId, toChainId, fromAmount } = v.data;
+  const account = getWalletState().address;
+  if (!account) {
+    return formatToolError(
+      "WALLET_READ_ONLY",
+      "lifi_execute_bridge requires an active wallet. Activate a wallet first."
+    );
+  }
 
   return executeWrite({
     toolName: "lifi_execute_bridge",
@@ -88,6 +96,7 @@ async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallT
       fromToken: v.data.fromToken,
       toToken: v.data.toToken,
       fromAmount: v.data.fromAmount,
+      account,
     },
     executor: executeBridgeNow,
   });
@@ -101,8 +110,9 @@ const lifiPrepareBridgeIntentTool = createToolHandler(
 
 async function executeBridgeNow(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const { fromChainId, toChainId, fromToken, toToken, fromAmount } = params;
+    const { account, fromChainId, toChainId, fromToken, toToken, fromAmount } = params;
     const result = await executeLifiRoute({
+      account: assertAddress(String(account), "account"),
       fromChainId: Number(fromChainId),
       toChainId: Number(toChainId),
       fromToken: String(fromToken),

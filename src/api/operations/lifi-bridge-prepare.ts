@@ -152,6 +152,7 @@ export async function prepareBridgeOperation(
       {
         summary,
         intent,
+        operation: input,
         stages,
         finalAction,
         finalization,

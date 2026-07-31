@@ -9,6 +9,7 @@ import type { PreparedTransactionAction } from "../types.js";
 async function createAllowanceAction(params: {
   id: string;
   chainId: number;
+  account: Hex;
   tokenAddress: Hex;
   spender: Hex;
   amount: bigint;
@@ -29,6 +30,7 @@ async function createAllowanceAction(params: {
     type: "transaction",
     label: params.label,
     tx: {
+      from: params.account,
       to: params.tokenAddress,
       chainId: params.chainId,
       data: assertHex(data, `${params.id}.tx.data`),
@@ -79,6 +81,7 @@ export async function getLifiApprovalActions(params: {
       await createAllowanceAction({
         id: "bridge:approval-reset:0",
         chainId: params.chainId,
+        account: params.account,
         tokenAddress: params.fromTokenAddress,
         spender: params.spender,
         amount: 0n,
@@ -91,6 +94,7 @@ export async function getLifiApprovalActions(params: {
     await createAllowanceAction({
       id: "bridge:approval:0",
       chainId: params.chainId,
+      account: params.account,
       tokenAddress: params.fromTokenAddress,
       spender: params.spender,
       amount: params.approvalAmount,

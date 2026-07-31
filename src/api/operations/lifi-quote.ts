@@ -4,6 +4,7 @@ import {
   getChains as getLifiChains,
   getQuote as getLifiQuote,
 } from "@lifi/sdk";
+import type { Hex } from "viem";
 import { ensureLifiInitialized } from "../../lifi/config.js";
 import { assertAddress, assertHex, parseBigIntString } from "../../operations/validation.js";
 import { withTimeout } from "../../utils/timeout.js";
@@ -57,7 +58,8 @@ function createPreparedTransactionActionFromRequest(
   id: string,
   label: string,
   request: LifiTransactionRequest,
-  fallbackChainId: number
+  fallbackChainId: number,
+  account: Hex
 ): PreparedTransactionAction {
   if (!request.to) {
     throw new Web3AgentError({
@@ -71,6 +73,7 @@ function createPreparedTransactionActionFromRequest(
     type: "transaction",
     label,
     tx: {
+      from: account,
       to: assertAddress(request.to, "transactionRequest.to"),
       chainId: request.chainId ?? fallbackChainId,
       ...(request.data ? { data: assertHex(request.data, "transactionRequest.data") } : {}),
@@ -131,7 +134,8 @@ export async function getLifiBridgePreparationContext(
     "bridge:execute:0",
     toBridgeStepLabel("bridge"),
     getLifiBridgeTransactionRequest(quote),
-    input.fromChainId
+    input.fromChainId,
+    assertAddress(input.account, "account")
   );
   const context: LifiBridgePreparationContext = {
     quote,
