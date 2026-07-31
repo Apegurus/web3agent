@@ -3,6 +3,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { Web3AgentError } from "../../api/errors.js";
 import { getConfig } from "../../config/env.js";
 import { prepareLifiRoute } from "../../lifi/route-execution.js";
+import { assertAddress } from "../../operations/validation.js";
 import { formatToolErrorFromUnknown, formatToolResponse } from "../../utils/errors.js";
 import { validateInput } from "../../utils/validation.js";
 import { executeWrite } from "../../utils/write.js";
@@ -99,7 +100,7 @@ export async function zeroExSwap(params: Record<string, unknown>) {
         message: "0x Robinhood routing is available only on chain 4663",
       })
     );
-  const taker = getWalletState().address ?? zeroAddress;
+  const taker = assertAddress(getWalletState().address ?? zeroAddress, "taker");
   try {
     const quote = await getZeroExQuote(getZeroExQuoteInput(validation.data, chainId, taker));
     const execution = await prepareZeroExExecution(quote, validation.data.fromAmount, taker);
@@ -117,6 +118,7 @@ export async function zeroExSwap(params: Record<string, unknown>) {
     }
     try {
       const preparedRoute = await prepareLifiRoute({
+        account: taker,
         fromChainId: chainId,
         toChainId: chainId,
         fromToken: validation.data.fromToken,
@@ -125,6 +127,7 @@ export async function zeroExSwap(params: Record<string, unknown>) {
       });
       const fallback = zeroExLifiFallbackSchema.parse({
         ...validation.data,
+        account: taker,
         fallbackReason: classification.kind,
         preparedRoute,
         routeIntegrityHash: getLifiRouteIntegrityHash(preparedRoute),

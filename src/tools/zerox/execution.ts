@@ -3,6 +3,7 @@ import { Web3AgentError } from "../../api/errors.js";
 import { getChainById } from "../../chains/registry.js";
 import { createWalletClientForChain } from "../../config/wallet-factory.js";
 import { executePreparedLifiRoute } from "../../lifi/route-execution.js";
+import { createPublicClientForRuntimeChain } from "../../operations/chain-access.js";
 import { assertAddress } from "../../operations/validation.js";
 import { formatToolResponse } from "../../utils/errors.js";
 import { getActiveAccount } from "../../wallet/persistence.js";
@@ -40,7 +41,7 @@ export async function executeConfirmedZeroExSwap(params: Record<string, unknown>
   }
   const walletClient = createWalletClientForChain(account, ROBINHOOD_CHAIN_ID);
   if (execution.allowance) {
-    await walletClient.sendTransaction({
+    const approvalHash = await walletClient.sendTransaction({
       account,
       chain,
       to: assertAddress(parsed.data.fromToken, "fromToken"),
@@ -53,6 +54,15 @@ export async function executeConfirmedZeroExSwap(params: Record<string, unknown>
         ],
       }),
     });
+    const approvalReceipt = await createPublicClientForRuntimeChain(
+      ROBINHOOD_CHAIN_ID
+    ).waitForTransactionReceipt({ hash: approvalHash });
+    if (approvalReceipt.status !== "success") {
+      throw new Web3AgentError({
+        code: "ZEROEX_APPROVAL_FAILED",
+        message: "Confirmed 0x approval transaction failed",
+      });
+    }
   }
   const txHash = await walletClient.sendTransaction({
     account,
@@ -84,6 +94,13 @@ export async function executeConfirmedLifiFallback(params: Record<string, unknow
     throw new Web3AgentError({
       code: "ZEROEX_LIFI_ROUTE_TAMPERED",
       message: "Confirmed LI.FI route no longer matches the approved payload",
+    });
+  }
+  const account = getActiveAccount();
+  if (!hasSameAddress(account.address, parsed.data.account)) {
+    throw new Web3AgentError({
+      code: "ZEROEX_LIFI_WALLET_MISMATCH",
+      message: "Confirmed LI.FI fallback account does not match the active wallet",
     });
   }
   const result = await executePreparedLifiRoute(parsed.data.preparedRoute);

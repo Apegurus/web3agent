@@ -13,9 +13,13 @@ const mocks = vi.hoisted(() => ({
   prepareLifiRoute: vi.fn(),
   executePreparedLifiRoute: vi.fn(),
   createPublicClient: vi.fn(),
+  waitForTransactionReceipt: vi.fn(),
 }));
 
-vi.mock("../../src/config/env.js", () => ({ getConfig: mocks.getConfig }));
+vi.mock("../../src/config/env.js", () => ({
+  getConfig: mocks.getConfig,
+  tryGetConfig: mocks.getConfig,
+}));
 vi.mock("../../src/wallet/persistence.js", () => ({
   getWalletState: mocks.getWalletState,
   getActiveAccount: mocks.getActiveAccount,
@@ -44,6 +48,7 @@ vi.mock("viem", async (importOriginal) => {
 
 import { Web3AgentError } from "../../src/api/errors.js";
 import { executeZeroExSwapNow, zeroExGetQuote, zeroExSwap } from "../../src/tools/zerox/index.js";
+import { zeroExLifiFallbackSchema } from "../../src/tools/zerox/lifi-confirmation.js";
 
 const params = {
   chainId: 4663,
@@ -118,6 +123,7 @@ describe("Robinhood native 0x tools", () => {
     mocks.createPublicClient.mockReturnValue({
       getBlockNumber: vi.fn().mockResolvedValue(123n),
       readContract: vi.fn().mockResolvedValueOnce(settler).mockResolvedValueOnce(previousSettler),
+      waitForTransactionReceipt: mocks.waitForTransactionReceipt,
     });
     mocks.getZeroExQuote.mockResolvedValue({
       provider: "0x",
@@ -139,6 +145,29 @@ describe("Robinhood native 0x tools", () => {
     });
     mocks.classifyZeroExError.mockReturnValue({ kind: "unknown", fallbackAllowed: false });
     mocks.sendTransaction.mockResolvedValueOnce("0xapprove").mockResolvedValueOnce("0xswap");
+    mocks.waitForTransactionReceipt.mockResolvedValue({ status: "success" });
+  });
+
+  it("Given a same-chain LI.FI fallback on another network, when validating confirmed execution, then it rejects the non-Robinhood chain", () => {
+    const wrongChainRoute = {
+      ...preparedLifiRoute,
+      steps: preparedLifiRoute.steps.map((step) => ({
+        ...step,
+        action: { ...step.action, fromChainId: 8453, toChainId: 8453 },
+        transactionRequest: { ...step.transactionRequest, chainId: 8453 },
+      })),
+    };
+
+    expect(
+      zeroExLifiFallbackSchema.safeParse({
+        ...params,
+        account: "0x3333333333333333333333333333333333333333",
+        chainId: 8453,
+        fallbackReason: "no-route",
+        preparedRoute: wrongChainRoute,
+        routeIntegrityHash: `0x${"00".repeat(32)}`,
+      }).success
+    ).toBe(false);
   });
 
   it("fetches and validates immutable 0x execution facts before queueing without a wallet send", async () => {
@@ -190,16 +219,6 @@ describe("Robinhood native 0x tools", () => {
     const data = result.structuredContent;
 
     // Then: no quote is refetched and approval then swap use only the persisted facts
-    expect(mocks.getZeroExQuote).toHaveBeenCalledTimes(1);
-    expect(mocks.sendTransaction).toHaveBeenCalledTimes(2);
-    expect(mocks.sendTransaction).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        to: settler,
-        data: "0x1234",
-        value: 0n,
-      })
-    );
     expect(data).toEqual({
       ok: true,
       data: {
@@ -212,6 +231,20 @@ describe("Robinhood native 0x tools", () => {
         capabilityReason: "goat-chain-4663-unavailable",
       },
     });
+    expect(mocks.getZeroExQuote).toHaveBeenCalledTimes(1);
+    expect(mocks.sendTransaction).toHaveBeenCalledTimes(2);
+    expect(mocks.sendTransaction).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        to: settler,
+        data: "0x1234",
+        value: 0n,
+      })
+    );
+    expect(mocks.waitForTransactionReceipt).toHaveBeenCalledWith({ hash: "0xapprove" });
+    expect(mocks.sendTransaction.mock.invocationCallOrder[1]).toBeGreaterThan(
+      mocks.waitForTransactionReceipt.mock.invocationCallOrder[0] ?? 0
+    );
   });
 
   it("rejects a tampered confirmed sell amount before any wallet call", async () => {
@@ -318,6 +351,7 @@ describe("Robinhood native 0x tools", () => {
       data: { status: "pending_confirmation", id: "queued-0x", summary: "queued" },
     });
     expect(mocks.prepareLifiRoute).toHaveBeenCalledWith({
+      account: "0x3333333333333333333333333333333333333333",
       fromChainId: 4663,
       toChainId: 4663,
       fromToken: params.fromToken,

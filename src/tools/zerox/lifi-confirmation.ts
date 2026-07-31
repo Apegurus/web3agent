@@ -1,7 +1,7 @@
 import { keccak256, toHex } from "viem";
 import { z } from "zod";
 import { Web3AgentError } from "../../api/errors.js";
-import { hexSchema } from "../../api/schemas/common.js";
+import { addressSchema, hexSchema } from "../../api/schemas/common.js";
 import type { LifiRoute } from "../../lifi/route-execution.js";
 import { zeroExSwapSchema } from "./schemas.js";
 
@@ -41,7 +41,10 @@ function isLifiRoute(value: unknown): value is LifiRoute {
     return (
       isAddress(transactionRequest.to) &&
       typeof transactionRequest.data === "string" &&
-      typeof transactionRequest.value === "string"
+      typeof transactionRequest.value === "string" &&
+      (transactionRequest.chainId === undefined ||
+        typeof transactionRequest.chainId === "number") &&
+      (transactionRequest.from === undefined || isAddress(transactionRequest.from))
     );
   });
 }
@@ -69,6 +72,8 @@ export function getLifiRouteIntegrityHash(route: LifiRoute): string {
 
 export const zeroExLifiFallbackSchema = zeroExSwapSchema
   .extend({
+    account: addressSchema.describe("Wallet account bound to the prepared LI.FI fallback"),
+    chainId: z.literal(4663).describe("Robinhood Chain ID required for LI.FI fallback execution"),
     fallbackReason: z.enum(["no-route", "provider-unavailable"]),
     preparedRoute: z.custom<LifiRoute>(isLifiRoute),
     routeIntegrityHash: hexSchema,
@@ -81,7 +86,12 @@ export const zeroExLifiFallbackSchema = zeroExSwapSchema
       lastStep !== undefined &&
       fallback.preparedRoute.steps.every(
         (step) =>
-          step.action.fromChainId === fallback.chainId && step.action.toChainId === fallback.chainId
+          step.action.fromChainId === fallback.chainId &&
+          step.action.toChainId === fallback.chainId &&
+          (step.transactionRequest?.chainId === undefined ||
+            step.transactionRequest.chainId === fallback.chainId) &&
+          (step.transactionRequest?.from === undefined ||
+            step.transactionRequest.from.toLowerCase() === fallback.account.toLowerCase())
       ) &&
       firstStep.action.fromToken.address.toLowerCase() === fallback.fromToken.toLowerCase() &&
       firstStep.action.fromAmount === fallback.fromAmount &&
