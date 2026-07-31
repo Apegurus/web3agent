@@ -299,7 +299,7 @@ describe("api/swaps", () => {
           provider: "lifi",
         },
         operationId: "fallback",
-        operationType: "zeroex_swap",
+        operationType: "zeroex_lifi_fallback",
         timestamp: "2026-07-24T10:00:00.000Z",
         walletAddress: "0x1234567890123456789012345678901234567890",
       },

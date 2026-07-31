@@ -42,6 +42,7 @@ function createApprovalAction(
     type: "transaction" as const,
     label: "Approve 0x allowance target",
     tx: {
+      from: input.account,
       to: assertAddress(input.fromToken, "fromToken"),
       chainId: input.chainId,
       data: encodeFunctionData({
@@ -55,13 +56,15 @@ function createApprovalAction(
 }
 
 function createSwapAction(
-  quote: Awaited<ReturnType<typeof getZeroExQuote>>
+  quote: Awaited<ReturnType<typeof getZeroExQuote>>,
+  account: `0x${string}`
 ): PreparedTransactionAction {
   return {
     id: "zeroex:swap:0",
     type: "transaction",
     label: "Execute 0x swap",
     tx: {
+      from: account,
       to: quote.transaction.to,
       chainId: quote.chainId,
       data: quote.transaction.data,
@@ -107,7 +110,7 @@ export async function prepareZeroExSwapOperation(
   const approvalActions = quote.allowance
     ? [createApprovalAction(input, quote.allowance.target, quote.allowance.amount)]
     : [];
-  const finalAction = createSwapAction(quote);
+  const finalAction = createSwapAction(quote, input.account);
   const meta = {
     adapterSource: quote.adapterSource,
     capabilityDecisionId: quote.capabilityDecisionId,

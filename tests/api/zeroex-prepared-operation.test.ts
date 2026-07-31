@@ -35,11 +35,12 @@ describe("0x prepared swaps", () => {
           return {
             input:
               "0x095ea7b3000000000000000000000000555555555555555555555555555555555555555500000000000000000000000000000000000000000000000000000000000003e8",
+            from: account,
             to: fromToken,
             value: 0n,
           };
         }
-        return { input: "0xabcdef", to: swapTarget, value: 0n };
+        return { input: "0xabcdef", from: account, to: swapTarget, value: 0n };
       }),
       getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success", to: null }),
     });
@@ -130,6 +131,7 @@ describe("0x prepared swaps", () => {
     viemMocks.createPublicClient.mockReturnValue({
       getTransaction: vi.fn().mockResolvedValue({
         data: "0xdeadbeef",
+        from: account,
         to: fromToken,
         value: 0n,
       }),
