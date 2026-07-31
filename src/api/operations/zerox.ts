@@ -15,6 +15,11 @@ import type {
 import { parseInput } from "../validation.js";
 import { prepareLifiSameChainSwapOperation } from "./lifi-same-chain.js";
 import {
+  assertResumeStateIntegrity,
+  authenticatePreparedOperation,
+  authenticateResumeState,
+} from "./resume-state-integrity.js";
+import {
   assertConfirmedTransactionResult,
   buildPreparedOperation,
   getPendingPreparedActions,
@@ -120,19 +125,21 @@ export async function prepareZeroExSwapOperation(
     provider: "0x",
   };
 
-  return buildPreparedOperation(
-    "zeroex",
-    "swap",
-    "Prepare 0x swap on Robinhood chain 4663",
-    approvalActions.length > 0 ? approvalActions : [finalAction],
-    {
-      operation: input,
-      approvalActions,
-      finalAction,
-      presentedStage: approvalActions.length > 0 ? "approval" : "final",
-      summary: "Prepare 0x swap on Robinhood chain 4663",
-    },
-    meta
+  return authenticatePreparedOperation(
+    buildPreparedOperation(
+      "zeroex",
+      "swap",
+      "Prepare 0x swap on Robinhood chain 4663",
+      approvalActions.length > 0 ? approvalActions : [finalAction],
+      {
+        operation: input,
+        approvalActions,
+        finalAction,
+        presentedStage: approvalActions.length > 0 ? "approval" : "final",
+        summary: "Prepare 0x swap on Robinhood chain 4663",
+      },
+      meta
+    )
   );
 }
 
@@ -140,6 +147,7 @@ export async function resumeZeroExSwapOperation(
   resumeState: OperationResumeState,
   actionResults: Record<string, OperationActionResult>
 ): Promise<ResumeOperationCompletedResult | { completed: false; operation: PreparedOperation }> {
+  assertResumeStateIntegrity(resumeState);
   const state = parseInput(zeroExSwapResumeStateStateSchema, resumeState.state);
   const mergedResults = mergeActionResults(state, actionResults);
 
@@ -168,14 +176,14 @@ export async function resumeZeroExSwapOperation(
       canonical.resumeState.state
     );
     await getPendingPreparedActions(canonicalState.approvalActions, mergedResults);
-    const finalResumeState: OperationResumeState = {
+    const finalResumeState = authenticateResumeState({
       ...canonical.resumeState,
       state: {
         ...canonicalState,
         actionResults: mergedResults,
         presentedStage: "final",
       },
-    };
+    });
     return {
       completed: false,
       operation: toPendingOperation(
@@ -201,10 +209,10 @@ export async function resumeZeroExSwapOperation(
     return {
       completed: false,
       operation: toPendingOperation(
-        {
+        authenticateResumeState({
           ...canonical.resumeState,
           state: { ...canonicalState, presentedStage: "final" },
-        },
+        }),
         [canonicalState.finalAction],
         "Resume 0x swap",
         mergedResults

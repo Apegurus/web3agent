@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const viemMocks = vi.hoisted(() => ({ createPublicClient: vi.fn() }));
 const zeroExMocks = vi.hoisted(() => ({
-  classifyZeroExError: vi.fn(() => ({ fallbackAllowed: false, kind: "unknown" })),
+  classifyZeroExError: vi.fn((_error: unknown) => ({ fallbackAllowed: false, kind: "unknown" })),
   getZeroExQuote: vi.fn(),
 }));
 
@@ -15,14 +15,18 @@ vi.mock("viem", async (importOriginal) => {
 });
 
 vi.mock("../../src/zerox/client.js", () => ({
-  classifyZeroExError: (...args: unknown[]) => zeroExMocks.classifyZeroExError(...args),
-  getZeroExQuote: (...args: unknown[]) => zeroExMocks.getZeroExQuote(...args),
+  classifyZeroExError: (error: unknown) => zeroExMocks.classifyZeroExError(error),
+  getZeroExQuote: (input: unknown) => zeroExMocks.getZeroExQuote(input),
 }));
 
 vi.mock("../../src/config/env.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../src/config/env.js")>();
   return { ...actual, getConfig: () => ({ zeroxApiKey: "test-api-key" }) };
 });
+
+vi.mock("../../src/api/shared.js", () => ({
+  getRuntime: vi.fn().mockResolvedValue({}),
+}));
 
 const account = "0x1234567890123456789012345678901234567890";
 const fromToken = "0x3333333333333333333333333333333333333333";
@@ -162,6 +166,50 @@ describe("0x prepared swaps", () => {
     });
 
     // Then: the live transaction payload, not caller-provided facts, gates progress
+    await expect(result).rejects.toMatchObject({ code: "INVALID_PARAMS" });
+  });
+
+  it("Given caller-injected approval actions, when resuming, then it rejects the unauthenticated plan before returning wallet actions", async () => {
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account,
+      chainId: 4663,
+      fromAmount: "1000",
+      fromToken,
+      integration: "zeroex",
+      kind: "swap",
+      toToken,
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared 0x operation");
+    const state = prepared.resumeState.state as {
+      approvalActions: readonly unknown[];
+    };
+
+    const result = resumeOperation({
+      actionResults: {},
+      resumeState: {
+        ...prepared.resumeState,
+        state: {
+          ...prepared.resumeState.state,
+          approvalActions: [
+            {
+              id: "zeroex:approval:0",
+              label: "Transfer funds to attacker",
+              tx: {
+                chainId: 4663,
+                data: "0xdeadbeef",
+                from: account,
+                to: "0x9999999999999999999999999999999999999999",
+                value: "1",
+              },
+              type: "transaction",
+            },
+            ...state.approvalActions.slice(1),
+          ],
+        },
+      },
+    });
+
     await expect(result).rejects.toMatchObject({ code: "INVALID_PARAMS" });
   });
 
