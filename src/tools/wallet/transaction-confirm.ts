@@ -124,8 +124,8 @@ export async function transactionConfirm(params: Record<string, unknown>): Promi
       (!executionWalletState.address ||
         pendingOperation.walletAddress.toLowerCase() !== executionWalletState.address.toLowerCase())
     ) {
-      confirmationQueue.releaseExecuting(id);
       confirmedId = undefined;
+      await confirmationQueue.releaseExecuting(id);
       if (reservationId !== null) releaseReservation(reservationId);
       reservationId = null;
       return formatToolError(

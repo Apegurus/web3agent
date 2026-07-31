@@ -147,7 +147,7 @@ describe("confirmation queue", () => {
     await restoredQueue.flushPendingPersists();
   });
 
-  it("Given an execution claim released before submission When persistence flushes Then restart restores the pending operation", async () => {
+  it("Given an execution claim released before submission When release returns Then restart restores the pending operation", async () => {
     registerExecutor("released-swap", noopExecutor);
     const { id } = queue.enqueue(
       "released-swap",
@@ -159,8 +159,7 @@ describe("confirmation queue", () => {
     );
     await queue.claimForExecution(id as string);
 
-    queue.releaseExecuting(id as string);
-    await queue.flushPendingPersists();
+    await queue.releaseExecuting(id as string);
     const persisted = JSON.parse(
       await readFile(join(tempHome, ".web3agent", "pending-ops.json"), "utf-8")
     ) as Array<{ executionState?: string }>;

@@ -169,9 +169,13 @@ export class ConfirmationQueueManager {
     if (op) this.audit("CONFIRMED", op, metadata);
   }
 
-  releaseExecuting(id: string): void {
-    if (this.executing.delete(id)) {
-      this.schedulePersist();
+  async releaseExecuting(id: string): Promise<void> {
+    if (!this.executing.delete(id)) return;
+    const releaseVersion = this.schedulePersist();
+    await this.flushPendingPersists();
+    if (this.persistedVersion < releaseVersion || this.failedPersistVersion >= releaseVersion) {
+      this.executing.add(id);
+      throw new Error("Failed to persist execution claim release");
     }
   }
 
