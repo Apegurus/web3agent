@@ -138,7 +138,7 @@ Explain this wallet's recent activity on Base: 0x0000000000000000000000000000000
 
 Basic EVM operations use viem's chain registry and can target any viem-supported EVM chain when RPC access is available.
 
-Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, Sonic, Mode, Blast, Celo, and Gnosis. Token resolution, explorer, LI.FI, and market/research tools have provider-specific coverage; LI.FI bridge quotes and execution support 20+ chains through LI.FI's own chain list.
+Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, Sonic, Mode, Blast, Celo, Gnosis, and Robinhood Chain. Robinhood support includes verified Uniswap v4 positions and 0x swap routing. Token resolution, explorer, LI.FI, and market/research tools have provider-specific coverage; LI.FI bridge quotes and execution support 20+ chains through LI.FI's own chain list.
 
 **Default:** Base (8453). Override with the `CHAIN_ID` env var or pass `chainId` per call.
 
