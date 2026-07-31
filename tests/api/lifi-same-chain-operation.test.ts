@@ -171,10 +171,7 @@ describe("LI.FI prepared same-chain swaps", () => {
           },
         },
       })
-    ).rejects.toMatchObject({
-      code: "INVALID_PARAMS",
-      message: "LI.FI Permit2 transaction facts do not match the canonical replanned action",
-    });
+    ).rejects.toMatchObject({ code: "INVALID_PARAMS" });
     const afterPermit = await resumeOperation({
       actionResults: {
         "bridge:permit2:0": { signature: `0x${"11".repeat(65)}`, type: "signature" },
@@ -234,7 +231,7 @@ describe("LI.FI prepared same-chain swaps", () => {
       kind: "swap",
       result: { status: "completed", txHash: "0xbbb" },
     });
-    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(4);
+    expect(lifiMocks.getQuote).toHaveBeenCalledTimes(3);
   });
 
   it("Given a caller-tampered same-chain resume action, when resuming, then it rebuilds the canonical LI.FI transaction before surfacing it", async () => {
@@ -291,12 +288,76 @@ describe("LI.FI prepared same-chain swaps", () => {
       },
     };
 
-    const result = await resumeOperation({ actionResults: {}, resumeState: tamperedResumeState });
+    const result = resumeOperation({ actionResults: {}, resumeState: tamperedResumeState });
 
-    expect(result).toMatchObject({
-      completed: false,
-      operation: { actions: [{ tx: { data: "0xabcdef", to: diamond } }] },
+    await expect(result).rejects.toMatchObject({ code: "INVALID_PARAMS" });
+  });
+
+  it("Given a caller-tampered direct action and a matching historical receipt, when resuming, then it rejects false settlement", async () => {
+    viemMocks.createPublicClient.mockReturnValue({
+      getTransaction: vi.fn().mockResolvedValue({
+        from: account,
+        input: "0xdeadbeef",
+        to: "0x9999999999999999999999999999999999999999",
+        value: 0n,
+      }),
+      getTransactionReceipt: vi.fn().mockResolvedValue({
+        status: "success",
+        to: "0x9999999999999999999999999999999999999999",
+      }),
+      readContract: vi.fn().mockResolvedValue(maxUint256),
     });
+    lifiMocks.getQuote.mockResolvedValueOnce({
+      action: {
+        fromAmount: "1000",
+        fromChainId: 4663,
+        fromToken: { address: fromToken, symbol: "USDG" },
+        toChainId: 4663,
+        toToken: { address: toToken, symbol: "WETH" },
+      },
+      estimate: { approvalAddress: diamond, skipPermit: true, toAmount: "999", toAmountMin: "990" },
+      transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
+    });
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      account,
+      fromAmount: "1000",
+      fromChainId: 4663,
+      fromToken,
+      integration: "lifi",
+      kind: "swap",
+      toChainId: 4663,
+      toToken,
+    });
+    if ("completed" in prepared) throw new Error("Expected a prepared LI.FI operation");
+
+    const result = resumeOperation({
+      actionResults: {
+        "bridge:execute:0": { status: "confirmed", txHash: "0xbbb", type: "transaction" },
+      },
+      resumeState: {
+        ...prepared.resumeState,
+        state: {
+          ...prepared.resumeState.state,
+          finalAction: {
+            id: "bridge:execute:0",
+            label: "Historical attacker transaction",
+            tx: {
+              chainId: 4663,
+              data: "0xdeadbeef",
+              from: account,
+              to: "0x9999999999999999999999999999999999999999",
+              value: "0",
+            },
+            type: "transaction",
+          },
+          finalization: { kind: "none" },
+          stages: [],
+        },
+      },
+    });
+
+    await expect(result).rejects.toMatchObject({ code: "INVALID_PARAMS" });
   });
 
   it("Given a presented direct LI.FI transaction and provider outage When it confirms Then resume uses persisted transaction facts", async () => {

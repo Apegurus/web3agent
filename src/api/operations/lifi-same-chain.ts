@@ -9,6 +9,11 @@ import type {
 import { parseInput } from "../validation.js";
 import { prepareBridgeOperation } from "./lifi-bridge-prepare.js";
 import { resumeLifiBridgeOperation } from "./lifi-bridge-resume.js";
+import {
+  assertResumeStateIntegrity,
+  authenticatePreparedOperation,
+  authenticateResumeState,
+} from "./resume-state-integrity.js";
 
 export async function prepareLifiSameChainSwapOperation(
   input: LifiSameChainSwapOperationInput,
@@ -21,7 +26,7 @@ export async function prepareLifiSameChainSwapOperation(
     chainId: 4663,
     ...(fallback ? { fallback: { fromProvider: "zeroex", reason: fallback.reason } } : {}),
   };
-  return {
+  return authenticatePreparedOperation({
     ...prepared,
     kind: "swap",
     summary: "Prepare LI.FI same-chain swap on Robinhood chain 4663",
@@ -31,25 +36,26 @@ export async function prepareLifiSameChainSwapOperation(
       state: { ...prepared.resumeState.state, chainId: 4663, meta, operation: input },
     },
     meta,
-  };
+  });
 }
 
 export async function resumeLifiSameChainSwapOperation(
   resumeState: OperationResumeState,
   actionResults: Record<string, OperationActionResult>
 ): Promise<ResumeOperationCompletedResult | { completed: false; operation: PreparedOperation }> {
+  assertResumeStateIntegrity(resumeState);
   const swapState = parseInput(lifiSameChainSwapResumeStateStateSchema, resumeState.state);
+  const { chainId: _chainId, ...bridgeState } = swapState;
   const result = await resumeLifiBridgeOperation(
-    {
+    authenticateResumeState({
       ...resumeState,
       kind: "bridge",
       state: {
-        ...swapState,
-        chainId: 4663,
+        ...bridgeState,
         meta: swapState.meta,
         operation: swapState.operation,
       },
-    },
+    }),
     actionResults
   );
   if (result.completed) {
@@ -70,7 +76,7 @@ export async function resumeLifiSameChainSwapOperation(
       ...result.operation,
       kind: "swap",
       summary: "Resume LI.FI same-chain swap",
-      resumeState: {
+      resumeState: authenticateResumeState({
         ...result.operation.resumeState,
         kind: "swap",
         state: {
@@ -79,7 +85,7 @@ export async function resumeLifiSameChainSwapOperation(
           meta,
           operation: swapState.operation,
         },
-      },
+      }),
       meta,
     },
   };
