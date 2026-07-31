@@ -10,7 +10,7 @@ export const UNISWAP_V4_ABI_PROVENANCE = {
   positionManager:
     "Uniswap/v4-periphery@3245c3cb99c48fa1dc2459c3b60abc37d4294aba:src/interfaces/IPositionManager.sol",
   positionManagerEvents:
-    "Uniswap/v4-periphery@3245c3cb99c48fa1dc2459c3b60abc37d4294aba:src/interfaces/IPositionManager.sol#L19-L33;Uniswap/v4-periphery@3245c3cb99c48fa1dc2459c3b60abc37d4294aba:lib/permit2/lib/solmate/src/tokens/ERC721.sol#L11-L15",
+    "Uniswap/v4-periphery@3245c3cb99c48fa1dc2459c3b60abc37d4294aba:src/interfaces/IPositionManager.sol#L29-L33 and lib/permit2/lib/solmate/src/tokens/ERC721.sol#L11-L15",
   stateView:
     "Uniswap/v4-periphery@3245c3cb99c48fa1dc2459c3b60abc37d4294aba:src/interfaces/IStateView.sol",
 } as const;

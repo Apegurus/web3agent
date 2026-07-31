@@ -1,11 +1,7 @@
 import { type Address, type Hex, toEventSelector } from "viem";
 
 import type { UniswapV4Event } from "../api/types.js";
-import {
-  decodePoolManagerEvent,
-  decodePositionManagerPoolEvent,
-  decodePositionManagerTransfer,
-} from "./event-decoding.js";
+import { decodePoolManagerEvent, decodePositionManagerTransfer } from "./event-decoding.js";
 import type { UniswapV4EventLog } from "./event-types.js";
 
 type ReceiptLifecycleLog = {
@@ -29,9 +25,6 @@ const POOL_MANAGER_EVENT_TOPICS = new Set([
   toEventSelector("Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)"),
   toEventSelector("Donate(bytes32,address,uint256,uint256)"),
 ]);
-const POSITION_MANAGER_MODIFY_TOPIC = toEventSelector(
-  "ModifyPosition(bytes32,address,int24,int24,int256,bytes32)"
-);
 const POSITION_MANAGER_TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
 
 export function decodeUniswapV4ReceiptEvents(input: {
@@ -58,9 +51,6 @@ function decodeReceiptLog(
     return asEvents(decodePoolManagerEvent(normalizedLog));
   }
   if (log.address.toLowerCase() !== deployment.positionManager.toLowerCase()) return [];
-  if (topic === POSITION_MANAGER_MODIFY_TOPIC) {
-    return asEvents(decodePositionManagerPoolEvent(normalizedLog));
-  }
   if (topic === POSITION_MANAGER_TRANSFER_TOPIC) {
     return asEvents(decodePositionManagerTransfer(normalizedLog));
   }

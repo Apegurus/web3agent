@@ -10,14 +10,15 @@ import {
   EVENT_FIXTURE_ZERO_ADDRESS as ZERO,
   createEventTransport,
   createInitializeEvent,
+  createModifyLiquidityEvent,
   createModifyPositionEvent,
   createTransferEvent,
   createUnknownPositionManagerEvent,
 } from "./event-fixtures.js";
 
 describe("Uniswap v4 event pages", () => {
-  it("Given two pools and PositionManager modifications When paging one pool Then only emitted-PoolId events are merged in order", async () => {
-    // Given: PositionManager ModifyPosition is pool-associated by its emitted id, while Transfer is not queried.
+  it("Given two pools and liquidity modifications When paging one pool Then only emitted-PoolId events are returned in order", async () => {
+    // Given: PoolManager ModifyLiquidity is pool-associated by its emitted id, while Transfer is not queried.
     const fixture = createEventTransport([
       createInitializeEvent({
         blockNumber: 100n,
@@ -25,7 +26,7 @@ describe("Uniswap v4 event pages", () => {
         logIndex: 0,
         poolId: POOL_A,
       }),
-      createModifyPositionEvent({
+      createModifyLiquidityEvent({
         blockNumber: 100n,
         deployment: DEPLOYMENT,
         logIndex: 1,
@@ -38,7 +39,7 @@ describe("Uniswap v4 event pages", () => {
         logIndex: 2,
         poolId: POOL_B,
       }),
-      createModifyPositionEvent({
+      createModifyLiquidityEvent({
         blockNumber: 100n,
         deployment: DEPLOYMENT,
         logIndex: 3,
@@ -72,7 +73,7 @@ describe("Uniswap v4 event pages", () => {
       { deployment: DEPLOYMENT, transport: fixture }
     );
 
-    // Then: only Pool A remains and the PositionManager source is explicit.
+    // Then: only Pool A remains and the canonical PoolManager source is explicit.
     expect(first.events).toMatchObject([
       {
         kind: "initialize",
@@ -83,19 +84,57 @@ describe("Uniswap v4 event pages", () => {
       hasMore: false,
       events: [
         {
-          kind: "positionModify",
+          kind: "modifyLiquidity",
           poolAssociation: {
             kind: "associated",
             poolId: POOL_A,
-            source: "position-manager-modify-position",
+            source: "pool-manager",
           },
         },
       ],
     });
   });
 
-  it("Given mixed Transfer and ModifyPosition logs When paging one token Then only emitted-token Transfers are returned unassociated", async () => {
-    // Given: token 7 shares a transaction with ModifyPosition and token 8; neither creates an allowed association.
+  it("Given a PositionManager modification for a pool When querying that pool Then the canonical event is returned without treating salt as token identity", async () => {
+    const salt = `0x${"07".repeat(32)}` as const;
+    const fixture = createEventTransport([
+      createModifyPositionEvent({
+        blockNumber: 100n,
+        deployment: DEPLOYMENT,
+        logIndex: 0,
+        poolId: POOL_A,
+        salt,
+      }),
+    ]);
+
+    const page = await getUniswapV4EventPage(
+      {
+        chainId: CHAIN_ID,
+        endBlock: "100",
+        pageSize: 1,
+        poolId: POOL_A,
+        scope: "pool",
+        startBlock: "100",
+      },
+      { deployment: DEPLOYMENT, transport: fixture }
+    );
+
+    expect(page.events).toMatchObject([
+      {
+        kind: "positionModify",
+        liquidityDelta: "4",
+        poolAssociation: {
+          kind: "associated",
+          poolId: POOL_A,
+          source: "position-manager-modify-position",
+        },
+        salt,
+      },
+    ]);
+  });
+
+  it("Given mixed Transfer and ModifyLiquidity logs When paging one token Then only emitted-token Transfers are returned unassociated", async () => {
+    // Given: token 7 shares a transaction with ModifyLiquidity and token 8; neither creates an allowed association.
     const fixture = createEventTransport([
       createTransferEvent({
         blockNumber: 100n,
@@ -105,7 +144,7 @@ describe("Uniswap v4 event pages", () => {
         to: SENDER,
         tokenId: 7n,
       }),
-      createModifyPositionEvent({
+      createModifyLiquidityEvent({
         blockNumber: 100n,
         deployment: DEPLOYMENT,
         logIndex: 1,

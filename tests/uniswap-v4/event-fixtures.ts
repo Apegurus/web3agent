@@ -61,6 +61,43 @@ export function createInitializeEvent(input: {
   };
 }
 
+export function createModifyLiquidityEvent(input: {
+  readonly blockNumber: bigint;
+  readonly deployment: EventFixtureDeployment;
+  readonly liquidityDelta?: bigint;
+  readonly logIndex: number;
+  readonly poolId: Hex;
+  readonly salt: Hex;
+  readonly sender?: Address;
+  readonly transactionHash?: Hex;
+}): UniswapV4EventLog {
+  const sender = input.sender ?? EVENT_FIXTURE_SENDER;
+  return {
+    ...eventMetadata({
+      address: input.deployment.poolManager,
+      blockNumber: input.blockNumber,
+      logIndex: input.logIndex,
+      transactionHash: input.transactionHash,
+    }),
+    data: encodeAbiParameters(
+      [
+        { name: "tickLower", type: "int24" },
+        { name: "tickUpper", type: "int24" },
+        { name: "liquidityDelta", type: "int256" },
+        { name: "salt", type: "bytes32" },
+      ],
+      [-60, 60, input.liquidityDelta ?? 4n, input.salt]
+    ),
+    topics: topics(
+      encodeEventTopics({
+        abi: UNISWAP_V4_POOL_MANAGER_EVENT_ABI,
+        args: { id: input.poolId, sender },
+        eventName: "ModifyLiquidity",
+      })
+    ),
+  };
+}
+
 export function createModifyPositionEvent(input: {
   readonly blockNumber: bigint;
   readonly deployment: EventFixtureDeployment;
