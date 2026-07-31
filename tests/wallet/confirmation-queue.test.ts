@@ -147,6 +147,32 @@ describe("confirmation queue", () => {
     await restoredQueue.flushPendingPersists();
   });
 
+  it("Given an execution claim released before submission When persistence flushes Then restart restores the pending operation", async () => {
+    registerExecutor("released-swap", noopExecutor);
+    const { id } = queue.enqueue(
+      "released-swap",
+      "Released swap",
+      { amount: "1" },
+      noopExecutor,
+      undefined,
+      "financial"
+    );
+    await queue.claimForExecution(id as string);
+
+    queue.releaseExecuting(id as string);
+    await queue.flushPendingPersists();
+    const persisted = JSON.parse(
+      await readFile(join(tempHome, ".web3agent", "pending-ops.json"), "utf-8")
+    ) as Array<{ executionState?: string }>;
+    const restoredQueue = new ConfirmationQueueManager(true);
+    const restored = await restoredQueue.loadQueue();
+
+    expect(persisted).toEqual([expect.not.objectContaining({ executionState: "claimed" })]);
+    expect(restored).toBe(1);
+    expect(restoredQueue.confirm(id as string)?.operation.id).toBe(id);
+    await restoredQueue.flushPendingPersists();
+  });
+
   it("deny returns false for unknown ID", () => {
     expect(queue.deny("nonexistent")).toBe(false);
   });

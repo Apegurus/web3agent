@@ -170,7 +170,9 @@ export class ConfirmationQueueManager {
   }
 
   releaseExecuting(id: string): void {
-    this.executing.delete(id);
+    if (this.executing.delete(id)) {
+      this.schedulePersist();
+    }
   }
 
   fail(id: string): void {
