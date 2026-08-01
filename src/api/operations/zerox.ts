@@ -2,6 +2,7 @@ import { encodeFunctionData, erc20Abi } from "viem";
 import { getConfig } from "../../config/env.js";
 import { assertAddress } from "../../operations/validation.js";
 import { classifyZeroExError, getZeroExQuote } from "../../zerox/client.js";
+import { prepareZeroExExecution } from "../../zerox/confirmed-execution.js";
 import { Web3AgentError } from "../errors.js";
 import { zeroExSwapResumeStateStateSchema } from "../schemas.js";
 import type {
@@ -114,10 +115,14 @@ export async function prepareZeroExSwapOperation(
     }
     throw error;
   }
-  const approvalActions = quote.allowance
-    ? [createApprovalAction(input, quote.allowance.target, quote.allowance.amount)]
+  const execution = await prepareZeroExExecution(quote, input.fromAmount, input.account);
+  const executionApprovalActions = execution.allowance
+    ? [createApprovalAction(input, execution.allowance.target, execution.allowance.amount)]
     : [];
-  const finalAction = createSwapAction(quote, input.account);
+  const executionFinalAction = createSwapAction(
+    { ...quote, transaction: execution.transaction },
+    input.account
+  );
   const meta = {
     adapterSource: quote.adapterSource,
     capabilityDecisionId: quote.capabilityDecisionId,
@@ -131,12 +136,12 @@ export async function prepareZeroExSwapOperation(
       "zeroex",
       "swap",
       "Prepare 0x swap on Robinhood chain 4663",
-      approvalActions.length > 0 ? approvalActions : [finalAction],
+      executionApprovalActions.length > 0 ? executionApprovalActions : [executionFinalAction],
       {
         operation: input,
-        approvalActions,
-        finalAction,
-        presentedStage: approvalActions.length > 0 ? "approval" : "final",
+        approvalActions: executionApprovalActions,
+        finalAction: executionFinalAction,
+        presentedStage: executionApprovalActions.length > 0 ? "approval" : "final",
         summary: "Prepare 0x swap on Robinhood chain 4663",
       },
       meta

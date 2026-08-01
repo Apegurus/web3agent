@@ -1,3 +1,4 @@
+import { encodeFunctionData, erc20Abi } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const viemMocks = vi.hoisted(() => ({ createPublicClient: vi.fn() }));
@@ -21,7 +22,15 @@ vi.mock("../../src/zerox/client.js", () => ({
 
 vi.mock("../../src/config/env.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../src/config/env.js")>();
-  return { ...actual, getConfig: () => ({ zeroxApiKey: "test-api-key" }) };
+  return {
+    ...actual,
+    getConfig: () => ({
+      chainId: 4663,
+      chainRpcUrls: {},
+      rpcUrl: undefined,
+      zeroxApiKey: "test-api-key",
+    }),
+  };
 });
 
 vi.mock("../../src/api/shared.js", () => ({
@@ -31,18 +40,29 @@ vi.mock("../../src/api/shared.js", () => ({
 const account = "0x1234567890123456789012345678901234567890";
 const fromToken = "0x3333333333333333333333333333333333333333";
 const toToken = "0x4444444444444444444444444444444444444444";
-const allowanceTarget = "0x5555555555555555555555555555555555555555";
+const allowanceTarget = "0x0000000000001fF3684f28c67538d4D072C22734" as const;
 const swapTarget = "0x6666666666666666666666666666666666666666";
 
 describe("0x prepared swaps", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     viemMocks.createPublicClient.mockReturnValue({
+      getBlockNumber: vi.fn().mockResolvedValue(123n),
+      readContract: vi
+        .fn()
+        .mockImplementation(({ functionName }: { functionName: string }) =>
+          Promise.resolve(
+            functionName === "ownerOf" ? swapTarget : "0x7777777777777777777777777777777777777777"
+          )
+        ),
       getTransaction: vi.fn().mockImplementation(({ hash }: { hash: string }) => {
         if (hash === "0xaaa") {
           return {
-            input:
-              "0x095ea7b3000000000000000000000000555555555555555555555555555555555555555500000000000000000000000000000000000000000000000000000000000003e8",
+            input: encodeFunctionData({
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [allowanceTarget, 1000n],
+            }),
             from: account,
             to: fromToken,
             value: 0n,
@@ -137,6 +157,14 @@ describe("0x prepared swaps", () => {
   it("Given a confirmed approval hash with different live calldata, when resuming, then it rejects before advancing", async () => {
     // Given: the canonical 0x approval action but a transaction hash for different calldata
     viemMocks.createPublicClient.mockReturnValue({
+      getBlockNumber: vi.fn().mockResolvedValue(123n),
+      readContract: vi
+        .fn()
+        .mockImplementation(({ functionName }: { functionName: string }) =>
+          Promise.resolve(
+            functionName === "ownerOf" ? swapTarget : "0x7777777777777777777777777777777777777777"
+          )
+        ),
       getTransaction: vi.fn().mockResolvedValue({
         data: "0xdeadbeef",
         from: account,
