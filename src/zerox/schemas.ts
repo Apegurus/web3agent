@@ -46,7 +46,13 @@ export const zeroExQuoteRequestSchema = z.object({
   toToken: addressSchema.describe("Output token address"),
   fromAmount: zeroExIntegerSchema.describe("Input amount in base units"),
   taker: addressSchema.describe("Wallet receiving and submitting the swap"),
-  slippageBps: z.number().int().min(0).optional().describe("Maximum slippage in basis points"),
+  slippageBps: z
+    .number()
+    .int()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("Maximum slippage from 0 to 10000 basis points"),
   referencePrice: zeroExDecimalSchema.optional().describe("Reference price for exact impact math"),
 });
 

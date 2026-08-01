@@ -3,7 +3,12 @@ import { addressSchema, chainIdOptionalSchema, hexSchema, tokenAmountSchema } fr
 
 export const orbsGetQuoteSchema = tokenAmountSchema.extend({
   chainId: chainIdOptionalSchema,
-  slippagePct: z.number().optional().describe("Slippage percentage (0.5 = 0.5%, default 0.5)"),
+  slippagePct: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe("Slippage percentage from 0 to 100 (0.5 = 0.5%, default 0.5)"),
   referencePrice: z
     .string()
     .regex(/^\d+(?:\.\d+)?$/)
