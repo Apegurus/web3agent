@@ -115,7 +115,12 @@ export async function prepareZeroExSwapOperation(
     }
     throw error;
   }
-  const execution = await prepareZeroExExecution(quote, input.fromAmount, input.account);
+  const execution = await prepareZeroExExecution(
+    quote,
+    input.fromAmount,
+    input.fromToken,
+    input.account
+  );
   const executionApprovalActions = execution.allowance
     ? [createApprovalAction(input, execution.allowance.target, execution.allowance.amount)]
     : [];
