@@ -149,7 +149,8 @@ Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, O
 | Capability          | Provider                        | Notes                                                                    |
 | ------------------- | ------------------------------- | ------------------------------------------------------------------------ |
 | On-chain state      | Native EVM tools                | Balances, contract reads/writes, gas, ENS, multicall (27 tools)          |
-| Swaps               | GOAT / Uniswap / Balancer       | Same-chain, ERC-20/721                                                   |
+| Swaps               | Orbs / 0x / LI.FI / GOAT        | Robinhood uses 0x first and LI.FI only for no-route/provider-unavailable |
+| Uniswap v4 positions | Uniswap v4                      | Verified reads, exact calculations, simulation, and gated lifecycle writes |
 | Aggregated swaps    | Orbs Liquidity Hub              | Optimal pricing via solver network                                       |
 | Cross-chain bridges | LI.FI                           | 20+ chains                                                               |
 | Lending             | GOAT SDK / protocol integrations | Aave, Morpho, and major money-market surfaces where supported           |
@@ -405,6 +406,19 @@ Transaction actions are only considered complete once you return a confirmed res
 ```
 
 `resumeOperation()` independently verifies the receipt before advancing.
+
+Prepared integrations are `orbs` (`swap`, `order`), `lifi` (`bridge` and Robinhood
+same-chain fallback), `zeroex` (Robinhood `swap`), `goat` (`tool`), and `uniswap-v4`
+(`mint`, `increase`, `decrease`, `collect`, `burn`). Robinhood same-chain swaps route to
+0x first and use LI.FI only when 0x returns the explicit `no-route` or
+`provider-unavailable` class.
+
+The root SDK also exposes the complete Uniswap v4 surface:
+`getUniswapV4Deployment`, `getUniswapV4Pool`, `getUniswapV4Position`,
+`getUniswapV4Events`, `calculateUniswapV4Position`, `calculateUniswapV4`,
+`simulateUniswapV4Operation`, `mintUniswapV4Position`,
+`increaseUniswapV4Liquidity`, `decreaseUniswapV4Liquidity`,
+`collectUniswapV4Fees`, and `burnUniswapV4Position`.
 
 Architecture notes: [docs/architecture/browser-wallet-operations.md](docs/architecture/browser-wallet-operations.md)
 
