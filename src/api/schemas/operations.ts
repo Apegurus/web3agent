@@ -8,7 +8,11 @@ import {
   preparedTransactionActionSchema,
   resumeStateBaseSchema,
 } from "./common.js";
-import { lifiPrepareBridgeIntentSchema, lifiPrepareSameChainSwapSchema } from "./lifi.js";
+import {
+  lifiPrepareBridgeIntentBaseSchema,
+  lifiPrepareBridgeIntentSchema,
+  lifiPrepareSameChainSwapSchema,
+} from "./lifi.js";
 import { orbsPrepareOrderIntentSchema, orbsPrepareSwapIntentSchema } from "./orbs.js";
 import { uniswapV4LifecycleOperationSchema } from "./uniswap-v4/lifecycle.js";
 import { zeroExSwapSchema } from "./zerox.js";
@@ -98,7 +102,7 @@ export const lifiBridgeResumeStateStateSchema = resumeStateBaseSchema.extend({
     .string()
     .regex(/^v1\.[0-9a-f]{16}\.[0-9a-f]{64}$/)
     .describe("Versioned integrity tag for immutable LI.FI plan and dispatch fields"),
-  operation: lifiPrepareBridgeIntentSchema
+  operation: lifiPrepareBridgeIntentBaseSchema
     .optional()
     .describe("Original LI.FI bridge input used to rebuild every executable action"),
   stages: z.array(z.array(preparedActionSchema)).describe("Ordered stages of wallet actions"),
@@ -158,10 +162,12 @@ export const prepareOperationSchema = z.union([
     integration: z.literal("orbs").describe("Integration name (e.g. 'orbs', 'lifi')"),
     kind: z.literal("order").describe("Action type"),
   }),
-  lifiPrepareBridgeIntentSchema.extend({
-    integration: z.literal("lifi").describe("Integration name (e.g. 'orbs', 'lifi')"),
-    kind: z.literal("bridge").describe("Action type"),
-  }),
+  lifiPrepareBridgeIntentSchema.and(
+    z.object({
+      integration: z.literal("lifi").describe("Integration name (e.g. 'orbs', 'lifi')"),
+      kind: z.literal("bridge").describe("Action type"),
+    })
+  ),
   zeroExSwapSchema.extend({
     integration: z.literal("zeroex").describe("Integration name for a Robinhood 0x swap"),
     kind: z.literal("swap").describe("Action type"),
