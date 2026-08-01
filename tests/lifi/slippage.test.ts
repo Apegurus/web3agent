@@ -2,14 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   convertQuoteToRoute: vi.fn(),
-  getChains: vi.fn(),
   getQuote: vi.fn(),
 }));
 
 vi.mock("@lifi/sdk", () => ({
   convertQuoteToRoute: mocks.convertQuoteToRoute,
   executeRoute: vi.fn(),
-  getChains: mocks.getChains,
   getQuote: mocks.getQuote,
 }));
 
@@ -24,9 +22,6 @@ describe("LI.FI slippage adaptation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getQuote.mockResolvedValue({ id: "quote" });
-    mocks.getChains.mockResolvedValue([
-      { diamondAddress: "0x5555555555555555555555555555555555555555", id: 4663 },
-    ]);
     mocks.convertQuoteToRoute.mockReturnValue({
       id: "route",
       steps: [
@@ -42,7 +37,7 @@ describe("LI.FI slippage adaptation", () => {
           transactionRequest: {
             chainId: 4663,
             from: "0x3333333333333333333333333333333333333333",
-            to: "0x5555555555555555555555555555555555555555",
+            to: "0xB477751B76CF82d00a686A1232f5fCD772414Af3",
             value: "0",
           },
         },
