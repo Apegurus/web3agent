@@ -568,10 +568,10 @@ export type LifiBridgeOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "lifi"; kind: "bridge" }
 >;
-export type LifiSameChainSwapOperationInput = Extract<
-  z.infer<typeof prepareOperationSchema>,
-  { integration: "lifi"; kind: "swap" }
->;
+export type LifiSameChainSwapOperationInput = z.infer<typeof lifiPrepareSameChainSwapSchema> & {
+  readonly integration: "lifi";
+  readonly kind: "swap";
+};
 export type ZeroExSwapOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "zeroex"; kind: "swap" }

@@ -1,9 +1,6 @@
 import { assertRecord } from "../operations/validation.js";
 import { Web3AgentError } from "./errors.js";
-import {
-  prepareLifiSameChainSwapOperation,
-  resumeLifiSameChainSwapOperation,
-} from "./operations/lifi-same-chain.js";
+import { resumeLifiSameChainSwapOperation } from "./operations/lifi-same-chain.js";
 import {
   clearLifiChainsCache,
   prepareBridgeOperation,
@@ -54,9 +51,7 @@ export async function prepareOperation(
       }
       return prepareOrderOperation(input);
     case "lifi":
-      return input.kind === "swap"
-        ? prepareLifiSameChainSwapOperation(input)
-        : prepareBridgeOperation(input);
+      return prepareBridgeOperation(input);
     case "zeroex":
       await initializeRuntime();
       return prepareZeroExSwapOperation(input);

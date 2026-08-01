@@ -162,10 +162,6 @@ export const prepareOperationSchema = z.union([
     integration: z.literal("lifi").describe("Integration name (e.g. 'orbs', 'lifi')"),
     kind: z.literal("bridge").describe("Action type"),
   }),
-  lifiPrepareSameChainSwapSchema.extend({
-    integration: z.literal("lifi").describe("Integration name for a fallback swap"),
-    kind: z.literal("swap").describe("Action type"),
-  }),
   zeroExSwapSchema.extend({
     integration: z.literal("zeroex").describe("Integration name for a Robinhood 0x swap"),
     kind: z.literal("swap").describe("Action type"),
