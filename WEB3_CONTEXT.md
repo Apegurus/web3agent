@@ -6,7 +6,7 @@ All Web3 tools are accessible through a single `web3agent` MCP server entry.
 
 ### Blockscout tools (prefix: `blockscout_`)
 
-Indexed blockchain data: address info, token balances, transaction history, NFT metadata, contract ABI, contract source code, ENS resolution, block info. Works on 3000+ chains.
+Indexed blockchain data: address info, token balances, transaction history, NFT metadata, contract ABI, contract source code, ENS resolution, and block info. Chain discovery covers the broader Blockscout ecosystem; detailed explorer tools currently support the eight networks listed in README.
 
 Tools: `blockscout_get_address_info`, `blockscout_get_tokens_by_address`, `blockscout_get_transactions_by_address`, `blockscout_get_token_transfers_by_address`, `blockscout_nft_tokens_by_address`, `blockscout_get_block_info`, `blockscout_get_transaction_info`, `blockscout_get_contract_abi`, `blockscout_inspect_contract_code`, `blockscout_read_contract`, `blockscout_get_block_number`, `blockscout_lookup_token_by_symbol`, `blockscout_get_address_by_ens_name`, `blockscout_get_chains_list`, `blockscout_direct_api_call`
 
