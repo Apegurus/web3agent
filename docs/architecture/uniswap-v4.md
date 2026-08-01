@@ -78,13 +78,13 @@ Those addresses document the official source; runtime admission still uses the a
 
 ## Public surface and safety model
 
-The root SDK exports `getUniswapV4Deployment`, `getUniswapV4Pool`, `getUniswapV4Position`, `getUniswapV4Events`, `calculateUniswapV4Position`, and `simulateUniswapV4Operation`, plus every public Uniswap v4 Zod schema and inferred type. The root contract uses project-native `bigint`, address, and hex data only; `ethers` and `jsbi` remain private adapter details.
+The root SDK exports `getUniswapV4Deployment`, `getUniswapV4Pool`, `getUniswapV4Position`, `getUniswapV4Events`, `calculateUniswapV4Position`, `calculateUniswapV4`, `simulateUniswapV4Operation`, `mintUniswapV4Position`, `increaseUniswapV4Liquidity`, `decreaseUniswapV4Liquidity`, `collectUniswapV4Fees`, and `burnUniswapV4Position`, plus every public Uniswap v4 Zod schema and inferred type. The root contract uses project-native `bigint`, address, and hex data only; `ethers` and `jsbi` remain private adapter details.
 
 `getUniswapV4Events` is page-oriented. Supply a bounded block interval and persist the opaque cursor returned by the page; do not request an unbounded historical scan or construct cursors yourself. Reads and calculations are point-in-time observations, not price quotes or investment advice.
 
 Lifecycle writes are prepared through `prepareOperation({ integration: "uniswap-v4", ... })` and continued through `resumeOperation(...)`. There are two signing modes: an app-owned/browser signer performs the prepared transaction or typed-data action externally, while a managed runtime uses the normal confirmation-gated write executor. Simulation is a recommended preflight before an execution attempt, but the runtime does not require proof that it ran, and simulation cannot guarantee later state, gas, hook results, inclusion, or success.
 
-`collect` is collect-all only: the canonical plan collects all fees currently owed by the position. Partial collection, liquidity strategies, rebalancing, portfolio valuation, accounting, tax, and profitability analysis are deliberately outside this API. The integration may choose the Robinhood native route; only a `provider-unavailable` or `no-route` result permits its separately provenance-tagged 0x fallback, which requires `ZEROX_API_KEY`. It never treats an arbitrary integration error as permission to route through 0x.
+`collect` is collect-all only: the canonical plan collects all fees currently owed by the position. Partial collection, liquidity strategies, rebalancing, portfolio valuation, accounting, tax, and profitability analysis are deliberately outside this API. Robinhood same-chain swaps are separate from position lifecycle operations: they use the provenance-tagged 0x adapter as the primary provider and require `ZEROX_API_KEY`. Only an explicit 0x `provider-unavailable` or `no-route` result permits a same-chain LI.FI fallback; authentication, rate-limit, timeout, and unknown failures do not.
 
 ## Stateless resume boundary
 

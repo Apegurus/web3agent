@@ -7,9 +7,11 @@
 1. `prepareOperation(...)`
    - Returns the next wallet actions plus opaque `resumeState`
    - Supported integrations today:
-     - `orbs` (`swap`, `order`)
-     - `lifi` (`bridge`)
-     - `goat` (`tool`)
+      - `orbs` (`swap`, `order`)
+      - `lifi` (`bridge`, Robinhood same-chain `swap` fallback)
+      - `zeroex` (Robinhood `swap`)
+      - `goat` (`tool`)
+      - `uniswap-v4` (`mint`, `increase`, `decrease`, `collect`, `burn`)
 2. The surrounding app performs the wallet work externally
    - Send transactions
    - Sign typed data
@@ -25,7 +27,7 @@
 
 - Browser-wallet consumers do not have a server-side private key
 - MCP hosts can prepare and resume, but generic MCP hosts cannot open wallet popups on their own
-- GOAT, Orbs, and LI.FI can all fit behind the same action model:
+- GOAT, Orbs, LI.FI, 0x, and Uniswap v4 all fit behind the same action model:
   - `transaction`
   - `signTypedData`
   - `signMessage`
