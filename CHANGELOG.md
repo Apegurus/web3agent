@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-01
+
+### Added
+
+- Added verified Robinhood Chain support for Uniswap v4 reads, calculations, simulation, and staged lifecycle operations through both MCP tools and the root SDK.
+- Added provenance-tagged Robinhood same-chain swap routing through 0x with narrowly classified LI.FI fallback for explicit no-route and provider-unavailable results.
+
+### Security
+
+- Bound prepared 0x approval and execution actions to the canonical Robinhood AllowanceHolder and Settler registry owners before exposing wallet actions.
+- Bound LI.FI same-chain fallback approvals and transactions to trusted LI.FI chain metadata, approved wallet, chain, token path, amount, and native value.
+- Authenticated staged resume states and independently verified confirmed transaction facts before advancing prepared operations.
+
+### Fixed
+
+- Preserved caller slippage limits through 0x and LI.FI routing without rounding percentage tolerances upward.
+- Made final Uniswap v4 scope evidence reproducible from a clean checkout and retained local artifact auditing under `qa:uniswap-v4:evidence:artifacts`.
+
 ## [0.6.2] - 2026-06-30
 
 ### Added

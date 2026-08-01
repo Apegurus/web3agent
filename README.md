@@ -78,7 +78,7 @@ pnpm run mcpb:check
 smithery mcp publish dist/web3agent.mcpb -n Apegurus/web3agent
 ```
 
-The generated MCPB is a thin local bundle that launches the published npm package with `npm exec --package web3agent@0.6.2`.
+The generated MCPB is a thin local bundle that launches the published npm package with `npm exec --package web3agent@0.7.0`.
 
 ## Why Web3Agent
 
