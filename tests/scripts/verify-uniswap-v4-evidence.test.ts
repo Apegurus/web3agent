@@ -38,15 +38,6 @@ describe("verify-uniswap-v4-evidence", () => {
     await mkdir(join(root, "src"));
     await writeFile(join(root, "package.json"), JSON.stringify({ name: "scope-fixture" }));
     await writeFile(join(root, "src", "index.ts"), "export const value = true;\n");
-    const evidence = join(root, ".omo", "evidence", "robinhood-uniswap-v4", "implementation");
-    await mkdir(evidence, { recursive: true });
-    await Promise.all(
-      [
-        "task-20-quality-gates.txt",
-        "task-20-packed-consumer.txt",
-        "task-20-package-contents.txt",
-      ].map((name) => writeFile(join(evidence, name), "fixture\n"))
-    );
     git(root, ["init", "--quiet"]);
     git(root, ["config", "user.email", "scope@example.test"]);
     git(root, ["config", "user.name", "Scope Fixture"]);

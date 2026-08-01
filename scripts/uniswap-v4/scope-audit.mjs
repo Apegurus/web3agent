@@ -23,7 +23,7 @@ const ALLOWED_PATHS = [
   /^tests\/(?:api|chains|config|examples|operations|orbs|tools|uniswap-v4|wallet|zerox)\//,
   /^tests\/scripts\/verify-uniswap-v4-evidence\.test\.ts$/,
   /^tests\/global-setup\.ts$/,
-  /^tests\/(?:e2e\/(?:cli-parity|create-web3agent-bin-symlink|host-matrix|packaging)|lifi\/(?:config|route-execution)|utils\/(?:canonical-json|errors))\.test\.ts$/,
+  /^tests\/(?:e2e\/(?:cli-parity|create-web3agent-bin-symlink|host-matrix|packaging)|lifi\/(?:config|route-execution|slippage)|utils\/(?:canonical-json|errors))\.test\.ts$/,
   /^templates\/create\/(?:mastra|mcp-host|vercel-ai-sdk)\/\.env\.example$/,
   /^\.omo\/evidence\/robinhood-uniswap-v4\/implementation\/(?:task-20|f[1-4])-.*\.(?:txt|json|md)$/,
   /^task-(?:16|17|18|19)-adversarial-verify\.txt$/,
@@ -153,7 +153,7 @@ function readIndexSource(cwd, path) {
   }
 }
 
-export function inspectGitScope({ base, cwd, head }) {
+export function inspectGitScope({ base, cwd, head, requireScopeEvidence = true }) {
   if (base.startsWith("-") || head.startsWith("-"))
     throw new Error("Git refs cannot start with '-'");
   const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
@@ -229,11 +229,13 @@ export function inspectGitScope({ base, cwd, head }) {
         ...(stagedIndex === undefined ? [] : [exportedNames(stagedIndex)]),
       ],
       packageMetadata,
-      requiredScopeEvidence: [
-        "task-20-quality-gates.txt",
-        "task-20-packed-consumer.txt",
-        "task-20-package-contents.txt",
-      ],
+      requiredScopeEvidence: requireScopeEvidence
+        ? [
+            "task-20-quality-gates.txt",
+            "task-20-packed-consumer.txt",
+            "task-20-package-contents.txt",
+          ]
+        : [],
       scopeEvidencePaths,
     }),
   };

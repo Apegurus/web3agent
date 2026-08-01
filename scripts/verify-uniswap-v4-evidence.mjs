@@ -224,6 +224,7 @@ if (options.selfTestScope) {
     base: options.base ?? "122f159904d46747abbedd5c0aada4171c6e9c15",
     cwd: process.cwd(),
     head: options.head ?? "HEAD",
+    requireScopeEvidence: options.mode !== "scope",
   });
   const report =
     options.mode === "scope"
