@@ -117,7 +117,7 @@ These remain available for compatibility, but new exchange integrations should u
 
 The browser-wallet tools are MCP-compatible, but generic MCP hosts cannot trigger browser wallet popups themselves. Use MCP to prepare, simulate, and resume operations; perform the actual wallet signing in the surrounding app or host integration.
 
-For Uniswap v4, simulation is a prerequisite for a lifecycle execution flow: treat it as a point-in-time preflight, then display the prepared actions and obtain fresh wallet confirmation. A successful simulation cannot guarantee a later inclusion price, liquidity, hook behavior, gas cost, or transaction outcome.
+For Uniswap v4, simulation is a recommended point-in-time preflight before a lifecycle execution flow; the runtime does not require proof that it ran. Display the prepared actions and obtain fresh wallet confirmation. A successful simulation cannot guarantee a later inclusion price, liquidity, hook behavior, gas cost, or transaction outcome.
 
 ### Token resolution (prefix: none)
 
