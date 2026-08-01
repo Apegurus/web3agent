@@ -38,7 +38,7 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 
 - `operation_prepare` — prepare the next external-wallet actions plus opaque `resumeState`
 - `operation_resume` — continue a prepared operation after signatures or transactions complete externally
-- These are the primary MCP tools for browser-wallet flows across Orbs, LI.FI, and GOAT
+- These are the primary MCP tools for browser-wallet flows across Orbs, LI.FI, 0x, GOAT, and Uniswap v4
 
 ### DeFi tools
 
@@ -47,10 +47,17 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 - `uniswap_v4_get_deployment`, `uniswap_v4_get_pool`, and `uniswap_v4_get_position` — verified deployment and point-in-time state reads (read-only)
 - `uniswap_v4_get_events` — bounded event pages; callers must provide a finite block range and continue only with the returned cursor
 - `uniswap_v4_calculate_position` — deterministic expected-delta calculation, not a quote or trading strategy
+- `uniswap_v4_calculate` — exact price, liquidity, fee, quote-impact, and lifecycle-delta calculations
 - `uniswap_v4_simulate_operation` — preflight a lifecycle operation before collecting signatures or submitting a transaction (read-only)
 - `uniswap_v4_mint_position`, `uniswap_v4_increase_liquidity`, `uniswap_v4_decrease_liquidity`, `uniswap_v4_collect_fees`, and `uniswap_v4_burn_position` — write operations, confirmation-gated; use `operation_prepare` / `operation_resume` for an external signer
 
-`collect` collects **all fees currently owed by the position at the pinned read state**; it is not a partial-collection, P&L, tax, or accounting endpoint. Uniswap v4 is selected only where web3agent has a verified deployment for the requested chain. A Robinhood same-chain swap may fall back to LI.FI only for a provider-unavailable or no-route outcome; the provider/provenance decision is returned to the caller.
+`collect` collects **all fees currently owed by the position at the pinned read state**; it is not a partial-collection, P&L, tax, or accounting endpoint. Uniswap v4 is selected only where web3agent has a verified deployment for the requested chain. A Robinhood same-chain swap uses 0x as its primary provider and may fall back to LI.FI only for a provider-unavailable or no-route outcome; the provider/provenance decision is returned to the caller.
+
+**0x Robinhood swaps** (prefix: `zeroex_`):
+
+- `zeroex_get_quote` — quote a Robinhood same-chain swap through the admitted 0x adapter (read-only)
+- `zeroex_swap` — prepare a confirmation-gated 0x swap and persist immutable execution facts
+- Public same-chain SDK inputs use `slippagePct`; the 0x boundary converts it to integer `slippageBps`, while any LI.FI fallback receives the equivalent percentage/fraction
 
 **GOAT plugins** (Uniswap, Balancer, ERC-20, ERC-721, ENS, DexScreener):
 
