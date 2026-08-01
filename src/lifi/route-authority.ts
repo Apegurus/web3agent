@@ -1,42 +1,31 @@
 import { Web3AgentError } from "../api/errors.js";
 import { isNativeTokenAddress } from "../orbs/liquidity-hub.js";
+import { ROBINHOOD_LIFI_AUTHORITY } from "./robinhood-authority.js";
 import type { LifiRoute, LifiRouteRequest } from "./route-execution.js";
-
-type LifiChainAuthority = {
-  readonly id: number;
-  readonly diamondAddress?: string;
-  readonly permit2?: string;
-  readonly permit2Proxy?: string;
-};
 
 function mismatch(message: string): Web3AgentError {
   return new Web3AgentError({ code: "LIFI_ROUTE_AUTHORITY_MISMATCH", message });
 }
 
-export function assertTrustedLifiRoute(
-  route: LifiRoute,
-  request: LifiRouteRequest,
-  chain: LifiChainAuthority
-): void {
-  if (route.steps.length === 0 || chain.id !== request.fromChainId) {
-    throw mismatch("LI.FI route has no executable step or trusted chain metadata");
+export function assertTrustedLifiRoute(route: LifiRoute, request: LifiRouteRequest): void {
+  if (route.steps.length !== 1 || request.fromChainId !== ROBINHOOD_LIFI_AUTHORITY.chainId) {
+    throw mismatch("LI.FI fallback must contain exactly one Robinhood execution step");
   }
   const trustedExecutionTargets = new Set(
-    [chain.diamondAddress, chain.permit2Proxy]
-      .filter((value): value is string => value !== undefined)
-      .map((value) => value.toLowerCase())
+    [ROBINHOOD_LIFI_AUTHORITY.diamondAddress, ROBINHOOD_LIFI_AUTHORITY.permit2Proxy].map((value) =>
+      value.toLowerCase()
+    )
   );
   const trustedSpenders = new Set(
-    [chain.diamondAddress, chain.permit2, chain.permit2Proxy]
-      .filter((value): value is string => value !== undefined)
-      .map((value) => value.toLowerCase())
+    [
+      ROBINHOOD_LIFI_AUTHORITY.diamondAddress,
+      ROBINHOOD_LIFI_AUTHORITY.permit2,
+      ROBINHOOD_LIFI_AUTHORITY.permit2Proxy,
+    ].map((value) => value.toLowerCase())
   );
-  if (!chain.diamondAddress || trustedExecutionTargets.size === 0) {
-    throw mismatch("LI.FI chain metadata has no canonical execution contract");
-  }
 
   let expectedToken = request.fromToken.toLowerCase();
-  for (const [index, step] of route.steps.entries()) {
+  for (const step of route.steps) {
     const transaction = step.transactionRequest;
     if (
       step.action.fromChainId !== request.fromChainId ||
@@ -50,7 +39,7 @@ export function assertTrustedLifiRoute(
     ) {
       throw mismatch(`LI.FI route step ${step.id} is outside the approved authority boundary`);
     }
-    if (index === 0 && step.action.fromAmount !== request.fromAmount) {
+    if (step.action.fromAmount !== request.fromAmount) {
       throw mismatch("LI.FI route input amount differs from the approved amount");
     }
     const approvalAddress = step.estimate?.approvalAddress;
@@ -60,7 +49,6 @@ export function assertTrustedLifiRoute(
     const value = BigInt(transaction.value ?? "0");
     if (
       (isNativeTokenAddress(step.action.fromToken.address) &&
-        index === 0 &&
         value !== BigInt(request.fromAmount)) ||
       (!isNativeTokenAddress(step.action.fromToken.address) && value !== 0n)
     ) {

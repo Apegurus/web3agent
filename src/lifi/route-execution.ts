@@ -1,4 +1,4 @@
-import { convertQuoteToRoute, executeRoute, getChains, getQuote } from "@lifi/sdk";
+import { convertQuoteToRoute, executeRoute, getQuote } from "@lifi/sdk";
 import { type Address, type Hex, encodeFunctionData, erc20Abi } from "viem";
 import { Web3AgentError } from "../api/errors.js";
 import { getChainById } from "../chains/registry.js";
@@ -44,14 +44,7 @@ export async function prepareLifiRoute(params: LifiRouteRequest): Promise<LifiRo
   });
   const route = convertQuoteToRoute(quote);
   if (params.fromChainId === 4663 && params.toChainId === 4663) {
-    const chain = (await getChains()).find((candidate) => candidate.id === 4663);
-    if (!chain) {
-      throw new Web3AgentError({
-        code: "CHAIN_NOT_SUPPORTED",
-        message: "LI.FI does not support Robinhood chain 4663",
-      });
-    }
-    assertTrustedLifiRoute(route, params, chain);
+    assertTrustedLifiRoute(route, params);
   }
   return route;
 }

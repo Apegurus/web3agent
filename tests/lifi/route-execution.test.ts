@@ -4,7 +4,6 @@ const mocks = vi.hoisted(() => ({
   createPublicClientForRuntimeChain: vi.fn(),
   createWalletClientForChain: vi.fn(),
   executeRoute: vi.fn(),
-  getChains: vi.fn(),
   getActiveAccount: vi.fn(),
   getWalletState: vi.fn(),
   sendTransaction: vi.fn(),
@@ -16,7 +15,6 @@ vi.mock("@lifi/sdk", () => ({
   convertQuoteToRoute: vi.fn(),
   EVM: vi.fn().mockReturnValue({}),
   executeRoute: mocks.executeRoute,
-  getChains: mocks.getChains,
   getQuote: vi.fn(),
 }));
 vi.mock("../../src/operations/chain-access.js", () => ({
@@ -39,8 +37,8 @@ import { zeroExLifiFallbackSchema } from "../../src/tools/zerox/lifi-confirmatio
 
 const account = { address: "0x3333333333333333333333333333333333333333" } as const;
 const token = "0x1111111111111111111111111111111111111111";
-const spender = "0x5555555555555555555555555555555555555555";
-const target = "0x7777777777777777777777777777777777777777";
+const spender = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+const target = "0xB477751B76CF82d00a686A1232f5fCD772414Af3";
 const approvalHash = `0x${"aa".repeat(32)}`;
 const swapHash = `0x${"bb".repeat(32)}`;
 
@@ -79,9 +77,6 @@ describe("confirmed LI.FI route execution", () => {
     vi.clearAllMocks();
     mocks.getActiveAccount.mockReturnValue(account);
     mocks.getWalletState.mockReturnValue({ address: account.address });
-    mocks.getChains.mockResolvedValue([
-      { diamondAddress: target, id: 4663, permit2: spender, permit2Proxy: target },
-    ]);
     mocks.createWalletClientForChain.mockReturnValue({
       sendTransaction: mocks.sendTransaction,
     });
@@ -131,19 +126,15 @@ describe("confirmed LI.FI route execution", () => {
     expect(mocks.sendTransaction).not.toHaveBeenCalled();
   });
 
-  it("rejects a same-chain quote whose transaction target is outside LI.FI chain metadata", async () => {
+  it("rejects a same-chain quote whose transaction target is outside pinned LI.FI authority", async () => {
     const route = getConfirmedRoute();
+    route.steps[0].transactionRequest = {
+      ...route.steps[0].transactionRequest,
+      to: "0x8888888888888888888888888888888888888888",
+    };
     const { convertQuoteToRoute, getQuote } = await import("@lifi/sdk");
     vi.mocked(getQuote).mockResolvedValueOnce(route.steps[0]);
     vi.mocked(convertQuoteToRoute).mockReturnValueOnce(route);
-    mocks.getChains.mockResolvedValueOnce([
-      {
-        diamondAddress: "0x8888888888888888888888888888888888888888",
-        id: 4663,
-        permit2: spender,
-      },
-    ]);
-
     await expect(
       prepareLifiRoute({
         account: account.address,
