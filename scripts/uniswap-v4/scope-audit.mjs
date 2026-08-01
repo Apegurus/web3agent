@@ -6,19 +6,19 @@ import ts from "typescript";
 import { createLogRequestScopeResolver } from "./log-request-bounds.mjs";
 
 const ALLOWED_PATHS = [
-  /^(?:README|WEB3_CONTEXT|package|pnpm-lock|tsup\.config)\.(?:md|json|yaml|ts)$/,
+  /^(?:CHANGELOG|README|WEB3_CONTEXT|package|pnpm-lock|tsup\.config)\.(?:md|json|yaml|ts)$/,
   /^vitest\.config\.ts$/,
   /^server\.json$/,
   /^smithery\.yaml$/,
   /^docs\/architecture\/(?:browser-wallet-operations|uniswap-v4)\.md$/,
   /^examples\/uniswap-v4\.mjs$/,
   /^examples\/agent-playground\/\.env\.example$/,
-  /^mcpb\/(?:README\.md|manifest\.json)$/,
+  /^mcpb\/(?:README\.md|manifest\.json|server\/web3agent\.mjs)$/,
   /^scripts\/uniswap-v4\/.+\.mjs$/,
   /^scripts\/(?:verify-uniswap-v4-evidence|qa-uniswap-v4)\.mjs$/,
   /^src\/(?:api|chains|config|operations|runtime|tokens|tools|types|uniswap-v4|zerox)\//,
   /^src\/utils\/(?:canonical-json|errors)\.ts$/,
-  /^src\/(?:index|lifi\/(?:config|route-execution))\.ts$/,
+  /^src\/(?:index|lifi\/(?:config|route-authority|route-execution))\.ts$/,
   /^src\/wallet\/(?:audit|confirmation|confirmation-persistence|confirmation-restore|execution-metadata)\.ts$/,
   /^tests\/(?:api|chains|config|examples|operations|orbs|tools|uniswap-v4|wallet|zerox)\//,
   /^tests\/scripts\/verify-uniswap-v4-evidence\.test\.ts$/,
