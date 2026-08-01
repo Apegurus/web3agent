@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createPublicClientForRuntimeChain: vi.fn(),
   createWalletClientForChain: vi.fn(),
   executeRoute: vi.fn(),
+  getChains: vi.fn(),
   getActiveAccount: vi.fn(),
   getWalletState: vi.fn(),
   sendTransaction: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("@lifi/sdk", () => ({
   convertQuoteToRoute: vi.fn(),
   EVM: vi.fn().mockReturnValue({}),
   executeRoute: mocks.executeRoute,
+  getChains: mocks.getChains,
   getQuote: vi.fn(),
 }));
 vi.mock("../../src/operations/chain-access.js", () => ({
@@ -28,7 +30,11 @@ vi.mock("../../src/wallet/persistence.js", () => ({
   getWalletState: mocks.getWalletState,
 }));
 
-import { executeLifiRoute, executePreparedLifiRoute } from "../../src/lifi/route-execution.js";
+import {
+  executeLifiRoute,
+  executePreparedLifiRoute,
+  prepareLifiRoute,
+} from "../../src/lifi/route-execution.js";
 import { zeroExLifiFallbackSchema } from "../../src/tools/zerox/lifi-confirmation.js";
 
 const account = { address: "0x3333333333333333333333333333333333333333" } as const;
@@ -73,6 +79,9 @@ describe("confirmed LI.FI route execution", () => {
     vi.clearAllMocks();
     mocks.getActiveAccount.mockReturnValue(account);
     mocks.getWalletState.mockReturnValue({ address: account.address });
+    mocks.getChains.mockResolvedValue([
+      { diamondAddress: target, id: 4663, permit2: spender, permit2Proxy: target },
+    ]);
     mocks.createWalletClientForChain.mockReturnValue({
       sendTransaction: mocks.sendTransaction,
     });
@@ -120,6 +129,31 @@ describe("confirmed LI.FI route execution", () => {
       code: "LIFI_ROUTE_CHAIN_MISMATCH",
     });
     expect(mocks.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a same-chain quote whose transaction target is outside LI.FI chain metadata", async () => {
+    const route = getConfirmedRoute();
+    const { convertQuoteToRoute, getQuote } = await import("@lifi/sdk");
+    vi.mocked(getQuote).mockResolvedValueOnce(route.steps[0]);
+    vi.mocked(convertQuoteToRoute).mockReturnValueOnce(route);
+    mocks.getChains.mockResolvedValueOnce([
+      {
+        diamondAddress: "0x8888888888888888888888888888888888888888",
+        id: 4663,
+        permit2: spender,
+      },
+    ]);
+
+    await expect(
+      prepareLifiRoute({
+        account: account.address,
+        fromAmount: "1000000",
+        fromChainId: 4663,
+        fromToken: token,
+        toChainId: 4663,
+        toToken: "0x2222222222222222222222222222222222222222",
+      })
+    ).rejects.toMatchObject({ code: "LIFI_ROUTE_AUTHORITY_MISMATCH" });
   });
 
   it("preserves the transaction hash when receipt polling fails after broadcast", async () => {

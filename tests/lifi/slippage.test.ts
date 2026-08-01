@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   convertQuoteToRoute: vi.fn(),
+  getChains: vi.fn(),
   getQuote: vi.fn(),
 }));
 
 vi.mock("@lifi/sdk", () => ({
   convertQuoteToRoute: mocks.convertQuoteToRoute,
   executeRoute: vi.fn(),
+  getChains: mocks.getChains,
   getQuote: mocks.getQuote,
 }));
 
@@ -22,7 +24,30 @@ describe("LI.FI slippage adaptation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getQuote.mockResolvedValue({ id: "quote" });
-    mocks.convertQuoteToRoute.mockReturnValue({ id: "route", steps: [] });
+    mocks.getChains.mockResolvedValue([
+      { diamondAddress: "0x5555555555555555555555555555555555555555", id: 4663 },
+    ]);
+    mocks.convertQuoteToRoute.mockReturnValue({
+      id: "route",
+      steps: [
+        {
+          id: "step",
+          action: {
+            fromAmount: "100",
+            fromChainId: 4663,
+            fromToken: { address: "0x1111111111111111111111111111111111111111" },
+            toChainId: 4663,
+            toToken: { address: "0x2222222222222222222222222222222222222222" },
+          },
+          transactionRequest: {
+            chainId: 4663,
+            from: "0x3333333333333333333333333333333333333333",
+            to: "0x5555555555555555555555555555555555555555",
+            value: "0",
+          },
+        },
+      ],
+    });
   });
 
   it("converts a public percentage to the LI.FI fractional quote value", async () => {
