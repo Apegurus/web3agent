@@ -19,4 +19,26 @@ describe("distribution configuration", () => {
     expect(smitheryManifest).toContain("WEB3AGENT_RESUME_STATE_SECRETS: config.resumeStateSecrets");
     expect(smitheryManifest).toContain("resumeStateSecrets:");
   });
+
+  it("keeps the release version aligned across every executable distribution surface", () => {
+    const packageManifest = readFileSync(join(root, "package.json"), "utf8");
+    const mcpbManifest = readFileSync(join(root, "mcpb/manifest.json"), "utf8");
+    const registryManifest = readFileSync(join(root, "server.json"), "utf8");
+    const launcher = readFileSync(join(root, "mcpb/server/web3agent.mjs"), "utf8");
+
+    expect(packageManifest).toContain('"version": "0.7.0"');
+    expect(mcpbManifest).toContain('"version": "0.7.0"');
+    expect(registryManifest).toContain('"version": "0.7.0"');
+    expect(launcher).toContain('"web3agent@0.7.0"');
+  });
+
+  it("documents the 0x key in every generated starter environment", () => {
+    for (const template of ["mastra", "mcp-host", "vercel-ai-sdk"]) {
+      const environment = readFileSync(
+        join(root, "templates/create", template, ".env.example"),
+        "utf8"
+      );
+      expect(environment).toContain("ZEROX_API_KEY=");
+    }
+  });
 });
