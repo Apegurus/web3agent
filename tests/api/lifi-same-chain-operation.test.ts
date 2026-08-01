@@ -1,4 +1,4 @@
-import { maxUint256 } from "viem";
+import { encodeFunctionData, erc20Abi, maxUint256 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const viemMocks = vi.hoisted(() => ({
@@ -41,6 +41,11 @@ const toToken = "0x4444444444444444444444444444444444444444";
 const permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 const permit2Proxy = "0x1111111111111111111111111111111111111111";
 const diamond = "0x2222222222222222222222222222222222222222";
+const approvalData = encodeFunctionData({
+  abi: erc20Abi,
+  functionName: "approve",
+  args: [permit2, maxUint256],
+});
 
 function configureSameChainQuote(): void {
   lifiMocks.getChains.mockResolvedValue([
@@ -80,7 +85,7 @@ describe("LI.FI prepared same-chain swaps", () => {
     viemMocks.createPublicClient.mockReturnValue({
       getTransaction: vi.fn().mockResolvedValue({
         from: account,
-        input: "0x095ea7b3",
+        input: approvalData,
         to: fromToken,
         value: 0n,
       }),
@@ -93,16 +98,19 @@ describe("LI.FI prepared same-chain swaps", () => {
     lifiMocks.convertQuoteToRoute.mockImplementation((quote: Record<string, unknown>) => ({
       steps: [{ transactionRequest: quote.transactionRequest }],
     }));
-    lifiMocks.setAllowance.mockResolvedValue("0x095ea7b3");
+    lifiMocks.setAllowance.mockResolvedValue(approvalData);
     configureSameChainQuote();
     const { clearLifiChainsCache } = await import("../../src/api/operations.js");
     clearLifiChainsCache();
   });
 
   it("Given a Robinhood route requiring Permit2, when actions are confirmed in order, then the same-chain swap completes", async () => {
-    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const { resumeOperation } = await import("../../src/api/operations.js");
+    const { prepareLifiSameChainSwapOperation } = await import(
+      "../../src/api/operations/lifi-same-chain.js"
+    );
 
-    const prepared = await prepareOperation({
+    const prepared = await prepareLifiSameChainSwapOperation({
       account,
       fromAmount: "1000",
       fromChainId: 4663,
@@ -128,7 +136,7 @@ describe("LI.FI prepared same-chain swaps", () => {
     viemMocks.createPublicClient.mockReturnValue({
       getTransaction: vi.fn().mockResolvedValue({
         from: account,
-        input: "0x095ea7b3",
+        input: approvalData,
         to: fromToken,
         value: 0n,
       }),
@@ -255,8 +263,11 @@ describe("LI.FI prepared same-chain swaps", () => {
       },
       transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
     });
-    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
-    const prepared = await prepareOperation({
+    const { resumeOperation } = await import("../../src/api/operations.js");
+    const { prepareLifiSameChainSwapOperation } = await import(
+      "../../src/api/operations/lifi-same-chain.js"
+    );
+    const prepared = await prepareLifiSameChainSwapOperation({
       account,
       fromAmount: "1000",
       fromChainId: 4663,
@@ -318,8 +329,11 @@ describe("LI.FI prepared same-chain swaps", () => {
       estimate: { approvalAddress: diamond, skipPermit: true, toAmount: "999", toAmountMin: "990" },
       transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
     });
-    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
-    const prepared = await prepareOperation({
+    const { resumeOperation } = await import("../../src/api/operations.js");
+    const { prepareLifiSameChainSwapOperation } = await import(
+      "../../src/api/operations/lifi-same-chain.js"
+    );
+    const prepared = await prepareLifiSameChainSwapOperation({
       account,
       fromAmount: "1000",
       fromChainId: 4663,
@@ -382,8 +396,11 @@ describe("LI.FI prepared same-chain swaps", () => {
       estimate: { approvalAddress: diamond, skipPermit: true, toAmount: "999", toAmountMin: "990" },
       transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
     });
-    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
-    const prepared = await prepareOperation({
+    const { resumeOperation } = await import("../../src/api/operations.js");
+    const { prepareLifiSameChainSwapOperation } = await import(
+      "../../src/api/operations/lifi-same-chain.js"
+    );
+    const prepared = await prepareLifiSameChainSwapOperation({
       account,
       fromAmount: "1000",
       fromChainId: 4663,

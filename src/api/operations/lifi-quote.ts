@@ -210,7 +210,7 @@ async function getCachedLifiChains(): Promise<ExtendedChain[]> {
   return lifiChainsCache.promise;
 }
 
-async function getLifiExtendedChain(chainId: number): Promise<ExtendedChain> {
+export async function getLifiExtendedChain(chainId: number): Promise<ExtendedChain> {
   const chains = await getCachedLifiChains();
   const chain = chains.find((candidate) => candidate.id === chainId);
 

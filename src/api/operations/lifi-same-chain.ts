@@ -1,4 +1,7 @@
-import { lifiSameChainSwapResumeStateStateSchema } from "../schemas.js";
+import {
+  lifiBridgeResumeStateStateSchema,
+  lifiSameChainSwapResumeStateStateSchema,
+} from "../schemas.js";
 import type {
   LifiSameChainSwapOperationInput,
   OperationActionResult,
@@ -9,6 +12,8 @@ import type {
 import { parseInput } from "../validation.js";
 import { prepareBridgeOperation } from "./lifi-bridge-prepare.js";
 import { resumeLifiBridgeOperation } from "./lifi-bridge-resume.js";
+import { getLifiExtendedChain } from "./lifi-quote.js";
+import { assertTrustedLifiSameChainPlan } from "./lifi-same-chain-authority.js";
 import {
   assertResumeStateIntegrity,
   authenticatePreparedOperation,
@@ -20,6 +25,13 @@ export async function prepareLifiSameChainSwapOperation(
   fallback?: { readonly reason: "no-route" | "provider-unavailable" }
 ): Promise<PreparedOperation> {
   const prepared = await prepareBridgeOperation(input);
+  const bridgeState = parseInput(lifiBridgeResumeStateStateSchema, prepared.resumeState.state);
+  assertTrustedLifiSameChainPlan({
+    chain: await getLifiExtendedChain(input.fromChainId),
+    finalAction: bridgeState.finalAction,
+    input,
+    stages: bridgeState.stages,
+  });
   const meta = {
     ...(prepared.meta ?? {}),
     provider: "lifi",
