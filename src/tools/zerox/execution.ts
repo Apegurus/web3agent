@@ -24,7 +24,7 @@ export async function executeConfirmedZeroExSwap(params: Record<string, unknown>
     });
   }
   const { execution } = parsed.data;
-  requireValidConfirmedExecution(execution, parsed.data.fromAmount);
+  requireValidConfirmedExecution(execution, parsed.data.fromAmount, parsed.data.fromToken);
   const account = getActiveAccount();
   if (!hasSameAddress(account.address, execution.taker)) {
     throw new Web3AgentError({

@@ -103,7 +103,12 @@ export async function zeroExSwap(params: Record<string, unknown>) {
   const taker = assertAddress(getWalletState().address ?? zeroAddress, "taker");
   try {
     const quote = await getZeroExQuote(getZeroExQuoteInput(validation.data, chainId, taker));
-    const execution = await prepareZeroExExecution(quote, validation.data.fromAmount, taker);
+    const execution = await prepareZeroExExecution(
+      quote,
+      validation.data.fromAmount,
+      validation.data.fromToken,
+      taker
+    );
     return executeWrite({
       toolName: "zeroex_swap",
       description: `0x swap: ${validation.data.fromAmount} of ${validation.data.fromToken} → ${validation.data.toToken} on chain ${chainId}`,

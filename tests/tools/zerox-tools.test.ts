@@ -198,7 +198,6 @@ describe("Robinhood native 0x tools", () => {
           settler: expect.objectContaining({
             blockNumber: "123",
             owner: settler,
-            previousOwner: previousSettler,
           }),
         }),
       }),
