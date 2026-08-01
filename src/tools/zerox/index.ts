@@ -124,6 +124,9 @@ export async function zeroExSwap(params: Record<string, unknown>) {
         fromToken: validation.data.fromToken,
         toToken: validation.data.toToken,
         fromAmount: validation.data.fromAmount,
+        ...(validation.data.slippageBps === undefined
+          ? {}
+          : { slippagePct: validation.data.slippageBps / 100 }),
       });
       const fallback = zeroExLifiFallbackSchema.parse({
         ...validation.data,

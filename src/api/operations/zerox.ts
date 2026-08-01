@@ -107,6 +107,7 @@ export async function prepareZeroExSwapOperation(
           kind: "swap",
           toChainId: 4663,
           toToken: input.toToken,
+          ...(input.slippageBps === undefined ? {} : { slippagePct: input.slippageBps / 100 }),
         },
         { reason: classification.kind }
       );
