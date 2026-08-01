@@ -21,6 +21,7 @@
         "CHAIN_ID": "${user_config.chain_id}",
         "CONFIRM_WRITES": "${user_config.confirm_writes}",
         "ETHERSCAN_API_KEY": "${user_config.etherscan_api_key}",
+        "LIFI_API_KEY": "${user_config.lifi_api_key}",
         "ZEROX_API_KEY": "${user_config.zerox_api_key}",
         "COINGECKO_API_KEY": "${user_config.coingecko_api_key}",
         "CCXT_CONFIG_PATH": "${user_config.ccxt_config_path}",
@@ -55,6 +56,13 @@
       "type": "string",
       "title": "0x API key",
       "description": "Optional 0x API key for 0x swap plugin support.",
+      "sensitive": true,
+      "required": false
+    },
+    "lifi_api_key": {
+      "type": "string",
+      "title": "LI.FI API key",
+      "description": "Optional LI.FI API key for higher-rate bridge and fallback routing.",
       "sensitive": true,
       "required": false
     },

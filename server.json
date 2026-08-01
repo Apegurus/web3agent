@@ -65,6 +65,13 @@
           "isSecret": true
         },
         {
+          "name": "LIFI_API_KEY",
+          "description": "Optional LI.FI API key for higher-rate bridge and fallback routing.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "COINGECKO_API_KEY",
           "description": "Optional CoinGecko API key for higher-rate market data.",
           "format": "string",

@@ -41,4 +41,13 @@ describe("distribution configuration", () => {
       expect(environment).toContain("ZEROX_API_KEY=");
     }
   });
+
+  it("exposes the LI.FI API key in every installer manifest", () => {
+    const mcpbManifest = readFileSync(join(root, "mcpb/manifest.json"), "utf8");
+    const registryManifest = readFileSync(join(root, "server.json"), "utf8");
+
+    expect(mcpbManifest).toContain('"LIFI_API_KEY": "${user_config.lifi_api_key}"');
+    expect(mcpbManifest).toContain('"lifi_api_key": {');
+    expect(registryManifest).toContain('"name": "LIFI_API_KEY"');
+  });
 });
