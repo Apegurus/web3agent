@@ -122,9 +122,9 @@ reads = {
 }
 const prepared = { mint: await sdk.prepareOperation({ ...mint, integration: "uniswap-v4" }), burn: await sdk.prepareOperation({ ...burn, integration: "uniswap-v4" }) };
 const simulation = await sdk.simulateTransaction({ chainId: fixture.chainId, data: "0x", from: account, to: fixture.deployment.poolManager, value: "0" });
-const zeroEx = await sdk.prepareOperation({ account, chainId: fixture.chainId, fromAmount: "1000", fromToken: fixture.quote.request.fromToken, integration: "zeroex", kind: "swap", toToken: fixture.quote.request.toToken });
+const zeroEx = await sdk.prepareOperation({ account, chainId: fixture.chainId, fromAmount: fixture.quote.request.fromAmount, fromToken: fixture.quote.request.fromToken, integration: "zeroex", kind: "swap", toToken: fixture.quote.request.toToken });
 process.env.WEB3AGENT_FIXTURE_ZEROEX_MODE = "no-route";
-const lifi = await sdk.prepareOperation({ account, fromAmount: "1000", fromChainId: fixture.chainId, fromToken: fixture.quote.request.fromToken, integration: "lifi", kind: "swap", toChainId: fixture.chainId, toToken: fixture.quote.request.toToken });
+const lifi = await sdk.prepareOperation({ account, chainId: fixture.chainId, fromAmount: fixture.quote.request.fromAmount, fromToken: fixture.quote.request.fromToken, integration: "zeroex", kind: "swap", toToken: fixture.quote.request.toToken });
 process.stdout.write(JSON.stringify({ prepared, reads, sdkCalls: ${JSON.stringify(SDK_CALLS)}, simulation, swaps: { lifi, zeroEx } }));
 `
   );

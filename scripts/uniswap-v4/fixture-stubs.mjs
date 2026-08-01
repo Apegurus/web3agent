@@ -19,12 +19,18 @@ const permitAbi = [{ type: "function", name: "allowance", inputs: [{ type: "addr
 const permitProxyAbi = [{ type: "function", name: "nextNonce", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] }];
 const poolAbi = [{ type: "function", name: "protocolFeeController", inputs: [], outputs: [{ type: "address" }] }];
 const erc20Abi = [{ type: "function", name: "name", inputs: [], outputs: [{ type: "string" }] }, { type: "function", name: "symbol", inputs: [], outputs: [{ type: "string" }] }, { type: "function", name: "decimals", inputs: [], outputs: [{ type: "uint8" }] }, { type: "function", name: "allowance", inputs: [{ type: "address" }, { type: "address" }], outputs: [{ type: "uint256" }] }];
+const settlerRegistryAbi = [{ type: "function", name: "ownerOf", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] }, { type: "function", name: "prev", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] }];
+const settlerRegistry = "0x00000000000004533fe15556b1e086bb1a72ceae";
 const counter = () => JSON.parse(readFileSync(counterPath, "utf8"));
 const count = (key) => { const value = counter(); value[key] = (value[key] ?? 0) + 1; writeFileSync(counterPath, JSON.stringify(value)); };
 const positionInfo = () => (BigInt(keccak256(encodeAbiParameters([{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }], ["0x0000000000000000000000000000000000000000", fixture.token.address, fixture.pool.poolKey.fee, fixture.pool.poolKey.tickSpacing, fixture.pool.poolKey.hooks]))) & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000n) | (BigInt.asUintN(24, -120n) << 8n) | (120n << 32n);
 const attempt = (abi, data) => { try { return decodeFunctionData({ abi, data }); } catch { return undefined; } };
 const encoded = (abi, functionName, value) => encodeFunctionResult({ abi, functionName, result: value });
-function callResult(data) {
+function callResult(data, target) {
+  if (target?.toLowerCase() === settlerRegistry) {
+    const call = decodeFunctionData({ abi: settlerRegistryAbi, data });
+    return encoded(settlerRegistryAbi, call.functionName, call.functionName === "ownerOf" ? fixture.quote.response.transaction.to : "0x7777777777777777777777777777777777777777");
+  }
   for (const abi of [stateAbi, positionAbi, permitAbi, permitProxyAbi, poolAbi, erc20Abi]) {
     const call = attempt(abi, data);
     if (!call) continue;
@@ -52,6 +58,7 @@ function callResult(data) {
 function rpcResult(method, params) {
   count("rpcCalls");
   if (method === "eth_chainId") return "0x1237";
+  if (method === "eth_blockNumber") return "0x" + BigInt(fixture.sourceBlock.blockNumber).toString(16);
   if (method === "eth_getBlockByNumber") return { hash: fixture.sourceBlock.blockHash, number: "0xfad14f", parentHash: "0x" + "00".repeat(32), nonce: "0x0000000000000000", sha3Uncles: "0x" + "00".repeat(32), logsBloom: "0x" + "00".repeat(256), transactionsRoot: "0x" + "00".repeat(32), stateRoot: "0x" + "00".repeat(32), receiptsRoot: "0x" + "00".repeat(32), miner: "0x0000000000000000000000000000000000000000", difficulty: "0x0", totalDifficulty: "0x0", extraData: "0x", size: "0x0", gasLimit: "0x1c9c380", gasUsed: "0x0", timestamp: "0x1", transactions: [], uncles: [], baseFeePerGas: "0x1" };
   if (method === "eth_getLogs") return [];
   if (method === "eth_estimateGas") return "0x5208";
@@ -63,10 +70,10 @@ function rpcResult(method, params) {
   if (method !== "eth_call") return "0x";
   const data = params[0]?.data ?? "0x";
   const multicall = attempt(multicallAbi, data);
-  if (multicall?.functionName === "aggregate3") return encoded(multicallAbi, "aggregate3", multicall.args[0].map((call) => ({ success: true, returnData: callResult(call.callData) })));
-  return callResult(data);
+  if (multicall?.functionName === "aggregate3") return encoded(multicallAbi, "aggregate3", multicall.args[0].map((call) => ({ success: true, returnData: callResult(call.callData, call.target) })));
+  return callResult(data, params[0]?.to);
 }
-const lifiQuote = { action: { fromAmount: "1000", fromChainId: 4663, fromToken: { address: fixture.quote.request.fromToken, decimals: 18, symbol: "USDG" }, toChainId: 4663, toToken: { address: fixture.quote.request.toToken, decimals: 18, symbol: "WETH" } }, estimate: { approvalAddress: "0x5555555555555555555555555555555555555555", fromAmount: "1000", toAmount: "999", toAmountMin: "990", gasCosts: [], executionDuration: 1 }, transactionRequest: { chainId: 4663, data: "0xabcdef", to: "0x2222222222222222222222222222222222222222", value: "0" }, includedSteps: [] };
+const lifiQuote = { action: { fromAmount: fixture.quote.request.fromAmount, fromChainId: 4663, fromToken: { address: fixture.quote.request.fromToken, decimals: 18, symbol: "USDG" }, toChainId: 4663, toToken: { address: fixture.quote.request.toToken, decimals: 18, symbol: "WETH" } }, estimate: { approvalAddress: "0x5555555555555555555555555555555555555555", fromAmount: fixture.quote.request.fromAmount, toAmount: "999", toAmountMin: "990", gasCosts: [], executionDuration: 1 }, transactionRequest: { chainId: 4663, data: "0xabcdef", to: "0x2222222222222222222222222222222222222222", value: "0" }, includedSteps: [] };
 const originalFetch = global.fetch;
 global.fetch = async (input, init) => {
   const url = String(input);
