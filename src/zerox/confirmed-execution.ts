@@ -5,6 +5,7 @@ import { addressSchema, hexSchema } from "../api/schemas/common.js";
 import { getChainById } from "../chains/registry.js";
 import { getTransportForChain } from "../config/wallet-factory.js";
 import { assertAddress } from "../operations/validation.js";
+import { isNativeTokenAddress } from "../orbs/liquidity-hub.js";
 import type { ZeroExQuote } from "./client.js";
 import { zeroExIntegerSchema, zeroExTransactionSchema } from "./schemas.js";
 
@@ -50,7 +51,9 @@ const zeroExConfirmedExecutionFactsSchema = z.object({
     .object({
       blockNumber: zeroExIntegerSchema.describe("Block used to pin Settler owners"),
       owner: addressSchema.describe("Settler registry owner at the pinned block"),
-      previousOwner: addressSchema.describe("Previous Settler owner at the pinned block"),
+      previousOwner: addressSchema
+        .optional()
+        .describe("Previous Settler owner at the pinned block when one exists"),
     })
     .describe("Pinned canonical Settler authority"),
 });
@@ -87,7 +90,8 @@ function getExecutionIntegrityHash(execution: ZeroExConfirmedExecutionFacts): st
 
 export function requireValidConfirmedExecution(
   execution: ZeroExConfirmedExecution,
-  fromAmount: string
+  fromAmount: string,
+  fromToken: string
 ): void {
   const { integrityHash, ...facts } = execution;
   if (integrityHash !== getExecutionIntegrityHash(facts)) {
@@ -114,9 +118,17 @@ export function requireValidConfirmedExecution(
       message: "Confirmed 0x allowance amount does not match the exact sell amount",
     });
   }
+  const expectedValue = isNativeTokenAddress(fromToken) ? BigInt(fromAmount) : 0n;
+  if (BigInt(execution.transaction.value) !== expectedValue) {
+    throw new Web3AgentError({
+      code: "ZEROEX_CONFIRMED_VALUE_MISMATCH",
+      message: "Confirmed 0x transaction value does not match the requested input asset",
+    });
+  }
   if (
     !hasSameAddress(execution.transaction.to, execution.settler.owner) &&
-    !hasSameAddress(execution.transaction.to, execution.settler.previousOwner)
+    (!execution.settler.previousOwner ||
+      !hasSameAddress(execution.transaction.to, execution.settler.previousOwner))
   ) {
     throw new Web3AgentError({
       code: "ZEROEX_CONFIRMED_SETTLER_TARGET_MISMATCH",
@@ -128,6 +140,7 @@ export function requireValidConfirmedExecution(
 export async function prepareZeroExExecution(
   quote: ZeroExQuote,
   fromAmount: string,
+  fromToken: string,
   taker: string
 ): Promise<ZeroExConfirmedExecution> {
   const chain = getChainById(ROBINHOOD_CHAIN_ID);
@@ -158,13 +171,24 @@ export async function prepareZeroExExecution(
       cause: error,
     });
   }
-  const previousOwner = await publicClient.readContract({
-    address: SETTLER_REGISTRY,
-    abi: settlerRegistryAbi,
-    functionName: "prev",
-    args: [SETTLER_FEATURE_ID],
-    blockNumber,
-  });
+  let previousOwner: string | undefined;
+  if (!hasSameAddress(quote.transaction.to, owner)) {
+    try {
+      previousOwner = await publicClient.readContract({
+        address: SETTLER_REGISTRY,
+        abi: settlerRegistryAbi,
+        functionName: "prev",
+        args: [SETTLER_FEATURE_ID],
+        blockNumber,
+      });
+    } catch (error: unknown) {
+      throw new Web3AgentError({
+        code: "ZEROEX_CONFIRMED_SETTLER_TARGET_MISMATCH",
+        message: "Quoted 0x target is neither the current nor a previous Robinhood Settler",
+        cause: error,
+      });
+    }
+  }
   const facts = zeroExConfirmedExecutionFactsSchema.parse({
     provider: "0x" as const,
     chainId: ROBINHOOD_CHAIN_ID,
@@ -178,13 +202,15 @@ export async function prepareZeroExExecution(
     settler: {
       blockNumber: blockNumber.toString(),
       owner: assertAddress(owner, "Settler owner"),
-      previousOwner: assertAddress(previousOwner, "previous Settler owner"),
+      ...(previousOwner
+        ? { previousOwner: assertAddress(previousOwner, "previous Settler owner") }
+        : {}),
     },
   });
   const execution = zeroExConfirmedExecutionSchema.parse({
     ...facts,
     integrityHash: getExecutionIntegrityHash(facts),
   });
-  requireValidConfirmedExecution(execution, fromAmount);
+  requireValidConfirmedExecution(execution, fromAmount, fromToken);
   return execution;
 }
