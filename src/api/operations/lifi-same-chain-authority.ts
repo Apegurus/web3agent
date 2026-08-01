@@ -1,4 +1,5 @@
 import { decodeFunctionData, erc20Abi } from "viem";
+import { ROBINHOOD_LIFI_AUTHORITY } from "../../lifi/robinhood-authority.js";
 import { isNativeTokenAddress } from "../../orbs/liquidity-hub.js";
 import { Web3AgentError } from "../errors.js";
 import type {
@@ -6,10 +7,8 @@ import type {
   PreparedAction,
   PreparedTransactionAction,
 } from "../types.js";
-import type { ExtendedChain } from "./lifi-facts.js";
 
 type TrustedLifiSameChainPlan = {
-  readonly chain: ExtendedChain;
   readonly finalAction: PreparedTransactionAction;
   readonly input: LifiSameChainSwapOperationInput;
   readonly stages: readonly (readonly PreparedAction[])[];
@@ -20,13 +19,10 @@ function authorityMismatch(message: string): Web3AgentError {
 }
 
 export function assertTrustedLifiSameChainPlan(plan: TrustedLifiSameChainPlan): void {
-  const { chain, finalAction, input, stages } = plan;
-  const diamond = chain.diamondAddress?.toLowerCase();
-  const permit2 = chain.permit2?.toLowerCase();
-  const permit2Proxy = chain.permit2Proxy?.toLowerCase();
-  if (!diamond) {
-    throw authorityMismatch("LI.FI chain metadata has no canonical diamond address");
-  }
+  const { finalAction, input, stages } = plan;
+  const diamond = ROBINHOOD_LIFI_AUTHORITY.diamondAddress.toLowerCase();
+  const permit2 = ROBINHOOD_LIFI_AUTHORITY.permit2.toLowerCase();
+  const permit2Proxy = ROBINHOOD_LIFI_AUTHORITY.permit2Proxy.toLowerCase();
 
   const trustedExecutionTargets = new Set([diamond, permit2Proxy].filter((value) => !!value));
   if (!trustedExecutionTargets.has(finalAction.tx.to.toLowerCase())) {

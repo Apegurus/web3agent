@@ -39,8 +39,8 @@ const account = "0x1234567890123456789012345678901234567890";
 const fromToken = "0x3333333333333333333333333333333333333333";
 const toToken = "0x4444444444444444444444444444444444444444";
 const permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
-const permit2Proxy = "0x1111111111111111111111111111111111111111";
-const diamond = "0x2222222222222222222222222222222222222222";
+const permit2Proxy = "0x8eABB4E117fB70b346592e013855f6d825F50af1";
+const diamond = "0xB477751B76CF82d00a686A1232f5fCD772414Af3";
 const approvalData = encodeFunctionData({
   abi: erc20Abi,
   functionName: "approve",
@@ -65,7 +65,7 @@ function configureSameChainQuote(): void {
       toToken: { address: toToken, symbol: "WETH" },
     },
     estimate: {
-      approvalAddress: "0x5555555555555555555555555555555555555555",
+      approvalAddress: permit2,
       toAmount: "999",
       toAmountMin: "990",
     },
@@ -240,6 +240,37 @@ describe("LI.FI prepared same-chain swaps", () => {
       result: { status: "completed", txHash: "0xbbb" },
     });
     expect(lifiMocks.getQuote).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects a provider quote whose token path differs from the requested fallback", async () => {
+    lifiMocks.getQuote.mockResolvedValueOnce({
+      action: {
+        fromAmount: "1000",
+        fromChainId: 4663,
+        fromToken: { address: fromToken, symbol: "USDG" },
+        toChainId: 4663,
+        toToken: { address: "0x9999999999999999999999999999999999999999", symbol: "BAD" },
+      },
+      estimate: { approvalAddress: permit2, toAmount: "999", toAmountMin: "990" },
+      transactionRequest: { chainId: 4663, data: "0xabcdef", to: diamond, value: "0" },
+    });
+    const { prepareLifiSameChainSwapOperation } = await import(
+      "../../src/api/operations/lifi-same-chain.js"
+    );
+
+    await expect(
+      prepareLifiSameChainSwapOperation({
+        account,
+        fromAmount: "1000",
+        fromChainId: 4663,
+        fromToken,
+        integration: "lifi",
+        kind: "swap",
+        toChainId: 4663,
+        toToken,
+      })
+    ).rejects.toMatchObject({ code: "LIFI_ROUTE_AUTHORITY_MISMATCH" });
+    expect(lifiMocks.setAllowance).not.toHaveBeenCalled();
   });
 
   it("Given a caller-tampered same-chain resume action, when resuming, then it rebuilds the canonical LI.FI transaction before surfacing it", async () => {

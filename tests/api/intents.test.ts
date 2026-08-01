@@ -198,7 +198,7 @@ describe("browser wallet intent APIs", () => {
           symbol: "USDC",
         },
         toToken: {
-          address: "0x4444444444444444444444444444444444444444",
+          address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           symbol: "ETH",
         },
         fromAmount: "1000",
@@ -287,7 +287,7 @@ describe("browser wallet intent APIs", () => {
           symbol: "USDC",
         },
         toToken: {
-          address: "0x4444444444444444444444444444444444444444",
+          address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           symbol: "ETH",
         },
         fromAmount: "1000",
@@ -345,7 +345,7 @@ describe("browser wallet intent APIs", () => {
           symbol: "ETH",
         },
         toToken: {
-          address: "0x4444444444444444444444444444444444444444",
+          address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           symbol: "ETH",
         },
         fromAmount: "1000000000000000000",
@@ -404,7 +404,7 @@ describe("browser wallet intent APIs", () => {
           symbol: "POL",
         },
         toToken: {
-          address: "0x4444444444444444444444444444444444444444",
+          address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           symbol: "ETH",
         },
         fromAmount: "1000000000000000000",

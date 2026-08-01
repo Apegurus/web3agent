@@ -7,6 +7,7 @@ import {
 import type { Hex } from "viem";
 import { ensureLifiInitialized } from "../../lifi/config.js";
 import { assertAddress, assertHex, parseBigIntString } from "../../operations/validation.js";
+import { isNativeTokenAddress } from "../../orbs/liquidity-hub.js";
 import { withTimeout } from "../../utils/timeout.js";
 import { Web3AgentError } from "../errors.js";
 import type {
@@ -109,6 +110,36 @@ function getLifiBridgeTransactionRequest(quote: LiFiStep): LifiTransactionReques
   });
 }
 
+function assertLifiQuoteMatchesInput(
+  quote: LiFiStep,
+  request: LifiTransactionRequest,
+  input: PrepareBridgeIntentInput
+): void {
+  const mismatch = (message: string): never => {
+    throw new Web3AgentError({ code: "LIFI_ROUTE_AUTHORITY_MISMATCH", message });
+  };
+  if (
+    quote.action.fromChainId !== input.fromChainId ||
+    quote.action.toChainId !== input.toChainId ||
+    quote.action.fromToken.address.toLowerCase() !== input.fromToken.toLowerCase() ||
+    quote.action.toToken.address.toLowerCase() !== input.toToken.toLowerCase() ||
+    quote.action.fromAmount !== input.fromAmount
+  ) {
+    mismatch("LI.FI quote does not match the requested chain, token path, or amount");
+  }
+  if (
+    (request.chainId !== undefined && request.chainId !== input.fromChainId) ||
+    (request.from !== undefined && request.from.toLowerCase() !== input.account.toLowerCase())
+  ) {
+    mismatch("LI.FI transaction does not match the requested chain or wallet");
+  }
+  const value = BigInt(request.value ?? "0");
+  const expectedValue = isNativeTokenAddress(input.fromToken) ? BigInt(input.fromAmount) : 0n;
+  if (value !== expectedValue) {
+    mismatch("LI.FI transaction value does not match the requested input asset");
+  }
+}
+
 async function fetchLifiQuote(input: PrepareBridgeIntentInput): Promise<LiFiStep> {
   ensureLifiInitialized();
   return withTimeout(
@@ -131,10 +162,12 @@ export async function getLifiBridgePreparationContext(
   options: { includeFromChain?: boolean } = {}
 ): Promise<LifiBridgePreparationContext> {
   const quote = await fetchLifiQuote(input);
+  const transactionRequest = getLifiBridgeTransactionRequest(quote);
+  assertLifiQuoteMatchesInput(quote, transactionRequest, input);
   const finalAction = createPreparedTransactionActionFromRequest(
     "bridge:execute:0",
     toBridgeStepLabel("bridge"),
-    getLifiBridgeTransactionRequest(quote),
+    transactionRequest,
     input.fromChainId,
     assertAddress(input.account, "account")
   );

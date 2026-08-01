@@ -12,7 +12,6 @@ import type {
 import { parseInput } from "../validation.js";
 import { prepareBridgeOperation } from "./lifi-bridge-prepare.js";
 import { resumeLifiBridgeOperation } from "./lifi-bridge-resume.js";
-import { getLifiExtendedChain } from "./lifi-quote.js";
 import { assertTrustedLifiSameChainPlan } from "./lifi-same-chain-authority.js";
 import {
   assertResumeStateIntegrity,
@@ -27,7 +26,6 @@ export async function prepareLifiSameChainSwapOperation(
   const prepared = await prepareBridgeOperation(input);
   const bridgeState = parseInput(lifiBridgeResumeStateStateSchema, prepared.resumeState.state);
   assertTrustedLifiSameChainPlan({
-    chain: await getLifiExtendedChain(input.fromChainId),
     finalAction: bridgeState.finalAction,
     input,
     stages: bridgeState.stages,

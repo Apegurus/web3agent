@@ -53,6 +53,7 @@ export interface ExtendedChain {
 }
 
 export interface LifiTransactionRequest {
+  from?: string;
   to?: string;
   data?: string;
   value?: string;

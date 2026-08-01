@@ -5,7 +5,7 @@ import { assertTrustedLifiSameChainPlan } from "../../src/api/operations/lifi-sa
 const account = "0x1234567890123456789012345678901234567890" as const;
 const token = "0x3333333333333333333333333333333333333333" as const;
 const permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
-const diamond = "0x2222222222222222222222222222222222222222" as const;
+const diamond = "0xB477751B76CF82d00a686A1232f5fCD772414Af3" as const;
 const attacker = "0x9999999999999999999999999999999999999999" as const;
 const finalAction = {
   id: "bridge:execute:0",
@@ -43,13 +43,10 @@ const input = {
   toChainId: 4663,
   toToken: "0x4444444444444444444444444444444444444444",
 } as const;
-const chain = { diamondAddress: diamond, id: 4663, permit2 };
-
 describe("Robinhood LI.FI authority", () => {
   it("accepts an approval and execution plan bound to canonical LI.FI contracts", () => {
     expect(() =>
       assertTrustedLifiSameChainPlan({
-        chain,
         finalAction,
         input,
         stages: [[approvalAction(permit2)]],
@@ -60,7 +57,6 @@ describe("Robinhood LI.FI authority", () => {
   it("rejects an approval spender outside canonical LI.FI contracts", () => {
     expect(() =>
       assertTrustedLifiSameChainPlan({
-        chain,
         finalAction,
         input,
         stages: [[approvalAction(attacker)]],
@@ -71,7 +67,6 @@ describe("Robinhood LI.FI authority", () => {
   it("rejects an execution target outside canonical LI.FI contracts", () => {
     expect(() =>
       assertTrustedLifiSameChainPlan({
-        chain,
         finalAction: { ...finalAction, tx: { ...finalAction.tx, to: attacker } },
         input,
         stages: [],
