@@ -15,7 +15,7 @@ const child = spawn(
     "--prefix",
     npmPrefix,
     "--package",
-    "web3agent@0.6.2",
+    "web3agent@0.7.0",
     "--",
     "web3agent",
     ...process.argv.slice(2),

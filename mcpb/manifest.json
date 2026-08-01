@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "web3agent",
   "display_name": "Web3Agent",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, Orbs orders, market data, wallets, and confirmation-gated writes.",
   "long_description": "Web3Agent gives local AI agents a single MCP surface for EVM execution and DeFi workflows: token resolution, balances, swaps, bridges, Orbs orders, market data, research, wallet lifecycle, and confirmation-gated writes. It is self-custodial by default and keeps wallet secrets out of agent-visible MCP flows unless explicitly enabled.",
   "author": {
