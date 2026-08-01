@@ -18,7 +18,7 @@ const ALLOWED_PATHS = [
   /^scripts\/(?:verify-uniswap-v4-evidence|qa-uniswap-v4)\.mjs$/,
   /^src\/(?:api|chains|config|operations|runtime|tokens|tools|types|uniswap-v4|zerox)\//,
   /^src\/utils\/(?:canonical-json|errors)\.ts$/,
-  /^src\/(?:index|lifi\/(?:config|route-authority|route-execution))\.ts$/,
+  /^src\/(?:index|lifi\/(?:config|robinhood-authority|route-authority|route-execution))\.ts$/,
   /^src\/wallet\/(?:audit|confirmation|confirmation-persistence|confirmation-restore|execution-metadata)\.ts$/,
   /^tests\/(?:api|chains|config|examples|operations|orbs|tools|uniswap-v4|wallet|zerox)\//,
   /^tests\/scripts\/verify-uniswap-v4-evidence\.test\.ts$/,
