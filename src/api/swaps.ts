@@ -7,6 +7,7 @@ import { getWalletState } from "../wallet/persistence.js";
 import { getZeroExAdapterDecision } from "../zerox/capability.js";
 import { type ZeroExQuote, classifyZeroExError } from "../zerox/client.js";
 import { getRuntime, invokeAndRequireData } from "./shared.js";
+import { percentageToBasisPoints } from "./slippage.js";
 import {
   isSwapOperation,
   normalizeAuditSwapHistory,
@@ -79,7 +80,7 @@ export async function getSwapQuote(
   const { slippagePct, ...swapInput } = input;
   const zeroExInput = {
     ...swapInput,
-    ...(slippagePct === undefined ? {} : { slippageBps: Math.round(slippagePct * 100) }),
+    ...(slippagePct === undefined ? {} : { slippageBps: percentageToBasisPoints(slippagePct) }),
   };
   try {
     const zeroExQuote = await invokeAndRequireData<ZeroExQuote>(runtime, toolName, zeroExInput);
@@ -173,7 +174,7 @@ export async function executeSameChainSwap(
   const { slippagePct, ...swapInput } = input;
   const zeroExInput = {
     ...swapInput,
-    ...(slippagePct === undefined ? {} : { slippageBps: Math.round(slippagePct * 100) }),
+    ...(slippagePct === undefined ? {} : { slippageBps: percentageToBasisPoints(slippagePct) }),
   };
   try {
     const data = await invokeAndRequireData<unknown>(runtime, toolName, zeroExInput);
