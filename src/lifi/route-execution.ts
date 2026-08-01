@@ -27,6 +27,7 @@ export type LifiRouteRequest = {
   readonly fromToken: string;
   readonly toToken: string;
   readonly fromAmount: string;
+  readonly slippagePct?: number;
 };
 
 export async function prepareLifiRoute(params: LifiRouteRequest): Promise<LifiRoute> {
@@ -38,6 +39,7 @@ export async function prepareLifiRoute(params: LifiRouteRequest): Promise<LifiRo
     toToken: params.toToken,
     fromAmount: params.fromAmount,
     fromAddress: params.account,
+    ...(params.slippagePct === undefined ? {} : { slippage: params.slippagePct / 100 }),
   });
   return convertQuoteToRoute(quote);
 }

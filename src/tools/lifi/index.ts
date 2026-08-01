@@ -34,7 +34,7 @@ async function lifiGetChains(_params: Record<string, unknown>): Promise<CallTool
 async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolResult> {
   const v = validateInput(lifiGetQuoteSchema, params);
   if (!v.success) return v.error;
-  const { fromChainId, toChainId, fromToken, toToken, fromAmount } = v.data;
+  const { fromChainId, toChainId, fromToken, toToken, fromAmount, slippagePct } = v.data;
 
   try {
     ensureLifiInitialized();
@@ -46,6 +46,7 @@ async function lifiGetQuote(params: Record<string, unknown>): Promise<CallToolRe
       toToken: toToken as string,
       fromAmount: fromAmount as string,
       fromAddress: walletState.address ?? "0x0000000000000000000000000000000000000000",
+      ...(slippagePct === undefined ? {} : { slippage: slippagePct / 100 }),
     });
 
     const trimmed = {
@@ -96,6 +97,7 @@ async function lifiExecuteBridge(params: Record<string, unknown>): Promise<CallT
       fromToken: v.data.fromToken,
       toToken: v.data.toToken,
       fromAmount: v.data.fromAmount,
+      ...(v.data.slippagePct === undefined ? {} : { slippagePct: v.data.slippagePct }),
       account,
     },
     executor: executeBridgeNow,
@@ -110,7 +112,7 @@ const lifiPrepareBridgeIntentTool = createToolHandler(
 
 async function executeBridgeNow(params: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const { account, fromChainId, toChainId, fromToken, toToken, fromAmount } = params;
+    const { account, fromChainId, toChainId, fromToken, toToken, fromAmount, slippagePct } = params;
     const result = await executeLifiRoute({
       account: assertAddress(String(account), "account"),
       fromChainId: Number(fromChainId),
@@ -118,6 +120,7 @@ async function executeBridgeNow(params: Record<string, unknown>): Promise<CallTo
       fromToken: String(fromToken),
       toToken: String(toToken),
       fromAmount: String(fromAmount),
+      ...(typeof slippagePct === "number" ? { slippagePct } : {}),
     });
     return formatToolResponse(result);
   } catch (e: unknown) {

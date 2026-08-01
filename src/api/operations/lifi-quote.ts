@@ -119,6 +119,7 @@ async function fetchLifiQuote(input: PrepareBridgeIntentInput): Promise<LiFiStep
       toToken: input.toToken,
       fromAmount: input.fromAmount,
       fromAddress: input.account,
+      ...(input.slippagePct === undefined ? {} : { slippage: input.slippagePct / 100 }),
     }),
     LIFI_REQUEST_TIMEOUT_MS,
     "LI.FI quote"
