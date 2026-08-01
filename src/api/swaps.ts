@@ -76,8 +76,13 @@ export async function getSwapQuote(
   }
 
   const toolName = selection.adapterSource === "goat" ? "0x_get_price" : "zeroex_get_quote";
+  const { slippagePct, ...swapInput } = input;
+  const zeroExInput = {
+    ...swapInput,
+    ...(slippagePct === undefined ? {} : { slippageBps: Math.round(slippagePct * 100) }),
+  };
   try {
-    const zeroExQuote = await invokeAndRequireData<ZeroExQuote>(runtime, toolName, input);
+    const zeroExQuote = await invokeAndRequireData<ZeroExQuote>(runtime, toolName, zeroExInput);
     const provenance = requireZeroExAdapterProvenance(zeroExQuote, selection);
     const { priceImpactBps, ...quote } = zeroExQuote;
     return {
@@ -99,6 +104,7 @@ export async function getSwapQuote(
       fromToken: input.fromToken,
       toToken: input.toToken,
       fromAmount: input.fromAmount,
+      ...(slippagePct === undefined ? {} : { slippagePct }),
     });
     return {
       kind: "same-chain",
@@ -164,8 +170,13 @@ export async function executeSameChainSwap(
     return normalizeWriteResult(data);
   }
   const toolName = selection.adapterSource === "goat" ? "0x_swap" : "zeroex_swap";
+  const { slippagePct, ...swapInput } = input;
+  const zeroExInput = {
+    ...swapInput,
+    ...(slippagePct === undefined ? {} : { slippageBps: Math.round(slippagePct * 100) }),
+  };
   try {
-    const data = await invokeAndRequireData<unknown>(runtime, toolName, input);
+    const data = await invokeAndRequireData<unknown>(runtime, toolName, zeroExInput);
     const result = normalizeWriteResult(data);
     if (!isPendingConfirmation(result)) requireZeroExExecutionProvenance(result, selection);
     return result;
@@ -178,6 +189,7 @@ export async function executeSameChainSwap(
       fromToken: input.fromToken,
       toToken: input.toToken,
       fromAmount: input.fromAmount,
+      ...(slippagePct === undefined ? {} : { slippagePct }),
     });
     return normalizeWriteResult(data);
   }
