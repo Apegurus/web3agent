@@ -1,5 +1,5 @@
 import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getConfig, tryGetConfig } from "../../src/config/env.js";
 import type { RuntimeConfig } from "../../src/types/config.js";
 
@@ -44,6 +44,7 @@ vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
 
 describe("orbs/liquidity-hub", () => {
   beforeEach(async () => {
+    vi.stubEnv("ORBS_PARTNER", "");
     vi.clearAllMocks();
     vi.resetModules();
     sdkInstances.clear();
@@ -53,6 +54,10 @@ describe("orbs/liquidity-hub", () => {
     vi.mocked(tryGetConfig).mockReturnValue(runtimeConfig());
     const { clearLiquidityHubSdkCacheForTests } = await import("../../src/orbs/liquidity-hub.js");
     clearLiquidityHubSdkCacheForTests();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("getQuote returns normalized quote for valid params", async () => {
@@ -116,25 +121,16 @@ describe("orbs/liquidity-hub", () => {
   it("falls back to process env when config is not initialized", async () => {
     const getConfigMock = vi.mocked(getConfig);
     const tryGetConfigMock = vi.mocked(tryGetConfig);
-    const previousPartner = process.env.ORBS_PARTNER;
-    process.env.ORBS_PARTNER = "orbzy";
+    vi.stubEnv("ORBS_PARTNER", "orbzy");
     getConfigMock.mockImplementation(() => {
       throw new Error("Config not initialized — call setConfig() during startup");
     });
     tryGetConfigMock.mockReturnValue(undefined);
 
-    try {
-      const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
-      getSdk(8453);
+    const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
+    getSdk(8453);
 
-      expect(constructSDK).toHaveBeenCalledWith({ partner: "orbzy", chainId: 8453 });
-    } finally {
-      if (previousPartner === undefined) {
-        process.env.ORBS_PARTNER = undefined;
-      } else {
-        process.env.ORBS_PARTNER = previousPartner;
-      }
-    }
+    expect(constructSDK).toHaveBeenCalledWith({ partner: "orbzy", chainId: 8453 });
   });
 
   it("creates distinct cached SDK instances when the partner override changes", async () => {
