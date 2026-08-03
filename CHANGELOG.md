@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Classified the fully bundled Uniswap v4 SDK closure as build-only dependencies so clean npm consumers no longer install the Uniswap and Hardhat package trees.
+
+### Fixed
+
+- Restored live Base swap quotes by replacing the rejected default Orbs partner with the accepted `quickswap` integration.
+
 ## [0.7.0] - 2026-08-01
 
 ### Added

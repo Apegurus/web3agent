@@ -4,11 +4,11 @@
 
 The Uniswap v4 integration is intentionally anchored to this release set:
 
-| Package | Declared version | Role |
-| --- | --- | --- |
-| `viem` | `^2.55.4` | All chain I/O, including `robinhood` from `viem/chains`. |
-| `@uniswap/v4-sdk` | `2.3.0` | Official pool, position, and PositionManager calculations and calldata behavior. |
-| `@uniswap/sdk-core` | `^7.18.0` | The exact compatible dependency line declared by `@uniswap/v4-sdk@2.3.0`. |
+| Package | Declared version | Manifest class | Role |
+| --- | --- | --- | --- |
+| `viem` | `^2.55.4` | Runtime dependency | All chain I/O, including `robinhood` from `viem/chains`. |
+| `@uniswap/v4-sdk` | `2.3.0` | Build-only dev dependency | Official pool, position, and PositionManager calculations and calldata behavior. |
+| `@uniswap/sdk-core` | `^7.18.0` | Build-only dev dependency | The exact compatible dependency line declared by `@uniswap/v4-sdk@2.3.0`. |
 
 `@uniswap/v4-sdk` brings `ethers` and `jsbi` transitively. They are an SDK implementation detail: no public schema, API type, or raw chain-I/O module may expose them. `viem` remains the sole chain-I/O library. Future SDK imports, including ethers-facing types, belong only in `src/uniswap-v4/sdk-adapter.ts`; the adapter converts values to project-native `bigint`, address, and hex records.
 
@@ -24,7 +24,7 @@ Only `@uniswap/v4-sdk@2.3.0` is approved for ABI, API, and golden-vector source 
 | repository `gitHead` | `ab3a18a62922c0bda493130e53f2c8f6fad59558` |
 | registry metadata | `https://registry.npmjs.org/@uniswap%2fv4-sdk/2.3.0` |
 
-The dependency-boundary test validates the direct declarations, lockfile integrity, AST import restrictions, and a malformed provenance fixture. With `WEB3AGENT_VERIFY_REGISTRY_PROVENANCE=1`, it also downloads the published tarball, recomputes its SHA-512 integrity, verifies `package/package.json` identifies `@uniswap/v4-sdk@2.3.0`, and requires registry `gitHead` to match this document. The published package manifest intentionally has no `gitHead`; a missing or mismatched registry revision is a fail-closed release-provenance error. Do not substitute a newer SDK release, current `main`, or locally reconstructed vectors.
+The dependency-boundary test validates the build-only declarations, lockfile integrity, AST import restrictions, and a malformed provenance fixture. With `WEB3AGENT_VERIFY_REGISTRY_PROVENANCE=1`, it also downloads the published tarball, recomputes its SHA-512 integrity, verifies `package/package.json` identifies `@uniswap/v4-sdk@2.3.0`, and requires registry `gitHead` to match this document. The published package manifest intentionally has no `gitHead`; a missing or mismatched registry revision is a fail-closed release-provenance error. Do not substitute a newer SDK release, current `main`, or locally reconstructed vectors.
 
 ## Reproduction
 
@@ -32,10 +32,13 @@ The dependency-boundary test validates the direct declarations, lockfile integri
 pnpm install --frozen-lockfile
 pnpm test -- --run tests/uniswap-v4/dependency-boundary.test.ts
 WEB3AGENT_VERIFY_REGISTRY_PROVENANCE=1 pnpm test -- --run tests/uniswap-v4/dependency-boundary.test.ts
-pnpm why @uniswap/v4-sdk viem ethers
+pnpm why --dev @uniswap/v4-sdk @uniswap/sdk-core
+pnpm why --prod viem
 ```
 
-The final command records the intentional direct/transitive boundary: v4 SDK and viem are direct dependencies, while ethers is present only through the official v4 SDK dependency graph.
+The final commands record the intentional manifest boundary: the Uniswap SDKs are available only while building, while `viem` remains a runtime dependency. The published JavaScript includes the private SDK closure, but clean consumers do not install its package tree.
+
+`pnpm audit --prod` checks installed runtime dependencies and therefore does not inspect the build-only SDK closure embedded in `dist/`. Release review must treat the pinned registry provenance, the no-external bundle scan, and the clean-consumer execution test as separate controls for that shipped code. A future SDK version change must review the full lockfile closure before updating the pinned release set; moving the packages to `devDependencies` does not mean their bundled code is outside the security boundary.
 
 ## ESM adapter bundling constraint
 
@@ -58,7 +61,7 @@ The future `src/uniswap-v4/sdk-adapter.ts` is the only permitted source importer
 ]
 ```
 
-The proof fixture compiled to ESM and imported in Node with `sdkAdapterLikeProbe: "function"`. It is created and removed by `tests/uniswap-v4/sdk-bundling-boundary.test.ts`. This bundling rule applies only to the private adapter dependency closure; it does not permit SDK, ethers, or JSBI imports anywhere else, or any such type to cross the public API boundary.
+The proof fixture compiled to ESM and imported in Node with `sdkAdapterLikeProbe: "function"`. It is created and removed by `tests/uniswap-v4/sdk-bundling-boundary.test.ts`; its production `dist/` scan holds the shared build/pack mutex so concurrent packaging cannot expose a partial artifact tree. `tests/e2e/consumer-install.test.ts` then installs the tarball without lifecycle scripts, confirms the SDK and Hardhat trees are absent, and executes a deterministic calculation through the public root API. This bundling rule applies only to the private adapter dependency closure; it does not permit SDK, ethers, or JSBI imports anywhere else, or any such type to cross the public API boundary.
 
 ## Deployment provenance and admission
 
