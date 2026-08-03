@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -85,18 +86,19 @@ describe("Uniswap v4 SDK bundling boundary", () => {
   it("fails when the SDK is externalized and loads when the production closure is bundled", async () => {
     // Given: equivalent adapter-like fixture builds with and without the production closure.
     const fixtureDirectory = await mkdtemp(join(repositoryRoot, ".uniswap-v4-sdk-build-"));
+    const outputRoot = await mkdtemp(join(tmpdir(), "web3agent-uniswap-v4-sdk-output-"));
     const entryPath = join(fixtureDirectory, "sdk-adapter-like.ts");
     const externalConfigPath = join(fixtureDirectory, "external.config.ts");
     const bundledConfigPath = join(fixtureDirectory, "bundled.config.ts");
-    const externalOutputDirectory = join(fixtureDirectory, "external");
-    const bundledOutputDirectory = join(fixtureDirectory, "bundled");
+    const externalOutputDirectory = join(outputRoot, "external");
+    const bundledOutputDirectory = join(outputRoot, "bundled");
     await writeFile(
       entryPath,
       'import { V4PositionManager } from "@uniswap/v4-sdk";\nexport const sdkAdapterLikeProbe = typeof V4PositionManager;\n'
     );
     await writeFile(
       externalConfigPath,
-      `import { defineConfig } from "tsup";\nexport default defineConfig({ entry: [${JSON.stringify(entryPath)}], format: ["esm"], noExternal: [], platform: "node", target: "node22" });\n`
+      `import { defineConfig } from "tsup";\nexport default defineConfig({ entry: [${JSON.stringify(entryPath)}], external: ["@uniswap/v4-sdk"], format: ["esm"], platform: "node", target: "node22" });\n`
     );
     await writeFile(
       bundledConfigPath,
@@ -118,6 +120,7 @@ describe("Uniswap v4 SDK bundling boundary", () => {
       expect(bundledOutput).toBe("function");
     } finally {
       await rm(fixtureDirectory, { force: true, recursive: true });
+      await rm(outputRoot, { force: true, recursive: true });
     }
   });
 
