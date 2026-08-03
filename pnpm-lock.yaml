@@ -72,12 +72,6 @@ importers:
       '@orbs-network/twap-ui':
         specifier: 4.0.26-fix.1
         version: 4.0.26-fix.1(bignumber.js@9.3.1)(bufferutil@4.1.0)(react-dom@19.2.4(react@19.2.4))(react-number-format@5.4.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.4))(utf-8-validate@6.0.6)(zod@3.25.76)
-      '@uniswap/sdk-core':
-        specifier: ^7.18.0
-        version: 7.18.0
-      '@uniswap/v4-sdk':
-        specifier: 2.3.0
-        version: 2.3.0(bufferutil@4.1.0)(hardhat@2.29.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(utf-8-validate@6.0.6)
       '@x402/core':
         specifier: ^2.6.0
         version: 2.6.0
@@ -106,6 +100,12 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.7.5
+      '@uniswap/sdk-core':
+        specifier: ^7.18.0
+        version: 7.18.0
+      '@uniswap/v4-sdk':
+        specifier: 2.3.0
+        version: 2.3.0(bufferutil@4.1.0)(hardhat@2.29.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(utf-8-validate@6.0.6)
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
