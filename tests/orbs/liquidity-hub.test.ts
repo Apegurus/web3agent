@@ -1,11 +1,24 @@
 import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getConfig, tryGetConfig } from "../../src/config/env.js";
+import type { RuntimeConfig } from "../../src/types/config.js";
 
 type MockSdk = {
   getQuote: ReturnType<typeof vi.fn>;
   swap: ReturnType<typeof vi.fn>;
 };
+
+function runtimeConfig(orbsPartner?: string): RuntimeConfig {
+  return {
+    chainId: 8453,
+    walletAccountIndex: 0,
+    walletAddressIndex: 0,
+    chainRpcUrls: {},
+    confirmWrites: true,
+    confirmTtlMinutes: 30,
+    orbsPartner,
+  };
+}
 
 const sdkInstances = new Map<string, MockSdk>();
 
@@ -35,9 +48,9 @@ describe("orbs/liquidity-hub", () => {
     vi.resetModules();
     sdkInstances.clear();
     vi.mocked(getConfig).mockReset();
-    vi.mocked(getConfig).mockReturnValue({ orbsPartner: undefined });
+    vi.mocked(getConfig).mockReturnValue(runtimeConfig());
     vi.mocked(tryGetConfig).mockReset();
-    vi.mocked(tryGetConfig).mockReturnValue({ orbsPartner: undefined });
+    vi.mocked(tryGetConfig).mockReturnValue(runtimeConfig());
     const { clearLiquidityHubSdkCacheForTests } = await import("../../src/orbs/liquidity-hub.js");
     clearLiquidityHubSdkCacheForTests();
   });
@@ -96,7 +109,7 @@ describe("orbs/liquidity-hub", () => {
     expect(baseFirst).toBe(baseSecond);
     expect(baseFirst).not.toBe(polygon);
     expect(constructSDK).toHaveBeenCalledTimes(2);
-    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "intentx", chainId: 8453 });
+    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "quickswap", chainId: 8453 });
     expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "quickswap", chainId: 137 });
   });
 
@@ -129,12 +142,12 @@ describe("orbs/liquidity-hub", () => {
     const tryGetConfigMock = vi.mocked(tryGetConfig);
     const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
 
-    getConfigMock.mockReturnValue({ orbsPartner: "orbzy" });
-    tryGetConfigMock.mockReturnValue({ orbsPartner: "orbzy" });
+    getConfigMock.mockReturnValue(runtimeConfig("orbzy"));
+    tryGetConfigMock.mockReturnValue(runtimeConfig("orbzy"));
     const orbzySdk = getSdk(8453);
 
-    getConfigMock.mockReturnValue({ orbsPartner: "widget" });
-    tryGetConfigMock.mockReturnValue({ orbsPartner: "widget" });
+    getConfigMock.mockReturnValue(runtimeConfig("widget"));
+    tryGetConfigMock.mockReturnValue(runtimeConfig("widget"));
     const widgetSdk = getSdk(8453);
 
     expect(orbzySdk).not.toBe(widgetSdk);

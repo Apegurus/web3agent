@@ -125,7 +125,7 @@ const sdkCache = new Map<string, LiquidityHubSDK>();
 const DEFAULT_PARTNERS: Record<number, string> = {
   56: "thena",
   137: "quickswap",
-  8453: "intentx",
+  8453: "quickswap",
   59144: "lynex",
 };
 
