@@ -27,7 +27,11 @@ describe("clean npm consumer", () => {
     execFileSync(
       "npm",
       ["install", "--ignore-scripts", "--no-audit", "--no-fund", `file:${rootTarball}`],
-      { cwd: TEMP_ROOT, stdio: "pipe" }
+      {
+        cwd: TEMP_ROOT,
+        env: { ...process.env, npm_config_cache: join(TEMP_ROOT, ".npm-cache") },
+        stdio: "pipe",
+      }
     );
 
     expect(existsSync(join(TEMP_ROOT, "node_modules", "@uniswap", "v4-sdk"))).toBe(false);
@@ -38,10 +42,23 @@ describe("clean npm consumer", () => {
       [
         "--input-type=module",
         "-e",
-        "import { calculateUniswapV4 } from 'web3agent'; process.stdout.write(typeof calculateUniswapV4)",
+        `import { calculateUniswapV4 } from "web3agent";
+const poolKey = {
+  currency0: { kind: "native", chainId: 4663, symbol: "ETH", name: "Ether", decimals: 18 },
+  currency1: { kind: "erc20", chainId: 4663, address: "0x2222222222222222222222222222222222222222", symbol: "FIX", name: "Fixture Token", decimals: 18 },
+  fee: 500,
+  tickSpacing: 60,
+  hooks: "0x0000000000000000000000000000000000000000",
+};
+const result = await calculateUniswapV4({ kind: "tickToPrice", poolKey, tick: 0 });
+process.stdout.write(JSON.stringify(result));`,
       ],
-      { cwd: TEMP_ROOT, encoding: "utf-8" }
+      { cwd: TEMP_ROOT, encoding: "utf-8", env: { ...process.env, HOME: TEMP_ROOT } }
     );
-    expect(output).toBe("function");
+    expect(JSON.parse(output)).toMatchObject({
+      kind: "tickToPrice",
+      price: { denominator: "1", numerator: "1", rounding: "exact" },
+      tick: 0,
+    });
   }, 180_000);
 });
