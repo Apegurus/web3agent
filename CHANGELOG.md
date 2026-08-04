@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restored live Base swap quotes by replacing the rejected default Orbs partner with the accepted `quickswap` integration.
 
+### Security
+
+- Pinned patched `fast-uri` and `ip-address` releases to close host-confusion and leading-zero address parsing advisories in the production dependency graph.
+
 ## [0.7.0] - 2026-08-01
 
 ### Added
