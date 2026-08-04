@@ -1,3 +1,4 @@
+// allow: SIZE_OK — public API type registry derives the package's stable exported contracts.
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Chain } from "viem";
 import type { z } from "zod";
@@ -69,6 +70,7 @@ import type {
   lifiExecuteBridgeSchema,
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
+  lifiPrepareSameChainSwapSchema,
   listChainTokensSchema,
   marketGetCategoriesSchema,
   marketGetCexFundFlowsSchema,
@@ -130,6 +132,40 @@ import type {
   transactionDenySchema,
   transactionSimulateSchema,
   typedDataPayloadSchema,
+  uniswapV4ActualDeltasSchema,
+  uniswapV4BlockReferenceSchema,
+  uniswapV4BurnOperationSchema,
+  uniswapV4CalculatePositionSchema,
+  uniswapV4CalculationInputSchema,
+  uniswapV4CalculationResultSchema,
+  uniswapV4CalculationSchema,
+  uniswapV4CollectOperationSchema,
+  uniswapV4CurrencySchema,
+  uniswapV4DecreaseOperationSchema,
+  uniswapV4DeploymentSchema,
+  uniswapV4Erc20CurrencySchema,
+  uniswapV4EventCursorSchema,
+  uniswapV4EventPageSchema,
+  uniswapV4EventQuerySchema,
+  uniswapV4EventSchema,
+  uniswapV4ExpectedDeltasSchema,
+  uniswapV4GetDeploymentSchema,
+  uniswapV4GetPoolSchema,
+  uniswapV4GetPositionSchema,
+  uniswapV4IncreaseOperationSchema,
+  uniswapV4LifecycleOperationSchema,
+  uniswapV4MintOperationSchema,
+  uniswapV4NativeCurrencySchema,
+  uniswapV4OperationResumeStateSchema,
+  uniswapV4PoolIdSchema,
+  uniswapV4PoolIdentitySchema,
+  uniswapV4PoolKeySchema,
+  uniswapV4PoolStateSchema,
+  uniswapV4PositionStateSchema,
+  uniswapV4ReconciliationSchema,
+  uniswapV4SimulationInputSchema,
+  uniswapV4SimulationResultSchema,
+  uniswapV4SimulationStageSchema,
   walletActivateSchema,
   walletDeleteSchema,
   walletDeriveAddressesSchema,
@@ -137,6 +173,7 @@ import type {
   walletInfoOutputSchema,
   walletInfoSchema,
   walletSetConfirmationSchema,
+  zeroExSwapSchema,
 } from "./schemas.js";
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
 import {
@@ -271,7 +308,9 @@ export type ListChainTokensInput = z.infer<typeof listChainTokensSchema>;
 export type LifiQuoteInput = z.infer<typeof lifiGetQuoteSchema>;
 export type ExecuteBridgeInput = z.infer<typeof lifiExecuteBridgeSchema>;
 export type PrepareBridgeIntentInput = z.infer<typeof lifiPrepareBridgeIntentSchema>;
+export type LifiPrepareSameChainSwapInput = z.infer<typeof lifiPrepareSameChainSwapSchema>;
 export type OrbsQuoteInput = z.infer<typeof orbsGetQuoteSchema>;
+export type ZeroExSwapInput = z.infer<typeof zeroExSwapSchema>;
 export type ExecuteSameChainSwapInput = OrbsQuoteInput;
 export type PrepareSwapIntentInput = z.infer<typeof orbsPrepareSwapIntentSchema>;
 export type GetRequiredApprovalsInput = z.input<typeof orbsGetRequiredApprovalsSchema>;
@@ -469,7 +508,42 @@ export type PreparedSignTypedDataAction = z.infer<typeof preparedSignTypedDataAc
 export type PreparedSignMessageAction = z.infer<typeof preparedSignMessageActionSchema>;
 export type PreparedAction = z.infer<typeof preparedActionSchema>;
 
-export type PreparedOperationIntegration = "orbs" | "lifi" | "goat";
+export type UniswapV4BlockReference = z.infer<typeof uniswapV4BlockReferenceSchema>;
+export type UniswapV4Deployment = z.infer<typeof uniswapV4DeploymentSchema>;
+export type UniswapV4GetDeploymentInput = z.infer<typeof uniswapV4GetDeploymentSchema>;
+export type UniswapV4NativeCurrency = z.infer<typeof uniswapV4NativeCurrencySchema>;
+export type UniswapV4Erc20Currency = z.infer<typeof uniswapV4Erc20CurrencySchema>;
+export type UniswapV4Currency = z.infer<typeof uniswapV4CurrencySchema>;
+export type UniswapV4PoolId = z.infer<typeof uniswapV4PoolIdSchema>;
+export type UniswapV4PoolKey = z.infer<typeof uniswapV4PoolKeySchema>;
+export type UniswapV4PoolIdentity = z.infer<typeof uniswapV4PoolIdentitySchema>;
+export type UniswapV4PoolState = z.infer<typeof uniswapV4PoolStateSchema>;
+export type UniswapV4PositionState = z.infer<typeof uniswapV4PositionStateSchema>;
+export type UniswapV4GetPoolInput = z.infer<typeof uniswapV4GetPoolSchema>;
+export type UniswapV4GetPositionInput = z.infer<typeof uniswapV4GetPositionSchema>;
+export type UniswapV4EventQuery = z.infer<typeof uniswapV4EventQuerySchema>;
+export type UniswapV4EventCursor = z.infer<typeof uniswapV4EventCursorSchema>;
+export type UniswapV4Event = z.infer<typeof uniswapV4EventSchema>;
+export type UniswapV4EventPage = z.infer<typeof uniswapV4EventPageSchema>;
+export type UniswapV4ExpectedDeltas = z.infer<typeof uniswapV4ExpectedDeltasSchema>;
+export type UniswapV4Calculation = z.infer<typeof uniswapV4CalculationSchema>;
+export type UniswapV4CalculatePositionInput = z.infer<typeof uniswapV4CalculatePositionSchema>;
+export type UniswapV4CalculationInput = z.infer<typeof uniswapV4CalculationInputSchema>;
+export type UniswapV4CalculationResult = z.infer<typeof uniswapV4CalculationResultSchema>;
+export type UniswapV4MintOperation = z.infer<typeof uniswapV4MintOperationSchema>;
+export type UniswapV4IncreaseOperation = z.infer<typeof uniswapV4IncreaseOperationSchema>;
+export type UniswapV4DecreaseOperation = z.infer<typeof uniswapV4DecreaseOperationSchema>;
+export type UniswapV4CollectOperation = z.infer<typeof uniswapV4CollectOperationSchema>;
+export type UniswapV4BurnOperation = z.infer<typeof uniswapV4BurnOperationSchema>;
+export type UniswapV4LifecycleOperation = z.infer<typeof uniswapV4LifecycleOperationSchema>;
+export type UniswapV4OperationResumeState = z.infer<typeof uniswapV4OperationResumeStateSchema>;
+export type UniswapV4SimulationInput = z.infer<typeof uniswapV4SimulationInputSchema>;
+export type UniswapV4SimulationStage = z.infer<typeof uniswapV4SimulationStageSchema>;
+export type UniswapV4ActualDeltas = z.infer<typeof uniswapV4ActualDeltasSchema>;
+export type UniswapV4Reconciliation = z.infer<typeof uniswapV4ReconciliationSchema>;
+export type UniswapV4SimulationResult = z.infer<typeof uniswapV4SimulationResultSchema>;
+
+export type PreparedOperationIntegration = "orbs" | "lifi" | "goat" | "uniswap-v4" | "zeroex";
 
 export type OperationResumeState = z.infer<typeof operationResumeStateSchema>;
 
@@ -494,10 +568,21 @@ export type LifiBridgeOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "lifi"; kind: "bridge" }
 >;
+export type LifiSameChainSwapOperationInput = z.infer<typeof lifiPrepareSameChainSwapSchema> & {
+  readonly integration: "lifi";
+  readonly kind: "swap";
+};
+export type ZeroExSwapOperationInput = Extract<
+  z.infer<typeof prepareOperationSchema>,
+  { integration: "zeroex"; kind: "swap" }
+>;
 export type GoatToolOperationInput = Extract<
   z.infer<typeof prepareOperationSchema>,
   { integration: "goat"; kind: "tool" }
 >;
+export type UniswapV4OperationInput = UniswapV4LifecycleOperation & {
+  readonly integration: "uniswap-v4";
+};
 export type PrepareOperationInput = z.infer<typeof prepareOperationSchema>;
 export interface ResumeOperationInput {
   resumeState: OperationResumeState;
@@ -586,11 +671,16 @@ export interface SwapStatusResult {
 
 export interface SwapHistoryEntry {
   id: string;
-  provider: "orbs" | "lifi";
-  status: "pending_confirmation" | "confirmed" | "denied" | "expired";
+  provider: "0x" | "orbs" | "lifi";
+  status: "pending_confirmation" | "confirmed" | "denied" | "expired" | "failed";
   walletAddress?: string;
   description: string;
   timestamp: string;
+  chainId?: number;
+  adapterSource?: "goat" | "native" | "lifi" | "orbs";
+  capabilityDecisionId?: string;
+  capabilityReason?: string;
+  fallbackReason?: "no-route" | "provider-unavailable";
 }
 
 export interface SwapHistoryResult {

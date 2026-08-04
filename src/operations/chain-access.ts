@@ -1,4 +1,4 @@
-import type { Account, PublicClient } from "viem";
+import type { Account, PublicClient, WalletClient } from "viem";
 import { createPublicClient } from "viem";
 import { parseEnv, tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
@@ -57,6 +57,6 @@ export function createWalletClientForRuntimeChain(
   account: Account,
   chainId: number,
   config?: RuntimeConfig
-) {
+): WalletClient {
   return createWalletClientForChain(account, chainId, getRuntimeConfigForChain(chainId, config));
 }

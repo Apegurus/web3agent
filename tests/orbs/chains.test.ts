@@ -40,6 +40,7 @@ describe("orbs chain support utilities", () => {
   it("returns false for unsupported liquidity hub chains", () => {
     expect(isLiquidityHubSupported(1)).toBe(false);
     expect(isLiquidityHubSupported(10)).toBe(false);
+    expect(isLiquidityHubSupported(4663)).toBe(false);
     expect(isLiquidityHubSupported(2147483647)).toBe(false);
   });
 

@@ -20,6 +20,9 @@ export interface RuntimeConfig {
   zeroxApiKey?: string;
   coingeckoApiKey?: string;
   ccxtConfigPath?: string;
+  /** Comma-separated resume-state signing secrets. The first signs new states;
+   *  remaining entries verify states issued before key rotation. */
+  resumeStateSecrets?: string;
   orbsPartner?: string;
   acpContractAddress?: string; // ERC-8183 contract address (from ACP_CONTRACT_ADDRESS)
   acpPaymentToken?: string; // ERC-20 token for ACP escrow (from ACP_PAYMENT_TOKEN, default USDC)

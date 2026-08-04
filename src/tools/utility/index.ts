@@ -1,4 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { ZEROEX_UNISWAP_V4_CHAIN_IDS } from "../../chains/capabilities.js";
 import { getChainById } from "../../chains/registry.js";
 import { getConfig } from "../../config/env.js";
 import { RESTRICTED_PLUGIN_CHAINS } from "../../goat/dispatch.js";
@@ -55,6 +56,7 @@ export async function serverStatus(): Promise<CallToolResult> {
 const INTEGRATION_CHAINS = new Set([
   ...LIQUIDITY_HUB_CHAINS,
   ...Object.values(RESTRICTED_PLUGIN_CHAINS).flat(),
+  ...ZEROEX_UNISWAP_V4_CHAIN_IDS,
 ]);
 
 export async function listSupportedChains(): Promise<CallToolResult> {

@@ -117,6 +117,7 @@ export function parseEnv(env: Partial<Record<string, string>> = {}): RuntimeConf
     zeroxApiKey: env.ZEROX_API_KEY || undefined,
     coingeckoApiKey: env.COINGECKO_API_KEY || undefined,
     ccxtConfigPath: env.CCXT_CONFIG_PATH || undefined,
+    resumeStateSecrets: env.WEB3AGENT_RESUME_STATE_SECRETS || undefined,
     orbsPartner: env.ORBS_PARTNER || undefined,
     acpContractAddress: env.ACP_CONTRACT_ADDRESS || undefined,
     acpPaymentToken: env.ACP_PAYMENT_TOKEN || undefined,

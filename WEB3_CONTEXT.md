@@ -6,7 +6,7 @@ All Web3 tools are accessible through a single `web3agent` MCP server entry.
 
 ### Blockscout tools (prefix: `blockscout_`)
 
-Indexed blockchain data: address info, token balances, transaction history, NFT metadata, contract ABI, contract source code, ENS resolution, block info. Works on 3000+ chains.
+Indexed blockchain data: address info, token balances, transaction history, NFT metadata, contract ABI, contract source code, ENS resolution, and block info. Chain discovery covers the broader Blockscout ecosystem; detailed explorer tools currently support the eight networks listed in README.
 
 Tools: `blockscout_get_address_info`, `blockscout_get_tokens_by_address`, `blockscout_get_transactions_by_address`, `blockscout_get_token_transfers_by_address`, `blockscout_nft_tokens_by_address`, `blockscout_get_block_info`, `blockscout_get_transaction_info`, `blockscout_get_contract_abi`, `blockscout_inspect_contract_code`, `blockscout_read_contract`, `blockscout_get_block_number`, `blockscout_lookup_token_by_symbol`, `blockscout_get_address_by_ens_name`, `blockscout_get_chains_list`, `blockscout_direct_api_call`
 
@@ -38,9 +38,26 @@ Live on-chain state: current balances, contract reads, gas estimation, ENS resol
 
 - `operation_prepare` — prepare the next external-wallet actions plus opaque `resumeState`
 - `operation_resume` — continue a prepared operation after signatures or transactions complete externally
-- These are the primary MCP tools for browser-wallet flows across Orbs, LI.FI, and GOAT
+- These are the primary MCP tools for browser-wallet flows across Orbs, LI.FI, 0x, GOAT, and Uniswap v4
 
 ### DeFi tools
+
+**Uniswap v4 positions** (prefix: `uniswap_v4_`):
+
+- `uniswap_v4_get_deployment`, `uniswap_v4_get_pool`, and `uniswap_v4_get_position` — verified deployment and point-in-time state reads (read-only)
+- `uniswap_v4_get_events` — bounded event pages; callers must provide a finite block range and continue only with the returned cursor
+- `uniswap_v4_calculate_position` — deterministic expected-delta calculation, not a quote or trading strategy
+- `uniswap_v4_calculate` — exact price, liquidity, fee, quote-impact, and lifecycle-delta calculations
+- `uniswap_v4_simulate_operation` — preflight a lifecycle operation before collecting signatures or submitting a transaction (read-only)
+- `uniswap_v4_mint_position`, `uniswap_v4_increase_liquidity`, `uniswap_v4_decrease_liquidity`, `uniswap_v4_collect_fees`, and `uniswap_v4_burn_position` — write operations, confirmation-gated; use `operation_prepare` / `operation_resume` for an external signer
+
+`collect` collects **all fees currently owed by the position at the pinned read state**; it is not a partial-collection, P&L, tax, or accounting endpoint. Uniswap v4 is selected only where web3agent has a verified deployment for the requested chain. A Robinhood same-chain swap uses 0x as its primary provider and may fall back to LI.FI only for a provider-unavailable or no-route outcome; the provider/provenance decision is returned to the caller.
+
+**0x Robinhood swaps** (prefix: `zeroex_`):
+
+- `zeroex_get_quote` — quote a Robinhood same-chain swap through the admitted 0x adapter (read-only)
+- `zeroex_swap` — prepare a confirmation-gated 0x swap and persist immutable execution facts
+- Public same-chain SDK inputs use `slippagePct`; the 0x boundary converts it to integer `slippageBps`, while any LI.FI fallback receives the equivalent percentage/fraction
 
 **GOAT plugins** (Uniswap, Balancer, ERC-20, ERC-721, ENS, DexScreener):
 
@@ -100,6 +117,8 @@ These remain available for compatibility, but new exchange integrations should u
 
 The browser-wallet tools are MCP-compatible, but generic MCP hosts cannot trigger browser wallet popups themselves. Use MCP to prepare, simulate, and resume operations; perform the actual wallet signing in the surrounding app or host integration.
 
+For Uniswap v4, simulation is a recommended point-in-time preflight before a lifecycle execution flow; the runtime does not require proof that it ran. Display the prepared actions and obtain fresh wallet confirmation. A successful simulation cannot guarantee a later inclusion price, liquidity, hook behavior, gas cost, or transaction outcome.
+
 ### Token resolution (prefix: none)
 
 - `resolve_token(symbol, chainId)` — resolve token symbol to contract address and decimals. Uses built-in registry with DexScreener fallback. ALWAYS use this before swaps/bridges.
@@ -108,7 +127,7 @@ The browser-wallet tools are MCP-compatible, but generic MCP hosts cannot trigge
 ### Utilities
 
 - `server_status` — wallet mode, active chain, confirmation setting, backend health
-- `list_supported_chains` — all 17 supported chains with IDs and names
+- `list_supported_chains` — all 18 supported chains with IDs and names
 
 ### Agentic Economy — x402 Payments (prefix: `x402_`)
 
@@ -187,6 +206,7 @@ Supported chains:
 | Gnosis | 100 |
 | Sepolia | 11155111 |
 | Base Sepolia | 84532 |
+| Robinhood | 4663 |
 
 ## Confirmation Queue
 
@@ -206,6 +226,7 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `OWS_PASSPHRASE`                        | —                              | Strongly recommended for persisted server-side wallets. Enables the OWS encrypted wallet vault on macOS/Linux when configured and OWS is available; OWS requires at least 12 characters and 16+ mixed characters are recommended. Configure it in each app/service/process that runs web3agent. |
 | `OWS_FORCE_LEGACY`                      | —                              | Set `1` to force legacy filesystem-protected wallet storage instead of OWS                                                                                                                  |
 | `WEB3AGENT_ALLOW_AGENT_VISIBLE_SECRETS` | —                              | Set `1` to allow MCP wallet tools to accept/return private keys or mnemonics visible to the agent                                                                                           |
+| `WEB3AGENT_RESUME_STATE_SECRETS`        | generated key (macOS/Linux)    | Comma-separated secrets of at least 32 characters for Orbs/LI.FI/0x resume-state authentication. The first signs new states; the rest verify states created before rotation. Set the same ring on every replica. On macOS/Linux, an unset value generates a host-local `0600` key at `~/.web3agent/resume-state.key`; Windows requires this variable explicitly. |
 | `BLOCKSCOUT_MCP_URL`                    | https://mcp.blockscout.com/mcp | Blockscout MCP endpoint                                                                                                                                                                     |
 | `ETHERSCAN_API_KEY`                     | —                              | Etherscan API key                                                                                                                                                                           |
 | `LIFI_API_KEY`                          | —                              | LI.Fi API key                                                                                                                                                                               |

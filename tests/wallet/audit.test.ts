@@ -90,6 +90,12 @@ describe("audit log", () => {
       operationId: "id-roundtrip",
       walletAddress: "0x1234",
       description: "swap | with separators",
+      metadata: {
+        adapterSource: "native",
+        capabilityDecisionId: "zeroex-goat-v2-admission-v1",
+        capabilityReason: "goat-chain-4663-unavailable",
+        provider: "0x",
+      },
     });
 
     const entries = await readAuditLog();
@@ -101,6 +107,12 @@ describe("audit log", () => {
       operationId: "id-roundtrip",
       walletAddress: "0x1234",
       description: "swap | with separators",
+      metadata: {
+        adapterSource: "native",
+        capabilityDecisionId: "zeroex-goat-v2-admission-v1",
+        capabilityReason: "goat-chain-4663-unavailable",
+        provider: "0x",
+      },
     });
   });
 

@@ -1,3 +1,4 @@
+// allow: SIZE_OK — root API barrel intentionally collects the package's stable public exports.
 export {
   findChainByName,
   getChain,
@@ -115,6 +116,20 @@ export {
 export { x402CheckRequirements, x402Fetch } from "./api/x402.js";
 export { policyGet } from "./api/policy.js";
 export { deleteWallet, getWalletInfo } from "./api/wallet.js";
+export {
+  burnUniswapV4Position,
+  calculateUniswapV4,
+  calculateUniswapV4Position,
+  collectUniswapV4Fees,
+  decreaseUniswapV4Liquidity,
+  getUniswapV4Deployment,
+  getUniswapV4Events,
+  getUniswapV4Pool,
+  getUniswapV4Position,
+  increaseUniswapV4Liquidity,
+  mintUniswapV4Position,
+  simulateUniswapV4Operation,
+} from "./api/uniswap-v4.js";
 export type { WalletBackendInfo } from "./wallet/backend.js";
 export type {
   ApprovalStep,
@@ -277,10 +292,45 @@ export type {
   WalletState,
   Web3AgentRuntime,
   WriteOperationResult,
+  UniswapV4CalculatePositionInput,
+  UniswapV4Calculation,
+  UniswapV4CalculationInput,
+  UniswapV4CalculationResult,
+  UniswapV4BlockReference,
+  UniswapV4Deployment,
+  UniswapV4Erc20Currency,
+  UniswapV4Event,
+  UniswapV4EventPage,
+  UniswapV4EventQuery,
+  UniswapV4EventCursor,
+  UniswapV4GetDeploymentInput,
+  UniswapV4GetPoolInput,
+  UniswapV4GetPositionInput,
+  UniswapV4Currency,
+  UniswapV4ExpectedDeltas,
+  UniswapV4IncreaseOperation,
+  UniswapV4DecreaseOperation,
+  UniswapV4CollectOperation,
+  UniswapV4BurnOperation,
+  UniswapV4LifecycleOperation,
+  UniswapV4MintOperation,
+  UniswapV4NativeCurrency,
+  UniswapV4OperationResumeState,
+  UniswapV4PoolId,
+  UniswapV4PoolIdentity,
+  UniswapV4PoolKey,
+  UniswapV4PoolState,
+  UniswapV4PositionState,
+  UniswapV4ActualDeltas,
+  UniswapV4Reconciliation,
+  UniswapV4SimulationInput,
+  UniswapV4SimulationResult,
+  UniswapV4SimulationStage,
   X402CheckRequirementsInput,
   X402CheckRequirementsOutput,
   X402FetchInput,
   X402FetchOutput,
+  ZeroExSwapInput,
   ListCcxtExchangesInput,
   DescribeCcxtExchangeInput,
   ListCcxtAccountsInput,
@@ -464,6 +514,7 @@ export {
   tokenPairSchema,
   typedDataPayloadSchema,
 } from "./api/schemas/common.js";
+export * from "./api/schemas/uniswap-v4.js";
 export {
   approvalStepSchema,
   balanceChangeSchema,
@@ -529,6 +580,14 @@ export {
   lifiGetQuoteSchema,
   lifiPrepareBridgeIntentSchema,
 } from "./tools/lifi/schemas.js";
+export { zeroExSwapSchema } from "./tools/zerox/schemas.js";
+export {
+  uniswapV4BurnPositionSchema,
+  uniswapV4CollectFeesSchema,
+  uniswapV4DecreaseLiquiditySchema,
+  uniswapV4IncreaseLiquiditySchema,
+  uniswapV4MintPositionSchema,
+} from "./tools/uniswap-v4/write-schemas.js";
 export {
   operationResumeStateSchema,
   prepareOperationSchema,

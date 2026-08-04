@@ -2,6 +2,7 @@
 [![npm downloads](https://img.shields.io/npm/dw/web3agent.svg)](https://www.npmjs.com/package/web3agent)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/Apegurus/web3agent.svg)](https://github.com/Apegurus/web3agent)
+[![smithery badge](https://smithery.ai/badge/Apegurus/web3agent)](https://smithery.ai/servers/Apegurus/web3agent)
 
 > **See it in production:** [The Arena](https://arena.web3agent.fi) — 11 AI agents trade real capital through Web3Agent.
 
@@ -9,7 +10,7 @@
 
 > MCP package: `web3agent` | npm: <https://www.npmjs.com/package/web3agent> | GitHub: <https://github.com/Apegurus/web3agent> | Contact: <hello@apeguru.dev>
 
-**Links:** [Website](https://web3agent.fi) · [GitHub](https://github.com/Apegurus/web3agent) · [npm](https://www.npmjs.com/package/web3agent) · [The Arena](https://arena.web3agent.fi) · [X / @Web3AgentFi](https://x.com/Web3AgentFi)
+**Links:** [Website](https://web3agent.fi) · [GitHub](https://github.com/Apegurus/web3agent) · [npm](https://www.npmjs.com/package/web3agent) · [Smithery](https://smithery.ai/servers/Apegurus/web3agent) · [The Arena](https://arena.web3agent.fi) · [X / @Web3AgentFi](https://x.com/Web3AgentFi)
 
 Give your AI agent EVM execution and DeFi tooling: swaps, bridges, limit and trigger orders, exchange trading, market data, research, wallet management. 190+ MCP tools. One install.
 
@@ -67,6 +68,17 @@ The generic MCP config shape is:
 Writes are confirmation-gated by default, and wallet secrets are not exposed through MCP unless explicitly enabled.
 
 For a step-by-step guide covering both human and agent setups, see [docs/guides/universal-access.md](docs/guides/universal-access.md).
+
+### Smithery local bundle
+
+Smithery URL publishing requires a hosted Streamable HTTP MCP endpoint. Web3Agent is distributed as a local stdio/npm server, so Smithery distribution uses an MCPB bundle instead:
+
+```bash
+pnpm run mcpb:check
+smithery mcp publish dist/web3agent.mcpb -n Apegurus/web3agent
+```
+
+The generated MCPB is a thin local bundle that launches the published npm package with `npm exec --package web3agent@0.7.0`.
 
 ## Why Web3Agent
 
@@ -126,7 +138,7 @@ Explain this wallet's recent activity on Base: 0x0000000000000000000000000000000
 
 Basic EVM operations use viem's chain registry and can target any viem-supported EVM chain when RPC access is available.
 
-Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, Sonic, Mode, Blast, Celo, and Gnosis. Token resolution, explorer, LI.FI, and market/research tools have provider-specific coverage; LI.FI bridge quotes and execution support 20+ chains through LI.FI's own chain list.
+Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, Optimism, Polygon, Linea, BSC, Avalanche, Sonic, Mode, Blast, Celo, Gnosis, and Robinhood Chain. Robinhood support includes verified Uniswap v4 positions and 0x swap routing. Token resolution, explorer, LI.FI, and market/research tools have provider-specific coverage; LI.FI bridge quotes and execution support 20+ chains through LI.FI's own chain list.
 
 **Default:** Base (8453). Override with the `CHAIN_ID` env var or pass `chainId` per call.
 
@@ -137,7 +149,8 @@ Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, O
 | Capability          | Provider                        | Notes                                                                    |
 | ------------------- | ------------------------------- | ------------------------------------------------------------------------ |
 | On-chain state      | Native EVM tools                | Balances, contract reads/writes, gas, ENS, multicall (27 tools)          |
-| Swaps               | GOAT / Uniswap / Balancer       | Same-chain, ERC-20/721                                                   |
+| Swaps               | Orbs / 0x / LI.FI / GOAT        | Robinhood uses 0x first and LI.FI only for no-route/provider-unavailable |
+| Uniswap v4 positions | Uniswap v4                      | Verified reads, exact calculations, simulation, and gated lifecycle writes |
 | Aggregated swaps    | Orbs Liquidity Hub              | Optimal pricing via solver network                                       |
 | Cross-chain bridges | LI.FI                           | 20+ chains                                                               |
 | Lending             | GOAT SDK / protocol integrations | Aave, Morpho, and major money-market surfaces where supported           |
@@ -187,9 +200,23 @@ node examples/bridge.mjs --quote
 # Prepared external-wallet flows
 WEB3AGENT_EXAMPLE_ACCOUNT=0x... node examples/swap.mjs --prepare
 WEB3AGENT_EXAMPLE_ACCOUNT=0x... node examples/bridge.mjs --prepare
+
+# Uniswap v4 is fixture-only unless a mode is explicitly selected
+node examples/uniswap-v4.mjs
+node examples/uniswap-v4.mjs --read
+WEB3AGENT_EXAMPLE_ACCOUNT=0x... WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS=0x... WEB3AGENT_EXAMPLE_TOKEN_ID=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH=0x... node examples/uniswap-v4.mjs --prepare
+WEB3AGENT_EXAMPLE_ACCOUNT=0x... WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS=0x... WEB3AGENT_EXAMPLE_TOKEN_ID=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_NUMBER=... WEB3AGENT_EXAMPLE_SOURCE_BLOCK_HASH=0x... node examples/uniswap-v4.mjs --simulate
 ```
 
 The examples default to small USDC-denominated flows and only prepare wallet actions when you pass `--prepare`.
+
+### Uniswap v4 positions
+
+Uniswap v4 position support is a staged, browser-wallet-safe flow. It provides verified deployment, pool, position, and bounded-event reads; deterministic position calculations; lifecycle preparation (`mint`, `increase`, `decrease`, `collect`, and `burn`); and preflight simulation. It does **not** run a portfolio strategy, calculate tax/accounting, select a rebalance policy, or make an execution decision for you.
+
+Use `examples/uniswap-v4.mjs` to preview the exact inputs before connecting any service. `--read` is a wallet-free Robinhood public-client bytecode verification; set `WEB3AGENT_EXAMPLE_RPC_URL` only to override viem's official Robinhood RPC. `--prepare` and `--simulate` are runtime-backed modes that require an account, `WEB3AGENT_EXAMPLE_CURRENCY1_ADDRESS`, `WEB3AGENT_EXAMPLE_TOKEN_ID`, a real canonical pool, and a pinned source block. Set the normal runtime `RPC_URL` for those modes; optional pool overrides include `WEB3AGENT_EXAMPLE_POOL_FEE`, `WEB3AGENT_EXAMPLE_TICK_SPACING`, and `WEB3AGENT_EXAMPLE_POOL_HOOKS`. `--execute` is intentionally refused unless `WEB3AGENT_EXAMPLE_EXECUTE=1`, `WEB3AGENT_EXAMPLE_ACCOUNT`, and `WEB3AGENT_EXAMPLE_CONFIRMATION_ID` are all present. The example never submits a transaction: execution remains an application/MCP confirmation-queue responsibility.
+
+For the complete API, deployed-contract provenance, event cursor rules, and simulation caveats, see [docs/architecture/uniswap-v4.md](docs/architecture/uniswap-v4.md). For browser wallet action/resume semantics, see [docs/architecture/browser-wallet-operations.md](docs/architecture/browser-wallet-operations.md).
 
 ## Quickstart examples
 
@@ -379,6 +406,19 @@ Transaction actions are only considered complete once you return a confirmed res
 ```
 
 `resumeOperation()` independently verifies the receipt before advancing.
+
+Prepared integrations are `orbs` (`swap`, `order`), `lifi` (`bridge` and Robinhood
+same-chain fallback), `zeroex` (Robinhood `swap`), `goat` (`tool`), and `uniswap-v4`
+(`mint`, `increase`, `decrease`, `collect`, `burn`). Robinhood same-chain swaps route to
+0x first and use LI.FI only when 0x returns the explicit `no-route` or
+`provider-unavailable` class.
+
+The root SDK also exposes the complete Uniswap v4 surface:
+`getUniswapV4Deployment`, `getUniswapV4Pool`, `getUniswapV4Position`,
+`getUniswapV4Events`, `calculateUniswapV4Position`, `calculateUniswapV4`,
+`simulateUniswapV4Operation`, `mintUniswapV4Position`,
+`increaseUniswapV4Liquidity`, `decreaseUniswapV4Liquidity`,
+`collectUniswapV4Fees`, and `burnUniswapV4Position`.
 
 Architecture notes: [docs/architecture/browser-wallet-operations.md](docs/architecture/browser-wallet-operations.md)
 

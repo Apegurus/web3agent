@@ -2,13 +2,13 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Apegurus/web3agent",
   "title": "web3agent",
-  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, market data, wallets, and gated writes.",
+  "description": "Web3 MCP proxy for AI agents: DeFi swaps, bridges, Orbs orders, market data, wallets, and gated writes.",
   "websiteUrl": "https://web3agent.fi",
   "repository": {
     "url": "https://github.com/Apegurus/web3agent",
     "source": "github"
   },
-  "version": "0.6.1",
+  "version": "0.7.0",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/Apegurus/web3agent/main/assets/logo.png",
@@ -26,7 +26,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "web3agent",
-      "version": "0.6.1",
+      "version": "0.7.0",
       "transport": {
         "type": "stdio"
       },
@@ -65,6 +65,13 @@
           "isSecret": true
         },
         {
+          "name": "LIFI_API_KEY",
+          "description": "Optional LI.FI API key for higher-rate bridge and fallback routing.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "COINGECKO_API_KEY",
           "description": "Optional CoinGecko API key for higher-rate market data.",
           "format": "string",
@@ -80,6 +87,13 @@
         {
           "name": "OWS_PASSPHRASE",
           "description": "Optional Open Wallet Standard vault passphrase for persisted local wallets.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WEB3AGENT_RESUME_STATE_SECRETS",
+          "description": "Optional comma-separated random secrets of at least 32 characters shared by every replica for Orbs, LI.FI, and 0x resume-state authentication and rotation. Required on Windows for prepared operations.",
           "format": "string",
           "isRequired": false,
           "isSecret": true

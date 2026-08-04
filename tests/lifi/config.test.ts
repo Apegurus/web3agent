@@ -147,4 +147,31 @@ describe("LI.FI config initialization", () => {
     await expect(providerConfig.getWalletClient()).rejects.toThrow("wallet unavailable");
     await expect(providerConfig.switchChain(8453)).rejects.toThrow("wallet unavailable");
   });
+
+  it("rejects a wallet switch inside an account-bound LI.FI execution context", async () => {
+    const { EVM } = await import("@lifi/sdk");
+    const { getActiveAccount, getWalletState } = await import("../../src/wallet/persistence.js");
+    const { initializeLifi, withLifiExecutionAccount } = await import("../../src/lifi/config.js");
+    const expected = "0x1111111111111111111111111111111111111111" as const;
+
+    vi.mocked(getWalletState).mockReturnValue({
+      mode: "private-key",
+      address: expected,
+      chainId: 8453,
+      accountIndex: 0,
+      addressIndex: 0,
+    });
+    vi.mocked(getActiveAccount).mockReturnValue({
+      address: "0x9999999999999999999999999999999999999999",
+      type: "json-rpc",
+    } as never);
+    initializeLifi();
+    const providerConfig = vi.mocked(EVM).mock.calls[0][0] as {
+      getWalletClient: () => Promise<unknown>;
+    };
+
+    await expect(
+      withLifiExecutionAccount(expected, () => providerConfig.getWalletClient())
+    ).rejects.toMatchObject({ code: "LIFI_WALLET_MISMATCH" });
+  });
 });
