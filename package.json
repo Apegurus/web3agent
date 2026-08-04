@@ -135,8 +135,9 @@
     "overrides": {
       "adm-zip": "0.6.0",
       "brace-expansion": "5.0.8",
-      "fast-uri": "3.1.4",
+      "fast-uri": "3.1.5",
       "hono@<4.12.25": "4.12.25",
+      "ip-address": "10.3.1",
       "picomatch": "4.0.4",
       "serialize-javascript": "7.0.3",
       "tmp": "0.2.7",
