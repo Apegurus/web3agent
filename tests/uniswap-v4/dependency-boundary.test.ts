@@ -14,14 +14,18 @@ import {
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const sourceRoot = join(repositoryRoot, "src");
 
-const expectedDependencies = {
+const expectedBuildDependencies = {
   "@uniswap/sdk-core": "^7.18.0",
   "@uniswap/v4-sdk": "2.3.0",
+} as const;
+
+const expectedRuntimeDependencies = {
   viem: "^2.55.4",
 } as const;
 
 const packageManifestSchema = z.object({
   dependencies: z.record(z.string()),
+  devDependencies: z.record(z.string()),
 });
 
 type BoundaryViolation = {
@@ -151,9 +155,13 @@ describe("Uniswap v4 dependency boundary", () => {
     // When: the direct dependency contract is parsed.
     const manifest = packageManifestSchema.parse(JSON.parse(packageJson));
 
-    // Then: all supported versions and the v4 tarball integrity are pinned.
-    for (const [packageName, expectedVersion] of Object.entries(expectedDependencies)) {
+    // Then: runtime packages remain production dependencies while the bundled SDKs are build-only.
+    for (const [packageName, expectedVersion] of Object.entries(expectedRuntimeDependencies)) {
       expect(manifest.dependencies[packageName]).toBe(expectedVersion);
+    }
+    for (const [packageName, expectedVersion] of Object.entries(expectedBuildDependencies)) {
+      expect(manifest.dependencies[packageName]).toBeUndefined();
+      expect(manifest.devDependencies[packageName]).toBe(expectedVersion);
     }
     expect(lockfile).toContain("'@uniswap/v4-sdk@2.3.0':");
     expect(lockfile).toContain(expectedV4SdkProvenance.integrity);

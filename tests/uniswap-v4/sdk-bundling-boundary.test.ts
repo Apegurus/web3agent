@@ -1,10 +1,13 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { readFileSync, readdirSync } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { withBuiltArtifacts } from "../global-setup.js";
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -19,6 +22,9 @@ const packageManifestSchema = z.object({
       }),
     }),
   }),
+});
+const commandFailureSchema = z.object({
+  stderr: z.string(),
 });
 
 async function buildFixture(configPath: string, outputDirectory: string): Promise<string> {
@@ -43,15 +49,13 @@ async function loadAsNodeEsm(bundlePath: string): Promise<string> {
   return stdout;
 }
 
-async function listJavaScriptFiles(directory: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) return listJavaScriptFiles(path);
-      return entry.isFile() && entry.name.endsWith(".js") ? [path] : [];
-    })
-  );
+function listJavaScriptFiles(directory: string): readonly string[] {
+  const entries = readdirSync(directory, { withFileTypes: true });
+  const files = entries.map((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return listJavaScriptFiles(path);
+    return entry.isFile() && entry.name.endsWith(".js") ? [path] : [];
+  });
   return files.flat();
 }
 
@@ -85,25 +89,28 @@ describe("Uniswap v4 SDK bundling boundary", () => {
   it("fails when the SDK is externalized and loads when the production closure is bundled", async () => {
     // Given: equivalent adapter-like fixture builds with and without the production closure.
     const fixtureDirectory = await mkdtemp(join(repositoryRoot, ".uniswap-v4-sdk-build-"));
-    const entryPath = join(fixtureDirectory, "sdk-adapter-like.ts");
-    const externalConfigPath = join(fixtureDirectory, "external.config.ts");
-    const bundledConfigPath = join(fixtureDirectory, "bundled.config.ts");
-    const externalOutputDirectory = join(fixtureDirectory, "external");
-    const bundledOutputDirectory = join(fixtureDirectory, "bundled");
-    await writeFile(
-      entryPath,
-      'import { V4PositionManager } from "@uniswap/v4-sdk";\nexport const sdkAdapterLikeProbe = typeof V4PositionManager;\n'
-    );
-    await writeFile(
-      externalConfigPath,
-      `import { defineConfig } from "tsup";\nexport default defineConfig({ entry: [${JSON.stringify(entryPath)}], format: ["esm"], noExternal: [], platform: "node", target: "node22" });\n`
-    );
-    await writeFile(
-      bundledConfigPath,
-      `import { defineConfig } from "tsup";\nimport { uniswapV4SdkNoExternal } from "../tsup.config.js";\nexport default defineConfig({ entry: [${JSON.stringify(entryPath)}], format: ["esm"], noExternal: uniswapV4SdkNoExternal, platform: "node", target: "node22" });\n`
-    );
+    let outputRoot: string | undefined;
 
     try {
+      outputRoot = await mkdtemp(join(tmpdir(), "web3agent-uniswap-v4-sdk-output-"));
+      const entryPath = join(fixtureDirectory, "sdk-adapter-like.ts");
+      const externalConfigPath = join(fixtureDirectory, "external.config.ts");
+      const bundledConfigPath = join(fixtureDirectory, "bundled.config.ts");
+      const externalOutputDirectory = join(outputRoot, "external");
+      const bundledOutputDirectory = join(outputRoot, "bundled");
+      await writeFile(
+        entryPath,
+        'import { V4PositionManager } from "@uniswap/v4-sdk";\nexport const sdkAdapterLikeProbe = typeof V4PositionManager;\n'
+      );
+      await writeFile(
+        externalConfigPath,
+        `import { defineConfig } from "tsup";\nexport default defineConfig({ entry: [${JSON.stringify(entryPath)}], external: ["@uniswap/v4-sdk"], format: ["esm"], platform: "node", target: "node22" });\n`
+      );
+      await writeFile(
+        bundledConfigPath,
+        `import { defineConfig } from "tsup";\nimport { uniswapV4SdkNoExternal } from "../tsup.config.js";\nexport default defineConfig({ entry: [${JSON.stringify(entryPath)}], format: ["esm"], noExternal: uniswapV4SdkNoExternal, platform: "node", target: "node22" });\n`
+      );
+
       // When: Node imports the externalized and bundled ESM outputs.
       const externalBundle = await buildFixture(externalConfigPath, externalOutputDirectory);
       const externalFailure = await loadAsNodeEsm(externalBundle).then(
@@ -114,31 +121,35 @@ describe("Uniswap v4 SDK bundling boundary", () => {
       const bundledOutput = await loadAsNodeEsm(bundledBundle);
 
       // Then: externalization fails while the production closure is ESM-safe.
-      expect(externalFailure).toBeInstanceOf(Error);
+      const externalError = commandFailureSchema.parse(externalFailure);
+      expect(externalError.stderr).toContain("ERR_MODULE_NOT_FOUND");
+      expect(externalError.stderr).toContain("@uniswap/v4-sdk");
       expect(bundledOutput).toBe("function");
     } finally {
       await rm(fixtureDirectory, { force: true, recursive: true });
+      if (outputRoot !== undefined) {
+        await rm(outputRoot, { force: true, recursive: true });
+      }
     }
   });
 
-  it("does not leave a private SDK-graph dependency external in built entry points or chunks", async () => {
-    // Given: the package build output consumed by root, runtime, and CLI users.
-    const distDirectory = join(repositoryRoot, "dist");
+  it("does not leave a private SDK-graph dependency external in built entry points or chunks", () =>
+    withBuiltArtifacts(() => {
+      // Given: the package build output consumed by root, runtime, and CLI users.
+      const distDirectory = join(repositoryRoot, "dist");
 
-    // When: every ESM import specifier in the build output is inspected.
-    const chunks = await listJavaScriptFiles(distDirectory);
-    const externalPrivateImports = (
-      await Promise.all(
-        chunks.map(async (chunk) => ({
+      // When: every ESM import specifier is inspected while the build mutex is held.
+      const chunks = listJavaScriptFiles(distDirectory);
+      const externalPrivateImports = chunks
+        .map((chunk) => ({
           chunk,
-          imports: bareImportSpecifiers(await readFile(chunk, "utf8")).filter((specifier) =>
+          imports: bareImportSpecifiers(readFileSync(chunk, "utf8")).filter((specifier) =>
             privateSdkClosureSpecifier.test(specifier)
           ),
         }))
-      )
-    ).filter(({ imports }) => imports.length > 0);
+        .filter(({ imports }) => imports.length > 0);
 
-    // Then: the complete private SDK graph is bundled, never delegated to consumer node_modules.
-    expect(externalPrivateImports).toEqual([]);
-  });
+      // Then: the private SDK graph is bundled, never delegated to consumer node_modules.
+      expect(externalPrivateImports).toEqual([]);
+    }));
 });
