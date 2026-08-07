@@ -28,12 +28,12 @@ jobs:
         node-version: [22.x, 24.x]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
@@ -74,8 +74,8 @@ jobs:
       - name: Security audit
         run: pnpm audit --prod --audit-level high
 
-  package_npm:
-    name: Package npm artifact
+  release_eligibility:
+    name: Release eligibility
     needs: ci
     if: >-
       github.event_name == 'push' &&
@@ -85,7 +85,33 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
+      eligible: ${{ steps.merged_pr.outputs.eligible }}
+
+    steps:
+      - name: Match the exact merged pull request commit
+        id: merged_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          merged_prs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq "map(select(.merged_at != null and .base.ref == \"${GITHUB_REF_NAME}\" and .merge_commit_sha == \"${GITHUB_SHA}\")) | length")
+          if [ "$merged_prs" -gt 0 ]; then
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  package_npm:
+    name: Package npm artifact
+    needs: release_eligibility
+    if: needs.release_eligibility.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
       dist_tag: ${{ steps.release.outputs.dist_tag }}
+      integrity: ${{ steps.tarball.outputs.integrity }}
       release_version: ${{ steps.release.outputs.release_version }}
       tarball: ${{ steps.tarball.outputs.name }}
 
@@ -96,24 +122,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Require a merged pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          merged_prs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
-            --jq "map(select(.merged_at != null and .base.ref == \"${GITHUB_REF_NAME}\")) | length")
-          test "$merged_prs" -gt 0
-
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
 
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.x
-          cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Derive immutable npm version
         id: release
@@ -136,9 +153,17 @@ jobs:
           test "${#tarballs[@]}" -eq 1
           actual_version=$(tar -xOf "${tarballs[0]}" package/package.json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data).version));')
           test "$actual_version" = "$EXPECTED_VERSION"
+          integrity=$(node -e 'const { createHash } = require("node:crypto"); const { readFileSync } = require("node:fs"); process.stdout.write("sha512-" + createHash("sha512").update(readFileSync(process.argv[1])).digest("base64"));' "${tarballs[0]}")
+          echo "integrity=$integrity" >> "$GITHUB_OUTPUT"
           echo "name=${tarballs[0]##*/}" >> "$GITHUB_OUTPUT"
 
+      - name: Smoke-test versioned tarball
+        run: |
+          tarballs=(.release/web3agent-*.tgz)
+          node tests/e2e/package-install-smoke.mjs "$PWD/${tarballs[0]}"
+
       - name: Upload immutable npm artifact
+        id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: npm-web3agent-${{ github.sha }}
@@ -168,19 +193,26 @@ jobs:
       - name: Download immutable npm artifact
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
-          name: npm-web3agent-${{ github.sha }}
+          artifact-ids: ${{ needs.package_npm.outputs.artifact_id }}
           path: .release
 
       - name: Require trusted-publishing npm client
         run: |
           npm_version=$(npm --version)
-          node -e 'const [major, minor] = process.argv[1].split(".").map(Number); if (major < 11 || (major === 11 && minor < 5)) process.exit(1);' "$npm_version"
+          node -e 'const [major, minor, patch] = process.argv[1].split(".").map(Number); if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) process.exit(1);' "$npm_version"
 
       - name: Check branch head and registry
         id: preflight
         env:
+          DIST_TAG: ${{ needs.package_npm.outputs.dist_tag }}
+          EXPECTED_INTEGRITY: ${{ needs.package_npm.outputs.integrity }}
           RELEASE_VERSION: ${{ needs.package_npm.outputs.release_version }}
         run: |
+          tarballs=(.release/web3agent-*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          actual_integrity=$(node -e 'const { createHash } = require("node:crypto"); const { readFileSync } = require("node:fs"); process.stdout.write("sha512-" + createHash("sha512").update(readFileSync(process.argv[1])).digest("base64"));' "${tarballs[0]}")
+          test "$actual_integrity" = "$EXPECTED_INTEGRITY"
+
           remote_sha=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | cut -f1)
           test -n "$remote_sha"
           if [ "$remote_sha" != "$GITHUB_SHA" ]; then
@@ -189,11 +221,17 @@ jobs:
             exit 0
           fi
 
+          if [ "$DIST_TAG" = "latest" ]; then
+            current_latest=$(npm view web3agent@latest version --registry=https://registry.npmjs.org/)
+            node -e 'const parse = value => value.split(".").map(Number); const [candidate, current] = process.argv.slice(1).map(parse); for (let index = 0; index < 3; index += 1) { if (candidate[index] > current[index]) process.exit(0); if (candidate[index] < current[index]) process.exit(1); }' "$RELEASE_VERSION" "$current_latest"
+          fi
+
           set +e
-          registry_output=$(npm view "web3agent@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/ 2>&1)
+          registry_output=$(npm view "web3agent@${RELEASE_VERSION}" dist.integrity --registry=https://registry.npmjs.org/ 2>&1)
           registry_status=$?
           set -e
           if [ "$registry_status" -eq 0 ]; then
+            test "$registry_output" = "$EXPECTED_INTEGRITY"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "superseded=false" >> "$GITHUB_OUTPUT"
           elif [[ "$registry_output" == *"E404"* ]]; then
@@ -221,11 +259,16 @@ jobs:
         if: steps.preflight.outputs.superseded != 'true'
         env:
           DIST_TAG: ${{ needs.package_npm.outputs.dist_tag }}
+          EXPECTED_INTEGRITY: ${{ needs.package_npm.outputs.integrity }}
           RELEASE_VERSION: ${{ needs.package_npm.outputs.release_version }}
         run: |
           for _ in {1..12}; do
             published_version=$(npm view "web3agent@${DIST_TAG}" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)
             if [ "$published_version" = "$RELEASE_VERSION" ]; then
+              published_integrity=$(npm view "web3agent@${RELEASE_VERSION}" dist.integrity --registry=https://registry.npmjs.org/)
+              provenance_url=$(npm view "web3agent@${RELEASE_VERSION}" dist.attestations.url --registry=https://registry.npmjs.org/)
+              test "$published_integrity" = "$EXPECTED_INTEGRITY"
+              test -n "$provenance_url"
               exit 0
             fi
             sleep 5
