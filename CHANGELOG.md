@@ -91,8 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Build
 
-- **`prepack` hook in both publishable packages.** `web3agent` now runs `pnpm run build:package` (root tsup build) and `create-web3agent` runs `tsup` on `prepack`, guaranteeing a freshly-built `dist/` ships with every `npm pack` / `npm publish` even if the working tree's `dist/` is stale or absent (H4).
-- **`create-web3agent` packaging contract.** The compatibility wrapper now reuses the canonical `web3agent/create` types, preserves the runtime-only dynamic import that keeps template asset lookup rooted in the main package, and declares its own `tsup` / `typescript` dev dependencies so package-local build and typecheck scripts are reproducible.
+- **Fresh prepack builds.** `web3agent` now runs `pnpm run build:package`, and the internal starter workspace runs `tsup` on `prepack`, ensuring packaging checks never reuse stale `dist/` output (H4).
+- **Internal starter workspace contract.** The workspace adapter reuses the canonical `web3agent/create` types, preserves root-package template asset lookup, and declares the build dependencies needed for reproducible package-local checks.
 
 ### CI
 
@@ -117,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`wallet_deactivate` in read-only mode (L6)** — was blocked by `executeWrite()`'s read-only gate. Deactivation is now session-local idempotent cleanup: it reverts the runtime to read-only mode without removing persisted wallet material. Permanent removal is handled by the separate confirmation-gated `wallet_delete` tool.
 - **`serverStatus` guard for missing `_health.ccxt` (L8)** — matched the adjacent `agenticEconomy?.status ?? "not_initialized"` pattern; previously threw `TypeError` when `setHealthStatus` was invoked with a partial health object lacking the `ccxt` key.
 - **Codex TOML writer (L9)** — `mergeManagedBlock` used non-start-anchored `indexOf(MARKER_END)`, so a literal `# web3agent:end` string in user comments before the managed block matched as the block terminator, producing garbage output. Now passes `startIdx + MARKER_START.length` as the search origin, plus an `endIdx > startIdx` sanity check. Additionally, `encodeTomlSection` now preserves `boolean` and finite `number` values (previously silently dropped); unsupported types emit a `[hosts/codex]` stderr warning.
-- **`create-web3agent` symlink invocation (L10)** — the bin entrypoint compared `fileURLToPath(import.meta.url)` to `process.argv[1]` directly, so when invoked via `node_modules/.bin/create-web3agent` (a symlink) the two paths differed by realpath indirection, `isMain` was `false`, and the CLI silently exited. Now `realpathSync`-normalizes both sides before comparing; wrapped in `try/catch` so unexpected stat failures fall back to `isMain=false` (safe default — programmatic `runCreateCli` still works).
+- **Internal starter adapter symlink invocation (L10)** — the workspace bin entrypoint compared `fileURLToPath(import.meta.url)` to `process.argv[1]` directly, so symlink invocation failed its `isMain` check and silently exited. Both paths are now normalized with `realpathSync`; unexpected stat failures retain the safe `isMain=false` default.
 
 ### Security
 
