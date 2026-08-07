@@ -6,11 +6,14 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 # Cancel in-flight runs on the same PR/branch when a new commit lands. Keeps
 # rapid-iteration PRs from queueing redundant minutes against the runner pool.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
@@ -70,3 +73,162 @@ jobs:
 
       - name: Security audit
         run: pnpm audit --prod --audit-level high
+
+  package_npm:
+    name: Package npm artifact
+    needs: ci
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      dist_tag: ${{ steps.release.outputs.dist_tag }}
+      release_version: ${{ steps.release.outputs.release_version }}
+      tarball: ${{ steps.tarball.outputs.name }}
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Require a merged pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          merged_prs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq "map(select(.merged_at != null and .base.ref == \"${GITHUB_REF_NAME}\")) | length")
+          test "$merged_prs" -gt 0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.x
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Derive immutable npm version
+        id: release
+        run: node scripts/npm-release-version.mjs
+
+      - name: Build versioned package
+        run: pnpm run build:package
+
+      - name: Pack root package
+        run: |
+          mkdir .release
+          npm pack --ignore-scripts --pack-destination .release
+
+      - name: Verify packed version
+        id: tarball
+        env:
+          EXPECTED_VERSION: ${{ steps.release.outputs.release_version }}
+        run: |
+          tarballs=(.release/web3agent-*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          actual_version=$(tar -xOf "${tarballs[0]}" package/package.json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data).version));')
+          test "$actual_version" = "$EXPECTED_VERSION"
+          echo "name=${tarballs[0]##*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable npm artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-web3agent-${{ github.sha }}
+          path: .release/*.tgz
+          if-no-files-found: error
+          retention-days: 30
+
+  publish_npm:
+    name: Publish npm
+    needs: package_npm
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.x
+
+      - name: Download immutable npm artifact
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: npm-web3agent-${{ github.sha }}
+          path: .release
+
+      - name: Require trusted-publishing npm client
+        run: |
+          npm_version=$(npm --version)
+          node -e 'const [major, minor] = process.argv[1].split(".").map(Number); if (major < 11 || (major === 11 && minor < 5)) process.exit(1);' "$npm_version"
+
+      - name: Check branch head and registry
+        id: preflight
+        env:
+          RELEASE_VERSION: ${{ needs.package_npm.outputs.release_version }}
+        run: |
+          remote_sha=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | cut -f1)
+          test -n "$remote_sha"
+          if [ "$remote_sha" != "$GITHUB_SHA" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          set +e
+          registry_output=$(npm view "web3agent@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/ 2>&1)
+          registry_status=$?
+          set -e
+          if [ "$registry_status" -eq 0 ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "superseded=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$registry_output" == *"E404"* ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "superseded=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$registry_output" >&2
+            exit "$registry_status"
+          fi
+
+      - name: Publish exact tarball through npm OIDC
+        if: steps.preflight.outputs.publish == 'true'
+        env:
+          DIST_TAG: ${{ needs.package_npm.outputs.dist_tag }}
+          TARBALL: ${{ needs.package_npm.outputs.tarball }}
+        run: |
+          env -u NPM_TOKEN -u NODE_AUTH_TOKEN npm publish ".release/${TARBALL}" \
+            --ignore-scripts \
+            --registry=https://registry.npmjs.org/ \
+            --access=public \
+            --tag="$DIST_TAG" \
+            --provenance
+
+      - name: Verify npm channel
+        if: steps.preflight.outputs.superseded != 'true'
+        env:
+          DIST_TAG: ${{ needs.package_npm.outputs.dist_tag }}
+          RELEASE_VERSION: ${{ needs.package_npm.outputs.release_version }}
+        run: |
+          for _ in {1..12}; do
+            published_version=$(npm view "web3agent@${DIST_TAG}" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)
+            if [ "$published_version" = "$RELEASE_VERSION" ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Expected web3agent@${DIST_TAG} to resolve to ${RELEASE_VERSION}" >&2
+          exit 1
