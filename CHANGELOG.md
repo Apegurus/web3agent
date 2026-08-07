@@ -7,35 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Classified the fully bundled Uniswap v4 SDK closure as build-only dependencies so clean npm consumers no longer install the Uniswap and Hardhat package trees.
-
-### Fixed
-
-- Restored live Base swap quotes by replacing the rejected default Orbs partner with the accepted `quickswap` integration.
-
-### Security
-
-- Pinned patched `fast-uri` and `ip-address` releases to close host-confusion and leading-zero address parsing advisories in the production dependency graph.
-
-## [0.7.0] - 2026-08-01
+## [0.7.0] - 2026-08-07
 
 ### Added
 
 - Added verified Robinhood Chain support for Uniswap v4 reads, calculations, simulation, and staged lifecycle operations through both MCP tools and the root SDK.
 - Added provenance-tagged Robinhood same-chain swap routing through 0x with narrowly classified LI.FI fallback for explicit no-route and provider-unavailable results.
 
+### Changed
+
+- Classified the fully bundled Uniswap v4 SDK closure as build-only dependencies so clean npm consumers no longer install the Uniswap and Hardhat package trees.
+
 ### Security
 
 - Bound prepared 0x approval and execution actions to the canonical Robinhood AllowanceHolder and Settler registry owners before exposing wallet actions.
 - Bound LI.FI same-chain fallback approvals and transactions to trusted LI.FI chain metadata, approved wallet, chain, token path, amount, and native value.
 - Authenticated staged resume states and independently verified confirmed transaction facts before advancing prepared operations.
+- Pinned patched `fast-uri` and `ip-address` releases to close host-confusion and leading-zero address parsing advisories in the production dependency graph.
 
 ### Fixed
 
 - Preserved caller slippage limits through 0x and LI.FI routing without rounding percentage tolerances upward.
 - Made final Uniswap v4 scope evidence reproducible from a clean checkout and retained local artifact auditing under `qa:uniswap-v4:evidence:artifacts`.
+- Restored live Base swap quotes by replacing the rejected default Orbs partner with the accepted `quickswap` integration.
 
 ## [0.6.2] - 2026-06-30
 
