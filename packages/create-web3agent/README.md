@@ -1,6 +1,7 @@
-# create-web3agent
+# Web3Agent starter workspace
 
-Compatibility wrapper for the `web3agent` starter experience.
+This is an internal workspace adapter used to verify the starter implementation
+shipped by `web3agent`. It is not a user-facing package or supported entrypoint.
 
 ## Usage
 
@@ -8,11 +9,7 @@ Compatibility wrapper for the `web3agent` starter experience.
 npx web3agent create
 ```
 
-Or, if you prefer the npm create entrypoint:
-
-```bash
-npm create web3agent@latest
-```
+The supported published entrypoint is `npx web3agent create`.
 
 Templates currently bundled in this repo:
 
