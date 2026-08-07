@@ -88,7 +88,7 @@ The canonical self-install contract should be the raw Markdown install guide tha
 
 ## Goal
 
-Ship `npm create web3agent` as the fastest supported path for users who want a working Web3-capable agent immediately.
+Ship `npx web3agent create` as the fastest supported path for users who want a working Web3-capable agent immediately.
 
 Templates:
 
@@ -317,5 +317,5 @@ Turn identity, payment, escrow, and hiring from separate modules into a coherent
 1. Define CLI command contract and JSON output envelope
 2. Implement OpenClaw and Codex host detection / writer stubs
 3. Create lazy-startup and capability-health hardening backlog
-4. Create `create-web3agent` package skeleton and template inventory as parallel prep only, not the M1 critical path
+4. Create the internal starter workspace skeleton and template inventory as parallel prep only, not the M1 critical path
 5. Draft protocol adapter acceptance checklist

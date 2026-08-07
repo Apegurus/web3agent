@@ -18,7 +18,7 @@
 - `web3agent init` is a convenience path for hosts with stable config contracts. For M1, Codex should join that lane; OpenClaw should be first-class through the guide-driven self-install path rather than a new `init` writer.
 - OpenClaw and Codex host contracts must still be verified against their actual documentation and centralized in one place so that any late path correction touches one file plus tests.
 - M1 should not introduce new wallet assumptions that would block a future OWS-backed local wallet backend. Keep CLI, runtime, and doctor contracts wallet-backend-agnostic where possible.
-- `create-web3agent` scaffolder work may begin in parallel, but it is explicitly not on the M1 critical path.
+- starter scaffolder work may begin in parallel, but it is explicitly not on the M1 critical path.
 
 ## File Structure
 

@@ -574,7 +574,7 @@ without changing the mental model of the product.
 1. **Universal access first**
    Priority hosts, CLI parity, diagnostics, degraded startup behavior.
 2. **Starter/scaffolder second**
-   `npm create web3agent` and three first-party templates: Vercel AI SDK, Mastra, MCP-host.
+   `npx web3agent create` and three first-party templates: Vercel AI SDK, Mastra, MCP-host.
 3. **Protocol depth third**
    First targets: Compound, Morpho, Aave.
 4. **Wallet interoperability lane fourth**
@@ -769,7 +769,7 @@ Requirements:
 
 #### Product outcomes
 
-- `npm create web3agent` becomes a real supported onramp
+- `npx web3agent create` becomes a real supported onramp
 - the first successful write flow is understandable and repeatable
 - protocol support gets deeper where it matters, not merely broader
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship `npm create web3agent` as the fastest supported path to a working Web3-capable agent, starting with a real scaffolder package and a production-grade first starter template.
+**Goal:** Ship `npx web3agent create` as the fastest supported path to a working Web3-capable agent, starting with the root package's scaffolder and a production-grade first starter template.
 
-**Architecture:** Keep starter creation rooted in the main `web3agent` package under `src/create/**` and `templates/create/**`, so `npx web3agent create` is the primary supported entrypoint. Keep `packages/create-web3agent` as a thin compatibility wrapper for `npm create web3agent`. Keep every starter wired to the existing `web3agent` runtime and root API surfaces so lifecycle semantics stay aligned with the M1 MCP, CLI, and SDK contracts.
+**Architecture:** Keep starter creation rooted in the main `web3agent` package under `src/create/**` and `templates/create/**`, with `npx web3agent create` as the only supported entrypoint. Keep every starter wired to the existing `web3agent` runtime and root API surfaces so lifecycle semantics stay aligned with the M1 MCP, CLI, and SDK contracts.
 
 **Tech Stack:** TypeScript, Node.js 22+, pnpm workspaces, tsup, Vitest, existing `web3agent` runtime/root APIs, Vercel AI SDK, Mastra, MCP stdio hosting.
 
@@ -24,7 +24,7 @@
 
 ## Proposed file map
 
-### Compatibility wrapper package
+### Internal workspace adapter
 
 - Create: `packages/create-web3agent/package.json`
 - Create: `packages/create-web3agent/tsconfig.json`
@@ -72,7 +72,7 @@
 
 ## Chunk 1: Scaffolder Foundation
 
-### Task 1: Add the compatibility `create-web3agent` workspace package
+### Task 1: Add the internal starter workspace adapter
 
 **Files:**
 - Create: `packages/create-web3agent/package.json`
@@ -98,7 +98,7 @@ Expected: FAIL because the package and workspace wiring do not exist yet.
 Implement:
 - workspace inclusion in `pnpm-workspace.yaml`
 - root scripts that build and typecheck the new package in addition to the root package
-- a standalone `create-web3agent` compatibility package with `bin`, `build`, and `typecheck` scripts
+- an internal workspace adapter with `bin`, `build`, and `typecheck` scripts for packaging verification
 
 - [ ] **Step 4: Run the targeted test again**
 
@@ -261,7 +261,7 @@ Expected: PASS for materialization and file-contract coverage.
 - [ ] **Step 1: Write a failing end-to-end scaffolder invocation test**
 
 Extend `tests/create-web3agent/scaffold.test.ts` to assert:
-- `create-web3agent my-agent --template vercel-ai-sdk --skip-install`
+- `web3agent create my-agent --template vercel-ai-sdk --skip-install`
 - project directory creation
 - post-install instructions mention the template’s quickstart path
 
@@ -274,7 +274,7 @@ Expected: FAIL because the CLI entrypoint is not wired.
 
 Implement:
 - `web3agent create` as the primary executable path
-- `create-web3agent` as a thin compatibility wrapper
+- internal adapter delegation to the canonical root implementation
 - non-interactive happy path for CI/tests
 - interactive template selection when running in a TTY
 - post-install summary output
@@ -340,7 +340,7 @@ Expected: PASS.
 
 This plan’s first PR-sized execution slice is:
 
-1. `packages/create-web3agent` workspace/package skeleton
+1. internal starter workspace adapter skeleton
 2. root-owned shared args + template registry + render + validation plumbing
 3. end-to-end CLI scaffolding for `web3agent create --template vercel-ai-sdk`
 4. first production starter based on the Vercel AI SDK/runtime discovery path
