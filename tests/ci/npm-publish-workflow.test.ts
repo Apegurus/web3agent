@@ -22,6 +22,7 @@ describe("npm publishing workflow", () => {
     expect(packageJob).toContain("outputs.eligible == 'true'");
     expect(packageJob).toContain("node scripts/npm-release-version.mjs");
     expect(packageJob).toContain("pnpm install --frozen-lockfile --ignore-scripts");
+    expect(packageJob).toContain("include-hidden-files: true");
     expect(packageJob).not.toContain("cache: 'pnpm'");
   });
 
