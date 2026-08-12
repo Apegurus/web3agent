@@ -15,8 +15,9 @@ describe("npm publishing workflow", () => {
     expect(packageStart).toBeGreaterThan(0);
     expect(eligibilityJob).toContain("needs: ci");
     expect(eligibilityJob).toContain("github.event_name == 'push'");
-    expect(eligibilityJob).toContain("commits/${GITHUB_SHA}/pulls");
+    expect(eligibilityJob).toContain("pulls?state=closed&base=${GITHUB_REF_NAME}");
     expect(eligibilityJob).toContain('.merge_commit_sha == \\"${GITHUB_SHA}\\"');
+    expect(eligibilityJob).not.toContain("commits/${GITHUB_SHA}/pulls");
     expect(packageJob).toContain("needs: release_eligibility");
     expect(packageJob).toContain("outputs.eligible == 'true'");
     expect(packageJob).toContain("node scripts/npm-release-version.mjs");

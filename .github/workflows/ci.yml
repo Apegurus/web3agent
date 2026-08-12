@@ -93,8 +93,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          merged_prs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
-            --jq "map(select(.merged_at != null and .base.ref == \"${GITHUB_REF_NAME}\" and .merge_commit_sha == \"${GITHUB_SHA}\")) | length")
+          merged_prs=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=closed&base=${GITHUB_REF_NAME}&per_page=100" \
+            --jq "map(select(.merged_at != null and .merge_commit_sha == \"${GITHUB_SHA}\")) | length" | \
+            awk '{ total += $1 } END { print total + 0 }')
           if [ "$merged_prs" -gt 0 ]; then
             echo "eligible=true" >> "$GITHUB_OUTPUT"
           else
