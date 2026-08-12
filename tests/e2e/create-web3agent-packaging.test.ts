@@ -30,7 +30,7 @@ describe("create-web3agent packaging readiness", () => {
     expect(packageJson.files).not.toContain("packages/create-web3agent/templates");
   });
 
-  it("marks the create package as publishable", () => {
+  it("keeps the create workspace internal", () => {
     const packageJson = JSON.parse(
       readFileSync(join(ROOT, "packages", "create-web3agent", "package.json"), "utf-8")
     ) as {
@@ -40,7 +40,7 @@ describe("create-web3agent packaging readiness", () => {
     };
 
     expect(packageJson.name).toBe("create-web3agent");
-    expect(packageJson.private).not.toBe(true);
+    expect(packageJson.private).toBe(true);
     expect(packageJson.bin?.["create-web3agent"]).toBe("dist/index.js");
   });
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-01
 **Branch:** `codex/m2-starter-slice1`
-**Scope:** starter/scaffolder acceptance proof for `web3agent create` plus the optional `create-web3agent` compatibility wrapper
+**Scope:** starter/scaffolder acceptance proof for `web3agent create`
 
 ## Summary
 
@@ -13,7 +13,7 @@ This branch now provides `web3agent create` as the primary starter command, with
 - MCP-host
 
 The starters stay on public `web3agent` package surfaces and do not introduce a parallel execution model.
-The create implementation and template assets are owned by the root package under `src/create/**` and `templates/create/**`; `create-web3agent` is kept as a compatibility wrapper only.
+The create implementation and template assets are owned by the root package under `src/create/**` and `templates/create/**`.
 
 ## Starter Parity Matrix
 
@@ -29,9 +29,8 @@ The create implementation and template assets are owned by the root package unde
 
 - root README documents `npx web3agent create`
 - root package owns the create implementation and bundled starter assets
-- `create-web3agent` remains packable as a compatibility wrapper
-- root README also documents `npm create web3agent`
-- CI workflow packs both `web3agent` and `create-web3agent`
+- the supported published starter entrypoint remains `npx web3agent create`
+- CI packages the root artifact and validates its internal workspace adapter
 
 ### Generated project smoke
 
@@ -49,14 +48,6 @@ Verified locally by:
 - packing `web3agent`
 - installing the tarball into a temp project
 - invoking `web3agent create`
-- installing the generated starter
-- running `npm run check`
-
-Verified locally by:
-
-- packing `create-web3agent`
-- installing the tarball into a temp project
-- invoking the installed CLI entrypoint to scaffold a starter
 - installing the generated starter
 - running `npm run check`
 
@@ -85,7 +76,6 @@ Latest full-suite result on this branch:
 - the main `web3agent` CLI can scaffold starters directly
 - all three templates scaffold successfully
 - all three generated starters install and pass their local `check` scripts
-- the real installed `create-web3agent` compatibility wrapper can still scaffold a working starter
 - the starter READMEs now document an explicit timed path
 
 ## What This Does Not Yet Prove
@@ -100,15 +90,14 @@ This branch is no longer just “scaffolding exists.” It now has:
 
 - root-owned create implementation
 - root-owned bundled starter assets
-- compatibility wrapper package
+- internal starter workspace adapter
 - three starters
 - post-install execution
 - generated-project install smoke
-- packed create-package smoke
+- packed root-package starter smoke
 - acceptance report artifact
 
 Remaining M2 risk is no longer local implementation completeness. It is primarily:
 
 - remote CI confirmation on the branch
-- release/publication posture for `create-web3agent`
 - external validation of the 30-second first-write claim

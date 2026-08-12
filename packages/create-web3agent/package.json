@@ -1,6 +1,7 @@
 {
   "name": "create-web3agent",
   "version": "0.6.0",
+  "private": true,
   "description": "Starter scaffolder for web3agent",
   "license": "MIT",
   "author": "Apeguru <hello@apeguru.dev>",
@@ -23,9 +24,6 @@
   "files": ["dist", "README.md"],
   "engines": {
     "node": ">=22"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "scripts": {
     "build": "tsup",
