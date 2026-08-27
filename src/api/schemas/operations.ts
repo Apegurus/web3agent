@@ -29,6 +29,7 @@ const lifiBridgeFinalizationSchema = z.discriminatedUnion("kind", [
     amount: z.string().describe("Permitted token amount"),
     nonce: z.string().describe("Permit2 nonce"),
     deadline: z.string().describe("Permit2 deadline timestamp"),
+    permit2: addressSchema.describe("Permit2 contract address"),
     permit2Proxy: addressSchema.describe("Permit2 proxy contract address"),
     account: addressSchema.describe("Account address granting the permit"),
     witness: z.literal(true).describe("Whether witness data is included"),

@@ -5,6 +5,7 @@ import { setupDefaultOperationMocks } from "../helpers/operation-mocks.js";
 const viemMocks = vi.hoisted(() => ({
   createPublicClient: vi.fn(),
   createClient: vi.fn(),
+  recoverTypedDataAddress: vi.fn(),
 }));
 
 const liquidityHubMocks = vi.hoisted(() => ({
@@ -31,6 +32,7 @@ vi.mock("viem", async (importOriginal) => {
     ...actual,
     createPublicClient: (...args: unknown[]) => viemMocks.createPublicClient(...args),
     createClient: (...args: unknown[]) => viemMocks.createClient(...args),
+    recoverTypedDataAddress: (...args: unknown[]) => viemMocks.recoverTypedDataAddress(...args),
   };
 });
 
@@ -49,7 +51,7 @@ vi.mock("@lifi/sdk", () => ({
   convertQuoteToRoute: (...args: unknown[]) => lifiMocks.convertQuoteToRoute(...args),
   setAllowance: (...args: unknown[]) => lifiMocks.setAllowance(...args),
   createConfig: (...args: unknown[]) => lifiMocks.createConfig(...args),
-  EVM: (...args: unknown[]) => lifiMocks.EVM(...args),
+  EVM: (provider: unknown) => lifiMocks.EVM(provider),
 }));
 
 vi.mock("../../src/operations/goat.js", () => ({
@@ -67,9 +69,16 @@ describe("generic prepared operations API", () => {
     });
     viemMocks.createClient.mockReturnValue({
       extend: vi.fn().mockReturnValue({
-        readContract: vi.fn().mockResolvedValue(7n),
+        readContract: vi
+          .fn()
+          .mockImplementation(({ functionName }: { readonly functionName: string }) =>
+            Promise.resolve(functionName === "nextNonce" ? 7n : maxUint256)
+          ),
       }),
     });
+    viemMocks.recoverTypedDataAddress.mockResolvedValue(
+      "0x1234567890123456789012345678901234567890"
+    );
     lifiMocks.getChains.mockResolvedValue([
       { id: 1 },
       {
@@ -781,6 +790,68 @@ describe("generic prepared operations API", () => {
       name: "Web3AgentError",
       code: "BRIDGE_INTENT_ERROR",
       message: "Permit2 authorization expired; prepare the bridge again",
+    });
+  });
+
+  it("resumeOperation rejects a LI.FI Permit2 signature from a different account", async () => {
+    viemMocks.recoverTypedDataAddress.mockResolvedValue(
+      "0x9999999999999999999999999999999999999999"
+    );
+    viemMocks.createPublicClient.mockReturnValue({
+      readContract: vi.fn().mockResolvedValue(maxUint256),
+      getTransactionReceipt: vi.fn().mockResolvedValue({ status: "success" }),
+    });
+    lifiMocks.getQuote.mockResolvedValue({
+      action: {
+        fromChainId: 8453,
+        toChainId: 1,
+        fromToken: {
+          address: "0x3333333333333333333333333333333333333333",
+          symbol: "USDC",
+        },
+        toToken: {
+          address: "0x4444444444444444444444444444444444444444",
+          symbol: "ETH",
+        },
+        fromAmount: "1000",
+      },
+      estimate: { toAmount: "999", toAmountMin: "990" },
+      transactionRequest: {
+        to: "0x2222222222222222222222222222222222222222",
+        data: "0xabcdef",
+        chainId: 8453,
+      },
+    });
+
+    const { prepareOperation, resumeOperation } = await import("../../src/api/operations.js");
+    const prepared = await prepareOperation({
+      integration: "lifi",
+      kind: "bridge",
+      fromChainId: 8453,
+      toChainId: 1,
+      fromToken: "0x3333333333333333333333333333333333333333",
+      toToken: "0x4444444444444444444444444444444444444444",
+      fromAmount: "1000",
+      account: "0x1234567890123456789012345678901234567890",
+    });
+
+    expect("completed" in prepared).toBe(false);
+    if ("completed" in prepared) return;
+
+    await expect(
+      resumeOperation({
+        resumeState: prepared.resumeState,
+        actionResults: {
+          "bridge:permit2:0": {
+            type: "signature",
+            signature: `0x${"11".repeat(65)}`,
+          },
+        },
+      })
+    ).rejects.toMatchObject({
+      name: "Web3AgentError",
+      code: "INVALID_PARAMS",
+      message: "LI.FI Permit2 signature does not match the bridge account",
     });
   });
 

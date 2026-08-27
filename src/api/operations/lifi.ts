@@ -41,6 +41,11 @@ import type {
 } from "../types.js";
 import { parseInput } from "../validation.js";
 import {
+  type LifiPermit2Finalization,
+  assertLifiPermit2Signature,
+  assertLifiPermit2State,
+} from "./lifi-permit2-validation.js";
+import {
   assertActionResultType,
   assertConfirmedTransactionResult,
   buildPreparedOperation,
@@ -82,21 +87,7 @@ let lifiChainsCache:
     }
   | undefined;
 
-type LifiBridgeFinalization =
-  | { kind: "none" }
-  | {
-      kind: "permit2";
-      signatureActionId: string;
-      tokenAddress: Hex;
-      amount: string;
-      nonce: string;
-      deadline: string;
-      permit2Proxy: Hex;
-      account: Hex;
-      witness: true;
-      diamondAddress: Hex;
-      diamondCalldataHash: Hex;
-    };
+type LifiBridgeFinalization = { kind: "none" } | LifiPermit2Finalization;
 
 interface ExtendedChain {
   id: number;
@@ -495,11 +486,11 @@ async function getLifiApprovalActions(params: {
   return approvalActions;
 }
 
-function rewriteFinalBridgeAction(
+async function rewriteFinalBridgeAction(
   finalAction: PreparedTransactionAction,
   finalization: LifiBridgeFinalization,
   actionResults: Record<string, OperationActionResult>
-): PreparedTransactionAction {
+): Promise<PreparedTransactionAction> {
   if (finalization.kind === "none") {
     return finalAction;
   }
@@ -531,6 +522,12 @@ function rewriteFinalBridgeAction(
   }
 
   const signature = assertHex(signatureResult.signature, "actionResults.signature");
+  await assertLifiPermit2Signature({
+    finalization,
+    chainId: finalAction.tx.chainId,
+    signature,
+  });
+  await assertLifiPermit2State({ finalization, chainId: finalAction.tx.chainId });
   const calldataHash = keccak256(finalAction.tx.data);
   if (finalAction.tx.to.toLowerCase() !== finalization.diamondAddress.toLowerCase()) {
     throw new Web3AgentError({
@@ -675,6 +672,7 @@ export async function prepareBridgeOperation(
           amount: fromAmount.toString(),
           nonce: permit2.nonce,
           deadline: permit2.deadline,
+          permit2: assertAddress(fromChain.permit2 ?? "", "fromChain.permit2"),
           permit2Proxy: assertAddress(fromChain.permit2Proxy ?? "", "fromChain.permit2Proxy"),
           account,
           witness: true,
@@ -731,7 +729,7 @@ export async function resumeLifiBridgeOperation(
     }
   }
 
-  const rewrittenFinalAction = rewriteFinalBridgeAction(
+  const rewrittenFinalAction = await rewriteFinalBridgeAction(
     bridgeState.finalAction,
     finalization,
     actionResults
