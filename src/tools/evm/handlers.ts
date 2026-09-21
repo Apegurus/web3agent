@@ -1,8 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { AbiFunction, Address, Chain, Hex, PublicClient } from "viem";
-import * as viemChains from "viem/chains";
 import type { ZodType } from "zod";
-import { getRequiredChain } from "../../chains/registry.js";
+import { getRegisteredChains, getRequiredChain } from "../../chains/registry.js";
 import { createWalletClientForChain } from "../../config/wallet-factory.js";
 import {
   ERC20_BALANCE_ABI,
@@ -13,7 +12,6 @@ import {
   formatUnits,
   getPublicClientCached,
   getTokenMetadata,
-  isSupported,
   listRegisteredAbis,
   parseAbiJson,
   parseEther,
@@ -222,10 +220,7 @@ export async function evmGetSupportedNetworks(
 ): Promise<CallToolResult> {
   return withToolErrorHandler("EVM_GET_SUPPORTED_NETWORKS_ERROR", async () => {
     const byId = new Map<number, { chainId: number; name: string; nativeCurrency: string }>();
-    for (const value of Object.values(viemChains)) {
-      if (!value || typeof value !== "object" || !("id" in value) || !("name" in value)) continue;
-      const chain = value as { id: number; name: string; nativeCurrency?: { symbol?: string } };
-      if (!isSupported(chain.id)) continue;
+    for (const chain of getRegisteredChains()) {
       byId.set(chain.id, {
         chainId: chain.id,
         name: chain.name,
