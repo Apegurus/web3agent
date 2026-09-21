@@ -11,8 +11,10 @@ const mockState = vi.hoisted(() => {
     shutdown: ReturnType<typeof vi.fn>;
   }> = [];
 
+  const startupOrder: string[] = [];
   return {
     goatProviders,
+    startupOrder,
     selectWalletBackend: vi.fn().mockResolvedValue({ info: { type: "legacy", reason: "test" } }),
     dispatchGoatTool: vi.fn(),
     initializeWallet: vi.fn().mockResolvedValue(undefined),
@@ -24,11 +26,15 @@ const mockState = vi.hoisted(() => {
       addressIndex: 0,
     }),
     registerOrbsExecutors: vi.fn(),
+    registerRadarDexExecutors: vi.fn(() => startupOrder.push("register-radardex")),
     registerLifiExecutors: vi.fn(),
     registerEvmExecutors: vi.fn(),
     initializeLifi: vi.fn(),
     setHealthStatus: vi.fn(),
-    loadQueue: vi.fn().mockResolvedValue(2),
+    loadQueue: vi.fn(async () => {
+      startupOrder.push("load-queue");
+      return 2;
+    }),
     flushAll: vi.fn().mockReturnValue(0),
     listQueue: vi.fn().mockReturnValue([]),
   };
@@ -67,6 +73,41 @@ vi.mock("../../src/wallet/backend-selector.js", () => ({
 vi.mock("../../src/tools/orbs/index.js", () => ({
   getOrbsToolDefinitions: vi.fn().mockReturnValue([]),
   registerOrbsExecutors: (...args: unknown[]) => mockState.registerOrbsExecutors(...args),
+}));
+
+vi.mock("../../src/tools/radardex/index.js", () => ({
+  getRadarDexToolDefinitions: vi.fn().mockReturnValue([
+    {
+      name: "radardex_list_tokens",
+      category: "tokens",
+      description: "list RadarDEX tokens",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
+    },
+    {
+      name: "radardex_get_quote",
+      category: "swap",
+      description: "quote RadarDEX swap",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
+    },
+    {
+      name: "radardex_get_route_health",
+      category: "status",
+      description: "check RadarDEX routes",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
+    },
+    {
+      name: "radardex_swap",
+      category: "swap",
+      description: "swap through RadarDEX",
+      inputSchema: { type: "object", properties: {} },
+      handler: vi.fn().mockResolvedValue({ isError: false, content: [] }),
+      riskLevel: "financial",
+    },
+  ]),
+  registerRadarDexExecutors: () => mockState.registerRadarDexExecutors(),
 }));
 
 vi.mock("../../src/tools/lifi/index.js", () => ({
@@ -159,7 +200,7 @@ vi.mock("../../src/wallet/confirmation.js", () => ({
   confirmationQueue: {
     enabled: true,
     ttlMs: 30 * 60 * 1000,
-    loadQueue: (...args: unknown[]) => mockState.loadQueue(...args),
+    loadQueue: () => mockState.loadQueue(),
     flushAll: (...args: unknown[]) => mockState.flushAll(...args),
     list: (...args: unknown[]) => mockState.listQueue(...args),
   },
@@ -247,6 +288,7 @@ describe("managed runtime", () => {
   beforeEach(() => {
     vi.resetModules();
     mockState.goatProviders.length = 0;
+    mockState.startupOrder.length = 0;
     mockState.dispatchGoatTool.mockReset().mockResolvedValue({
       isError: false,
       structuredContent: { ok: true, data: { status: "ok" } },
@@ -257,11 +299,15 @@ describe("managed runtime", () => {
     });
     mockState.initializeWallet.mockClear();
     mockState.registerOrbsExecutors.mockClear();
+    mockState.registerRadarDexExecutors.mockClear();
     mockState.registerLifiExecutors.mockClear();
     mockState.registerEvmExecutors.mockClear();
     mockState.initializeLifi.mockClear();
     mockState.setHealthStatus.mockClear();
-    mockState.loadQueue.mockReset().mockResolvedValue(2);
+    mockState.loadQueue.mockReset().mockImplementation(async () => {
+      mockState.startupOrder.push("load-queue");
+      return 2;
+    });
     mockState.flushAll.mockReset().mockReturnValue(0);
     mockState.listQueue.mockReset().mockReturnValue([]);
     registerToolMocks.walletTools = [];
@@ -388,6 +434,31 @@ describe("managed runtime", () => {
     expect(operationPrepareTool?.category).toBe("operation");
     expect(operationPrepareTool?.source).toBe("operation");
     expect(operationResumeTool?.category).toBe("operation");
+
+    await runtime.shutdown();
+  });
+
+  it("registers RadarDEX executors before restoring queued writes and discovers all four tools", async () => {
+    // Given: runtime startup will restore persisted confirmation operations.
+    const { createRuntime } = await import("../../src/runtime/managed-runtime.js");
+
+    // When: a managed runtime starts.
+    const runtime = await createRuntime({
+      env: { CHAIN_ID: "5042" },
+    });
+
+    // Then: the persisted executor exists before queue loading and every tool is cataloged.
+    expect(mockState.startupOrder).toEqual(["register-radardex", "load-queue"]);
+    const radarTools = runtime.listTools().filter(({ source }) => source === "radardex");
+    expect(radarTools.map(({ name }) => name)).toEqual([
+      "radardex_list_tokens",
+      "radardex_get_quote",
+      "radardex_get_route_health",
+      "radardex_swap",
+    ]);
+    expect(runtime.getMcpTools().filter(({ name }) => name.startsWith("radardex_"))).toHaveLength(
+      4
+    );
 
     await runtime.shutdown();
   });

@@ -38,6 +38,7 @@ import { getMarketToolDefinitions } from "../tools/market/index.js";
 import { getOperationToolDefinitions } from "../tools/operations/index.js";
 import { getOrbsToolDefinitions, registerOrbsExecutors } from "../tools/orbs/index.js";
 import { getPolicyToolDefinitions } from "../tools/policy/index.js";
+import { getRadarDexToolDefinitions, registerRadarDexExecutors } from "../tools/radardex/index.js";
 import {
   type ToolDefinition,
   getTransactionToolDefinitions,
@@ -148,6 +149,7 @@ async function bootstrapCoreState(config: RuntimeConfig): Promise<number> {
   });
 
   registerOrbsExecutors();
+  registerRadarDexExecutors();
   registerLifiExecutors();
   registerX402Executors();
   registerCcxtExecutors();
@@ -191,6 +193,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
   private readonly frameworkTools: ToolDefinition[];
   private readonly lifiTools: ToolDefinition[];
   private readonly orbsTools: ToolDefinition[];
+  private readonly radarDexTools: ToolDefinition[];
   private readonly tokenTools: ToolDefinition[];
   private readonly x402Tools: ToolDefinition[];
   private readonly erc8183Tools: ToolDefinition[];
@@ -228,6 +231,7 @@ export class ManagedRuntime implements Web3AgentRuntime {
     ];
     this.lifiTools = getLifiToolDefinitions();
     this.orbsTools = getOrbsToolDefinitions();
+    this.radarDexTools = getRadarDexToolDefinitions();
     this.tokenTools = getTokenToolDefinitions();
     this.x402Tools = getX402ToolDefinitions();
     this.erc8183Tools = getErc8183ToolDefinitions();
@@ -620,6 +624,14 @@ export class ManagedRuntime implements Web3AgentRuntime {
     for (const tool of this.orbsTools) {
       this.toolRecords.set(tool.name, {
         ...toCatalogEntry(tool, "orbs"),
+        handler: (args) => tool.handler(args),
+        originalRiskLevel: tool.riskLevel,
+      });
+    }
+
+    for (const tool of this.radarDexTools) {
+      this.toolRecords.set(tool.name, {
+        ...toCatalogEntry(tool, "radardex"),
         handler: (args) => tool.handler(args),
         originalRiskLevel: tool.riskLevel,
       });
