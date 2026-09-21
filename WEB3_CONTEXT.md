@@ -105,6 +105,17 @@ The browser-wallet tools are MCP-compatible, but generic MCP hosts cannot trigge
 - `resolve_token(symbol, chainId)` — resolve token symbol to contract address and decimals. Uses built-in registry with DexScreener fallback. ALWAYS use this before swaps/bridges.
 - `list_chain_tokens(chainId)` — list all well-known tokens for a chain from the built-in registry
 
+### RadarDEX on Arc (prefix: `radardex_`)
+
+Use RadarDEX for same-chain swaps on Arc mainnet (`5042`). Resolve or discover token addresses first, then quote before requesting a swap.
+
+- `radardex_list_tokens(chainId=5042)` — list normalized RadarDEX token metadata (read-only)
+- `radardex_get_quote(chainId, fromToken, toToken, fromAmount, slippageBps)` — rank verified V2, V3, V4, native-USDC, multihop, and Synthra routes; amount fields are decimal strings (read-only)
+- `radardex_get_route_health(chainId=5042)` — check route contract bytecode and live fee-router basis points (read-only)
+- `radardex_swap(chainId, fromToken, toToken, fromAmount, slippageBps)` — queue an Arc swap; after confirmation the executor refreshes the route, uses an exact approval when required, simulates the final call, and verifies its receipt (write, confirmation-gated)
+
+The deployed fee wrappers currently report `30` basis points. Never infer the fee from website comments; the adapter reads it on-chain for every quote. Native Arc USDC uses 18 decimals while its ERC-20 representation uses 6, and the adapter performs the required scaling for verified V4 native pools. Bonding-curve launchpad execution is intentionally excluded until each platform-specific contract shape can be attested. LI.FI is a separate provider and remains available through `lifi_*` tools.
+
 ### Utilities
 
 - `server_status` — wallet mode, active chain, confirmation setting, backend health
@@ -187,6 +198,9 @@ Supported chains:
 | Gnosis | 100 |
 | Sepolia | 11155111 |
 | Base Sepolia | 84532 |
+| Arc | 5042 |
+
+Arc mainnet defaults to Arcscan's third-party public RPC at `https://rpc.arc-scan.org`; Circle has not yet published a canonical public mainnet endpoint. Set `RPC_URL` with `CHAIN_ID=5042`, or set `RPC_URL_5042`, to use another provider. Arc uses USDC with 18 decimals for native gas accounting; the USDC ERC-20 representation uses 6 decimals. RadarDEX provides first-class Arc token discovery, route health, quote, and confirmation-gated swap tools. LI.FI lists Arc, while Orbs and the built-in Etherscan/Blockscout explorer routes do not currently support it.
 
 ## Confirmation Queue
 
@@ -202,6 +216,7 @@ Write operations (swaps, bridges, transfers) are queued by default. Use `transac
 | `WALLET_ACCOUNT_INDEX`                  | 0                              | HD account index                                                                                                                                                                            |
 | `WALLET_ADDRESS_INDEX`                  | 0                              | HD address index                                                                                                                                                                            |
 | `RPC_URL`                               | —                              | Custom RPC for default chain                                                                                                                                                                |
+| `RPC_URL_<CHAIN_ID>`                    | —                              | Custom RPC for a specific chain, for example `RPC_URL_5042` for Arc mainnet                                                                                                                 |
 | `CONFIRM_WRITES`                        | true                           | Require confirmation for writes                                                                                                                                                             |
 | `OWS_PASSPHRASE`                        | —                              | Strongly recommended for persisted server-side wallets. Enables the OWS encrypted wallet vault on macOS/Linux when configured and OWS is available; OWS requires at least 12 characters and 16+ mixed characters are recommended. Configure it in each app/service/process that runs web3agent. |
 | `OWS_FORCE_LEGACY`                      | —                              | Set `1` to force legacy filesystem-protected wallet storage instead of OWS                                                                                                                  |

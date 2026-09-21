@@ -53,6 +53,21 @@ describe("balance-cache", () => {
     expect(getCachedBalanceUsd("0xaddr", 1)).toBeCloseTo(7000, 0);
   });
 
+  it("prices Arc native USDC with the CoinGecko usd-coin identifier", async () => {
+    mockResilientFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ "usd-coin": { usd: 1 } }), { status: 200 })
+    );
+
+    const result = await refreshBalanceUsd("0xaddr", 5042);
+
+    expect(result).toBe(2);
+    expect(mockResilientFetch).toHaveBeenCalledWith(
+      expect.stringContaining("ids=usd-coin"),
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
   it("returns null when price fetch fails", async () => {
     mockResilientFetch.mockResolvedValueOnce(new Response("error", { status: 500 }));
     const result = await refreshBalanceUsd("0xaddr", 1);

@@ -65,11 +65,15 @@ export {
 } from "./api/explorer.js";
 export {
   executeBridge,
+  executeRadarDexSwap,
   executeSameChainSwap,
+  getRadarDexQuote,
+  getRadarDexRouteHealth,
   getSwapHistory,
   getSwapQuote,
   getSwapStatus,
   isTokenSwappable,
+  listRadarDexTokens,
 } from "./api/swaps.js";
 export {
   listChainTokens,
@@ -221,6 +225,13 @@ export type {
   PolicyGetInput,
   PolicyGetOutput,
   QueryOrdersInput,
+  RadarDexChainInput,
+  RadarDexQuoteInput,
+  RadarDexQuoteResult,
+  RadarDexRouteHealthResult,
+  RadarDexSwapInput,
+  RadarDexSwapResult,
+  RadarDexTokenListResult,
   ResolveTokenInput,
   ResumeOperationCompletedResult,
   ResumeOperationInput,
@@ -230,6 +241,7 @@ export type {
   RuntimeBoundOptions,
   RuntimeHealth,
   RuntimeToolListener,
+  SameChainSwapQuoteInput,
   SameChainSwapQuoteResult,
   ServerStatusResult,
   SimulateTransactionInput,
@@ -386,6 +398,18 @@ export type {
   NewsEntry,
   AirdropEntry,
 } from "./api/types.js";
+export {
+  radardexChainSchema,
+  radardexHealthEntryOutputSchema,
+  radardexQuoteOutputSchema,
+  radardexQuoteSchema,
+  radardexRouteExecutionOutputSchema,
+  radardexRouteHealthOutputSchema,
+  radardexRouteOutputSchema,
+  radardexSwapOutputSchema,
+  radardexSwapSchema,
+  radardexTokenListOutputSchema,
+} from "./api/schemas/radardex.js";
 export {
   listCcxtExchanges,
   describeCcxtExchange,

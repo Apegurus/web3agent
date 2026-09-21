@@ -233,6 +233,15 @@ import {
   yieldComparisonEntrySchema,
   yieldPoolEntrySchema,
 } from "./schemas/outputs.js";
+import type {
+  RadarDexChainInput,
+  RadarDexQuoteInput,
+  RadarDexQuoteResult,
+  RadarDexRouteHealthResult,
+  RadarDexSwapInput,
+  RadarDexSwapResult,
+  RadarDexTokenListResult,
+} from "./schemas/radardex.js";
 // biome-ignore lint/style/useImportType: z.infer<typeof X> requires value imports for typeof
 import {
   acpClaimRefundOutputSchema,
@@ -272,7 +281,21 @@ export type LifiQuoteInput = z.infer<typeof lifiGetQuoteSchema>;
 export type ExecuteBridgeInput = z.infer<typeof lifiExecuteBridgeSchema>;
 export type PrepareBridgeIntentInput = z.infer<typeof lifiPrepareBridgeIntentSchema>;
 export type OrbsQuoteInput = z.infer<typeof orbsGetQuoteSchema>;
-export type ExecuteSameChainSwapInput = OrbsQuoteInput;
+export type SameChainSwapQuoteInput =
+  | (OrbsQuoteInput & { readonly provider?: "orbs" })
+  | (RadarDexQuoteInput & { readonly provider: "radardex" });
+export type ExecuteSameChainSwapInput =
+  | (OrbsQuoteInput & { readonly provider?: "orbs" })
+  | (RadarDexSwapInput & { readonly provider: "radardex" });
+export type {
+  RadarDexChainInput,
+  RadarDexQuoteInput,
+  RadarDexQuoteResult,
+  RadarDexRouteHealthResult,
+  RadarDexSwapInput,
+  RadarDexSwapResult,
+  RadarDexTokenListResult,
+};
 export type PrepareSwapIntentInput = z.infer<typeof orbsPrepareSwapIntentSchema>;
 export type GetRequiredApprovalsInput = z.input<typeof orbsGetRequiredApprovalsSchema>;
 export type SubmitSignedSwapInput = z.infer<typeof orbsSubmitSignedSwapSchema>;
@@ -586,7 +609,7 @@ export interface SwapStatusResult {
 
 export interface SwapHistoryEntry {
   id: string;
-  provider: "orbs" | "lifi";
+  provider: "orbs" | "lifi" | "radardex";
   status: "pending_confirmation" | "confirmed" | "denied" | "expired";
   walletAddress?: string;
   description: string;

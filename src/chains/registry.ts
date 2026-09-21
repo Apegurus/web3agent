@@ -1,5 +1,6 @@
 import type { Chain } from "viem";
 import * as viemChains from "viem/chains";
+import { arc } from "./arc.js";
 
 const CHAINS_BY_ID = new Map<number, Chain>();
 const CHAINS_BY_NAME = new Map<string, Chain>();
@@ -11,6 +12,9 @@ for (const value of Object.values(viemChains)) {
     CHAINS_BY_NAME.set(chain.name.toLowerCase(), chain);
   }
 }
+
+CHAINS_BY_ID.set(arc.id, arc);
+CHAINS_BY_NAME.set(arc.name.toLowerCase(), arc);
 
 export function getChainById(id: number): Chain | undefined {
   return CHAINS_BY_ID.get(id);
@@ -24,6 +28,10 @@ export function getRequiredChain(chainId: number): Chain {
 
 export function getChainByName(name: string): Chain | undefined {
   return CHAINS_BY_NAME.get(name.toLowerCase());
+}
+
+export function getRegisteredChains(): readonly Chain[] {
+  return [...CHAINS_BY_ID.values()];
 }
 
 export function isSupported(id: number): boolean {

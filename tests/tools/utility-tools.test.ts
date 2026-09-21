@@ -81,6 +81,9 @@ describe("utility tool handlers", () => {
       if (chainId === 8453) {
         return { id: 8453, name: "Base", nativeCurrency: "ETH" };
       }
+      if (chainId === 5042) {
+        return { id: 5042, name: "Arc", nativeCurrency: "USDC" };
+      }
       return null;
     });
   });
@@ -156,9 +159,10 @@ describe("utility tool handlers", () => {
     expect(result.isError).toBe(false);
     const payload = JSON.parse((result.content[0] as { text: string }).text);
     expect(Array.isArray(payload.chains)).toBe(true);
-    expect(payload.chains).toHaveLength(2);
+    expect(payload.chains).toHaveLength(3);
     expect(payload.chains).toContainEqual({ id: 1, name: "Ethereum", nativeCurrency: "ETH" });
     expect(payload.chains).toContainEqual({ id: 8453, name: "Base", nativeCurrency: "ETH" });
+    expect(payload.chains).toContainEqual({ id: 5042, name: "Arc", nativeCurrency: "USDC" });
   });
 
   it("setHealthStatus updates serverStatus health and tool count", async () => {

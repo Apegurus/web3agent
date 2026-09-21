@@ -74,6 +74,7 @@ const COINGECKO_SYMBOL_MAP: Record<string, string> = {
   ftm: "fantom",
   op: "optimism",
   arb: "arbitrum",
+  usdc: "usd-coin",
 };
 
 async function fetchNativeTokenPrice(symbol: string): Promise<number | null> {

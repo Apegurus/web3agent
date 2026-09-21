@@ -12,6 +12,7 @@ export type ToolSource =
   | "tokens"
   | "lifi"
   | "orbs"
+  | "radardex"
   | "goat"
   | "blockscout"
   | "etherscan"
