@@ -552,6 +552,16 @@ export const WELL_KNOWN_TOKENS: Record<number, ChainTokens> = {
     },
   },
 
+  // ── Arc (5042) ────────────────────────────────────────────────────
+  5042: {
+    USDC: {
+      address: "0x3600000000000000000000000000000000000000",
+      decimals: 6,
+      name: "USD Coin",
+      symbol: "USDC",
+    },
+  },
+
   // ── Mantle (5000) ─────────────────────────────────────────────────
   5000: {
     USDT: {

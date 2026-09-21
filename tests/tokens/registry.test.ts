@@ -53,6 +53,22 @@ describe("token registry", () => {
         lookupTokenByAddress("0x1111111111111111111111111111111111111111", 8453)
       ).toBeUndefined();
     });
+
+    it("returns Arc USDC metadata for policy estimation", () => {
+      // Given: RadarDEX's Arc USDC contract address.
+      const address = "0x3600000000000000000000000000000000000000";
+
+      // When: policy code resolves its token metadata.
+      const entry = lookupTokenByAddress(address, 5042);
+
+      // Then: the ERC-20 amount uses six decimals and stablecoin pricing.
+      expect(entry).toEqual({
+        address,
+        decimals: 6,
+        name: "USD Coin",
+        symbol: "USDC",
+      });
+    });
   });
 
   describe("getChainTokens", () => {
