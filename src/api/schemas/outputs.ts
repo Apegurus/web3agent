@@ -7,15 +7,28 @@ import {
   tokenEstimateSchema,
   typedDataPayloadSchema,
 } from "./common.js";
+import { radardexQuoteOutputSchema } from "./radardex.js";
 
 // --- Swap & Quote ---
 
-export const sameChainSwapQuoteResultSchema = z.object({
+export const orbsSameChainSwapQuoteResultSchema = z.object({
   kind: z.literal("same-chain").describe("Quote type"),
   provider: z.literal("orbs").describe("Swap provider"),
   chainId: z.number().describe("Chain ID"),
   quote: z.record(z.unknown()).describe("Raw quote object from Orbs SDK"),
 });
+
+export const radarDexSameChainSwapQuoteResultSchema = z.object({
+  kind: z.literal("same-chain").describe("Quote type"),
+  provider: z.literal("radardex").describe("Swap provider"),
+  chainId: z.literal(5042).describe("Arc mainnet chain ID"),
+  quote: radardexQuoteOutputSchema.describe("RadarDEX route quote"),
+});
+
+export const sameChainSwapQuoteResultSchema = z.union([
+  orbsSameChainSwapQuoteResultSchema,
+  radarDexSameChainSwapQuoteResultSchema,
+]);
 
 // fromToken/toToken are overridden to optional because cross-chain quotes may
 // not resolve both tokens (e.g. the destination token on an unsupported chain).
@@ -45,8 +58,9 @@ export const crossChainSwapQuoteResultSchema = z.object({
   quote: crossChainSwapQuoteSummarySchema.describe("Quote summary"),
 });
 
-export const swapQuoteResultSchema = z.discriminatedUnion("kind", [
-  sameChainSwapQuoteResultSchema,
+export const swapQuoteResultSchema = z.union([
+  orbsSameChainSwapQuoteResultSchema,
+  radarDexSameChainSwapQuoteResultSchema,
   crossChainSwapQuoteResultSchema,
 ]);
 
@@ -595,7 +609,7 @@ export const swapSubmissionResultSchema = z.object({
 
 export const tokenSwappableResultSchema = z.object({
   swappable: z.boolean().describe("Whether the token pair is swappable"),
-  provider: z.enum(["orbs", "lifi"]).describe("Available swap provider"),
+  provider: z.enum(["orbs", "radardex", "lifi"]).describe("Available swap provider"),
   kind: z.enum(["same-chain", "cross-chain"]).describe("Swap type"),
   reason: z.string().optional().describe("Reason if not swappable"),
 });
