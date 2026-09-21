@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getChainById, getChainByName, isSupported } from "../../src/chains/registry.js";
+import {
+  getChainById,
+  getChainByName,
+  getRegisteredChains,
+  isSupported,
+} from "../../src/chains/registry.js";
 
 describe("chain registry", () => {
   it("looks up well-known chains by ID", () => {
@@ -11,6 +16,26 @@ describe("chain registry", () => {
     const ethereum = getChainById(1);
     expect(ethereum).toBeDefined();
     expect(ethereum?.id).toBe(1);
+  });
+
+  it("registers Arc mainnet separately from Arc Testnet", () => {
+    const arc = getChainById(5042);
+    const arcTestnet = getChainById(5042002);
+
+    expect(arc).toMatchObject({
+      id: 5042,
+      name: "Arc",
+      nativeCurrency: {
+        name: "USDC",
+        symbol: "USDC",
+        decimals: 18,
+      },
+      rpcUrls: { default: { http: ["https://rpc.arc-scan.org"] } },
+    });
+    expect(arc?.blockExplorers).toBeUndefined();
+    expect(arcTestnet?.id).toBe(5042002);
+    expect(getChainByName("arc")?.id).toBe(5042);
+    expect(getRegisteredChains()).toContainEqual(arc);
   });
 
   it("returns undefined for non-existent chain ID", () => {

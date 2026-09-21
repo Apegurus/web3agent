@@ -12,6 +12,18 @@ describe("runtime config parsing", () => {
     expect(config.chainId).toBe(1);
   });
 
+  it("accepts Arc mainnet with an operator-provided RPC", () => {
+    const config = parseEnv({
+      CHAIN_ID: "5042",
+      RPC_URL: "https://arc-mainnet.example",
+      RPC_URL_5042: "https://arc-mainnet-dedicated.example",
+    });
+
+    expect(config.chainId).toBe(5042);
+    expect(config.rpcUrl).toBe("https://arc-mainnet.example");
+    expect(config.chainRpcUrls[5042]).toBe("https://arc-mainnet-dedicated.example");
+  });
+
   it("defaults confirmWrites to true", () => {
     const config = parseEnv({});
     expect(config.confirmWrites).toBe(true);
