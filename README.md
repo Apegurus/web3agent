@@ -142,6 +142,29 @@ Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, O
 
 **Default:** Base (8453). Override with the `CHAIN_ID` env var or pass `chainId` per call.
 
+### Arc mainnet launch configuration
+
+Arc mainnet is registered as chain ID `5042` with USDC as its native gas currency (18 EVM-native decimals). Circle has not yet published a public mainnet RPC or explorer. Web3agent defaults to Arcscan's third-party public RPC at `https://rpc.arc-scan.org`; override it when you prefer another provider or when Circle publishes an official endpoint:
+
+```bash
+CHAIN_ID=5042 npx web3agent
+
+# Optional provider overrides:
+CHAIN_ID=5042 RPC_URL="https://your-arc-rpc" npx web3agent
+RPC_URL_5042="https://your-arc-rpc" npx web3agent
+```
+
+The default endpoint is operated by Arcscan rather than Circle. LI.FI identifies Arc mainnet as chain `5042`; route availability still depends on LI.FI's live API. Arc's native gas accounting uses 18 decimals, while the USDC ERC-20 representation uses 6 decimals. Orbs, Etherscan, and the built-in Blockscout explorer router do not currently advertise Arc support.
+
+RadarDEX is the first-class Arc swap provider. It reads the live fee from each deployed wrapper, probes verified Uniswap V2, Uniswap V3, Uniswap V4, and Synthra routes, compares direct and native-USDC multihop paths, and refreshes the winning route after confirmation before sending a transaction. Available MCP tools:
+
+- `radardex_list_tokens` — list and normalize RadarDEX token metadata
+- `radardex_get_quote` — return ranked executable routes and per-venue failures
+- `radardex_get_route_health` — verify deployed contracts and current wrapper fees
+- `radardex_swap` — queue a swap, refresh it on confirmation, approve exact input when needed, simulate, execute, and verify the receipt
+
+Programmatic consumers can call `listRadarDexTokens()`, `getRadarDexQuote()`, `getRadarDexRouteHealth()`, and `executeRadarDexSwap()`. The generic swap APIs also accept `provider: "radardex"` on Arc. RadarDEX writes use the same confirmation queue as every other financial operation.
+
 ---
 
 ## What's included
@@ -150,6 +173,7 @@ Enhanced swap and order integrations currently cover Ethereum, Base, Arbitrum, O
 | ------------------- | ------------------------------- | ------------------------------------------------------------------------ |
 | On-chain state      | Native EVM tools                | Balances, contract reads/writes, gas, ENS, multicall (27 tools)          |
 | Swaps               | GOAT / Uniswap / Balancer       | Same-chain, ERC-20/721                                                   |
+| Arc swap routing    | RadarDEX                        | V2/V3/V4/Synthra direct and multihop routes on Arc                       |
 | Aggregated swaps    | Orbs Liquidity Hub              | Optimal pricing via solver network                                       |
 | Cross-chain bridges | LI.FI                           | 20+ chains                                                               |
 | Lending             | GOAT SDK / protocol integrations | Aave, Morpho, and major money-market surfaces where supported           |
@@ -434,6 +458,7 @@ For authenticated exchange access via CCXT tools, set `CCXT_CONFIG_PATH` to a JS
 - Yield tooling is read-only research; protocol-specific execution beyond first-class tools uses ABI-backed EVM calls
 - 0x and CoinGecko plugins require their respective API keys
 - MCP hosts cannot open a browser wallet prompt directly — MCP can prepare, simulate, and submit signed payloads, but signing requires your app to handle the wallet interaction
+- RadarDEX bonding-curve launchpad routes are reported as unavailable rather than executed until their platform-specific contract identity and call shape can be verified; LI.FI remains available through the separate `lifi_*` tools
 
 ---
 
