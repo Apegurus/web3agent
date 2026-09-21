@@ -4,14 +4,24 @@ import { orbsSwapSchema, orbsSwapStatusSchema } from "../tools/orbs/schemas.js";
 import { readAuditLog } from "../wallet/audit.js";
 import { confirmationQueue } from "../wallet/confirmation.js";
 import { getWalletState } from "../wallet/persistence.js";
+import {
+  radardexChainSchema,
+  radardexQuoteSchema,
+  radardexSwapSchema,
+} from "./schemas/radardex.js";
 import { getRuntime, invokeAndRequireData } from "./shared.js";
 import type {
   CrossChainSwapQuoteResult,
   ExecuteBridgeInput,
   ExecuteSameChainSwapInput,
   LifiQuoteInput,
-  OrbsQuoteInput,
+  RadarDexQuoteInput,
+  RadarDexQuoteResult,
+  RadarDexRouteHealthResult,
+  RadarDexSwapInput,
+  RadarDexTokenListResult,
   RuntimeBoundOptions,
+  SameChainSwapQuoteInput,
   SwapHistoryEntry,
   SwapHistoryResult,
   SwapQuoteResult,
@@ -24,7 +34,7 @@ import { parseInput } from "./validation.js";
 import { normalizeWriteResult } from "./write-results.js";
 
 export async function getSwapQuote(
-  params: LifiQuoteInput | OrbsQuoteInput,
+  params: LifiQuoteInput | SameChainSwapQuoteInput,
   options?: RuntimeBoundOptions
 ): Promise<SwapQuoteResult> {
   const runtime = await getRuntime(options);
@@ -39,6 +49,22 @@ export async function getSwapQuote(
     return {
       kind: "cross-chain",
       provider: "lifi",
+      quote,
+    };
+  }
+
+  if (params.provider === "radardex") {
+    const { provider: _provider, ...candidate } = params;
+    const input = parseInput(radardexQuoteSchema, candidate);
+    const quote = await invokeAndRequireData<RadarDexQuoteResult>(
+      runtime,
+      "radardex_get_quote",
+      input
+    );
+    return {
+      kind: "same-chain",
+      provider: "radardex",
+      chainId: 5042,
       quote,
     };
   }
@@ -58,11 +84,19 @@ export async function getSwapQuote(
 }
 
 export async function isTokenSwappable(
-  params: LifiQuoteInput | OrbsQuoteInput,
+  params: LifiQuoteInput | SameChainSwapQuoteInput,
   options?: RuntimeBoundOptions
 ): Promise<TokenSwappableResult> {
   try {
     const quote = await getSwapQuote(params, options);
+    if (quote.provider === "radardex" && quote.quote.best === undefined) {
+      return {
+        swappable: false,
+        provider: "radardex",
+        kind: "same-chain",
+        reason: "RadarDEX returned no executable routes",
+      };
+    }
     return {
       swappable: true,
       provider: quote.provider,
@@ -78,9 +112,10 @@ export async function isTokenSwappable(
       };
     }
 
+    const provider = params.provider === "radardex" ? "radardex" : "orbs";
     return {
       swappable: false,
-      provider: "orbs",
+      provider,
       kind: "same-chain",
       reason: error instanceof Error ? error.message : String(error),
     };
@@ -92,8 +127,53 @@ export async function executeSameChainSwap(
   options?: RuntimeBoundOptions
 ): Promise<WriteOperationResult> {
   const runtime = await getRuntime(options);
+  if (params.provider === "radardex") {
+    const { provider: _provider, ...candidate } = params;
+    const input = parseInput(radardexSwapSchema, candidate);
+    const data = await invokeAndRequireData<unknown>(runtime, "radardex_swap", input);
+    return normalizeWriteResult(data);
+  }
   const input = parseInput(orbsSwapSchema, params);
   const data = await invokeAndRequireData<unknown>(runtime, "orbs_swap", input);
+  return normalizeWriteResult(data);
+}
+
+export async function listRadarDexTokens(
+  options?: RuntimeBoundOptions
+): Promise<RadarDexTokenListResult> {
+  const runtime = await getRuntime(options);
+  const input = parseInput(radardexChainSchema, { chainId: 5042 });
+  return invokeAndRequireData<RadarDexTokenListResult>(runtime, "radardex_list_tokens", input);
+}
+
+export async function getRadarDexQuote(
+  params: RadarDexQuoteInput,
+  options?: RuntimeBoundOptions
+): Promise<RadarDexQuoteResult> {
+  const runtime = await getRuntime(options);
+  const input = parseInput(radardexQuoteSchema, params);
+  return invokeAndRequireData<RadarDexQuoteResult>(runtime, "radardex_get_quote", input);
+}
+
+export async function getRadarDexRouteHealth(
+  options?: RuntimeBoundOptions
+): Promise<RadarDexRouteHealthResult> {
+  const runtime = await getRuntime(options);
+  const input = parseInput(radardexChainSchema, { chainId: 5042 });
+  return invokeAndRequireData<RadarDexRouteHealthResult>(
+    runtime,
+    "radardex_get_route_health",
+    input
+  );
+}
+
+export async function executeRadarDexSwap(
+  params: RadarDexSwapInput,
+  options?: RuntimeBoundOptions
+): Promise<WriteOperationResult> {
+  const runtime = await getRuntime(options);
+  const input = parseInput(radardexSwapSchema, params);
+  const data = await invokeAndRequireData<unknown>(runtime, "radardex_swap", input);
   return normalizeWriteResult(data);
 }
 
@@ -125,8 +205,9 @@ export async function getSwapStatus(
   };
 }
 
-function mapOperationType(operationType: string): "orbs" | "lifi" | null {
+function mapOperationType(operationType: string): "orbs" | "lifi" | "radardex" | null {
   if (operationType === "orbs_swap") return "orbs";
+  if (operationType === "radardex_swap") return "radardex";
   if (operationType === "lifi_execute_bridge") return "lifi";
   return null;
 }
