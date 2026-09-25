@@ -7,7 +7,7 @@ vi.mock("@orbs-network/twap-sdk", () => ({
 }));
 
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
-  constructSDK: vi.fn().mockReturnValue({
+  createClient: vi.fn().mockReturnValue({
     getQuote: vi.fn().mockResolvedValue({
       inToken: "0xTokenA",
       outToken: "0xTokenB",

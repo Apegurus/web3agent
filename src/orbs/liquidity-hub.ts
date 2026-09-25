@@ -1,30 +1,11 @@
-// Polyfill localStorage for Node.js — the Orbs SDK reads optional debug
-// overrides via localStorage.getItem() without a try-catch in its constructor.
-if (!("localStorage" in globalThis)) {
-  const noop = () => undefined;
-  Object.defineProperty(globalThis, "localStorage", {
-    value: {
-      getItem: () => null,
-      setItem: noop,
-      removeItem: noop,
-      clear: noop,
-      key: () => null,
-      length: 0,
-    },
-    writable: true,
-    configurable: true,
-  });
-}
-
-import type { Quote } from "@orbs-network/liquidity-hub-sdk";
-import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
+import type { LiquidityHubClient, Quote, QuoteArgs } from "@orbs-network/liquidity-hub-sdk";
+import { createClient } from "@orbs-network/liquidity-hub-sdk";
 import { type Account, type Hex, createPublicClient, maxUint256 } from "viem";
 import { getChainById } from "../chains/registry.js";
 import { tryGetConfig } from "../config/env.js";
 import { createWalletClientForChain, getTransportForChain } from "../config/wallet-factory.js";
 import { assertAddress } from "../operations/validation.js";
 import { resilientFetch } from "../utils/resilient-fetch.js";
-import { withTimeout } from "../utils/timeout.js";
 
 export type { Quote };
 
@@ -118,9 +99,7 @@ export function normalizeEip712ForSigning(
   };
 }
 
-type LiquidityHubSDK = ReturnType<typeof constructSDK>;
-
-const sdkCache = new Map<string, LiquidityHubSDK>();
+const sdkCache = new Map<string, LiquidityHubClient>();
 
 const DEFAULT_PARTNERS: Record<number, string> = {
   56: "thena",
@@ -145,15 +124,25 @@ function getSdkCacheKey(chainId: number, partner: string): string {
   return `${chainId}:${partner}`;
 }
 
-export function getSdk(chainId: number): LiquidityHubSDK {
+/** Cached per chain and partner. Use for quotes; use {@link createSwapClient} to execute swaps. */
+export function getSdk(chainId: number): LiquidityHubClient {
   const partner = getPartner(chainId);
   const cacheKey = getSdkCacheKey(chainId, partner);
   let sdk = sdkCache.get(cacheKey);
   if (!sdk) {
-    sdk = constructSDK({ partner, chainId });
+    sdk = createClient({ partner, chainId });
     sdkCache.set(cacheKey, sdk);
   }
   return sdk;
+}
+
+/**
+ * Uncached client for a single swap. `LiquidityHubClient.swap()` rejects while
+ * another swap is in flight on the same instance, so a shared client would make
+ * concurrent swaps on one chain fail.
+ */
+export function createSwapClient(chainId: number): LiquidityHubClient {
+  return createClient({ partner: getPartner(chainId), chainId });
 }
 
 export function clearLiquidityHubSdkCacheForTests(): void {
@@ -313,20 +302,22 @@ function formatQuoteError(code: string): string {
   return QUOTE_ERRORS[code] || `Liquidity Hub quote error: ${code}`;
 }
 
-export async function getIntentQuote(chainId: number, request: IntentQuoteRequest): Promise<Quote> {
-  const sdk = getSdk(chainId);
-  const quote = await withTimeout<Quote>(
-    sdk.getQuote({
-      fromToken: request.fromToken,
-      toToken: request.toToken,
-      inAmount: request.inAmount,
-      slippage: request.slippage ?? 0.5,
-      dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
-      account: request.account,
-    }),
-    ORBS_REQUEST_TIMEOUT_MS,
-    "Orbs intent quote"
-  );
+/**
+ * Request a quote, mapping Liquidity Hub error codes to readable messages.
+ * The SDK throws the API's `error` code (e.g. "tns") as the error message.
+ */
+export async function requestQuote(
+  client: LiquidityHubClient,
+  args: Omit<QuoteArgs, "timeout">
+): Promise<Quote> {
+  let quote: Quote;
+  try {
+    quote = await client.getQuote({ ...args, timeout: ORBS_REQUEST_TIMEOUT_MS });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (message.startsWith("Liquidity Hub")) throw e;
+    throw new Error(formatQuoteError(message));
+  }
 
   if (quote.error) {
     throw new Error(formatQuoteError(quote.error));
@@ -335,23 +326,25 @@ export async function getIntentQuote(chainId: number, request: IntentQuoteReques
   return quote;
 }
 
-export async function getQuote(chainId: number, request: QuoteRequest): Promise<QuoteResult> {
-  const sdk = getSdk(chainId);
-  const quote = await withTimeout<Quote>(
-    sdk.getQuote({
-      fromToken: request.fromToken,
-      toToken: request.toToken,
-      inAmount: request.inAmount,
-      slippage: request.slippage ?? 0.5,
-      account: request.account,
-    }),
-    ORBS_REQUEST_TIMEOUT_MS,
-    "Orbs quote"
-  );
+export async function getIntentQuote(chainId: number, request: IntentQuoteRequest): Promise<Quote> {
+  return requestQuote(getSdk(chainId), {
+    fromToken: request.fromToken,
+    toToken: request.toToken,
+    inAmount: request.inAmount,
+    slippage: request.slippage ?? 0.5,
+    dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
+    account: request.account,
+  });
+}
 
-  if (quote.error) {
-    throw new Error(formatQuoteError(quote.error));
-  }
+export async function getQuote(chainId: number, request: QuoteRequest): Promise<QuoteResult> {
+  const quote = await requestQuote(getSdk(chainId), {
+    fromToken: request.fromToken,
+    toToken: request.toToken,
+    inAmount: request.inAmount,
+    slippage: request.slippage ?? 0.5,
+    account: request.account,
+  });
 
   return {
     inToken: quote.inToken,

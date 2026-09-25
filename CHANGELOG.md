@@ -11,7 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Pinned `@orbs-network/liquidity-hub-sdk` to `~1.0.97`. Upstream 1.1.0 (published 2026-09-08) removed `constructSDK` in a minor release, so the previous `^1.0.74` range made fresh installs of `web3agent` crash at startup with `does not provide an export named 'constructSDK'`. Lockfile-based installs were unaffected. Added a regression test that keeps the range on the 1.0.x line until the Liquidity Hub integration is migrated to the new `createClient` API.
+- Upgraded `@orbs-network/liquidity-hub-sdk` to `^1.1.1` and migrated the Liquidity Hub integration from `constructSDK` to `createClient`. Upstream 1.1.0 (published 2026-09-08) removed `constructSDK` in a minor release, so the previous `^1.0.74` range made fresh installs of `web3agent` crash at startup with `does not provide an export named 'constructSDK'`. Lockfile-based installs were unaffected.
+
+### Changed
+
+- `orbs_swap` now creates a dedicated Liquidity Hub client for each swap. SDK 1.1 allows one in-flight swap per client, so the shared per-chain client would have rejected concurrent swaps on the same chain.
+- Liquidity Hub quote errors thrown by SDK 1.1 (which now throws API error codes such as `tns` instead of returning `quote.error`) are mapped to the same readable messages as before. Quote requests use the SDK's built-in 15s timeout instead of an external wrapper.
+- Removed the Node `localStorage` polyfill; SDK 1.1 no longer touches `localStorage` outside the browser.
 
 ## [0.6.2] - 2026-06-30
 

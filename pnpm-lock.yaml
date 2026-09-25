@@ -58,8 +58,8 @@ importers:
         specifier: 1.3.2
         version: 1.3.2
       '@orbs-network/liquidity-hub-sdk':
-        specifier: ~1.0.97
-        version: 1.0.97
+        specifier: ^1.1.1
+        version: 1.1.1
       '@orbs-network/twap-sdk':
         specifier: ^5.0.0
         version: 5.0.125
@@ -783,8 +783,8 @@ packages:
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
 
-  '@orbs-network/liquidity-hub-sdk@1.0.97':
-    resolution: {integrity: sha512-iQ0hDJqhXFBtZwTsMH2zuVu2y8c+pIiKOBtqgz7qzKTzwmGl+3hixuR3Riw2JJmKf2s7+zwZvku8boXTvGDuNA==}
+  '@orbs-network/liquidity-hub-sdk@1.1.1':
+    resolution: {integrity: sha512-Kq7EN1i3RFpwrI7N24S39Pqyqn1zWt01OSVrZB527iiokKiOPeY1VtUYkKo4zzWWI2MptI6/R8x1Evmzf0DnDQ==}
 
   '@orbs-network/spot@1.9.3':
     resolution: {integrity: sha512-3qF21ec5QVz6d9Qc32UuNsk4mCkTLY/uAk0jlwomzaYBslmUxBHoiYkUJesoG9/XzD91ptItLV1x4jqxoBAgMA==}
@@ -2807,7 +2807,7 @@ snapshots:
 
   '@opentelemetry/api@1.9.0': {}
 
-  '@orbs-network/liquidity-hub-sdk@1.0.97': {}
+  '@orbs-network/liquidity-hub-sdk@1.1.1': {}
 
   '@orbs-network/spot@1.9.3': {}
 

@@ -1,4 +1,4 @@
-import { constructSDK } from "@orbs-network/liquidity-hub-sdk";
+import { createClient } from "@orbs-network/liquidity-hub-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getConfig, tryGetConfig } from "../../src/config/env.js";
 
@@ -19,7 +19,7 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 vi.mock("@orbs-network/liquidity-hub-sdk", () => ({
-  constructSDK: vi.fn((options: { partner: string; chainId: number }) => {
+  createClient: vi.fn((options: { partner: string; chainId: number }) => {
     const instance: MockSdk = {
       getQuote: vi.fn(),
       swap: vi.fn(),
@@ -75,6 +75,7 @@ describe("orbs/liquidity-hub", () => {
       inAmount: "1000000000000000000",
       slippage: 0.5,
       account: "0xAccount",
+      timeout: 15_000,
     });
     expect(result).toEqual({
       inToken: "0xTokenA",
@@ -95,9 +96,9 @@ describe("orbs/liquidity-hub", () => {
 
     expect(baseFirst).toBe(baseSecond);
     expect(baseFirst).not.toBe(polygon);
-    expect(constructSDK).toHaveBeenCalledTimes(2);
-    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "intentx", chainId: 8453 });
-    expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "quickswap", chainId: 137 });
+    expect(createClient).toHaveBeenCalledTimes(2);
+    expect(createClient).toHaveBeenNthCalledWith(1, { partner: "intentx", chainId: 8453 });
+    expect(createClient).toHaveBeenNthCalledWith(2, { partner: "quickswap", chainId: 137 });
   });
 
   it("falls back to process env when config is not initialized", async () => {
@@ -114,10 +115,10 @@ describe("orbs/liquidity-hub", () => {
       const { getSdk } = await import("../../src/orbs/liquidity-hub.js");
       getSdk(8453);
 
-      expect(constructSDK).toHaveBeenCalledWith({ partner: "orbzy", chainId: 8453 });
+      expect(createClient).toHaveBeenCalledWith({ partner: "orbzy", chainId: 8453 });
     } finally {
       if (previousPartner === undefined) {
-        process.env.ORBS_PARTNER = undefined;
+        Reflect.deleteProperty(process.env, "ORBS_PARTNER");
       } else {
         process.env.ORBS_PARTNER = previousPartner;
       }
@@ -138,8 +139,8 @@ describe("orbs/liquidity-hub", () => {
     const widgetSdk = getSdk(8453);
 
     expect(orbzySdk).not.toBe(widgetSdk);
-    expect(constructSDK).toHaveBeenNthCalledWith(1, { partner: "orbzy", chainId: 8453 });
-    expect(constructSDK).toHaveBeenNthCalledWith(2, { partner: "widget", chainId: 8453 });
+    expect(createClient).toHaveBeenNthCalledWith(1, { partner: "orbzy", chainId: 8453 });
+    expect(createClient).toHaveBeenNthCalledWith(2, { partner: "widget", chainId: 8453 });
   });
 
   it("getQuote surfaces network failures", async () => {
@@ -195,6 +196,7 @@ describe("orbs/liquidity-hub", () => {
       inAmount: "1000",
       slippage: 1,
       account: undefined,
+      timeout: 15_000,
     });
   });
 
@@ -235,10 +237,56 @@ describe("orbs/liquidity-hub", () => {
       }),
     ]);
 
-    expect(constructSDK).toHaveBeenCalledTimes(2);
+    expect(createClient).toHaveBeenCalledTimes(2);
     expect(baseSdk.getQuote).toHaveBeenCalledTimes(1);
     expect(polygonSdk.getQuote).toHaveBeenCalledTimes(1);
     expect(baseQuote.exchange).toBe("mock");
     expect(polygonQuote.exchange).toBe("mock");
+  });
+
+  it("maps Liquidity Hub error codes thrown by the SDK to readable messages", async () => {
+    const { getQuote, getSdk } = await import("../../src/orbs/liquidity-hub.js");
+
+    getSdk(8453);
+    const createdSdk = findSdkForChain(8453);
+    if (!createdSdk) {
+      throw new Error("SDK instance not created for chain 8453");
+    }
+    createdSdk.getQuote.mockRejectedValueOnce(new Error("tns"));
+    createdSdk.getQuote.mockRejectedValueOnce(new Error("no route"));
+
+    const request = { fromToken: "0xTokenA", toToken: "0xTokenB", inAmount: "1000" };
+    await expect(getQuote(8453, request)).rejects.toThrow(
+      "Token not supported or swap amount too small"
+    );
+    await expect(getQuote(8453, request)).rejects.toThrow("Liquidity Hub quote error: no route");
+  });
+
+  it("passes SDK validation errors through unchanged", async () => {
+    const { getQuote, getSdk } = await import("../../src/orbs/liquidity-hub.js");
+
+    getSdk(8453);
+    const createdSdk = findSdkForChain(8453);
+    if (!createdSdk) {
+      throw new Error("SDK instance not created for chain 8453");
+    }
+    createdSdk.getQuote.mockRejectedValue(new Error("Liquidity Hub quote request timed out"));
+
+    await expect(
+      getQuote(8453, { fromToken: "0xTokenA", toToken: "0xTokenB", inAmount: "1000" })
+    ).rejects.toThrow(/^Liquidity Hub quote request timed out$/);
+  });
+
+  it("createSwapClient returns a new client per swap", async () => {
+    const { createSwapClient, getSdk } = await import("../../src/orbs/liquidity-hub.js");
+
+    const cached = getSdk(8453);
+    const first = createSwapClient(8453);
+    const second = createSwapClient(8453);
+
+    expect(first).not.toBe(second);
+    expect(first).not.toBe(cached);
+    expect(createClient).toHaveBeenCalledTimes(3);
+    expect(createClient).toHaveBeenLastCalledWith({ partner: "intentx", chainId: 8453 });
   });
 });

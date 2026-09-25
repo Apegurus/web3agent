@@ -3,10 +3,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getLiquidityHubError, isLiquidityHubSupported } from "../../orbs/chains.js";
 import {
   DEX_MIN_AMOUNT_OUT_DISABLED,
-  getSdk,
+  type Quote,
+  createSwapClient,
   normalizeEip712ForSigning,
   pollSwapStatus,
   prepareSwap,
+  requestQuote,
   submitSwap,
 } from "../../orbs/liquidity-hub.js";
 import { formatToolError, formatToolResponse } from "../../utils/errors.js";
@@ -30,22 +32,26 @@ export async function executeOrbsSwapNow(params: Record<string, unknown>): Promi
       account,
     });
 
-    const sdk = getSdk(chainId);
+    const sdk = createSwapClient(chainId);
     const slippage = (params.slippagePct as number) ?? 0.5;
     const toToken = params.toToken as string;
     const inAmount = params.fromAmount as string;
 
-    const quote = await sdk.getQuote({
-      fromToken,
-      toToken,
-      inAmount,
-      slippage,
-      dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
-      account: account.address,
-    });
-
-    if (quote.error) {
-      return formatToolError("ORBS_QUOTE_ERROR", quote.error);
+    let quote: Quote;
+    try {
+      quote = await requestQuote(sdk, {
+        fromToken,
+        toToken,
+        inAmount,
+        slippage,
+        dexMinAmountOut: DEX_MIN_AMOUNT_OUT_DISABLED,
+        account: account.address,
+      });
+    } catch (quoteErr: unknown) {
+      return formatToolError(
+        "ORBS_QUOTE_ERROR",
+        quoteErr instanceof Error ? quoteErr.message : String(quoteErr)
+      );
     }
 
     if (quote.inToken && quote.inToken.toLowerCase() !== fromToken.toLowerCase()) {
