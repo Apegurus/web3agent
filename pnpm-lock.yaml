@@ -58,7 +58,7 @@ importers:
         specifier: 1.3.2
         version: 1.3.2
       '@orbs-network/liquidity-hub-sdk':
-        specifier: ^1.0.74
+        specifier: ~1.0.97
         version: 1.0.97
       '@orbs-network/twap-sdk':
         specifier: ^5.0.0
